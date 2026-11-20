@@ -95,7 +95,10 @@ function namesInSource(): Map<string, string> {
       for (const [, , literal] of text.matchAll(NAME_LITERAL)) {
         if (!looksLikeName(literal) || found.has(literal)) continue
 
-        found.set(literal, `${path.relative(developDir, file)}:${index + 1}`)
+        found.set(
+          literal,
+          `${path.relative(developDir, file).split(path.sep).join('/')}:${index + 1}`
+        )
       }
     })
   }
