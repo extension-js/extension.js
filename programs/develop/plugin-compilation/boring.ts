@@ -57,18 +57,18 @@ export class BoringPlugin {
 
   public readonly manifestPath: string
   public readonly browser: PluginInterface['browser']
-  private readonly browserLaunchEnabled?: boolean
+  private readonly browserLaunchEnabled: boolean
   private readonly diagnosticsFollow: boolean
   private sawUserInvalidation = false
   private printedStartupSuccess = false
   private printedStartupWarning = false
   private lastKnownManifestName?: string
 
-  // Unset reads the dev server's environment flag at each compile, as before.
   constructor(options: BoringPluginOptions) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
-    this.browserLaunchEnabled = options.browserLaunchEnabled
+    // Told by the caller, so one session's setting never reaches another compile.
+    this.browserLaunchEnabled = options.browserLaunchEnabled !== false
     this.diagnosticsFollow = options.diagnosticsFollow === true
   }
 
@@ -89,9 +89,7 @@ export class BoringPlugin {
       const counts = countDiagnostics(stats)
       const hasErrors = counts.errors > 0
       const hasWarnings = counts.warnings > 0
-      const browserLaunchEnabled =
-        this.browserLaunchEnabled ??
-        String(process.env.EXTENSION_BROWSER_LAUNCH_ENABLED || '1') !== '0'
+      const browserLaunchEnabled = this.browserLaunchEnabled
 
       stats.compilation.name = undefined
       const duration = stats.compilation.endTime! - stats.compilation.startTime!
