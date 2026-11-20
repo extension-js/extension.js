@@ -36,6 +36,7 @@ import {setCurrentManifestContent} from '../plugin-web-extension/feature-manifes
 import type {DevOptions, PluginInterface} from '../types'
 import {toJsStringLiteral} from './compilation-lib/js-literal'
 import * as messages from './compilation-lib/messages'
+import {isEnvTemplatedAsset, setEnvAssetTemplater} from './copied-asset-env'
 import {processModuleRequest} from './process-module'
 import {WatchEnvFilesPlugin} from './watch-env-files'
 
@@ -305,6 +306,25 @@ export function isEnvFileForAnotherTarget(file: string): boolean {
   return KNOWN_ENV_BROWSERS.has(parts[0]) && KNOWN_ENV_MODES.has(parts[1])
 }
 
+// Endings of files a project ships or compiles, never of an env file. One
+// that names a mode or browser is dropped, so such a file is always read.
+const NON_ENV_FILE_EXTENSIONS = new Set(
+  'html htm css scss sass less styl map wasm js mjs cjs jsx ts mts cts tsx vue svelte json json5 jsonc xml yml yaml toml md txt png jpg jpeg gif svg webp avif ico bmp woff woff2 ttf otf eot mp3 mp4 webm ogg wav pdf zip'
+    .split(' ')
+    .filter((ext) => !KNOWN_ENV_MODES.has(ext) && !KNOWN_ENV_BROWSERS.has(ext))
+)
+
+// The names the env loader could read: .env and .env.<part>[.<part>...]. A
+// name ending in an asset extension, like .env.css or .env.side.html, is not one.
+export function isEnvFileName(file: string): boolean {
+  if (file === '.env') return true
+  if (!file.startsWith('.env.')) return false
+
+  const last = file.slice(file.lastIndexOf('.') + 1).toLowerCase()
+
+  return last !== '' && !NON_ENV_FILE_EXTENSIONS.has(last)
+}
+
 const SECRET_SEGMENTS = new Set([
   'SECRET',
   'TOKEN',
@@ -413,7 +433,7 @@ export class EnvPlugin {
           .readdirSync(projectPath)
           .filter(
             (file) =>
-              file.startsWith('.env') &&
+              isEnvFileName(file) &&
               file !== '.env.defaults' &&
               file !== '.env.example'
           )
@@ -623,6 +643,26 @@ export class EnvPlugin {
     compiler.hooks.thisCompilation.tap(
       'manifest:update-manifest',
       (compilation) => {
+        const templater = createEnvAssetTemplater(
+          compilation,
+          templateVars,
+          privateNames
+        )
+
+        // Steps that copy a .json or .html from disk after this stage run it
+        // through the same templater, so every shipped copy is filled alike.
+        setEnvAssetTemplater(compilation, templater.template)
+
+        // After the last late copy, so one warning names every file that
+        // kept a private placeholder, wherever it came from.
+        compilation.hooks.processAssets.tap(
+          {
+            name: 'env:private-placeholders',
+            stage: Compilation.PROCESS_ASSETS_STAGE_REPORT + 1000
+          },
+          () => templater.reportUnfilled()
+        )
+
         compilation.hooks.processAssets.tap(
           {
             name: 'env:module',
@@ -633,83 +673,13 @@ export class EnvPlugin {
           (assets) => {
             // Prefer compilation assets to be robust against different bundler versions
             const files = Object.keys(compilation.assets || assets)
-            const unfilled = new Map<string, Set<string>>()
 
             files.forEach((filename) => {
-              if (filename.endsWith('.json') || filename.endsWith('.html')) {
-                const isJsonAsset = filename.endsWith('.json')
-                const original = String(
-                  compilation.assets[filename]?.source() ?? ''
+              if (isEnvTemplatedAsset(filename)) {
+                const fileContent = templater.template(
+                  filename,
+                  String(compilation.assets[filename]?.source() ?? '')
                 )
-                const substituted = new Set<string>()
-
-                // A value is escaped for the sink it lands in, so a quote,
-                // a backslash or a < keeps its authored meaning in the asset.
-                const resolveVar = (name: string, offset: number): string => {
-                  if (
-                    !Object.prototype.hasOwnProperty.call(templateVars, name)
-                  ) {
-                    // A name that is set but private is worth a warning. An
-                    // unset name stays quiet, the way a typo always has.
-                    if (privateNames.has(name)) {
-                      unfilled.set(
-                        name,
-                        (unfilled.get(name) || new Set()).add(filename)
-                      )
-                    }
-
-                    // Preserve the placeholder when the var is unknown, matching
-                    // the pre-substitution form so authors can spot typos.
-                    return `$${name}`
-                  }
-
-                  substituted.add(name)
-
-                  return isJsonAsset
-                    ? substituteForJsonAsset(
-                        original,
-                        offset,
-                        templateVars[name]
-                      )
-                    : escapeForHtmlAsset(original, offset, templateVars[name])
-                }
-
-                // Digits are valid env-name characters (e.g. EXTENSION_PUBLIC_API_V2).
-                const placeholder = /\$EXTENSION_[A-Z0-9_]+/g
-                const fileContent = original.replace(
-                  placeholder,
-                  (match: string, offset: number) =>
-                    resolveVar(match.slice(1), offset)
-                )
-
-                // Only the substitution is judged: a file that would not parse
-                // with a harmless value in each slot was never strict JSON.
-                const parsedBefore = () =>
-                  parsesAsJson(
-                    original.replace(
-                      placeholder,
-                      (match: string, offset: number) =>
-                        !substituted.has(match.slice(1))
-                          ? match
-                          : isInsideJsonString(original, offset)
-                            ? ''
-                            : 'null'
-                    )
-                  )
-
-                if (
-                  isJsonAsset &&
-                  substituted.size > 0 &&
-                  !parsesAsJson(fileContent) &&
-                  parsedBefore()
-                ) {
-                  const error = new WebpackError(
-                    messages.envValueBreaksJsonAsset(filename, [...substituted])
-                  ) as Error & {file?: string; name?: string}
-                  error.name = 'EnvValueBreaksJsonAsset'
-                  error.file = filename
-                  compilation.errors.push(error)
-                }
 
                 compilation.updateAsset(
                   filename,
@@ -721,24 +691,104 @@ export class EnvPlugin {
                 }
               }
             })
-
-            if (unfilled.size > 0) {
-              const warn = new WebpackError(
-                messages.envPrivatePlaceholder(
-                  [...unfilled.keys()].sort().map((name) => ({
-                    name,
-                    assets: [...(unfilled.get(name) || [])].sort()
-                  }))
-                )
-              ) as Error & {name?: string}
-              warn.name = 'EnvPrivatePlaceholder'
-              compilation.warnings.push(warn)
-            }
           }
         )
       }
     )
   }
+}
+
+type EnvAssetCompilation = {
+  errors: {push: (error: Error) => unknown}
+  warnings: {push: (warning: Error) => unknown}
+}
+
+// Fills $EXTENSION_* in one .json or .html text. A value is escaped for the
+// sink it lands in, so a quote, a backslash or a < keeps its authored meaning.
+function createEnvAssetTemplater(
+  compilation: EnvAssetCompilation,
+  templateVars: Record<string, string>,
+  privateNames: Set<string>
+) {
+  const unfilled = new Map<string, Set<string>>()
+
+  const template = (filename: string, original: string): string => {
+    const isJsonAsset = filename.endsWith('.json')
+    const substituted = new Set<string>()
+
+    const resolveVar = (name: string, offset: number): string => {
+      if (!Object.prototype.hasOwnProperty.call(templateVars, name)) {
+        // A name that is set but private is worth a warning. An unset name
+        // stays quiet, the way a typo always has.
+        if (privateNames.has(name)) {
+          unfilled.set(name, (unfilled.get(name) || new Set()).add(filename))
+        }
+
+        // Preserve the placeholder when the var is unknown, matching the
+        // pre-substitution form so authors can spot typos.
+        return `$${name}`
+      }
+
+      substituted.add(name)
+
+      return isJsonAsset
+        ? substituteForJsonAsset(original, offset, templateVars[name])
+        : escapeForHtmlAsset(original, offset, templateVars[name])
+    }
+
+    // Digits are valid env-name characters (e.g. EXTENSION_PUBLIC_API_V2).
+    const placeholder = /\$EXTENSION_[A-Z0-9_]+/g
+    const fileContent = original.replace(
+      placeholder,
+      (match: string, offset: number) => resolveVar(match.slice(1), offset)
+    )
+
+    // Only the substitution is judged: a file that would not parse with a
+    // harmless value in each slot was never strict JSON.
+    const parsedBefore = () =>
+      parsesAsJson(
+        original.replace(placeholder, (match: string, offset: number) =>
+          !substituted.has(match.slice(1))
+            ? match
+            : isInsideJsonString(original, offset)
+              ? ''
+              : 'null'
+        )
+      )
+
+    if (
+      isJsonAsset &&
+      substituted.size > 0 &&
+      !parsesAsJson(fileContent) &&
+      parsedBefore()
+    ) {
+      const error = new WebpackError(
+        messages.envValueBreaksJsonAsset(filename, [...substituted])
+      ) as Error & {file?: string; name?: string}
+      error.name = 'EnvValueBreaksJsonAsset'
+      error.file = filename
+      compilation.errors.push(error)
+    }
+
+    return fileContent
+  }
+
+  const reportUnfilled = () => {
+    if (unfilled.size === 0) return
+
+    const warn = new WebpackError(
+      messages.envPrivatePlaceholder(
+        [...unfilled.keys()].sort().map((name) => ({
+          name,
+          assets: [...(unfilled.get(name) || [])].sort()
+        }))
+      )
+    ) as Error & {name?: string}
+    warn.name = 'EnvPrivatePlaceholder'
+    compilation.warnings.push(warn)
+  }
+
+  return {template, reportUnfilled}
 }
 
 // The names a dotted env read is replaced for, NODE_ENV included: the bundler
