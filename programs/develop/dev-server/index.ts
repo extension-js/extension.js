@@ -1044,7 +1044,8 @@ async function startDevSession(
   const restartFailure = createRestartFailure({
     metadata,
     lifecycle,
-    keepServing: () => endCompilerRestart(activeCompiler ?? undefined),
+    keepServing: (retry) =>
+      endCompilerRestart(activeCompiler ?? undefined, retry),
     hasQueuedRestart: () => sessionRestart.hasQueuedRequest(),
     release: (server) =>
       releaseEndedSession({

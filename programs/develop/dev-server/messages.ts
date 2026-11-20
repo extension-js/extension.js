@@ -393,7 +393,7 @@ export function devServerRestartFailed(
 
   if (outcome === 'previous-build') {
     lines.push(
-      'The previous build keeps serving. Fix the error, then save the changed file again to retry.'
+      'The previous build keeps serving. Fix the error, then save a project file to retry.'
     )
   }
 

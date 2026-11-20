@@ -38,7 +38,7 @@ export interface SessionRestartSteps<Server extends RestartableServer> {
   // restart began with was still untouched.
   onUnexpectedFailure: (
     error: unknown,
-    state: {previousServing: boolean}
+    state: {previousServing: boolean; request: DevSessionRestartRequest}
   ) => void
   // The server the restart began with is set aside and will not serve again.
   retireServer?: (server: Server) => void
@@ -49,6 +49,7 @@ export interface SessionRestartSteps<Server extends RestartableServer> {
 }
 
 interface RestartState<Server extends RestartableServer> {
+  request: DevSessionRestartRequest
   // True until the server the restart began with is set aside.
   previousServing: boolean
   // The next bundle, from the old server set aside until it has started.
@@ -156,6 +157,7 @@ export function createSessionRestartHandler<Server extends RestartableServer>(
 
   return async (request: DevSessionRestartRequest): Promise<void> => {
     const state: RestartState<Server> = {
+      request,
       previousServing: true,
       unadopted: null,
       portHeld: false

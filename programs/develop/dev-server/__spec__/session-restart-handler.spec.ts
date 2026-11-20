@@ -214,7 +214,7 @@ describe('a dev session restart', () => {
       value: {serving: true}
     })
 
-    expect(frames[0].hint).toContain('save the changed file again')
+    expect(frames[0].hint).toContain('save a project file to retry')
 
     // The session is not stuck: the next save restarts for real.
     await s.restart()
