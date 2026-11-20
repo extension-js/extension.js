@@ -53,7 +53,12 @@ export function writeProject(root: string) {
 export async function zipProject(
   root: string,
   outPath: string,
-  zipData: {zip?: boolean; zipSource?: boolean; zipDir?: string},
+  zipData: {
+    zip?: boolean
+    zipSource?: boolean
+    zipDir?: string
+    zipFilename?: string
+  },
   manifestPath = path.join(root, 'manifest.json')
 ) {
   const {compiler, emitDone} = makeCompiler(root, outPath)

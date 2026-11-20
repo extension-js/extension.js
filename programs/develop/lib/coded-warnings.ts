@@ -21,14 +21,15 @@ const outsideScopes = AsyncResource.bind(<T>(run: () => T): T => run())
 
 // A bundler hook runs outside the build's async scope, so a plugin passes the
 // compiler it was applied to and the line lands in that compiler's build.
-function listFor(compiler: object | undefined): string[] {
+function listsFor(compiler: object | undefined): string[][] {
   const named = compiler ? compilerLists.get(compiler) : undefined
   const own = named ?? scopes.getStore()
 
-  if (own) return own
+  if (own) return [own]
 
-  // With one build running, a line from nowhere can only be its own.
-  return activeBuilds.size === 1 ? [...activeBuilds][0] : pending
+  // A line no build can be named for goes to every build running now: a
+  // copy too many beats a warning lost, or one handed to the wrong build.
+  return activeBuilds.size > 0 ? [...activeBuilds] : [pending]
 }
 
 export function recordCodedWarning(
@@ -37,9 +38,10 @@ export function recordCodedWarning(
   compiler?: object
 ): void {
   const line = `${code}: ${text}`
-  const lines = listFor(compiler)
 
-  if (!lines.includes(line)) lines.push(line)
+  for (const lines of listsFor(compiler)) {
+    if (!lines.includes(line)) lines.push(line)
+  }
 }
 
 // Called by the build that made the compiler, inside its own scope.
@@ -49,8 +51,8 @@ export function keepCodedWarningsOf(compiler: object): void {
   if (own) compilerLists.set(compiler, own)
 }
 
-// The shared list holds what no build could be named for, and the build that
-// asks first takes it.
+// The shared list holds what was recorded while no build ran, and the build
+// that asks first takes it.
 export function takeCodedWarnings(): string[] {
   const own = scopes.getStore()
   const shared = pending.splice(0)

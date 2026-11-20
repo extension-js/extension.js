@@ -11,6 +11,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {spawn} from 'cross-spawn'
 import {corepackRegistryEnv} from './corepack-registry'
+import {formatDuration} from './format-duration'
 
 // A package manager exports every npm config it read as an npm_config_* variable,
 // so the invoking checkout's release-age rule would govern the new project's
@@ -135,7 +136,14 @@ export function installTimeoutMs(
 }
 
 export function installTimedOutReason(ms: number): string {
-  return `The install did not finish within ${Math.round(ms / 1000)} seconds (EXTENSION_CREATE_INSTALL_TIMEOUT_MS)`
+  return `The install did not finish within ${formatDuration(ms)} (EXTENSION_CREATE_INSTALL_TIMEOUT_MS)`
+}
+
+// Node and cross-spawn reject this way when the command is not on PATH.
+export function isMissingCommand(error: unknown, command: string): boolean {
+  const failure = error as {code?: unknown; syscall?: unknown} | null
+
+  return failure?.code === 'ENOENT' && failure.syscall === `spawn ${command}`
 }
 
 export type SpawnProcess = (
@@ -148,8 +156,19 @@ export type InstallResult = {
   code: number | null
   stderr: string
   stdout: string
+  // The signal that ended a child with no exit code.
+  signal?: NodeJS.Signals
   // Why the runner ended the child itself, set only when it did.
   reason?: string
+}
+
+// What the EXIT row says. A null code is the runner's timeout or a signal,
+// and printing "null" told the user neither.
+export function installExit(run: InstallResult): number | string {
+  if (run.code !== null) return run.code
+  if (run.reason !== undefined) return 'timed out'
+
+  return run.signal ? `ended by ${run.signal}` : 'no exit code'
 }
 
 export interface RunInstallOptions {
@@ -282,7 +301,14 @@ export async function runInstall(
   const ownGroup =
     platform !== 'win32' && opts.stdio !== 'inherit' && opts.stdio !== 'tee'
   const child = spawnProcess(command, args, {
-    stdio: opts.stdio === 'tee' ? ['inherit', 'pipe', 'pipe'] : opts.stdio,
+    // A captured run has no one to answer a prompt, so its stdin is closed
+    // and a manager that asks reads the end at once, not at the timeout.
+    stdio:
+      opts.stdio === 'tee'
+        ? ['inherit', 'pipe', 'pipe']
+        : opts.stdio === 'pipe'
+          ? ['ignore', 'pipe', 'pipe']
+          : opts.stdio,
     cwd: opts.cwd,
     // cross-spawn runs the .cmd shims on Windows and escapes each argument,
     // so the project path never becomes part of a shell string.
@@ -330,10 +356,15 @@ export async function runInstall(
       })
     }, timeoutMs)
 
-    child.on('close', (code) => {
+    child.on('close', (code, signal) => {
       clearTimeout(timer)
       release()
-      resolve({code, stderr, stdout})
+      resolve({
+        code,
+        stderr,
+        stdout,
+        ...(code === null && signal ? {signal} : {})
+      })
     })
 
     child.on('error', (error) => {

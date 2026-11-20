@@ -266,14 +266,8 @@ describe('scripts/ entries the package.json scripts run', () => {
 })
 
 describe('the scan seam', () => {
-  const empty = (): ReturnType<ScanSpecialFolders> => ({
-    public: {},
-    pages: {},
-    scripts: {}
-  })
-
-  it('reads the folders through the injected scan, once per folder parent', () => {
-    const root = project({})
+  it('reads each entry folder through the injected scan, once per folder', () => {
+    const root = project({'src/pages/a.html': '<html></html>'})
     const calls: string[] = []
     const page = path.join(root, 'src', 'pages', 'a.html')
 
@@ -282,19 +276,17 @@ describe('the scan seam', () => {
       {pages: 'src/pages'},
       'development',
       {
-        scan: ({manifestPath}): ReturnType<ScanSpecialFolders> => {
-          calls.push(manifestPath)
+        scan: (folder, dir): ReturnType<ScanSpecialFolders> => {
+          calls.push(`${folder} ${dir}`)
 
-          return manifestPath === path.join(root, 'src', 'package.json')
-            ? {...empty(), pages: {'pages/a': page}}
-            : empty()
+          return folder === 'pages' ? {'pages/a': page} : {}
         }
       }
     )
 
     expect(calls).toEqual([
-      path.join(root, 'package.json'),
-      path.join(root, 'src', 'package.json')
+      `pages ${path.join(root, 'src', 'pages')}`,
+      `scripts ${path.join(root, 'scripts')}`
     ])
 
     expect(data.pages).toEqual({'pages/a': page})
@@ -304,28 +296,30 @@ describe('the scan seam', () => {
   // path and a list per key, reach the filters through other callers.
   it('drops public entries spelled relative or listed per key', () => {
     const root = project({
+      'pages/a.html': '<html></html>',
+      'public/sample/b.html': '<html></html>',
       'scripts/a.js': 'document.title = "a"',
-      'scripts/b.js': 'document.title = "b"'
+      'scripts/b.js': 'document.title = "b"',
+      'public/sample/b.js': 'document.title = "b"'
     })
 
     const data = getSpecialFoldersDataForProjectRoot(root, {}, undefined, {
-      scan: () => ({
-        public: {},
-        pages: {
-          'page-a': path.join(root, 'pages', 'a.html'),
-          'page-b': path.join(root, 'public', 'sample', 'b.html'),
-          'page-c': 'public/sample/c.html',
-          'page-d': 'pages/d.html'
-        },
-        scripts: {
-          'scripts/a': [
-            path.join(root, 'scripts', 'a.js'),
-            path.join(root, 'public', 'sample', 'b.js'),
-            'public/sample/c.js'
-          ],
-          'scripts/b': [path.join(root, 'scripts', 'b.js')]
-        } as unknown as Record<string, string>
-      })
+      scan: (folder) =>
+        folder === 'pages'
+          ? {
+              'page-a': path.join(root, 'pages', 'a.html'),
+              'page-b': path.join(root, 'public', 'sample', 'b.html'),
+              'page-c': 'public/sample/c.html',
+              'page-d': 'pages/d.html'
+            }
+          : ({
+              'scripts/a': [
+                path.join(root, 'scripts', 'a.js'),
+                path.join(root, 'public', 'sample', 'b.js'),
+                'public/sample/c.js'
+              ],
+              'scripts/b': [path.join(root, 'scripts', 'b.js')]
+            } as unknown as Record<string, string>)
     })
 
     expect(data.pages).toEqual({

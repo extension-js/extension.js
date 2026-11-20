@@ -82,6 +82,10 @@
       "area": "project",
       "summary": "manifest.json was placed under public/."
     },
+    "E_FOLDER_UNREADABLE": {
+      "area": "project",
+      "summary": "A folder inside pages/ or scripts/ cannot be read, so the build cannot list its entries."
+    },
     "E_RUNTIME_NOT_FOUND": {
       "area": "project",
       "summary": "The extension-develop runtime is missing, uncompiled or at another version than the CLI."
@@ -594,7 +598,7 @@
     },
     "W_PROJECT_LAYOUT": {
       "area": "project",
-      "summary": "A public/ folder is misplaced or shadowed by another one, or an exclude entry in extension.config.js names a file that is not there.",
+      "summary": "A public/ folder is misplaced, shadowed by another one or spelled in another letter case, a public/ file is not copied because the build writes that output path from an entry, or an exclude entry in extension.config.js names a file that is not there.",
       "warn": true
     },
     "W_MANIFEST_COMPAT": {

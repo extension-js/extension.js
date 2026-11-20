@@ -63,7 +63,7 @@ require('node:fs').appendFileSync(require('node:path').join(__dirname, 'runs.txt
 module.exports = {
   perfBudgets: {seen},
   browser: {chrome: {profile: seen}},
-  commands: {build: {profile: seen}, dev: {profile: seen}},
+  commands: {build: {outDir: seen}, dev: {profile: seen}},
   configResolved: () => seen
 }
 `
@@ -77,7 +77,7 @@ appendFileSync(join(dirname(fileURLToPath(import.meta.url)), 'runs.txt'), seen +
 export default {
   perfBudgets: {seen},
   browser: {chrome: {profile: seen}},
-  commands: {build: {profile: seen}, dev: {profile: seen}},
+  commands: {build: {outDir: seen}, dev: {profile: seen}},
   configResolved: () => seen
 }
 `
@@ -106,7 +106,7 @@ function runsOf(root: string): string[] {
   return fs.readFileSync(file, 'utf-8').trim().split('\n')
 }
 
-type Seen = {profile?: string}
+type Seen = {profile?: string; outDir?: string}
 
 describe('a config is read for the mode and browser that asked', () => {
   for (const style of STYLES) {
@@ -160,7 +160,7 @@ describe('a config is read for the mode and browser that asked', () => {
       browser: 'chrome'
     })) as {perfBudgets?: {seen?: string}}
 
-    expect(build.profile).toBe('from-production')
+    expect(build.outDir).toBe('from-production')
     expect(firefox.perfBudgets?.seen).toBe('from-firefox')
     expect(chrome.perfBudgets?.seen).toBe('from-production')
 
@@ -316,7 +316,7 @@ const root = ${JSON.stringify(root)}
 const build = await loadCommandConfig(root, 'build')
 const dev = await loadCommandConfig(root, 'dev')
 const again = await loadCommandConfig(root, 'build')
-process.stdout.write('RESULT:' + JSON.stringify([build.profile, dev.profile, again.profile]))
+process.stdout.write('RESULT:' + JSON.stringify([build.outDir, dev.profile, again.outDir]))
 `
       )
 
