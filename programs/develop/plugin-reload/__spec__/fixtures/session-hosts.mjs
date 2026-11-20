@@ -54,8 +54,10 @@ function read(file) {
   }
 }
 
-const worker = (dir) =>
-  read(path.join(dir, 'dist', 'chromium', 'background', 'service_worker.js'))
+const workerFile = (dir) =>
+  path.join(dir, 'dist', 'chromium', 'background', 'service_worker.js')
+
+const worker = (dir) => read(workerFile(dir))
 
 const bakedHost = (source) =>
   /var HOST = "([^"]*)"/.exec(String(source))?.[1] ?? null
@@ -103,6 +105,16 @@ const newerReady = start(newer, 'session-b.test')
 const newerStarted = Boolean(await until(newerReady))
 const newerWorker = await until(() => bakedHost(worker(newer)) && worker(newer))
 
+const writtenAt = (file) => {
+  try {
+    return fs.statSync(file).mtimeMs
+  } catch {
+    return 0
+  }
+}
+
+const olderFirstWrittenAt = writtenAt(workerFile(older))
+
 // A new entry list makes the older session build a new compiler.
 fs.writeFileSync(
   path.join(older, 'manifest.json'),
@@ -123,7 +135,15 @@ const olderRestarted = Boolean(
     }
   })
 )
-const olderRebuiltWorker = worker(older)
+
+// The bundler truncates a file before it writes it, so the worker can be
+// empty for a moment after the content script is already on disk.
+const olderRebuiltWorker = await until(
+  () =>
+    writtenAt(workerFile(older)) > olderFirstWrittenAt &&
+    bakedHost(worker(older)) &&
+    worker(older)
+)
 
 process.stdout.write(
   `\nRESULT ${JSON.stringify({
