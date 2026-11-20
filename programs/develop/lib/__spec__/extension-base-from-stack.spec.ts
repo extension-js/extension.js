@@ -2,8 +2,8 @@ import * as vm from 'node:vm'
 import {describe, expect, it} from 'vitest'
 import {
   closedOnSlash,
-  EXTENSION_BASE_FROM_STACK,
   EXTENSION_BASE_ATTRIBUTE,
+  EXTENSION_BASE_FROM_STACK,
   EXTENSION_BASE_GLOBAL,
   extensionBaseAttribute,
   extensionBaseFromFile,
@@ -11,8 +11,8 @@ import {
   prependBehindTakeBlock,
   readTakeBlock,
   TAKE_BLOCK_OPEN,
-  takeBlockOpen,
   TAKEN_EXTENSION_BASE,
+  takeBlockOpen,
   unlessExtensionAddress
 } from '../extension-base-from-stack'
 

@@ -9,8 +9,8 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as parse5utilities from 'parse5-utilities'
+import {hasPrivateFileName} from '../../../lib/public-private-files'
 import {isOsPathUnder} from '../../../lib/real-path'
-import {hasPrivateFileName} from '../../../plugin-special-folders/public-private-files'
 import {
   type AssetHashOptions,
   bundledAssetOutputName

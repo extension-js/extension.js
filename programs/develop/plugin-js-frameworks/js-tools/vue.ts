@@ -15,6 +15,7 @@ import {
   type RspackPluginInstance,
   WebpackError
 } from '@rspack/core'
+import {usesVue} from '../../lib/framework-detect'
 import {debugLine, isDebug, prefix} from '../../lib/messaging'
 import {
   ensureOptionalContractModuleLoaded,
@@ -34,7 +35,7 @@ type VueLoaderPluginCtor = new (
 ) => {apply(compiler: unknown): void}
 
 export function isUsingVue(projectPath: string, notice?: Notice) {
-  const using = hasDependency(projectPath, 'vue')
+  const using = usesVue(projectPath)
 
   if (using && notice && !notice.delivered) {
     if (isDebug()) {

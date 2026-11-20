@@ -7,7 +7,10 @@ import {
   webkitUnsupportedManifestKeys,
   webkitUnsupportedPermissions
 } from '../filter-keys-safari'
-import {buildCanonicalManifest, filterKeysForThisBrowser} from '../manifest'
+import {
+  buildCanonicalManifestWithOverrides,
+  filterKeysForThisBrowser
+} from '../manifest'
 
 describe('filterKeysForThisBrowser (manifest-lib), Safari', () => {
   const manifest = {
@@ -355,11 +358,11 @@ describe('safari drops survive the manifest overrides', () => {
   } as any
 
   it('emits no side_panel, sandbox or sidePanel for a safari build', () => {
-    const result = buildCanonicalManifest(
+    const result = buildCanonicalManifestWithOverrides(
       '/p/manifest.json',
       source,
       'safari'
-    ) as any
+    ).manifest as any
 
     expect(result.manifest_version).toBe(3)
     expect(result).not.toHaveProperty('side_panel')
@@ -368,11 +371,11 @@ describe('safari drops survive the manifest overrides', () => {
   })
 
   it('still emits all three for a chrome build', () => {
-    const result = buildCanonicalManifest(
+    const result = buildCanonicalManifestWithOverrides(
       '/p/manifest.json',
       source,
       'chrome'
-    ) as any
+    ).manifest as any
 
     expect(result.side_panel).toBeDefined()
     expect(result.sandbox).toBeDefined()

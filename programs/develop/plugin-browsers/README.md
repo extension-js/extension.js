@@ -19,9 +19,8 @@ for library callers:
   reload broker the dev server hands in.
 - `SafariDevPlugin`, for Safari. The first build runs the full package
   (convert, xcodebuild, open, guided enable). Each later build runs a resync,
-  awaited by that build so the next one never writes into the dist xcodebuild
-  reads. Builds that end while a package still runs collapse into one
-  follow-up.
+  awaited by that build. Builds that end while a package still runs collapse
+  into one follow-up, which never starts while a build is compiling.
 - `BuildEmitter`, the `emitter` both plugins expose and `extensionDev`
   returns. It emits `compiled` for a build the browser has, with
   `isFirstCompile` true once, for the build a browser came up with, and the
@@ -33,11 +32,19 @@ for library callers:
 - The launcher stamps the session's `ready.json` itself and may throw an
   error carrying `code` and `printed: true`, so the plugin prints nothing it
   already said.
-- Every wait inside `done` is bounded: the launch and the log capture at
-  `BROWSER_LAUNCH_TIMEOUT_MS`, the first Safari package at
-  `SAFARI_FIRST_PACKAGE_TIMEOUT_MS`, a resync at `SAFARI_RESYNC_TIMEOUT_MS`.
-  Past a bound the hook returns, the plugin stamps what nothing else could
-  (`launch-timeout-stamp.ts`), and a late finish is still picked up.
+- Nothing writes the dist while a browser reads it. The launch and each
+  Safari package are awaited inside `done`, which holds a rebuild a file
+  save starts. A rebuild asked for through the dev server starts while
+  `done` is still out, so each plugin also holds it in `watchRun` until
+  the launch or the package that is running ends or reaches its bound.
+- Every wait inside a compiler hook is bounded: the launch and the log
+  capture at `BROWSER_LAUNCH_TIMEOUT_MS`, a retry of a refused load and a
+  background wake at `BROWSER_REQUEST_TIMEOUT_MS`, the first Safari package
+  at `SAFARI_FIRST_PACKAGE_TIMEOUT_MS`, a resync at
+  `SAFARI_RESYNC_TIMEOUT_MS`. Past a bound the hook returns, the plugin
+  stamps what nothing else could (`launch-timeout-stamp.ts`), and a late
+  finish is still picked up. The reload itself is bounded by `plugin-reload`
+  and the broker.
 - The dev server hands each plugin what it owns through setters before the
   first compile: the reload broker, the restart hold, the log sink, the
   instance id, the emulator viewer URL and the ready and launch settled
@@ -53,5 +60,7 @@ session restart state.
 ## Tests
 
 `__spec__/` drives both plugins on `fake-compiler.ts`, a watching compiler
-with no bundler under it, with stand-in launchers and packagers. Nothing
-there launches a browser.
+with no bundler under it, with stand-in launchers and packagers.
+`safari-package-hold.spec.ts` and `launch-holds-rebuild.spec.ts` also run
+the plugins under a real watching compiler. Nothing there launches a
+browser.

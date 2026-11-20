@@ -57,18 +57,18 @@ export class BoringPlugin {
 
   public readonly manifestPath: string
   public readonly browser: PluginInterface['browser']
-  private readonly browserLaunchEnabled?: boolean
+  private readonly browserLaunchEnabled: boolean
   private readonly diagnosticsFollow: boolean
   private sawUserInvalidation = false
   private printedStartupSuccess = false
   private printedStartupWarning = false
   private lastKnownManifestName?: string
 
-  // Unset reads the dev server's environment flag at each compile, as before.
   constructor(options: BoringPluginOptions) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
-    this.browserLaunchEnabled = options.browserLaunchEnabled
+    // Told by the caller, so one session's setting never reaches another compile.
+    this.browserLaunchEnabled = options.browserLaunchEnabled !== false
     this.diagnosticsFollow = options.diagnosticsFollow === true
   }
 
@@ -89,9 +89,7 @@ export class BoringPlugin {
       const counts = countDiagnostics(stats)
       const hasErrors = counts.errors > 0
       const hasWarnings = counts.warnings > 0
-      const browserLaunchEnabled =
-        this.browserLaunchEnabled ??
-        String(process.env.EXTENSION_BROWSER_LAUNCH_ENABLED || '1') !== '0'
+      const browserLaunchEnabled = this.browserLaunchEnabled
 
       stats.compilation.name = undefined
       const duration = stats.compilation.endTime! - stats.compilation.startTime!
@@ -146,6 +144,8 @@ export class BoringPlugin {
         warningsListed
       })
 
+      let repeatsStartupLine = false
+
       try {
         // Rspack does not always populate modifiedFiles for asset-only rebuilds; merge
         // with the compiler watch set so suppression clears on HTML changes.
@@ -190,21 +190,26 @@ export class BoringPlugin {
         // A warning-bearing first pass must not swallow the later success line.
         if (browserLaunchEnabled && !hasErrors && !this.sawUserInvalidation) {
           if (hasWarnings) {
-            if (this.printedStartupWarning) return
-
+            repeatsStartupLine = this.printedStartupWarning
             this.printedStartupWarning = true
           } else {
-            if (this.printedStartupSuccess) return
-
+            repeatsStartupLine = this.printedStartupSuccess
             this.printedStartupSuccess = true
           }
         }
+      } catch {
+        // A compile whose changed files cannot be read still gets its line.
+        repeatsStartupLine = false
+      }
 
-        // Always print the boring line so users can see rebuilds and timing,
-        // even on success. Machine output moves it off stdout, not away.
+      if (repeatsStartupLine) return
+
+      // Always print the boring line so users can see rebuilds and timing,
+      // even on success. Machine output moves it off stdout, not away.
+      try {
         humanLine(line)
       } catch {
-        // best-effort: never throw from logging
+        // A closed terminal must not end the watch loop.
       }
     })
   }

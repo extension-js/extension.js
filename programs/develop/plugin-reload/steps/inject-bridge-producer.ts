@@ -57,7 +57,11 @@ export function backgroundNamesRegistration(
         const resource = String(module.resource || '').split('?')[0]
         if (!SOURCE_FILE.test(resource)) continue
 
-        if (readProjectSource(resource)?.includes(REGISTERS_A_CONTENT_SCRIPT)) {
+        if (
+          readProjectSource(resource, compilation)?.includes(
+            REGISTERS_A_CONTENT_SCRIPT
+          )
+        ) {
           return true
         }
       }

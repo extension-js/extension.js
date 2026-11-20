@@ -833,6 +833,10 @@ export class ZipPlugin {
     compiler.hooks.done.tapPromise('plugin-zip', async (stats) => {
       if (!(this.zipData.zip || this.zipData.zipSource)) return
 
+      // A failed compile emits nothing, so the output folder is the build
+      // before this one. Packaging it would hand over the wrong extension.
+      if (stats?.hasErrors?.()) return
+
       const outDir = compiler.options.output?.path as string
       // Known once the names are worked out, for a failure before that.
       const planned = {

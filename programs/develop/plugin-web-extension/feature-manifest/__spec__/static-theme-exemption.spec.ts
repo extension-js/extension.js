@@ -5,6 +5,7 @@ import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 
 import {isStaticTheme, isStaticThemeSource} from '../../../lib/manifest-utils'
 import type {DevOptions, Manifest} from '../../../types'
+import {setOriginalManifestContent} from '../manifest-lib/manifest'
 import {ApplyDevDefaults} from '../steps/apply-dev-defaults'
 
 const THEME: Manifest = {
@@ -90,8 +91,16 @@ describe('isStaticThemeSource', () => {
 
 // Drives ApplyDevDefaults over a fake compilation and reports whether the
 // manifest asset was rewritten with the dev instrumentation.
-function runApplyDevDefaults(manifestPath: string, browser: string) {
-  const original = fs.readFileSync(manifestPath, 'utf-8')
+function runApplyDevDefaults(
+  manifestPath: string,
+  browser: string,
+  // The manifest this compile read at its start, when the disk has moved on.
+  readAtStart?: unknown
+) {
+  const original =
+    readAtStart === undefined
+      ? fs.readFileSync(manifestPath, 'utf-8')
+      : JSON.stringify(readAtStart)
   let updated: string | undefined
 
   const compilation: any = {
@@ -104,6 +113,10 @@ function runApplyDevDefaults(manifestPath: string, browser: string) {
       updated = source.source()
     },
     hooks: {processAssets: {tap: (_o: any, fn: () => void) => fn()}}
+  }
+
+  if (readAtStart !== undefined) {
+    setOriginalManifestContent(compilation, original)
   }
 
   const compiler: any = {
@@ -162,6 +175,32 @@ describe('ApplyDevDefaults theme exemption, both targets', () => {
       const patched = JSON.parse(updated as string)
       expect(patched.permissions).toContain('storage')
       expect(patched.content_security_policy).toBeDefined()
+    })
+
+    // Every step of one compile judges the manifest that compile read, so a
+    // save that lands while it runs cannot split them.
+    it(`judges the manifest the compile read, not a later save, on ${browser}`, () => {
+      const extension = {
+        manifest_version: 3,
+        name: 'x',
+        version: '1.0',
+        background: {service_worker: 'sw.js'}
+      }
+      const savedAsExtension = runApplyDevDefaults(
+        writeManifest(extension),
+        browser,
+        THEME
+      )
+      const savedAsTheme = runApplyDevDefaults(
+        writeManifest(THEME),
+        browser,
+        extension
+      )
+
+      expect(savedAsExtension.updated).toBeUndefined()
+      expect(JSON.parse(savedAsTheme.updated as string).permissions).toContain(
+        'storage'
+      )
     })
   }
 })

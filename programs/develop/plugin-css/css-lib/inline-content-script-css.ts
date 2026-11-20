@@ -17,12 +17,12 @@ import {
   GECKO_EXTENSION_SCHEME,
   unlessExtensionAddress
 } from '../../lib/extension-base-from-stack'
-import type {WithheldKind} from '../../lib/withheld-file'
-import {toJsStringLiteral} from '../../plugin-compilation/env'
 import {
   hasPrivateFileName,
   rootAbsolutePathIsWithheld
-} from '../../plugin-special-folders/public-private-files'
+} from '../../lib/public-private-files'
+import type {WithheldKind} from '../../lib/withheld-file'
+import {toJsStringLiteral} from '../../plugin-compilation/env'
 import {publicOwnedOutputName, toPosixPath} from './dead-url-refs'
 import {rewriteCssUrls, whyNotRead} from './inline-css-imports'
 

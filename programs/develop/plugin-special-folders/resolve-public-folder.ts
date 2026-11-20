@@ -8,8 +8,8 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {hasPrivateFileName} from '../lib/public-private-files'
 import {publicFolderSetting} from './folders-config'
-import {hasPrivateFileName} from './public-private-files'
 
 function isUsableDir(candidate: string): boolean {
   try {
@@ -232,21 +232,4 @@ export function publicResolveRoots(
   }
 
   return roots
-}
-
-// The public root each compiler ships from, kept per compiler so the reload
-// classifier can map a changed source to the dist path the copier gives it.
-const publicRootsByCompiler = new WeakMap<object, string[]>()
-
-export function rememberPublicRoots(compiler: object, roots: string[]): void {
-  publicRootsByCompiler.set(
-    compiler,
-    roots.filter(Boolean).map((root) => path.resolve(root))
-  )
-}
-
-export function publicRootsFor(compiler: object | undefined | null): string[] {
-  if (!compiler) return []
-
-  return publicRootsByCompiler.get(compiler) || []
 }

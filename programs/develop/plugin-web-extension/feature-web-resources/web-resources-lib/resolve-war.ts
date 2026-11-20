@@ -12,13 +12,13 @@ import {type Compilation, sources, WebpackError} from '@rspack/core'
 import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../../../lib/constants'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 import {parseAuthoredJson} from '../../../lib/parse-json-safe'
-import {templateCopiedAsset} from '../../../plugin-compilation/copied-asset-env'
 import {
   hasPrivateFileName,
   privateFileKind,
   rootAbsoluteClimbsOut,
   sourceFileMayShip
-} from '../../../plugin-special-folders/public-private-files'
+} from '../../../lib/public-private-files'
+import {templateCopiedAsset} from '../../../plugin-compilation/copied-asset-env'
 import {
   type AssetHashOptions,
   bundledAssetOutputName

@@ -8,11 +8,11 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {toProjectRelativePath} from '../lib/resource-path'
 import {
   hasPrivateFileName,
   rootAbsolutePathIsWithheld
-} from '../plugin-special-folders/public-private-files'
+} from '../lib/public-private-files'
+import {toProjectRelativePath} from '../lib/resource-path'
 import {
   publicContainmentRoot,
   resolvePublicFolder

@@ -10,6 +10,23 @@ import * as path from 'node:path'
 import type {Compilation, Compiler} from '@rspack/core'
 import * as messages from './messages'
 
+const STYLESHEET_FILE = /\.(?:css|pcss|postcss|scss|sass|less|styl|stylus)$/i
+const STYLE_BLOCK_QUERY = /[?&]type=style(?:&|$)/
+
+// A script reaches the same resolver through new URL(), so the file that
+// asks decides the words. A request nobody owns reads as a stylesheet's.
+export function isStylesheetIssuer(issuer: string): boolean {
+  if (!issuer) return true
+
+  const queryAt = issuer.indexOf('?')
+  const file = queryAt === -1 ? issuer : issuer.slice(0, queryAt)
+
+  return (
+    STYLESHEET_FILE.test(file) ||
+    (queryAt !== -1 && STYLE_BLOCK_QUERY.test(issuer.slice(queryAt)))
+  )
+}
+
 // A url() the bundler cannot resolve stays verbatim in the stylesheet. It is
 // the same dead reference the stylesheet check reports, under the same name.
 export class UnresolvedCssUrlRefs {
@@ -34,10 +51,13 @@ export class UnresolvedCssUrlRefs {
           const issuerPath = issuer
             ? path.relative(context, issuer).split(path.sep).join('/')
             : ''
+          const fromSheet = isStylesheetIssuer(issuer)
           const report = new ErrorCtor(
-            messages.unresolvedCssUrlRef(issuerPath, request, strict)
+            fromSheet
+              ? messages.unresolvedCssUrlRef(issuerPath, request, strict)
+              : messages.unresolvedScriptUrlRef(issuerPath, request, strict)
           )
-          report.name = 'CssDeadRef'
+          report.name = fromSheet ? 'CssDeadRef' : 'ScriptUrlFileMissing'
           ;(strict ? compilation.errors : compilation.warnings).push(report)
         }
 

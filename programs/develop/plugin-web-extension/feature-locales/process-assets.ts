@@ -14,7 +14,7 @@ import {hasJsonComments, parseAuthoredJson} from '../../lib/parse-json-safe'
 import {
   privateFileKind,
   sourceFileMayShip
-} from '../../plugin-special-folders/public-private-files'
+} from '../../lib/public-private-files'
 import {
   getLocales,
   localeFoldersWithoutMessages,

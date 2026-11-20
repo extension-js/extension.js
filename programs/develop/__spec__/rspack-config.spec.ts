@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it, vi} from 'vitest'
+import {CompilationPlugin} from '../plugin-compilation'
 import {PlaywrightPlugin} from '../plugin-playwright'
 import {WarnManifestV2OnChromium} from '../plugin-web-extension/feature-manifest/steps/warn-mv2-on-chromium'
 import webpackConfig from '../rspack-config'
@@ -863,5 +864,42 @@ describe('ready contract carries the control-bridge bind reason', () => {
       'failed',
       'watchClose'
     ])
+  })
+})
+
+describe('the compile line is told whether a browser launches', () => {
+  const launchSetting = (noBrowser: boolean | undefined) => {
+    const projectStructure = createProjectStructure()
+    const root = path.dirname(projectStructure.manifestPath)
+    const config = webpackConfig(
+      projectStructure as any,
+      {
+        browser: 'chrome',
+        mode: 'development',
+        metadataCommand: 'dev',
+        output: {clean: false, path: path.join(root, 'dist', 'chrome')},
+        noBrowser
+      } as any
+    )
+    const plugin = (config.plugins || []).find(
+      (entry) => entry instanceof CompilationPlugin
+    ) as CompilationPlugin
+
+    return plugin.browserLaunchEnabled
+  }
+
+  it('says no for a session started without a browser', () => {
+    expect(launchSetting(true)).toBe(false)
+  })
+
+  it('says yes otherwise, whatever another session left in the environment', () => {
+    vi.stubEnv('EXTENSION_BROWSER_LAUNCH_ENABLED', '0')
+
+    try {
+      expect(launchSetting(false)).toBe(true)
+      expect(launchSetting(undefined)).toBe(true)
+    } finally {
+      vi.unstubAllEnvs()
+    }
   })
 })

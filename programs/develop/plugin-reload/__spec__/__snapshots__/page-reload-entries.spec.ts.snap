@@ -62,7 +62,6 @@ exports[`the pages of a build and the entries behind them > emits the same files
   "entries": {
     "action/index": {
       "imports": [
-        "<develop>/preact-refresh-shim",
         "<dependency>/@rspack/dev-server/client/index.js?<query>",
         "<dependency>/@rspack/core/hot/dev-server.js",
         "<project>/popup.js",
@@ -72,7 +71,6 @@ exports[`the pages of a build and the entries behind them > emits the same files
     },
     "options/index": {
       "imports": [
-        "<develop>/preact-refresh-shim",
         "<dependency>/@rspack/dev-server/client/index.js?<query>",
         "<dependency>/@rspack/core/hot/dev-server.js",
         "<develop>/minimum-script-file",
@@ -80,7 +78,6 @@ exports[`the pages of a build and the entries behind them > emits the same files
     },
     "pages/deep/nested": {
       "imports": [
-        "<develop>/preact-refresh-shim",
         "<dependency>/@rspack/dev-server/client/index.js?<query>",
         "<dependency>/@rspack/core/hot/dev-server.js",
         "<project>/pages/deep/nested.js",
@@ -90,7 +87,6 @@ exports[`the pages of a build and the entries behind them > emits the same files
     },
     "sandbox/page-0": {
       "imports": [
-        "<develop>/preact-refresh-shim",
         "<dependency>/@rspack/dev-server/client/index.js?<query>",
         "<dependency>/@rspack/core/hot/dev-server.js",
         "<project>/sandbox.js",
