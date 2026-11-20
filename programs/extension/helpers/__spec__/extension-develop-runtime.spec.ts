@@ -5,14 +5,20 @@ import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {internalErrorEnvelope} from '../cli-failure'
 import {getCliPackageJson} from '../cli-package-json'
 import {
+  developLoadFailure,
   loadExtensionDevelopBridgeModule,
   loadExtensionDevelopModule,
   loadExtensionDevelopPreviewModule,
   reinstallCommandFor,
   resolveExtensionDevelopRoot,
-  resolveExtensionDevelopVersion
+  resolveExtensionDevelopVersion,
+  runnerCacheFolderOf
 } from '../extension-develop-runtime'
-import {developVersionMismatch, localDevelopVersionDiffers} from '../messages'
+import {
+  developLoadFailed,
+  developVersionMismatch,
+  localDevelopVersionDiffers
+} from '../messages'
 import {stripChannelPrefix} from '../messaging'
 import {telemetryFailureCode} from '../telemetry-cli'
 
@@ -529,6 +535,165 @@ describe('the command that puts a matching engine back', () => {
       )
     ).toContain(
       `Reinstall so both are ${VERSION}: pnpm add extension@${VERSION}\n`
+    )
+  })
+})
+
+// What a package manager that left the native binding out makes the engine
+// say, with the require stack a real one prints under its first line.
+const BINDING_MISSING =
+  'throw new Error("Cannot find native binding.\\nRequire stack:\\n- /somewhere/binding.js")\n'
+
+// A binding that is there and is no library, which every platform refuses the
+// same way. The file beside the entry is plain text.
+const BINDING_UNLOADABLE =
+  'import {createRequire} from "node:module"\n' +
+  'createRequire(import.meta.url)("./not-a-library.node")\n'
+
+describe('an installed engine that throws while it loads', () => {
+  const previousDevelopRoot = process.env.EXTENSION_DEVELOP_ROOT
+
+  afterEach(() => {
+    if (previousDevelopRoot === undefined) {
+      delete process.env.EXTENSION_DEVELOP_ROOT
+    } else {
+      process.env.EXTENSION_DEVELOP_ROOT = previousDevelopRoot
+    }
+  })
+
+  it.each(
+    LOADERS
+  )('answers %s with the broken install code, the folder and the first line of the reason', async (_entry, load) => {
+    const {startDir, engineRoot} = installBesideTheCli(
+      engineManifest(CLI_VERSION),
+      BINDING_MISSING
+    )
+
+    Reflect.deleteProperty(process.env, 'EXTENSION_DEVELOP_ROOT')
+
+    const error = (await load(startDir).catch(
+      (caught: unknown) => caught
+    )) as Error & {code?: string}
+
+    expect(error.code).toBe('E_RUNTIME_NOT_FOUND')
+    expect(error.message).toContain(
+      `The build engine at ${engineRoot} could not be loaded`
+    )
+
+    expect(error.message).toContain('REASON Cannot find native binding.\n')
+    expect(error.message).not.toContain('Require stack')
+    expect((error.cause as Error).message).toContain('Require stack')
+    expect(telemetryFailureCode(error.code)).toBe('E_RUNTIME_NOT_FOUND')
+    expect(internalErrorEnvelope(error, 'dev')).toMatchObject({
+      ok: false,
+      command: 'dev',
+      status: 'failed',
+      error: {code: 'E_RUNTIME_NOT_FOUND'}
+    })
+  })
+
+  it('codes a binding the platform refuses to load the same way', async () => {
+    const {startDir, engineRoot} = installBesideTheCli(
+      engineManifest(CLI_VERSION),
+      BINDING_UNLOADABLE
+    )
+
+    fs.writeFileSync(
+      path.join(engineRoot, 'dist', 'not-a-library.node'),
+      'plain text, not a library\n'
+    )
+
+    Reflect.deleteProperty(process.env, 'EXTENSION_DEVELOP_ROOT')
+
+    const error = (await loadExtensionDevelopModule(startDir).catch(
+      (caught: unknown) => caught
+    )) as Error & {code?: string}
+
+    expect((error.cause as {code?: string}).code).toBe('ERR_DLOPEN_FAILED')
+    expect(error.code).toBe('E_RUNTIME_NOT_FOUND')
+    expect(error.message).toContain(engineRoot)
+  })
+
+  it('leaves the failure of the engine a checkout runs as it was thrown', async () => {
+    const root = fs.realpathSync(makeTempFolder('extjs-develop-checkout-'))
+    const engineRoot = path.join(root, 'programs', 'develop')
+    const startDir = path.join(root, 'programs', 'extension', 'dist')
+
+    fs.mkdirSync(startDir, {recursive: true})
+    writeEngine(engineRoot, engineManifest('9.9.9'), BINDING_MISSING)
+
+    const error = (await loadExtensionDevelopModule(startDir).catch(
+      (caught: unknown) => caught
+    )) as Error & {code?: string}
+
+    expect(error.code).toBeUndefined()
+    expect(error.message).toContain('Require stack')
+  })
+})
+
+describe('the way back from an engine that cannot load', () => {
+  // A real absolute folder, so the rule reads the same shape on every host.
+  const under = (...parts: string[]) =>
+    path.join(makeTempFolder('extjs-load-refusal-'), ...parts)
+
+  it.each([
+    [['home', '.npm', '_npx', 'a1b2'], true],
+    [['cache', 'pnpm', 'dlx', 'a1b2', 'pkg'], true],
+    [['tmp', 'bunx-501-extension@latest'], true],
+    [['home', 'project'], false],
+    [['data', 'pnpm', 'global', '5'], false]
+  ])('reads %j as a folder a runner keeps: %s', (above, kept) => {
+    const holder = under(...above)
+    const engineRoot = path.join(holder, 'node_modules', 'extension-develop')
+
+    expect(runnerCacheFolderOf(engineRoot)).toBe(kept ? holder : undefined)
+  })
+
+  it('has no runner folder for an engine outside node_modules', () => {
+    expect(
+      runnerCacheFolderOf(under('_npx', 'extension-develop'))
+    ).toBeUndefined()
+  })
+
+  it('tells a runner install to delete the kept copy, since the runner reuses it', () => {
+    const holder = under('home', '.npm', '_npx', 'a1b2')
+    const engineRoot = path.join(holder, 'node_modules', 'extension-develop')
+    const refusal = developLoadFailure(new Error('no binding'), engineRoot)
+
+    expect(stripChannelPrefix(refusal.message)).toBe(
+      `The build engine at ${engineRoot} could not be loaded, so no command of this install can run.\n` +
+        'REASON no binding\n' +
+        `The runner keeps this copy, so delete ${holder} and run npx extension@${CLI_VERSION} again.`
+    )
+  })
+
+  it('tells any other install the one command that installs it again', () => {
+    expect(
+      stripChannelPrefix(
+        developLoadFailed(
+          '/app/engine',
+          'no binding',
+          'pnpm add extension@1.2.3'
+        )
+      )
+    ).toBe(
+      'The build engine at /app/engine could not be loaded, so no command of this install can run.\n' +
+        'REASON no binding\n' +
+        'Install it again: pnpm add extension@1.2.3'
+    )
+  })
+
+  it('passes on a failure that already carries a catalog code', () => {
+    const coded = Object.assign(new Error('pinned elsewhere'), {
+      code: 'E_CONFIG_LOAD'
+    })
+
+    expect(developLoadFailure(coded, '/app/engine')).toBe(coded)
+  })
+
+  it('says so when the engine threw something with no message', () => {
+    expect(developLoadFailure(new Error(''), '/app/engine').message).toContain(
+      'REASON the engine threw no message\n'
     )
   })
 })

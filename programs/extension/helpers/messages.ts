@@ -377,6 +377,26 @@ export function developVersionMismatch(
   )
 }
 
+// An engine that cannot be imported fails every command the same way, so the
+// refusal names its folder, the engine's own reason and the way back.
+export function developLoadFailed(
+  engineRoot: string,
+  reason: string,
+  reinstall: string,
+  runnerCache?: string
+) {
+  const fix = runnerCache
+    ? `The runner keeps this copy, so delete ${runnerCache} and run ${code(reinstall)} again.`
+    : `Install it again: ${code(reinstall)}`
+
+  return (
+    `${getLoggingPrefix('error')} The build engine at ${engineRoot} could ` +
+    `not be loaded, so no command of this install can run.\n` +
+    `${fmt.label('REASON')} ${fmt.val(reason)}\n` +
+    fix
+  )
+}
+
 // The variable is how a local engine is run on purpose, so a wrong one is said
 // once rather than passed over for the installed engine in silence.
 export function developRootIgnored(envRoot: string) {

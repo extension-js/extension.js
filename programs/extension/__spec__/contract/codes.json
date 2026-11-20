@@ -88,7 +88,7 @@
     },
     "E_RUNTIME_NOT_FOUND": {
       "area": "project",
-      "summary": "The extension-develop runtime is missing, uncompiled or at another version than the CLI."
+      "summary": "The extension-develop runtime is missing, uncompiled, at another version than the CLI, or throws while it loads, as when its native binding was left out of the install."
     },
     "E_MANIFEST_NOT_FOUND": {
       "area": "manifest",
