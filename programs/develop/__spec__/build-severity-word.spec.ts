@@ -199,17 +199,21 @@ describe('a build that fails, read without color (built CLI)', () => {
     expect(result.status).toBe(1)
     expect(result.stdout.split('\n')[0]).toMatch(
       new RegExp(
-        `^${GLYPH} \\[\\d\\d:\\d\\d:\\d\\d\\] Quote Keeper failed to compile with 1 error in \\d+ ms\\.$`
+        `^${GLYPH} \\[\\d\\d:\\d\\d:\\d\\d\\] Quote Keeper failed to compile with 1 error and 1 warning in \\d+ ms\\.$`
       )
     )
 
-    expect(lines[0]).toMatch(
-      new RegExp(
-        `^${GLYPH} Build error in \\./src/background\\.js 1:1-\\d+\\.$`
+    expect(lines.filter((line) => line.includes('Build error in'))).toEqual([
+      expect.stringMatching(
+        new RegExp(
+          `^${GLYPH} Build error in \\./src/background\\.js 1:1-\\d+\\.$`
+        )
       )
-    )
+    ])
 
     expect(lines).toContain(`${GLYPH} Error: Build failed with 1 error.`)
+    // The store hint is about the manifest, so a failed build keeps it.
+    expect(result.stderr).toContain(`${GLYPH} Warning: ${AMO_WARNING}`)
     expect(result.stderr).not.toMatch(/Error: Build error|Error: Error/)
   }, 150_000)
 
@@ -221,8 +225,21 @@ describe('a build that fails, read without color (built CLI)', () => {
 
     expect(result.status).toBe(1)
     expect(frame.ok).toBe(false)
-    expect(frame.error).toEqual(ERROR_FRAME)
-    expect(frame.warnings).toEqual([])
+    expect(frame.error).toEqual({
+      ...ERROR_FRAME,
+      details: [
+        ...ERROR_FRAME.details,
+        {
+          code: 'W_STORE_READINESS',
+          file: 'manifest.json',
+          message: WARNING_FRAME_TEXT.slice('W_STORE_READINESS: '.length),
+          name: 'AmoDataCollectionWarning',
+          severity: 'warning'
+        }
+      ]
+    })
+
+    expect(frame.warnings).toEqual([WARNING_FRAME_TEXT])
     expect(result.stdout).not.toContain(GLYPH)
   }, 150_000)
 })
