@@ -2,10 +2,12 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import type {BrowserLogger} from '../../browsers-types'
 import {
   packageSafariExtension,
   type SafariPipelineMode
 } from '../../run-safari/safari-launch'
+import type {SafariPluginLike} from '../../run-safari/safari-types'
 import {onFakeClock} from '../fake-clock'
 import {type FakeSafariTools, fakeSafariTools} from '../safari-fake-tools'
 
@@ -39,7 +41,12 @@ function capture() {
 
   return {
     lines,
-    logger: {info: push, warn: push, error: push, debug: () => {}} as any
+    logger: {
+      info: push,
+      warn: push,
+      error: push,
+      debug: () => {}
+    } as BrowserLogger
   }
 }
 
@@ -58,7 +65,7 @@ async function run(
       announceDevReady: true,
       tools,
       ...host
-    } as any,
+    } as SafariPluginLike,
     distDir,
     logger,
     mode
