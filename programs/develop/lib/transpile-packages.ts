@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
+import {readPackageJson} from './package-json'
 import type {ParsedJson} from './parse-json-safe'
 import {canonicalizeDir, isResourceUnderDirs} from './resource-path'
 
@@ -87,7 +88,7 @@ function getWorkspaceDependencyNames(projectRoot: string): string[] {
   const packageJsonPath = path.join(projectRoot, 'package.json')
 
   try {
-    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'))
+    const packageJson = readPackageJson(packageJsonPath)
     const dependencySections = [
       packageJson.dependencies,
       packageJson.devDependencies,

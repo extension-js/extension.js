@@ -58,6 +58,10 @@
       "area": "project",
       "summary": "extension.config.js threw while loading or did not export an object."
     },
+    "E_PACKAGE_JSON_INVALID": {
+      "area": "project",
+      "summary": "The project's package.json is not parseable JSON, or is saved as UTF-16."
+    },
     "E_DEPENDENCY_INSTALL": {
       "area": "project",
       "summary": "Installing project dependencies failed."

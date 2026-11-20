@@ -93,6 +93,23 @@ export function manifestInvalidJson(manifestPath: string, error: unknown) {
   )
 }
 
+export function packageJsonInvalid(packageJsonPath: string, reason: string) {
+  return (
+    `${getLoggingPrefix('error')} Couldn't read package.json as JSON.\n` +
+    `${colors.gray('PATH')} ${colors.underline(packageJsonPath)}\n` +
+    `${colors.gray('REASON')} ${colors.red(reason)}\n` +
+    `Fix the file, then run the command again.`
+  )
+}
+
+export function packageJsonNotUtf8(packageJsonPath: string, encoding: string) {
+  return (
+    `${getLoggingPrefix('error')} package.json is saved as ${encoding}, which the build cannot resolve modules through.\n` +
+    `${colors.gray('PATH')} ${colors.underline(packageJsonPath)}\n` +
+    `Save the file as UTF-8 without a byte order mark, then run the command again.`
+  )
+}
+
 export function notAnExtensionManifestError(manifestPath: string) {
   return (
     `${getLoggingPrefix('error')} manifest.json isn't a browser extension manifest.\n` +

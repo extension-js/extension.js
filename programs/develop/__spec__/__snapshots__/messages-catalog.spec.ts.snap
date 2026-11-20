@@ -117,6 +117,8 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "notAnExtensionManifestError: function(1)",
     "operaBuildUnminified: function(0)",
     "optionalCopyFellBack: function(3)",
+    "packageJsonInvalid: function(2)",
+    "packageJsonNotUtf8: function(2)",
     "packagingDistributionFiles: function(1)",
     "packagingSourceFiles: function(1)",
     "previewBuildBrowserMismatch: function(3)",

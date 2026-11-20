@@ -40,13 +40,16 @@ describe('find-nearest-package', () => {
     }
   })
 
-  it('validatePackageJson returns false for missing or invalid JSON', () => {
+  it('validatePackageJson is false for a missing file and refuses invalid JSON', () => {
     const tmp = makeTempDir('extjs-validate-')
     const missing = path.join(tmp, 'missing.json')
     expect(validatePackageJson(missing)).toBe(false)
     const invalid = path.join(tmp, 'package.json')
     fs.writeFileSync(invalid, '{invalid')
-    expect(validatePackageJson(invalid)).toBe(false)
+    expect(() => validatePackageJson(invalid)).toThrow(
+      expect.objectContaining({code: 'E_PACKAGE_JSON_INVALID'})
+    )
+
     fs.writeFileSync(invalid, JSON.stringify({name: 'ok'}))
     expect(validatePackageJson(invalid)).toBe(true)
   })
