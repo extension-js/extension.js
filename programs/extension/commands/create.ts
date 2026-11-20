@@ -10,6 +10,7 @@ import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import type {Command} from 'commander'
 import type {CreateOptions} from 'extension-create'
+import {declaredErrorCode} from '../helpers/cli-failure'
 import {getCliPackageJson} from '../helpers/cli-package-json'
 import {recordDependencyInstall} from '../helpers/dependency-install-outcome'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
@@ -36,53 +37,11 @@ import {parseOptionalBoolean} from '../helpers/vendors'
 
 const require = createRequire(import.meta.url)
 
-// Stopgap: extension-create rethrows one formatted string with no code on it,
-// so the failure class is only readable off the error name or its copy. A spec
-// pins each needle against the real message so a copy edit fails loudly.
-export const CREATE_ERROR_NEEDLES = {
-  E_DESTINATION_NOT_EMPTY: ['already contains files that would be overwritten'],
-  // Every refused write lands inside the destination, the folder itself or a
-  // file the scaffold places in it, and the fix is the same permissions.
-  E_DESTINATION_NOT_WRITABLE: ["Couldn't write "],
-  // A template with no readable manifest is the same refusal class as a
-  // template the catalog does not have, which is what this code documents.
-  E_TEMPLATE_NOT_FOUND: [
-    'is not in the extension-js/templates catalog',
-    "Couldn't read a manifest.json",
-    "Couldn't read the template's",
-    // A path-shaped --template that names neither a directory here nor a
-    // catalog entry is the same refusal class, reported against the path.
-    'that path on this machine'
-  ],
-  E_DEPENDENCY_INSTALL: ["Couldn't install the dependencies"],
-  E_REMOTE_ZIP_INVALID: [
-    "The remote URL doesn't point to a ZIP archive",
-    'The ZIP archive at the remote URL is damaged',
-    'The ZIP archive at the remote URL contains a path outside its folder'
-  ],
-  E_INVALID_OPTION: [
-    'A URL is not a valid project path',
-    // The URL is refused before any request, so it is a value to change and
-    // not a network failure.
-    "Can't download a template over plain HTTP",
-    "Can't scaffold a project inside the template it copies"
-  ]
-} as const
-
+// extension-create puts the code on every failure it frames, so the code
+// travels with the error and a copy edit can never change what a script reads.
+// Anything without a catalog code is a fault nobody classified.
 function createErrorCode(error: unknown): ErrorCode {
-  const name = (error as Error | undefined)?.name || ''
-  if (name === 'TemplateNotFoundError') return CODES.E_TEMPLATE_NOT_FOUND
-  if (name === 'TemplateDownloadError') return CODES.E_NETWORK
-
-  const message = String((error as Error | undefined)?.message || error)
-
-  for (const [code, needles] of Object.entries(CREATE_ERROR_NEEDLES)) {
-    if (needles.some((needle) => message.includes(needle))) {
-      return code as ErrorCode
-    }
-  }
-
-  return CODES.E_INTERNAL
+  return declaredErrorCode(error) ?? CODES.E_INTERNAL
 }
 
 // A missing name was the most common first-run failure. A person at a

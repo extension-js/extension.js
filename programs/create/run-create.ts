@@ -10,7 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {InstallRunner} from './lib/install-runner'
 import * as messages from './lib/messages'
-import {card} from './lib/messaging'
+import {CODES, card} from './lib/messaging'
 import {
   isDenoRuntime,
   resolveProjectPackageManager,
@@ -64,7 +64,7 @@ export async function runCreate(
   seams: CreateSeams = {}
 ): Promise<CreateResult> {
   if (!projectNameInput) {
-    throw new Error(messages.noProjectName())
+    throw new utils.CreateError(messages.noProjectName(), CODES.E_ARGS)
   }
 
   // An omitted template takes the default, which downloads; only that case is
@@ -79,7 +79,7 @@ export async function runCreate(
     : String(template)
 
   if (isUrlProjectName(projectNameInput)) {
-    throw new Error(messages.noUrlAllowed())
+    throw new utils.CreateError(messages.noUrlAllowed(), CODES.E_INVALID_OPTION)
   }
 
   const projectPath = path.isAbsolute(projectNameInput)

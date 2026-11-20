@@ -15,7 +15,7 @@ import {unzipSync} from 'fflate'
 import {cloneInChild} from '../lib/clone-in-child'
 import {formatDuration} from '../lib/format-duration'
 import * as messages from '../lib/messages'
-import {isDebug} from '../lib/messaging'
+import {CODES, isDebug} from '../lib/messaging'
 import * as utils from '../lib/utils'
 
 // In-process unzip with a zip-slip guard: entries naming absolute paths or
@@ -170,7 +170,10 @@ export function resolveTemplateAlias(name: string): string {
     : name
 }
 
+// Each class carries the code the CLI answers with, so the code travels with
+// the error and never depends on the frame it is given.
 export class TemplateNotFoundError extends Error {
+  readonly code = CODES.E_TEMPLATE_NOT_FOUND
   readonly templateName: string
   constructor(templateName: string, cause?: unknown) {
     super(`template not found in catalog: ${templateName}`)
@@ -181,6 +184,7 @@ export class TemplateNotFoundError extends Error {
 }
 
 export class InsecureTemplateUrlError extends Error {
+  readonly code = CODES.E_INVALID_OPTION
   readonly url: string
   constructor(url: string) {
     super(`template URL is not https: ${url}`)
@@ -225,6 +229,7 @@ function findInsecureTemplateUrlError(
 }
 
 export class TemplateDownloadError extends Error {
+  readonly code = CODES.E_NETWORK
   readonly templateName: string
   constructor(templateName: string, cause: unknown) {
     const msg = (cause as {message?: string})?.message ?? String(cause)
@@ -238,6 +243,7 @@ export class TemplateDownloadError extends Error {
 // The URL answered, with something that is not an archive. That is a URL to
 // fix, so it never takes the network frame a failed download gets.
 export class TemplateNotZipError extends Error {
+  readonly code = CODES.E_REMOTE_ZIP_INVALID
   readonly url: string
   readonly got: string
   constructor(url: string, got: string) {
@@ -251,6 +257,7 @@ export class TemplateNotZipError extends Error {
 // The body opened like a ZIP and then would not unpack. It is still the URL's
 // archive to fix, so it is typed and never reaches the sink with a stack.
 export class TemplateArchiveDamagedError extends Error {
+  readonly code = CODES.E_REMOTE_ZIP_INVALID
   readonly url: string
   readonly reason: string
   constructor(url: string, cause: unknown) {
@@ -266,6 +273,7 @@ export class TemplateArchiveDamagedError extends Error {
 // An entry that would land outside the project is refused on purpose, and a
 // retry fetches the same archive, so it is not reported as a damaged one.
 export class TemplateArchiveEntryOutsideError extends Error {
+  readonly code = CODES.E_REMOTE_ZIP_INVALID
   readonly url: string
   readonly entry: string
   constructor(url: string, entry: string) {
@@ -1079,11 +1087,12 @@ export async function importExternalTemplate(
         !outsideTemplate ||
         (!outsideTemplate.startsWith('..') && !path.isAbsolute(outsideTemplate))
       ) {
-        throw new Error(
+        throw new utils.CreateError(
           messages.templateDirectoryIsDestination(
             localTemplateDir,
             path.resolve(projectPath)
-          )
+          ),
+          CODES.E_INVALID_OPTION
         )
       }
     }
@@ -1356,7 +1365,10 @@ export async function importExternalTemplate(
       frame === null
         ? utils.failStep(
             messages.installingFromTemplateError(templateName, error),
-            error
+            error,
+            // Nothing above recognized the fault, so it is not one a user
+            // can act on from the code alone.
+            CODES.E_INTERNAL
           )
         : error
 

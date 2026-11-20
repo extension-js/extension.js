@@ -10,6 +10,7 @@ import {existsSync} from 'node:fs'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import * as messages from '../lib/messages'
+import {CODES} from '../lib/messaging'
 import * as utils from '../lib/utils'
 
 const allowlist = ['LICENSE', 'node_modules']
@@ -50,7 +51,8 @@ export async function createDirectory(
     if (writeFailure) {
       throw utils.failStep(
         messages.destinationNotWriteable(projectPath, writeFailure),
-        writeFailure
+        writeFailure,
+        CODES.E_DESTINATION_NOT_WRITABLE
       )
     }
 
@@ -74,7 +76,10 @@ export async function createDirectory(
         conflictingFiles
       )
 
-      throw new Error(conflictMessage)
+      throw new utils.CreateError(
+        conflictMessage,
+        CODES.E_DESTINATION_NOT_EMPTY
+      )
     }
 
     for (const [hidden, keeping] of Object.entries(
@@ -89,7 +94,10 @@ export async function createDirectory(
     // prints a second glyph and a remedy that has nothing to do with the cause.
     throw utils.failStep(
       messages.createDirectoryError(projectName, error),
-      error
+      error,
+      // The listing and the checks after it read the destination, so a fault
+      // here has the same fix as a destination that refuses the write.
+      CODES.E_DESTINATION_NOT_WRITABLE
     )
   }
 

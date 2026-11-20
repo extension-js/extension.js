@@ -18,12 +18,20 @@ vi.mock('../helpers/telemetry-cli', async (importOriginal) => ({
   markCommandFailure: vi.fn()
 }))
 
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import {extensionCreate} from 'extension-create'
-// The real scaffold copy, imported from source on purpose: createErrorCode
-// substring-matches it, so a copy edit must fail here rather than silently
-// downgrade a real failure to E_INTERNAL.
-import * as createMessages from '../../create/lib/messages'
-import {CREATE_ERROR_NEEDLES, registerCreateCommand} from '../commands/create'
+// The real scaffold steps, imported from source on purpose: the code a
+// failure answers is the one the step puts on the error it throws.
+import {readTemplatePackageJson} from '../../create/lib/find-manifest-json'
+import {runCreate} from '../../create/run-create'
+import {createDirectory} from '../../create/steps/create-directory'
+import {TemplateNotFoundError} from '../../create/steps/import-external-template'
+import {installDependencies} from '../../create/steps/install-dependencies'
+import {setupBuiltInTests} from '../../create/steps/setup-built-in-tests'
+import {writeManifestJson} from '../../create/steps/write-manifest-json'
+import {registerCreateCommand} from '../commands/create'
 import {resolveExtensionDevelopRoot} from '../helpers/extension-develop-runtime'
 import {markCommandFailure} from '../helpers/telemetry-cli'
 import {
@@ -34,6 +42,7 @@ import {
 } from './command-harness'
 
 const savedRoot = process.env.EXTENSION_CREATE_DEVELOP_ROOT
+const quiet = {log: () => {}, error: () => {}}
 
 keepTheScaffolderMocked(registerCreateCommand, extensionCreate)
 
@@ -132,161 +141,127 @@ describe('extension create', () => {
     expect(JSON.parse(String(logSpy.mock.calls[0][0])).schema).toBe(1)
   })
 
-  // Each row renders the CURRENT scaffold message; nothing is hardcoded, so a
-  // rewrite of any of these strings breaks this test instead of the contract.
-  const realMessages: Array<[string, () => Promise<string> | string]> = [
+  // Each row is a real create step failing on a real folder, so the error the
+  // CLI reads is the one the scaffold throws, code and all.
+  const realFailures: Array<
+    [string, string, (dir: string) => Promise<unknown>]
+  > = [
     [
+      'a destination that holds files',
       'E_DESTINATION_NOT_EMPTY',
-      () => createMessages.directoryHasConflicts('/tmp/my-extension', ['a.js'])
+      async (dir) => {
+        fs.writeFileSync(path.join(dir, 'a.js'), '')
+
+        return createDirectory(dir, 'my-extension', quiet)
+      }
     ],
     [
+      'a destination that is a file',
       'E_DESTINATION_NOT_WRITABLE',
-      () => createMessages.destinationNotWriteable('/tmp/my-extension')
+      async (dir) => {
+        const file = path.join(dir, 'file')
+        fs.writeFileSync(file, '')
+
+        return createDirectory(file, 'file', quiet)
+      }
     ],
-    ...[
-      createMessages.writingPackageJsonMetadataError,
-      createMessages.writingDenoJsoncError,
-      createMessages.writingManifestJsonMetadataError,
-      createMessages.writingReadmeMetaDataError,
-      createMessages.writingTypeDefinitionsError
-    ].map((render): [string, () => string] => [
+    [
+      'built-in tests that cannot be set up',
       'E_DESTINATION_NOT_WRITABLE',
-      () => render(new Error('EACCES: permission denied'))
-    ]),
-    [
-      'E_DESTINATION_NOT_WRITABLE',
-      () =>
-        createMessages.writingGitIgnoreError(
-          '/tmp/my-extension/.gitignore',
-          new Error('EACCES: permission denied')
-        )
+      async (dir) => {
+        fs.mkdirSync(path.join(dir, 'tests', 'templates.spec.ts'), {
+          recursive: true
+        })
+
+        return setupBuiltInTests(dir)
+      }
     ],
     [
+      'a template with no manifest.json',
       'E_TEMPLATE_NOT_FOUND',
-      () => createMessages.templateNotFoundInCatalog('nope')
+      async (dir) => writeManifestJson(dir, quiet)
     ],
     [
+      "a template package.json that doesn't parse",
       'E_TEMPLATE_NOT_FOUND',
-      () =>
-        createMessages.templatePackageJsonNotParseable(
-          '/tmp/my-extension/package.json',
-          new SyntaxError('Unexpected end of JSON input')
-        )
+      async (dir) => {
+        fs.writeFileSync(path.join(dir, 'package.json'), '{')
+
+        return readTemplatePackageJson(dir)
+      }
     ],
     [
-      'E_TEMPLATE_NOT_FOUND',
-      () => createMessages.manifestNotFound('/tmp/my-extension', 3)
-    ],
-    [
-      'E_TEMPLATE_NOT_FOUND',
-      () => createMessages.templatePathNotFound('./my-templates/nope')
-    ],
-    [
-      'E_INVALID_OPTION',
-      () =>
-        createMessages.templateDirectoryIsDestination(
-          '/tmp/my-template',
-          '/tmp/my-template/my-extension'
-        )
-    ],
-    [
+      // The install output quotes another step's wording, which a reader
+      // that matched text in order used to answer with that step's code.
+      "an install whose output says Couldn't write",
       'E_DEPENDENCY_INSTALL',
-      () =>
-        createMessages.installingDependenciesFailed(
+      async (dir) => {
+        fs.writeFileSync(
+          path.join(dir, 'package.json'),
+          JSON.stringify({devDependencies: {extension: '4.0.0'}})
+        )
+
+        return installDependencies(
+          dir,
+          'my-extension',
+          quiet,
           'npm',
-          ['install', '--silent'],
-          1,
-          'npm error code ECONNREFUSED'
+          undefined,
+          async () => ({
+            code: 1,
+            stdout: '',
+            stderr: "npm error Couldn't write the cache folder\n"
+          })
         )
+      }
     ],
-    ['E_INVALID_OPTION', () => createMessages.noUrlAllowed()],
     [
+      'a URL given as the project name',
       'E_INVALID_OPTION',
-      () => createMessages.templateUrlNotHttps('http://example.com/t.zip')
+      async () => runCreate('https://example.com/my-extension', {})
     ],
-    [
-      'E_REMOTE_ZIP_INVALID',
-      () =>
-        createMessages.templateUrlNotZip(
-          'https://example.com/t.zip',
-          'text/html'
-        )
-    ],
-    [
-      'E_REMOTE_ZIP_INVALID',
-      () =>
-        createMessages.templateArchiveDamaged(
-          'https://example.com/t.zip',
-          'invalid zip data'
-        )
-    ],
-    [
-      'E_REMOTE_ZIP_INVALID',
-      () =>
-        createMessages.templateArchiveEntryOutside(
-          'https://example.com/t.zip',
-          'examples-main/../escaped.txt'
-        )
-    ]
+    ['no project name', 'E_ARGS', async () => runCreate(undefined, {})]
   ]
 
   it.each(
-    realMessages
-  )('%s: a needle is still present in the real scaffold message', async (code, render) => {
-    const needles =
-      CREATE_ERROR_NEEDLES[code as keyof typeof CREATE_ERROR_NEEDLES]
-    const rendered = await render()
-    expect(needles.some((needle) => rendered.includes(needle))).toBe(true)
-  })
+    realFailures
+  )('%s answers %s in --output json', async (_name, code, fail) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-create-code-'))
 
-  // Every declared needle, not just one per code: a copy edit to the second
-  // needle of a code would otherwise hide behind the first.
-  it('renders every declared needle in a real scaffold message', async () => {
-    const rendered = await Promise.all(
-      realMessages.map(([, render]) => render())
-    )
+    try {
+      const thrown = await fail(dir).then(
+        () => new Error('the step did not fail'),
+        (error: unknown) => error
+      )
 
-    for (const needles of Object.values(CREATE_ERROR_NEEDLES)) {
-      for (const needle of needles) {
-        expect(
-          rendered.some((message) => message.includes(needle)),
-          needle
-        ).toBe(true)
-      }
+      vi.mocked(extensionCreate).mockRejectedValueOnce(thrown)
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+      expect(await run(['create', 'my-extension', '--output', 'json'])).toBe(1)
+      const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
+
+      expect(frame).toMatchObject({
+        schema: 1,
+        ok: false,
+        command: 'create',
+        status: 'failed',
+        value: null,
+        error: {code}
+      })
+    } finally {
+      fs.rmSync(dir, {recursive: true, force: true})
     }
   })
 
-  it.each(
-    realMessages
-  )('%s: a thrown real message maps to that code', async (code, render) => {
-    // The scaffold rewraps the inner message, which is what reaches the CLI.
-    vi.mocked(extensionCreate).mockRejectedValueOnce(
-      new Error(
-        createMessages.createDirectoryError(
-          'my-extension',
-          new Error(await render())
-        )
-      )
-    )
-
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-    expect(await run(['create', 'my-extension', '--output', 'json'])).toBe(1)
-    const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
-    expect(frame).toMatchObject({
-      schema: 1,
-      ok: false,
-      command: 'create',
-      status: 'failed',
-      value: null
-    })
-
-    expect(frame.error.code).toBe(code)
-  })
-
-  it('falls back to E_INTERNAL for an unrecognized failure', async () => {
-    vi.mocked(extensionCreate).mockRejectedValueOnce(
-      new Error('something else broke')
-    )
+  // Only a catalog code counts. Wording, an errno and a made-up code are not.
+  it.each([
+    ['no code', new Error("Couldn't install the dependencies for x.")],
+    ['an errno code', Object.assign(new Error('EACCES'), {code: 'EACCES'})],
+    [
+      'a code outside the catalog',
+      Object.assign(new Error('x'), {code: 'E_NOPE'})
+    ]
+  ])('answers E_INTERNAL for a failure with %s', async (_name, thrown) => {
+    vi.mocked(extensionCreate).mockRejectedValueOnce(thrown)
 
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     expect(await run(['create', 'my-extension', '--output', 'json'])).toBe(1)
@@ -309,10 +284,11 @@ describe('extension create', () => {
     })
   })
 
-  it('maps a TemplateNotFoundError by name', async () => {
-    const error = new Error('template not found in catalog: nope')
-    error.name = 'TemplateNotFoundError'
-    vi.mocked(extensionCreate).mockRejectedValueOnce(error)
+  it('reads the code a typed template error carries', async () => {
+    vi.mocked(extensionCreate).mockRejectedValueOnce(
+      new TemplateNotFoundError('nope')
+    )
+
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     expect(await run(['create', 'my-extension', '--output', 'json'])).toBe(1)
     expect(JSON.parse(String(logSpy.mock.calls[0][0])).error.code).toBe(

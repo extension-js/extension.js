@@ -596,6 +596,17 @@ export function manifestNotParseable(manifestPath: string, error: unknown) {
   )
 }
 
+// A config file the template ships that cannot be read or parsed is the
+// template's to fix, the same refusal a broken package.json gets.
+export function templateFileNotReadable(filePath: string, error: unknown) {
+  return (
+    `${prefix('error')} Couldn't read the template's ${colors.blue(path.basename(filePath))}.\n` +
+    `${fmt.label('PATH')} ${fmt.val(filePath)}\n` +
+    `${fmt.label('REASON')} ${fmt.val(fmt.truncate(String((error as Error | undefined)?.message || error)))}\n` +
+    `${colors.red('Fix that file in the template, then create again.')}`
+  )
+}
+
 // A package.json that exists and does not parse is a broken template. Writing
 // a minimal one in its place would drop the author's dependencies and scripts.
 export function templatePackageJsonNotParseable(
@@ -669,9 +680,9 @@ export function writingDenoJsonc() {
   return `${prefix('debug')} create write file=deno.jsonc`
 }
 
-export function writingDenoJsoncError(error: unknown) {
+export function writingDenoJsoncError(error: unknown, fileName = 'deno.jsonc') {
   return (
-    `${prefix('error')} Couldn't write ${colors.blue('deno.jsonc')}.\n` +
+    `${prefix('error')} Couldn't write ${colors.blue(fileName)}.\n` +
     `${fmt.label('REASON')} ${fmt.val(fmt.truncate(String(error)))}\n` +
     `${colors.red('Check the file permissions, then try again.')}`
   )
