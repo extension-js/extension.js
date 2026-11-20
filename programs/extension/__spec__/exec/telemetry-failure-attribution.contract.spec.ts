@@ -75,13 +75,16 @@ describe('a failed run names its command and the code the CLI chose', () => {
     close = undefined
   })
 
-  // The parser refuses a dev flag placed before the verb, and the report
-  // still has to name dev and not the flag's value.
+  // A dev flag placed before the verb is read as dev's, and a refusal after
+  // it still has to name dev and not the flag's value.
   it('names dev, not chrome, when --browser chrome comes before the verb', async () => {
     const server = await startCaptureServer()
     close = server.close
 
-    const status = await run(['--browser', 'chrome', 'dev'], server.port)
+    const status = await run(
+      ['--browser', 'chrome', 'dev', '--no-such-flag'],
+      server.port
+    )
 
     expect(status).toBe(1)
     expect(failures(server.events)).toHaveLength(1)

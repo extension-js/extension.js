@@ -126,6 +126,106 @@ describe('run() in process', () => {
   })
 })
 
+describe('parse failures in run()', () => {
+  it('sends an unknown root option with a value to the root help', async () => {
+    const fake = fakeDeps()
+
+    expect(
+      await run(argv('-o', 'json', 'build', '--output', 'json'), fake.deps)
+    ).toBe(1)
+
+    expect(fake.stderr()).toBe(
+      '⏵⏵⏵ Error: Unknown option -o.\n' +
+        'Run extension --help to see the options.\n'
+    )
+
+    expect(fake.frames).toEqual([
+      expect.objectContaining({
+        command: 'extension',
+        status: 'usage',
+        error: {
+          code: 'E_FLAG_NOT_SUPPORTED_HERE',
+          message: 'Unknown option -o.',
+          name: 'CliError',
+          refs: {flag: '-o'}
+        },
+        hint: 'Run extension --help to see the options.'
+      })
+    ])
+  })
+
+  it('frames the copy stderr prints, with the remedy as the hint', async () => {
+    const fake = fakeDeps()
+
+    expect(
+      await run(argv('dev', '--nope', '--output', 'json'), fake.deps)
+    ).toBe(1)
+
+    expect(fake.stderr()).toBe(
+      '⏵⏵⏵ Error: Unknown option --nope.\nDid you mean --no-open?\n'
+    )
+
+    expect(fake.frames).toEqual([
+      expect.objectContaining({
+        command: 'dev',
+        error: {
+          code: 'E_FLAG_NOT_SUPPORTED_HERE',
+          message: 'Unknown option --nope.',
+          name: 'CliError',
+          refs: {flag: '--nope'}
+        },
+        hint: 'Did you mean --no-open?'
+      })
+    ])
+  })
+
+  it.each([
+    [['build', '--browser', '--output', 'json'], 'build', '--browser'],
+    [['dev', '--browser', '--output', 'json'], 'dev', '--browser'],
+    [['dev', '--output', 'json', '--browser'], 'dev', '--browser'],
+    [['build', '--zip-filename', '--output', 'json'], 'build', '--zip-filename']
+  ])('%j answers a flag left without its value', async (args, command, flag) => {
+    const fake = fakeDeps()
+
+    expect(await run(argv(...args), fake.deps)).toBe(1)
+    expect(fake.stderr()).toBe(
+      `⏵⏵⏵ Error: Missing value for ${flag}.\n` +
+        `Run extension ${command} --help to see the options.\n`
+    )
+
+    expect(fake.frames).toEqual([
+      expect.objectContaining({
+        command,
+        status: 'usage',
+        error: {
+          code: 'E_FLAG_VALUE_INVALID',
+          message: `Missing value for ${flag}.`,
+          name: 'CliError',
+          refs: {flag}
+        }
+      })
+    ])
+  })
+
+  // The trailing unknown flag stops the run inside the command's own parse,
+  // which proves the flags typed first reached that command.
+  it.each([
+    [['--browser', 'chrome', 'dev', '--nope']],
+    [['--browser=chrome', 'dev', '--nope']],
+    [['--port', '3000', 'dev', '--nope']]
+  ])('%j reads a command flag typed before the command', async (args) => {
+    const fake = fakeDeps()
+
+    expect(await run(argv(...args, '--output', 'json'), fake.deps)).toBe(1)
+    expect(fake.frames).toEqual([
+      expect.objectContaining({
+        command: 'dev',
+        error: expect.objectContaining({refs: {flag: '--nope'}})
+      })
+    ])
+  })
+})
+
 describe('the deprecated --format alias in run()', () => {
   // The refusal exits through the command's own hook, which calls process.exit.
   it('names --format, the flag the user typed, when its value is refused', async () => {

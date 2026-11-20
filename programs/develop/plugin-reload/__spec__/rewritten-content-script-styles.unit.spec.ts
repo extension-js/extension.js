@@ -5,6 +5,7 @@ import {
   fakeCompiler
 } from '../../plugin-browsers/__spec__/fake-compiler'
 import {BrowsersPlugin} from '../../plugin-browsers/index'
+import type {BrowserType} from '../../types'
 import type {ReloadBroker, ReloadInstruction} from '../index'
 
 const CONTEXT = '/tmp/ext'
@@ -25,7 +26,10 @@ interface Emitted {
 
 // Gecko registers the manifest it loaded, and a content script stylesheet
 // keeps one name across compiles while a bundle is renamed by its hash.
-function createHarness(browser = 'firefox', broker?: ReloadBroker) {
+function createHarness(
+  browser: BrowserType = 'firefox',
+  broker?: ReloadBroker
+) {
   const reload = vi.fn<(instruction: ReloadInstruction) => void>()
   const plugin = new BrowsersPlugin({
     launcher: vi.fn().mockResolvedValue({

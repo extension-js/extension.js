@@ -668,6 +668,24 @@ describe('extension start --output json', () => {
     ])
   })
 
+  it.each([
+    [
+      'E_MANIFEST_NOT_FOUND',
+      'Add a manifest.json at the project root or in src/, or pass the folder that holds it.'
+    ],
+    [
+      'E_MANIFEST_IN_PUBLIC',
+      'Move manifest.json out of public/ to the project root or src/. Files in public/ are copied to the output as they are.'
+    ]
+  ])('frames %s from the build as usage with the way out', async (code, hint) => {
+    build = async () => {
+      throw Object.assign(new Error('Manifest file not found.'), {code})
+    }
+
+    expect(await run(['start', '.', '--output', 'json'])).toBe(1)
+    expect(frames()).toMatchObject([{status: 'usage', error: {code}, hint}])
+  })
+
   it('keeps the code the build declared in the frame and the failure row', async () => {
     build = async () => {
       throw Object.assign(new Error('The bundler crashed'), {

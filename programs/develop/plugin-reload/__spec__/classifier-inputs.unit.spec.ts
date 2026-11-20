@@ -12,6 +12,7 @@ import {
   BrowsersPlugin,
   type CompiledEvent
 } from '../../plugin-browsers/index'
+import type {BrowserType} from '../../types'
 import {classifyReloadFromSources, type ReloadBroker} from '../index'
 
 const CONTEXT = '/tmp/ext'
@@ -60,7 +61,7 @@ interface Build {
 // frame it is asked to send and says one producer took it.
 function session(
   options: {
-    browser?: string
+    browser?: BrowserType
     launcher?: Launcher
     broker?: boolean
     context?: string
