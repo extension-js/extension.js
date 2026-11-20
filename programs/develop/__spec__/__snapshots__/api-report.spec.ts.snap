@@ -1,0 +1,214 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`the public API of the package, entry by entry > reports what . exports > . 1`] = `
+"BrowserConfig (type)
+BrowserController (type)
+BrowserLaunchOptions (type)
+BrowserLauncherFn (type)
+BrowserType (type)
+BuildEmitter
+BuildEmitter (type)
+BuildErrorEvent (type)
+BuildOptions (type)
+BuildSummary (type)
+CompanionExtensionsConfig (type)
+CompiledEvent (type)
+DevOptions (type)
+ErrorCode (type)
+FileConfig (type)
+Manifest (type)
+PreviewOptions (type)
+ReloadInstruction (type)
+ReloadType (type)
+SafariPackageSummary (type)
+SafariPackagerFn (type)
+SafariPackagerOverrides (type)
+StartOptions (type)
+endSessionAsFailed
+extensionBuild
+extensionDev
+extensionPreview
+loadCommandConfig
+loadProjectConfigDefaults"
+`;
+
+exports[`the public API of the package, entry by entry > reports what ./bridge exports > ./bridge 1`] = `
+"AnyFrame (type)
+BootRegistrationsFrame (type)
+BootRegistrationsOutcome (type)
+BridgeConsumer
+BridgeController
+BridgeEngine (type)
+BridgeRefusalCode (type)
+BridgeRole (type)
+BridgeTarget (type)
+CLOSE_BAD_HELLO
+CLOSE_BAD_INSTANCE
+CLOSE_CONTROL_UNAVAILABLE
+CLOSE_SLOW_CONSUMER
+CLOSE_TOKEN_REQUIRED
+CONTROL_ENVELOPE_VERSION
+CONTROL_WS_PATH
+ClientFrame (type)
+CommandFrame (type)
+CommandInput (type)
+CommandOp (type)
+ConsumerCloseInfo (type)
+ConsumerOptions (type)
+ControllerOptions (type)
+DevReloadKind (type)
+DxSignalStatus (type)
+GapFrame (type)
+GapReason (type)
+HelloFrame (type)
+IncomingLogEvent (type)
+LOG_CONTEXTS
+LOG_EVENT_VERSION
+LOG_LEVEL_FILTERS
+LOG_LEVEL_ORDER
+LateReloadRestart (type)
+LogContext (type)
+LogEvent (type)
+LogEventType (type)
+LogFrame (type)
+LogLevel (type)
+LogQuery (type)
+LogSince (type)
+PingFrame (type)
+PlaywrightAutomationCommand (type)
+REFUSAL_API_UNAVAILABLE
+REFUSAL_EXTENSION_LOAD_REFUSED
+REFUSAL_NEEDS_HEADED_WINDOW
+REFUSAL_NEEDS_USER_GESTURE
+REFUSAL_NO_BACKGROUND
+REFUSAL_SURFACE_NOT_DECLARED
+REFUSAL_SURFACE_NOT_OPEN
+REFUSAL_SURFACE_REPLY_FAILED
+REFUSAL_TAB_NOT_FOUND
+REFUSAL_URL_REFUSED
+ReadyContract (type)
+ReadyContractDocument (type)
+ReadyContractInfo (type)
+ReadyFrame (type)
+ReadyMetadata (type)
+ReadyStatus (type)
+ReloadAckFrame (type)
+ReloadAckOutcome (type)
+ReloadFrame (type)
+ReloadRestartOutcome (type)
+ReloadType (type)
+ResultFrame (type)
+ServerFrame (type)
+actionsPath
+browserArtifactsDir
+browserDistDir
+browserProfileRootDir
+buildSummaryPath
+controlPortFilePath
+controlTokenPath
+eventsPath
+isAfterSince
+logLevelRank
+logQueryProblem
+logsPath
+matchesLogQuery
+parseLogLevelFilter
+parseLogSince
+readControlToken
+readLogEvents
+readPersistedControlPort
+readReadyContract
+readReadyContractDocument
+readyContractPath
+resolveSessionProjectRoot
+sessionArtifactsRootDir
+sessionStateDir
+unknownLogContexts"
+`;
+
+exports[`the public API of the package, entry by entry > reports what ./contracts exports > ./contracts 1`] = `
+"AnyFrame (type)
+BootRegistrationsFrame (type)
+BootRegistrationsOutcome (type)
+BridgeEngine (type)
+BridgeRefusalCode (type)
+BridgeRole (type)
+BridgeTarget (type)
+CLOSE_BAD_HELLO
+CLOSE_BAD_INSTANCE
+CLOSE_CONTROL_UNAVAILABLE
+CLOSE_SLOW_CONSUMER
+CLOSE_TOKEN_REQUIRED
+CONTROL_ENVELOPE_VERSION
+CONTROL_WS_PATH
+ClientFrame (type)
+CommandFrame (type)
+CommandOp (type)
+DevReloadKind (type)
+DxSignalStatus (type)
+GapFrame (type)
+GapReason (type)
+HelloFrame (type)
+IncomingLogEvent (type)
+LOG_CONTEXTS
+LOG_EVENT_VERSION
+LOG_LEVEL_FILTERS
+LOG_LEVEL_ORDER
+LateReloadRestart (type)
+LogContext (type)
+LogEvent (type)
+LogEventLike (type)
+LogEventType (type)
+LogFrame (type)
+LogLevel (type)
+LogLevelFilter (type)
+LogQuery (type)
+LogSince (type)
+PingFrame (type)
+REFUSAL_API_UNAVAILABLE
+REFUSAL_EXTENSION_LOAD_REFUSED
+REFUSAL_NEEDS_HEADED_WINDOW
+REFUSAL_NEEDS_USER_GESTURE
+REFUSAL_NO_BACKGROUND
+REFUSAL_SURFACE_NOT_DECLARED
+REFUSAL_SURFACE_NOT_OPEN
+REFUSAL_SURFACE_REPLY_FAILED
+REFUSAL_TAB_NOT_FOUND
+REFUSAL_URL_REFUSED
+ReadyFrame (type)
+ReloadAckFrame (type)
+ReloadAckOutcome (type)
+ReloadFrame (type)
+ReloadRestartOutcome (type)
+ReloadType (type)
+ResultFrame (type)
+ServerFrame (type)
+isAfterSince
+logLevelRank
+logQueryProblem
+matchesLogQuery
+parseLogLevelFilter
+parseLogSince
+unknownLogContexts"
+`;
+
+exports[`the public API of the package, entry by entry > reports what ./manifest exports > ./manifest 1`] = `
+"FilterKeysOptions (type)
+LocalizableManifest (type)
+LocalizedNameOptions (type)
+WebkitDroppedPage (type)
+WebkitUnsupportedKey (type)
+filterKeysForThisBrowser
+findDroppedVendorKeys
+resolveLocalizedManifestName
+webkitDroppedSurfacePages
+webkitUnsupportedManifestKeys
+webkitUnsupportedPermissions"
+`;
+
+exports[`the public API of the package, entry by entry > reports what ./preview exports > ./preview 1`] = `
+"PreviewLauncherFn (type)
+PreviewOptions (type)
+ResolvedPreviewOptions (type)
+extensionPreview"
+`;
