@@ -41,7 +41,10 @@ describe('get-extension-config defaults', () => {
       rspack
     })
     const obj = {a: 1}
-    expect(identity(obj as any)).toEqual(obj)
+    expect(identity(obj as unknown as Parameters<typeof identity>[0])).toEqual(
+      obj
+    )
+
     expect(await loadCommandConfig(tmp, 'dev')).toEqual({})
     const browser = await loadBrowserConfig(tmp, 'chrome')
     expect(browser.browser).toBe('chrome')

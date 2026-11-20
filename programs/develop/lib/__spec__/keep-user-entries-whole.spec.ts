@@ -86,7 +86,10 @@ describe('keepUserEntriesWhole', () => {
       }
     }
     const next = applySplitChunksGuard(config)
-    const split = next.optimization?.splitChunks as any
+    const split = next.optimization?.splitChunks as {
+      chunks: unknown
+      cacheGroups: Record<string, {enforce?: boolean; chunks?: unknown}>
+    }
     expect(split.chunks).toBe('async')
     expect(split.cacheGroups.off).toBe(false)
     expect(split.cacheGroups.vendor.enforce).toBe(true)

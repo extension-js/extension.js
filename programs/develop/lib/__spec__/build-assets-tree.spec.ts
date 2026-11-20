@@ -7,7 +7,7 @@ const makeStats = (assets: {name: string; size: number}[]) =>
     toJson: () => ({assets, time: 10}),
     hasErrors: () => false,
     compilation: {outputOptions: {path: '/abs/out/chrome'}}
-  }) as any
+  }) as unknown as Parameters<typeof buildAssetsTree>[0]
 
 const strip = (value: string) => value.replace(/\[[0-9;]*m/g, '')
 
