@@ -310,8 +310,15 @@ describe('the ReadyContract type in types.ts', () => {
     })
     first.writer.writeStarting()
 
+    // The first write carries pidStartId on Linux alone, so the type keeps
+    // it optional and it is left out of the comparison on every system.
     expect(fieldsOfReadyContract('required')).toEqual(
-      Object.keys(first.read()).sort()
+      Object.keys(first.read())
+        .filter((field) => field !== 'pidStartId')
+        .sort()
     )
+
+    expect(fieldsOfReadyContract('all')).toContain('pidStartId')
+    expect('pidStartId' in first.read()).toBe(process.platform === 'linux')
   })
 })

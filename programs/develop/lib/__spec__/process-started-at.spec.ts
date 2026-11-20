@@ -137,4 +137,48 @@ describe('processStartId', () => {
       expect(processStartId(process.ppid)).not.toBe(own)
     }
   )
+
+  it.runIf(process.platform === 'linux')(
+    'reads the start tick of a process whose name holds spaces and a parenthesis',
+    async () => {
+      const {spawn} = await import('node:child_process')
+      const fs = await import('node:fs')
+      const os = await import('node:os')
+      const path = await import('node:path')
+      const {processStartId} = await import('../process-started-at')
+      const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-comm-'))
+      const named = path.join(folder, 'a b) (c')
+      const uptime = () =>
+        Number(fs.readFileSync('/proc/uptime', 'utf8').split(' ')[0])
+
+      fs.copyFileSync(process.execPath, named)
+      fs.chmodSync(named, 0o755)
+
+      const before = uptime()
+      const child = spawn(named, ['-e', 'setTimeout(() => {}, 30000)'], {
+        stdio: 'ignore'
+      })
+
+      try {
+        await new Promise((resolve) => child.once('spawn', resolve))
+
+        const pid = Number(child.pid)
+        const after = uptime()
+        const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8')
+        const [bootId, ticks] = String(processStartId(pid)).split(':')
+
+        expect(stat).toContain('(a b) (c)')
+        expect(bootId).toBe(
+          fs.readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim()
+        )
+
+        // The kernel counts a start in hundredths of a second since boot.
+        expect(Number(ticks) / 100).toBeGreaterThanOrEqual(before - 0.02)
+        expect(Number(ticks) / 100).toBeLessThanOrEqual(after + 0.02)
+      } finally {
+        child.kill('SIGKILL')
+        fs.rmSync(folder, {recursive: true, force: true})
+      }
+    }
+  )
 })

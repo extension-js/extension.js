@@ -52,9 +52,10 @@ const GATED_CONFIG = `module.exports = {config: (config) => {
   config.plugins = [...(config.plugins || []), {apply(compiler) {
     compiler.hooks.beforeRun.tapPromise('spec-gate', async () => {
       const gate = globalThis.__hostEnvGates || {}
+      const parts = String(compiler.options.output.path).split(/[\\\\/]/)
       const name = Object.keys(gate).find((browser) =>
-        new RegExp('[\\\\/]dist[\\\\/][^\\\\/]*' + browser).test(
-          String(compiler.options.output.path)
+        parts.some(
+          (part, at) => parts[at - 1] === 'dist' && part.includes(browser)
         )
       )
 
