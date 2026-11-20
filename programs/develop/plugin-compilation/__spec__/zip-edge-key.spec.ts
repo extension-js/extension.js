@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest'
-import {buildCanonicalManifest} from '../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
+import {buildCanonicalManifestWithOverrides} from '../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import {dropEdgeStoreKey} from '../zip-edge-key'
 
 describe('dropEdgeStoreKey', () => {
@@ -44,11 +44,11 @@ describe('dropEdgeStoreKey', () => {
   // `key`, which is exactly the manifest Partner Center refuses.
   it('catches the key that edge: and chromium: prefixes resolve into', () => {
     for (const prefixed of ['edge:key', 'chromium:key']) {
-      const resolved = buildCanonicalManifest(
+      const resolved = buildCanonicalManifestWithOverrides(
         '/tmp/manifest.json',
         {name: 'x', manifest_version: 3, [prefixed]: 'store-key'} as any,
         'edge'
-      ) as any
+      ).manifest as any
       expect(resolved.key).toBe('store-key')
       expect(dropEdgeStoreKey(resolved, 'edge').manifest).not.toHaveProperty(
         'key'
@@ -57,11 +57,11 @@ describe('dropEdgeStoreKey', () => {
   })
 
   it('does not disturb a chrome build, where the key is legitimate', () => {
-    const resolved = buildCanonicalManifest(
+    const resolved = buildCanonicalManifestWithOverrides(
       '/tmp/manifest.json',
       {name: 'x', manifest_version: 3, 'chrome:key': 'store-key'} as any,
       'chrome'
-    ) as any
+    ).manifest as any
     expect(dropEdgeStoreKey(resolved, 'chrome').manifest.key).toBe('store-key')
   })
 })

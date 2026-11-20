@@ -6,7 +6,7 @@ import {
   reportIconVariantsFallback,
   resetIconVariantsNotice
 } from '../icon-variants-fallback'
-import {buildCanonicalManifest} from '../manifest'
+import {buildCanonicalManifestWithOverrides} from '../manifest'
 
 const variants = [
   {16: 'icons/dark-16.png', 32: 'icons/dark-32.png', color_schemes: ['dark']},
@@ -168,21 +168,21 @@ describe('icon_variants fallback', () => {
       'chromium:icon_variants': [{16: '/icons/c-16.png'}],
       'firefox:icon_variants': [{16: 'icons/f-16.png'}]
     }
-    const chrome = buildCanonicalManifest(
+    const chrome = buildCanonicalManifestWithOverrides(
       '/p/manifest.json',
       manifest as any,
       'chrome'
-    )
-    const firefox = buildCanonicalManifest(
+    ).manifest
+    const firefox = buildCanonicalManifestWithOverrides(
       '/p/manifest.json',
       manifest as any,
       'firefox'
-    )
-    const safari = buildCanonicalManifest(
+    ).manifest
+    const safari = buildCanonicalManifestWithOverrides(
       '/p/manifest.json',
       manifest as any,
       'safari'
-    )
+    ).manifest
 
     expect((chrome as any).icon_variants).toEqual([{16: 'icons/c-16.png'}])
     expect((firefox as any).icon_variants).toEqual([{16: 'icons/f-16.png'}])
@@ -203,7 +203,7 @@ describe('icon_variants fallback', () => {
 
   it('hands Safari a manifest with icons when the source has only variants', () => {
     const text = capture()
-    const safari = buildCanonicalManifest(
+    const safari = buildCanonicalManifestWithOverrides(
       '/p/manifest.json',
       {
         manifest_version: 3,
@@ -213,7 +213,7 @@ describe('icon_variants fallback', () => {
         action: {icon_variants: variants}
       } as any,
       'safari'
-    )
+    ).manifest
 
     expect((safari as any).icons).toEqual({16: 'icons/light-16.png'})
     expect((safari as any).action.default_icon).toEqual({

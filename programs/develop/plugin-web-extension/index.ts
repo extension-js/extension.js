@@ -106,13 +106,7 @@ export class WebExtensionPlugin {
       browser: this.browser,
       devSession: this.devSession,
       connectableHost: this.connectableHost,
-      manifestPath,
-      includeList: {
-        ...manifestFieldsData.html,
-        ...(manifestFieldsData.icons as FilepathList),
-        ...manifestFieldsData.json,
-        ...manifestFieldsData.scripts
-      }
+      manifestPath
     }).apply(compiler)
 
     const pageEntries = forThisBuild(

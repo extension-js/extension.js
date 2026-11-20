@@ -144,7 +144,7 @@ interface SourceCompilation extends EmittedCompilation {
 
 // The emitted script proves the address ships. The project file that spells
 // it is the one the author edits, so it is named when one is found.
-function sourceFileOf(
+export function sourceFileOf(
   compilation: SourceCompilation,
   address: string,
   projectPath: string
@@ -155,7 +155,7 @@ function sourceFileOf(
         const resource = scannableSourcePath(module.resource)
         if (!resource) continue
 
-        if (readProjectSource(resource)?.includes(address)) {
+        if (readProjectSource(resource, compilation)?.includes(address)) {
           return relativeToProject(projectPath, resource)
         }
       }

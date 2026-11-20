@@ -9,12 +9,12 @@
 import * as path from 'node:path'
 import {Compilation, type Compiler, sources} from '@rspack/core'
 import {appendDevAdditions} from '../../../lib/dev-additions'
-import {isStaticThemeSource} from '../../../lib/manifest-utils'
 import type {DevOptions, PluginInterface} from '../../../types'
 import {isWebkitUnsupportedPermission} from '../manifest-lib/filter-keys-safari'
 import {
   getManifestContent,
   getOriginalManifest,
+  isStaticThemeCompilation,
   setCurrentManifestContent
 } from '../manifest-lib/manifest'
 import {findShadowedPermission} from '../manifest-lib/shadowed-declaration'
@@ -220,7 +220,15 @@ export class ApplyDevDefaults {
 
             // A static theme is validated against the theme schema, which
             // forbids every key below: injecting them is 4 AMO hard errors.
-            if (isStaticThemeSource(this.manifestPath, this.browser)) return
+            if (
+              isStaticThemeCompilation(
+                compilation,
+                this.manifestPath,
+                this.browser
+              )
+            ) {
+              return
+            }
 
             const canonicalManifest = getManifestContent(
               compilation,

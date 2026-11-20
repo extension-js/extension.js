@@ -1,13 +1,13 @@
 import {describe, expect, it} from 'vitest'
 import type {Manifest} from '../../../../types'
-import {buildCanonicalManifest} from '../manifest'
+import {buildCanonicalManifestWithOverrides} from '../manifest'
 
 function canonical(manifest: Record<string, unknown>, browser: string) {
-  return buildCanonicalManifest(
+  return buildCanonicalManifestWithOverrides(
     '/p/manifest.json',
     manifest as unknown as Manifest,
     browser as never
-  ) as Record<string, any>
+  ).manifest as Record<string, any>
 }
 
 describe('sidebar pair translation', () => {
