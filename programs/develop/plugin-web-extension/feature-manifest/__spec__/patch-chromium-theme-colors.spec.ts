@@ -13,13 +13,19 @@ describe('translateThemeColor', () => {
     expect(translateThemeColor(' #000 ')).toEqual([0, 0, 0])
   })
 
+  it('reads a CSS color name in any case, to its one [R, G, B]', () => {
+    expect(translateThemeColor('black')).toEqual([0, 0, 0])
+    expect(translateThemeColor(' Blue ')).toEqual([0, 0, 255])
+    expect(translateThemeColor('rebeccapurple')).toEqual([102, 51, 153])
+  })
+
   it('reads rgb() with three whole channels', () => {
     expect(translateThemeColor('rgb(0, 0, 0)')).toEqual([0, 0, 0])
     expect(translateThemeColor('RGB(255,128,0)')).toEqual([255, 128, 0])
   })
 
-  // Each of these has no single exact [R, G, B] reading, or needs a table
-  // the author should see, so the build refuses instead of guessing.
+  // Each of these has no single exact [R, G, B] reading, so the build
+  // refuses instead of guessing.
   it.each([
     '#00000080',
     '#000f',
@@ -29,7 +35,9 @@ describe('translateThemeColor', () => {
     'rgb(300, 0, 0)',
     'rgb(0, 0)',
     'hsl(0, 100%, 50%)',
-    'red',
+    'notacolor',
+    'constructor',
+    'currentcolor',
     'transparent',
     '#00',
     '#ggg',
