@@ -1700,8 +1700,8 @@ function getWarningBody(warning: LooseBuildWarning): string {
     .join('\n')
 }
 
-export function isUsingExperimentalConfig(integration: unknown) {
-  return `${prefix('debug')} config   using=${String(integration)}`
+export function debugConfigFileInUse(fileName: string) {
+  return `${prefix('debug')} config   using=${fileName}`
 }
 
 export function debugDirs(manifestDir: string, packageJsonDir: string) {
