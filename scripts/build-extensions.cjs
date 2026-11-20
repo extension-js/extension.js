@@ -89,7 +89,7 @@ function main() {
           stdio: verbose ? 'inherit' : 'pipe',
           env: childEnv
         })
-      } catch (error) {
+      } catch (/** @type {any} */ error) {
         if (!verbose) printChildOutput(error)
 
         throw error
@@ -147,7 +147,7 @@ function main() {
           stdio: verbose ? 'inherit' : 'pipe',
           env: childEnv
         })
-      } catch (error) {
+      } catch (/** @type {any} */ error) {
         if (!verbose) printChildOutput(error)
 
         throw new Error(
@@ -264,6 +264,7 @@ function main() {
     }
 
     const stampPath = path.join(base, STAMP_FILE)
+    /** @type {any} */
     let stamp = null
 
     try {
@@ -294,7 +295,7 @@ function main() {
   for (const packageName of listExtensionPackages()) {
     try {
       mirrorExtension(packageName, rebuildExtension(packageName), pipeline)
-    } catch (error) {
+    } catch (/** @type {any} */ error) {
       console.error(String(error?.message || error))
       failed.push(packageName)
     }
@@ -319,7 +320,7 @@ module.exports = {BUNDLED_PACKAGES, ENGINES}
 if (require.main === module) {
   try {
     main()
-  } catch (error) {
+  } catch (/** @type {any} */ error) {
     console.error(String(error?.message || error))
     process.exitCode = 1
   }

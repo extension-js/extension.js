@@ -24,22 +24,7 @@ const EXCLUDED_SCRIPTS = [
   './scripts/__spec__/smoke-npx.spec.mjs',
   './scripts/__spec__/spec-path-gates.spec.mjs',
   './scripts/__spec__/spec-temp-folder.spec.mjs',
-  './scripts/__spec__/verify-npm-publish.spec.mjs',
-  './scripts/build-extensions.cjs',
-  './scripts/build-with-manifest.mjs',
-  './scripts/bump-release-gates.mjs',
-  './scripts/check-emitted-types.mjs',
-  './scripts/check-messaging.mjs',
-  './scripts/format-wrapper.cjs',
-  './scripts/generate-release-notes.mjs',
-  './scripts/nightly-dev-smoke.mjs',
-  './scripts/pre-commit-lint-staged.mjs',
-  './scripts/run-locked.mjs',
-  './scripts/run-optional-deps-smoke.mjs',
-  './scripts/smoke-npx.mjs',
-  './scripts/validate-bun-runtime.mjs',
-  './scripts/validate-deno-runtime.mjs',
-  './scripts/verify-edge-system-locate.mjs'
+  './scripts/__spec__/verify-npm-publish.spec.mjs'
 ]
 
 function readTsconfig(file) {
