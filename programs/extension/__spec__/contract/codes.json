@@ -160,7 +160,9 @@
     },
     "E_BACKGROUND_REQUIRED": {
       "area": "compile",
-      "summary": "The reload runtime needs a background chunk that is absent."
+      "summary": "The reload runtime needs a background chunk that is absent.",
+      "reserved": true,
+      "reason": "A missing background script is reported by the scripts feature as E_ENTRY_NOT_FOUND in every mode, so the reload pipeline raises this code nowhere."
     },
     "E_CONTENT_SCRIPT_SYNTAX": {
       "area": "compile",

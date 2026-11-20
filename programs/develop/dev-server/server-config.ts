@@ -29,39 +29,61 @@ import {
   type EmulatorFileIndexHolder
 } from './emulator-lane'
 
-// Both separators, either letter case and the long-path prefix name one
-// file on Windows, so two spellings of a path compare equal here.
-function comparablePath(filePath: string) {
-  const forward = filePath.replace(/\\/g, '/').replace(/^\/\/\?\//, '')
+// A drive letter, a backslash or the long-path prefix names a Windows path,
+// and Windows ignores letter case.
+function isWindowsShaped(filePath: string) {
+  return (
+    /^[a-z]:/i.test(filePath) ||
+    /\\/.test(filePath) ||
+    filePath.startsWith('//?/')
+  )
+}
 
-  return path.posix.normalize(forward).toLowerCase()
+// Windows and the default macOS volume ignore letter case. Linux does not,
+// so there a MANIFEST.JSON at the output root is a file of its own.
+function foldsCase(paths: Array<string | undefined>, platform: string) {
+  if (platform === 'win32' || platform === 'darwin') return true
+
+  return paths.some((filePath) => filePath && isWindowsShaped(filePath))
+}
+
+// Both separators and the long-path prefix name one file on Windows, so two
+// spellings of a path compare equal here.
+function comparablePath(filePath: string, fold: boolean) {
+  const forward = filePath.replace(/\\/g, '/').replace(/^\/\/\?\//, '')
+  const normalized = path.posix.normalize(forward)
+
+  return fold ? normalized.toLowerCase() : normalized
 }
 
 // Only manifest.json at the root of the output folder is the extension's own.
 // A nested one is an ordinary file, copied the way a production build does.
 export function isRootManifestPath(
   filePath: string,
-  outputPath: string | undefined
+  outputPath: string | undefined,
+  platform: string = process.platform
 ) {
-  const file = comparablePath(filePath)
+  const fold = foldsCase([filePath, outputPath], platform)
+  const file = comparablePath(filePath, fold)
 
   if (file === 'manifest.json') return true
 
   // With no output folder to compare against, protect every manifest.json.
   if (!outputPath) return /(?:^|\/)manifest\.json$/.test(file)
 
-  return file === comparablePath(`${outputPath}/manifest.json`)
+  return file === comparablePath(`${outputPath}/manifest.json`, fold)
 }
 
 export function shouldWriteAssetToDisk(
   filePath: string,
-  outputPath: string | undefined
+  outputPath: string | undefined,
+  platform: string = process.platform
 ) {
   // A `..` segment means an emitted asset NAME escapes the output dir; writing
   // it would clobber a SOURCE file and start a self-feeding recompile loop.
   if (/(?:^|[/\\])\.\.(?:[/\\]|$)/.test(filePath)) return false
 
-  return !isRootManifestPath(filePath, outputPath)
+  return !isRootManifestPath(filePath, outputPath, platform)
 }
 
 type MiddlewareList = Parameters<

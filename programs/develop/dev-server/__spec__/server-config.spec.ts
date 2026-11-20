@@ -53,7 +53,6 @@ describe('buildServerConfig', () => {
   it.each([
     ['/proj/dist/chrome/background.js', '/proj/dist/chrome', true],
     ['/proj/dist/chrome/manifest.json', '/proj/dist/chrome', false],
-    ['/proj/dist/chrome/MANIFEST.JSON', '/proj/dist/chrome', false],
     ['/proj/dist/chrome/manifest.json', '/proj/dist/chrome/', false],
     ['/proj/dist/chrome/./manifest.json', '/proj/dist/chrome', false],
     ['manifest.json', '/proj/dist/chrome', false],
@@ -105,6 +104,32 @@ describe('buildServerConfig', () => {
     ['/proj/dist/chrome/background.js', true]
   ])('with no output folder known, writes %s to disk: %s', (file, expected) => {
     expect(shouldWriteAssetToDisk(file, undefined)).toBe(expected)
+  })
+
+  // Linux keeps a manifest spelled in other letters as a file of its own.
+  it.each([
+    ['/proj/dist/chrome/MANIFEST.JSON', '/proj/dist/chrome', 'linux', true],
+    ['/proj/dist/chrome/MANIFEST.JSON', '/proj/dist/chrome', 'darwin', false],
+    ['/proj/dist/chrome/MANIFEST.JSON', '/proj/dist/chrome', 'win32', false],
+    ['/proj/dist/Chrome/manifest.json', '/proj/dist/chrome', 'linux', true],
+    ['/proj/dist/Chrome/manifest.json', '/proj/dist/chrome', 'darwin', false],
+    [
+      'c:\\Proj\\Dist\\Chrome\\Manifest.json',
+      'C:\\proj\\dist\\chrome',
+      'linux',
+      false
+    ],
+    [
+      'C:/proj/dist/chrome/Manifest.json',
+      'C:/proj/dist/chrome',
+      'linux',
+      false
+    ],
+    ['/proj/dist/chrome/Manifest.json', undefined, 'linux', true],
+    ['/proj/dist/chrome/Manifest.json', undefined, 'darwin', false],
+    ['/proj/dist/chrome/manifest.json', undefined, 'linux', false]
+  ])('writes %s under %s on %s to disk: %s', (file, outputPath, platform, expected) => {
+    expect(shouldWriteAssetToDisk(file, outputPath, platform)).toBe(expected)
   })
 
   it('judges a file against the output folder of the live compiler', () => {
