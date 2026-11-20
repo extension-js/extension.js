@@ -9,11 +9,8 @@ import {
   compileProject,
   configure,
   fakePackage,
-  linkWorkspaceReact,
   MANIFEST,
-  makeProject,
-  swcOptionsFor,
-  swcRules
+  makeProject
 } from './project-fixture'
 
 const fromDevelop = createRequire(path.join(__dirname, '..', '..', 'x.js'))
@@ -63,75 +60,6 @@ describe('a loader options file that throws', () => {
   })
 })
 
-describe('SWC targets outside the chromium family', () => {
-  it.each([
-    ['safari', {}],
-    ['firefox', {}],
-    ['firefox', {browser_specific_settings: {gecko: {id: 'a@b'}}}]
-  ])('compiles a %s build with no engine floor for chrome >= 100', async (browser, extra) => {
-    // Pins current behavior: Safari and Firefox get Chrome SWC targets.
-    const root = makeProject({
-      'package.json': {},
-      'manifest.json': {...MANIFEST, ...extra}
-    })
-    const {pages} = swcRules(
-      await configure(root, {browser: browser as 'safari' | 'firefox'})
-    )
-
-    expect(swcOptionsFor(pages, '/x/a.js').env.targets).toEqual([
-      'chrome >= 100'
-    ])
-  })
-})
-
-describe('React refresh and the background script in development', () => {
-  it('sets refresh on the rule a background script compiles through', async () => {
-    // Pins current behavior: a background script gets the refresh transform.
-    const root = makeProject({
-      'package.json': {dependencies: {react: '19.0.0'}},
-      'manifest.json': {...MANIFEST, background: {service_worker: 'sw.ts'}}
-    })
-    fakePackage(
-      root,
-      'react',
-      {version: '19.0.0', main: 'index.js'},
-      {
-        'index.js': ''
-      }
-    )
-
-    const {pages, contentByPath} = swcRules(await configure(root))
-
-    expect(callableIncludes(contentByPath, path.join(root, 'sw.ts'))).toBe(
-      false
-    )
-
-    expect(
-      swcOptionsFor(pages, path.join(root, 'sw.ts')).jsc.transform.react.refresh
-    ).toBe(true)
-  })
-
-  it('ships the refresh transform and runtime in the background bundle, without the entry', async () => {
-    // Pins current behavior: refresh code ships in the background bundle.
-    const root = makeProject({
-      'package.json': {dependencies: {react: '19', 'react-dom': '19'}},
-      'manifest.json': {...MANIFEST, background: {service_worker: 'sw.ts'}},
-      'tsconfig.json': {},
-      'sw.ts':
-        'export function Badge() {\n  return null\n}\nconsole.log(Badge)\n'
-    })
-    linkWorkspaceReact(root)
-
-    const {errors, read} = await compileProject(root, {background: './sw.ts'})
-    const background = read('background')
-
-    expect(errors).toEqual([])
-    expect(background).toContain('$RefreshReg$')
-    expect(background).toMatch(/client[\\/]+reactRefresh\.js/)
-    expect(background).not.toContain('reactRefreshEntry')
-  })
-})
-
 describe('TypeScript decorators', () => {
   it('parse in a .ts file', async () => {
     // Decorators in a .ts file once failed with a syntax error.
@@ -161,10 +89,3 @@ describe('where the React refresh entry is read from', () => {
     expect(fs.realpathSync(found as string)).toBe(fs.realpathSync(exported))
   })
 })
-
-function callableIncludes(
-  rule: {include?: unknown} | undefined,
-  file: string
-): boolean {
-  return (rule?.include as (resource: string) => boolean)(file)
-}

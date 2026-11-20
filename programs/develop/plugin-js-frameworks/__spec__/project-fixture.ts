@@ -13,7 +13,7 @@ import {
 import {afterEach} from 'vitest'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../../plugin-web-extension/feature-scripts/contracts'
 import type {DevOptions} from '../../types'
-import {JsFrameworksPlugin} from '../index'
+import {EXTENSIONJS_BACKGROUND_LAYER, JsFrameworksPlugin} from '../index'
 
 type Files = Record<string, string | object>
 
@@ -120,7 +120,8 @@ export function linkWorkspaceReact(root: string) {
 export async function compileProject(
   root: string,
   entry: Record<string, string>,
-  mode: 'development' | 'production' = 'development'
+  mode: 'development' | 'production' = 'development',
+  browser?: DevOptions['browser']
 ) {
   const compiler = rspack({
     mode,
@@ -134,6 +135,7 @@ export async function compileProject(
     plugins: [
       new JsFrameworksPlugin({
         manifestPath: path.join(root, 'manifest.json'),
+        browser,
         mode
       }) as unknown as RspackPluginInstance
     ]
@@ -175,13 +177,17 @@ function usesSwc(rule: LooseRule) {
   )
 }
 
-// The four SWC rules by role: content scripts by path, the rest of what
-// they import by issuer, every other script, and the platform-declared modules.
+// The SWC rules by role: content scripts by path, the rest of what they
+// import by issuer, every other script, the platform-declared modules, and
+// the background's own copies of the last two where it has its own layer.
 export function swcRules(compiler: Compiler) {
   const rules = rulesOf(compiler).filter(usesSwc)
   const notContent = (rule: LooseRule) =>
-    (rule.issuerLayer as {not?: string} | undefined)?.not ===
-    EXTENSIONJS_CONTENT_SCRIPT_LAYER
+    [(rule.issuerLayer as {not?: string | string[]} | undefined)?.not]
+      .flat()
+      .includes(EXTENSIONJS_CONTENT_SCRIPT_LAYER)
+  const background = (rule: LooseRule) =>
+    rule.issuerLayer === EXTENSIONJS_BACKGROUND_LAYER
 
   return {
     all: rules,
@@ -196,7 +202,15 @@ export function swcRules(compiler: Compiler) {
     pages: rules.find(
       (rule) => notContent(rule) && rule.type === 'javascript/auto'
     ),
-    modules: rules.find((rule) => rule.type === 'javascript/esm')
+    modules: rules.find(
+      (rule) => notContent(rule) && rule.type === 'javascript/esm'
+    ),
+    background: rules.find(
+      (rule) => background(rule) && rule.type === 'javascript/auto'
+    ),
+    backgroundModules: rules.find(
+      (rule) => background(rule) && rule.type === 'javascript/esm'
+    )
   }
 }
 

@@ -1,6 +1,7 @@
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../../plugin-web-extension/feature-scripts/contracts'
+import {EXTENSIONJS_BACKGROUND_LAYER} from '../index'
 import {resolveReactRefreshEntry} from '../js-tools/react'
 import {
   configure,
@@ -77,7 +78,7 @@ describe('the React refresh entry and rule, found without their names', () => {
     )
   })
 
-  it('keeps the rule the plugin adds out of content scripts, whatever loader it names', async () => {
+  it('keeps the rule the plugin adds out of content scripts and the background, whatever loader it names', async () => {
     const {root} = projectWithItsOwnRefreshPlugin()
     const added = rulesOf(await configure(root)).filter(
       (rule) => rule.use === 'builtin:renamed-refresh-loader'
@@ -85,7 +86,7 @@ describe('the React refresh entry and rule, found without their names', () => {
 
     expect(added).toHaveLength(1)
     expect(added[0].issuerLayer).toEqual({
-      not: EXTENSIONJS_CONTENT_SCRIPT_LAYER
+      not: [EXTENSIONJS_CONTENT_SCRIPT_LAYER, EXTENSIONJS_BACKGROUND_LAYER]
     })
   })
 
