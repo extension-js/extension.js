@@ -38,6 +38,7 @@ const NOT_DIAGNOSTICS = new Set([
   'BaseUriRuntimeModule',
   'PublicPathRuntimeModule',
   'WebExtensionBrowserRuntime',
+  'FSWatcher',
   'WebSocketClient'
 ])
 

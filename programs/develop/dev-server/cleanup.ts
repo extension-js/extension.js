@@ -8,6 +8,7 @@
 
 import type {RspackDevServer} from '@rspack/dev-server'
 import {setupAutoExit} from './auto-exit'
+import {leaveWatchHandlesToExit} from './leave-watch-handles-to-exit'
 import {humanLine} from './lifecycle-stream'
 import * as messages from './messages'
 import type {PortManager} from './port-manager'
@@ -52,6 +53,9 @@ export interface CleanupDependencies {
   onShutdownStart?: () => void
   // Called when a stop passes its bound, right before the forced exit.
   onShutdownTimedOut?: (timeoutMs: number, exitCode: number) => void
+  // Called once before the stop. Defaults to the macOS watch release only
+  // when the real process exit ends the shutdown.
+  leaveWatchHandles?: () => void
 }
 
 function resolveDevServer(
@@ -113,6 +117,9 @@ export function setupCleanupHandlers(
   const now = dependencies.now ?? Date.now
   const shutdownTimeoutMs =
     dependencies.shutdownTimeoutMs ?? SHUTDOWN_TIMEOUT_MS
+  const leaveWatchHandles =
+    dependencies.leaveWatchHandles ??
+    (dependencies.exit ? undefined : () => leaveWatchHandlesToExit())
   let isShuttingDown = false
   let shutdownStartedAt = 0
   let shutdownTimer: NodeJS.Timeout | undefined
@@ -159,6 +166,12 @@ export function setupCleanupHandlers(
       print(messages.shutdownTimedOut(shutdownTimeoutMs))
       exit(FORCED_SHUTDOWN_EXIT_CODE)
     }, shutdownTimeoutMs)
+
+    try {
+      leaveWatchHandles?.()
+    } catch {
+      // The stop still runs, with the slower native close.
+    }
 
     try {
       await closeAll(
