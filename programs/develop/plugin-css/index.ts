@@ -42,7 +42,7 @@ import {
   cssUrlRefFiles,
   toPosixPath
 } from './css-lib/dead-url-refs'
-import {whyNotRead} from './css-lib/inline-css-imports'
+import {isNamedByCssImport, whyNotRead} from './css-lib/inline-css-imports'
 import * as messages from './css-lib/messages'
 import {
   SFC_INLINE_STYLE_BLOCK_QUERY,
@@ -381,6 +381,16 @@ export class CssPlugin {
       ]
     })
 
+    // The resolver hands over a request with no word on the rule that made
+    // it, so the sheet itself is asked whether an @import names it.
+    const imports = (issuer: string, raw: string) => {
+      try {
+        return isNamedByCssImport(fs.readFileSync(issuer, 'utf8'), raw)
+      } catch {
+        return false
+      }
+    }
+
     // Strict refs fails the build here, under the same name and code. Left
     // to rspack, a relative one came back as a warning.
     const report = (issuer: string, raw: string, withheld?: WithheldKind) => {
@@ -398,7 +408,7 @@ export class CssPlugin {
       const error = new WebpackError(
         withheld
           ? messages.withheldCssRef(issuerPath, raw, withheld, strict)
-          : messages.deadCssUrlRef(issuerPath, raw, strict)
+          : messages.deadCssRef(issuerPath, raw, strict, imports(issuer, raw))
       )
       ;(error as Error & {file?: string}).file = issuerPath
       error.name = withheld ? WITHHELD_CSS_REF : 'CssDeadRef'
