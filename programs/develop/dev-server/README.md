@@ -35,7 +35,6 @@
 
 | Variable | Read by |
 | --- | --- |
-| `EXTENSION_BROWSER_LAUNCH_ENABLED` | `plugin-compilation/boring.ts` |
 | `EXTENSION_DEV_SERVER_PROTOCOL`, `EXTENSION_DEV_SERVER_HOST`, `EXTENSION_DEV_SERVER_PORT`, `EXTENSION_DEV_SERVER_PATH` | `lib/dev-server-client-import.ts` |
 | `EXTENSION_DEV_SERVER_CONNECTABLE_HOST` | `rspack-config.ts`, `lib/dev-server-client-import.ts`, `plugin-web-extension/feature-manifest/steps/apply-dev-defaults-lib/patch-csp.ts`, `plugin-reload/steps/inject-bridge-producer.ts`, `command-build.ts` (the Playwright metadata host) |
 | `EXTENSION_INSTANCE_ID` | `port-manager.ts`, `lib/messages.ts`, `plugin-reload/steps/inject-bridge-producer.ts` |

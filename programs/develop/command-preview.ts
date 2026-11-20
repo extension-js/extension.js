@@ -19,6 +19,7 @@ import {
   loadCommandConfig,
   loadProjectConfigDefaults
 } from './lib/config-loader'
+import {STOCK_COMPANION_EXTENSIONS} from './lib/constants'
 import {withDarkMode} from './lib/dark-mode'
 import {
   companionScanDirInsideProject,
@@ -74,7 +75,6 @@ import {
 } from './plugin-special-folders/folder-extensions/resolve-config'
 import {resolveCompanionExtensionDirs as resolveCompanionExtensionDirsFromSpecialFolders} from './plugin-special-folders/folder-extensions/resolve-dirs'
 import type {CompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/types'
-import {getSpecialFoldersDataForProjectRoot} from './plugin-special-folders/get-data'
 import type {
   BrowserConfig,
   BrowserType,
@@ -561,23 +561,15 @@ async function runPreview(
       folders?: SpecialFoldersConfig
     }
     const safePreviewOptions = sanitize(previewOptions) as PreviewOptions
-    // Preview never compiles, so an ancestor project's scripts/ folder has no
-    // say here. Only its companion extensions folder does.
-    const specialFoldersData = unpackedDir
-      ? {extensions: undefined}
-      : getSpecialFoldersDataForProjectRoot(
-          packageJsonDir,
-          safeCommandConfig.folders ??
-            safeBrowserConfig.folders ??
-            safeProjectConfig.folders
-        )
+    // An unpacked folder handed in has no project around it to hold companions.
+    const stockExtensions = unpackedDir ? undefined : STOCK_COMPANION_EXTENSIONS
 
     const mergedExtensionsConfig =
       safePreviewOptions.extensions ??
       safeCommandConfig.extensions ??
       safeBrowserConfig.extensions ??
       safeProjectConfig.extensions ??
-      specialFoldersData.extensions
+      stockExtensions
     // With no browser nothing loads a companion, so none is fetched from a
     // store. A named folder outside the project is refused either way.
     const resolvedExtensionsConfig = previewOptions.noBrowser

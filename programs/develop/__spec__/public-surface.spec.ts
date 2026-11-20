@@ -78,7 +78,7 @@ describe('DevOptions declares the control-channel switches', () => {
     const devServer = source('dev-server/index.ts')
     const cast = devServer.slice(
       devServer.indexOf('const extendedOptions = devOptions as DevOptions & {'),
-      devServer.indexOf('process.env.EXTENSION_BROWSER_LAUNCH_ENABLED')
+      devServer.indexOf('const {manifestPath} = projectStructure')
     )
     expect(cast).not.toMatch(/allowControl\?: boolean/)
     expect(cast).not.toMatch(/allowEval\?: boolean/)

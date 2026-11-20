@@ -156,7 +156,7 @@ async function failureOf(build: Promise<unknown>): Promise<BuildFailure> {
   throw new Error('The build was expected to fail and it resolved.')
 }
 
-describe('webpack/command-build', () => {
+describe('extensionBuild', () => {
   beforeEach(() => {
     bundler.compiler = undefined
     vi.mocked(ensureArtifactsMod.ensureDevelopArtifacts).mockClear()
@@ -580,7 +580,7 @@ describe('webpack/command-build', () => {
     })
   })
 
-  it('ensures dependencies before running the build', async () => {
+  it('checks its own build files before it writes any output', async () => {
     const root = project()
     let builtAtSetup: boolean | undefined
 

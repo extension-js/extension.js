@@ -86,16 +86,17 @@ describe('dev --no-browser boot transcript', () => {
       // and is asserted by the preview specs too.
       expect(lines[headIndex + 3]).toMatch(/^ {4}Run ID {9}\S/)
 
-      // Under the capped card, one line per kind of grant the dev manifest
-      // has and the production build of this fixture lacks.
-      expect(lines.slice(headIndex + 4, headIndex + 7)).toEqual([
+      // Under the capped card, one line per kind of grant or change the dev
+      // manifest has and the production build of this fixture lacks.
+      expect(lines.slice(headIndex + 4, headIndex + 8)).toEqual([
         '    Dev only       permissions scripting, tabs, storage',
         '    Dev only       host access <all_urls>',
-        '    Dev only       web_accessible_resources hot/*, extension-js-control.json'
+        '    Dev only       web_accessible_resources hot/*, extension-js-control.json',
+        '    Dev only       manifest background.service_worker background/service_worker.js'
       ])
 
-      expect(lines[headIndex + 7]).toBe(' ')
-      expect(lines[headIndex + 8]).toBe(
+      expect(lines[headIndex + 8]).toBe(' ')
+      expect(lines[headIndex + 9]).toBe(
         '⏵⏵⏵ Extension ready for development. Watching for file changes.'
       )
     } finally {
