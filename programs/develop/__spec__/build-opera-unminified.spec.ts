@@ -45,9 +45,7 @@ async function build(
   minify?: boolean
 ) {
   const {extensionBuild} = await import('../command-build')
-  let summary: Awaited<ReturnType<typeof extensionBuild>>
-
-  summary = await extensionBuild(root, {
+  const summary = await extensionBuild(root, {
     browser,
     silent: true,
     install: false,

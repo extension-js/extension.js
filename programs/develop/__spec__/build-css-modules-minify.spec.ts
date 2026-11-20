@@ -44,9 +44,7 @@ function project() {
 
 async function build(root: string, mode: 'development' | 'production') {
   const {extensionBuild} = await import('../command-build')
-  let summary: Awaited<ReturnType<typeof extensionBuild>>
-
-  summary = await extensionBuild(root, {
+  const summary = await extensionBuild(root, {
     browser: 'chrome',
     silent: true,
     install: false,

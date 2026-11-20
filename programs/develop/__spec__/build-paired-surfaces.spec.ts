@@ -45,9 +45,7 @@ function project(manifest: Record<string, unknown>) {
 
 async function build(root: string, browser: 'firefox' | 'chrome') {
   const {extensionBuild} = await import('../command-build')
-  let summary: {errors_count: number}
-
-  summary = await extensionBuild(root, {
+  const summary: {errors_count: number} = await extensionBuild(root, {
     browser,
     silent: true,
     install: false,
