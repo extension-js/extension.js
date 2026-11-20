@@ -6,7 +6,7 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {Command, Option} from 'commander'
+import {Command, CommanderError, Option} from 'commander'
 import {registerActCommands} from './commands/act'
 import {registerBuildCommand} from './commands/build'
 import {registerCapabilitiesCommand} from './commands/capabilities'
@@ -26,6 +26,9 @@ import checkUpdates, {
 } from './helpers/check-updates'
 import {
   collectValuedLongFlags,
+  findFlagMissingItsValue,
+  findSubcommand,
+  moveCommandFlagsBehindCommand,
   movePreCommandOutputArgv,
   resolveCommandFromArgv as resolveCommandFromArgvWithFlags,
   rewriteOutputAliasArgv,
@@ -373,13 +376,40 @@ async function runUntilEnd(argv: string[], deps: RunDeps): Promise<number> {
 
   if (argv.includes('--ai-help')) return runAIHelp()
 
-  const parsedArgv = applyNoBrowserArgvShim(applyOutputAliasArgvShim(argv))
+  const parsedArgv = moveCommandFlagsBehindCommand(
+    applyNoBrowserArgvShim(applyOutputAliasArgvShim(argv)),
+    extensionJs,
+    valuedLongFlags
+  )
   const asJson = wantsJsonOutput(parsedArgv)
-  const commandName = resolveCommandFromArgv(parsedArgv) || 'extension'
+  const typedCommand = resolveCommandFromArgv(parsedArgv)
+  const commandName = typedCommand || 'extension'
+
+  // An unknown flag's value can read as the command, and its help would then
+  // name a command that does not exist.
+  function commandNameFor(err: {code?: unknown}): string {
+    if (err.code === 'commander.unknownCommand') return commandName
+
+    return findSubcommand(extensionJs, typedCommand) ? commandName : 'extension'
+  }
 
   startUpdateCheck(parsedArgv)
 
   try {
+    const missingValue = findFlagMissingItsValue(
+      parsedArgv,
+      extensionJs,
+      valuedLongFlags
+    )
+
+    if (missingValue) {
+      throw new CommanderError(
+        1,
+        'commander.optionMissingArgument',
+        `error: option '${missingValue.flags}' argument missing`
+      )
+    }
+
     await extensionJs.parseAsync(parsedArgv)
     markCommandSuccess()
 
@@ -397,10 +427,12 @@ async function runUntilEnd(argv: string[], deps: RunDeps): Promise<number> {
         exitCode
       })
 
-      deps.stderr(`${commanderHumanError(err, commandName)}\n`)
+      const failedCommand = commandNameFor(err)
+
+      deps.stderr(`${commanderHumanError(err, failedCommand)}\n`)
 
       if (asJson) {
-        deps.writeFrame(commanderErrorEnvelope(err, commandName))
+        deps.writeFrame(commanderErrorEnvelope(err, failedCommand))
       }
 
       await exitAfterDrain(exitCode, {exit: deps.exit})

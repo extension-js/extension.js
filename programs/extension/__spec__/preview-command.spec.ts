@@ -468,6 +468,24 @@ describe('extension preview --output json', () => {
     ])
   })
 
+  it.each([
+    [
+      'E_MANIFEST_NOT_FOUND',
+      'Add a manifest.json at the project root or in src/, or pass the folder that holds it.'
+    ],
+    [
+      'E_MANIFEST_IN_PUBLIC',
+      'Move manifest.json out of public/ to the project root or src/. Files in public/ are copied to the output as they are.'
+    ]
+  ])('frames %s as usage with the way out', async (code, hint) => {
+    preview = async () => {
+      throw Object.assign(new Error('Manifest file not found.'), {code})
+    }
+
+    expect(await run(['preview', '.', '--output', 'json'])).toBe(1)
+    expect(frames()).toMatchObject([{status: 'usage', error: {code}, hint}])
+  })
+
   // Both needles are matched against real producer copy, so a rewrite of either
   // message fails here rather than silently downgrading to E_INTERNAL.
   it('pins the not-found needles against the real producers', async () => {

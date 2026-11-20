@@ -24,7 +24,11 @@ import {
   explicitCliValue,
   explicitOptionalBoolean
 } from '../helpers/cli-explicit'
-import {declaredErrorCode, failureHint} from '../helpers/cli-failure'
+import {
+  declaredErrorCode,
+  failureHint,
+  isUsageCode
+} from '../helpers/cli-failure'
 import {
   cliGeckoBinary,
   firefoxBinaryAliasOption,
@@ -61,7 +65,11 @@ import {
   refuseUnreadableOutput,
   resolveOutputFormat
 } from '../helpers/output-flag'
-import {parseParentPid, setupParentWatchdog} from '../helpers/parent-watchdog'
+import {
+  parseParentPid,
+  setupParentWatchdog,
+  shutDownBySignal
+} from '../helpers/parent-watchdog'
 import {checkProjectCliVersion} from '../helpers/project-cli-version'
 import {
   missingProjectFolder,
@@ -440,6 +448,10 @@ export function registerDevCommand(
         // Set once the engine is loaded. Before that no session can be live.
         let endEngineSession: EndEngineSession | undefined
 
+        // Before the engine loads nothing is up to tear down, so the run
+        // exits 1 itself instead of dying of a signal its parent cannot read.
+        let parentGoneBeforeEngine = false
+
         if (parentPid !== undefined) {
           const parentGone = `the --parent-pid owner (process ${parentPid}) is gone, so this dev session is shutting down`
 
@@ -473,9 +485,21 @@ export function registerDevCommand(
                   message: parentGone
                 })
               )
+            },
+            onDeath: () => {
+              if (endEngineSession) {
+                shutDownBySignal()
+
+                return
+              }
+
+              parentGoneBeforeEngine = true
+              void exitDrained(1)
             }
           })
         }
+
+        if (parentGoneBeforeEngine) return
 
         const list = vendors(browser)
         noteBrowsers(list)
@@ -845,7 +869,7 @@ export function registerDevCommand(
               printFrame(
                 ENVELOPE.fail(
                   'dev',
-                  'failed',
+                  isUsageCode(code) ? 'usage' : 'failed',
                   {
                     code,
                     message:

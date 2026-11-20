@@ -1,5 +1,5 @@
 import {spawn} from 'node:child_process'
-import {once} from 'node:events'
+import {EventEmitter, once} from 'node:events'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
@@ -753,5 +753,92 @@ describe('isFreshContractPayload', () => {
     [{ts: 'not a date'}, false]
   ])('reads %j as fresh: %s', (payload, fresh) => {
     expect(isFreshContractPayload(payload, now)).toBe(fresh)
+  })
+})
+
+// A wait told to stop answers on its own, whatever telemetry consent says.
+describe('a wait interrupted before every session reported ready', () => {
+  function interruptedWait(
+    signal: 'SIGINT' | 'SIGTERM',
+    waitFormat: 'json' | 'pretty',
+    command: WaitCommand = 'dev'
+  ) {
+    const project = makeTempFolder('extjs-wait-')
+    const signals = new EventEmitter()
+    const endInterrupted = vi.fn(async () => {})
+    const clock = fakeClock(() => {
+      if (clock.sleeps.length === 2) signals.emit(signal)
+    })
+
+    void runWaitMode(
+      {
+        command,
+        pathOrRemoteUrl: project,
+        browsers: ['chromium'],
+        waitTimeout: 60_000,
+        waitFormat
+      },
+      {now: clock.now, sleep: clock.sleep, loadBridge, signals, endInterrupted}
+    )
+
+    return {signals, endInterrupted, clock}
+  }
+
+  it.each([
+    ['SIGINT', 130],
+    ['SIGTERM', 143]
+  ] as const)('ends on %s with one stopped frame and exit %i under json', async (signal, exitCode) => {
+    const {endInterrupted, clock} = interruptedWait(signal, 'json')
+
+    await vi.waitFor(() => expect(endInterrupted).toHaveBeenCalledTimes(1))
+
+    expect(endInterrupted).toHaveBeenCalledWith(
+      {
+        schema: 1,
+        ok: false,
+        command: 'dev',
+        status: 'stopped',
+        value: {signal},
+        error: {
+          code: 'E_INTERRUPTED',
+          message: `The dev --wait run was interrupted by ${signal} before every session reported ready.`
+        },
+        warnings: []
+      },
+      exitCode
+    )
+
+    // The wait stops polling once it was told to stop.
+    const polls = clock.sleeps.length
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(clock.sleeps.length).toBe(polls)
+  })
+
+  it('writes no frame in pretty mode and still exits 130', async () => {
+    const {endInterrupted} = interruptedWait('SIGINT', 'pretty', 'start')
+
+    await vi.waitFor(() => expect(endInterrupted).toHaveBeenCalledTimes(1))
+    expect(endInterrupted).toHaveBeenCalledWith(null, 130)
+  })
+
+  it('leaves no listener behind once the wait answers', async () => {
+    const project = makeTempFolder('extjs-wait-')
+    const signals = new EventEmitter()
+
+    writeContract(project, {status: 'ready', command: 'dev', pid: process.pid})
+
+    await runWaitMode(
+      {command: 'dev', pathOrRemoteUrl: project, browsers: ['chromium']},
+      {
+        now: fakeClock().now,
+        sleep: fakeClock().sleep,
+        loadBridge,
+        signals,
+        pidStartedAt: () => null
+      }
+    )
+
+    expect(signals.listenerCount('SIGINT')).toBe(0)
+    expect(signals.listenerCount('SIGTERM')).toBe(0)
   })
 })

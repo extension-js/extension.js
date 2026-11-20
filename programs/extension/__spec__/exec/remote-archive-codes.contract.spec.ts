@@ -618,7 +618,10 @@ describe('a remote archive, read by create and by develop', () => {
       expect(run.status, run.stdout + run.stderr).toBe(1)
 
       const frame = onlyFrame(run)
-      expect(frame).toMatchObject({ok: false, command: 'dev', status: 'failed'})
+      // A missing manifest is a usage mistake, the rest failed runs.
+      const status = code === 'E_MANIFEST_NOT_FOUND' ? 'usage' : 'failed'
+
+      expect(frame).toMatchObject({ok: false, command: 'dev', status})
       expect(frame.error?.code).toBe(code)
       expect(frame.error?.message).not.toContain('⏵')
     },

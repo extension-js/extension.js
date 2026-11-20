@@ -17,14 +17,16 @@ import {
   failureHint,
   LOAD_REFUSED_HINT,
   LOAD_REFUSED_STATUS,
-  markErrorFramed
+  markErrorFramed,
+  writeStdoutFrame
 } from '../helpers/cli-failure'
+import {exitFailedAfterDrain} from '../helpers/exit-after-drain'
 import {
   type DevelopBridge,
   loadExtensionDevelopBridgeModule
 } from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
-import {CODES, type ErrorCode} from '../helpers/messaging'
+import {CODES, ENVELOPE, type ErrorCode} from '../helpers/messaging'
 import {isValidWholeNumberFlag} from '../helpers/normalize-options'
 import {normalizeOutputFormat} from '../helpers/output-flag'
 import {
@@ -38,6 +40,11 @@ import {
   resolveSessionProjectPath,
   sessionReadyPath
 } from '../helpers/session-project-path'
+import {
+  signalExitCode,
+  TERMINATION_SIGNALS,
+  type TerminationSignal
+} from '../helpers/telemetry-signals'
 
 export type WaitFormat = 'pretty' | 'json'
 export type WaitCommand = 'dev' | 'start'
@@ -75,13 +82,29 @@ export type RunWaitModeOptions = {
   waitFormat?: string
 }
 
-// The clock, the pause between polls, the bridge loader a wait reads and the
-// probe that dates a pid.
+export interface WaitSignalTarget {
+  once(signal: TerminationSignal, listener: () => void): unknown
+  removeListener(signal: TerminationSignal, listener: () => void): unknown
+}
+
+// The clock, the pause between polls, the bridge loader a wait reads, the
+// probe that dates a pid, and where a signal arrives and how it ends the run.
 export type WaitModeDeps = {
   now?: () => number
   sleep?: (ms: number) => Promise<void>
   loadBridge?: () => Promise<DevelopBridge>
   pidStartedAt?: (pid: number | null | undefined) => number | null
+  signals?: WaitSignalTarget
+  endInterrupted?: (frame: unknown, exitCode: number) => Promise<void>
+}
+
+async function endInterruptedRun(
+  frame: unknown,
+  exitCode: number
+): Promise<void> {
+  if (frame) writeStdoutFrame(frame)
+
+  await exitFailedAfterDrain({code: CODES.E_INTERRUPTED, exitCode})
 }
 
 const systemNow = (): number => Date.now()
@@ -449,6 +472,7 @@ async function waitForReadyContracts(options: {
   now: () => number
   sleep: (ms: number) => Promise<void>
   isLive: (payload: ReadyContractPayload) => boolean
+  interrupted: () => boolean
 }): Promise<ReadyContractPayload[]> {
   const {now, sleep} = options
   const pending: PendingContract[] = options.readyPaths.map((readyPath) => ({
@@ -458,6 +482,9 @@ async function waitForReadyContracts(options: {
   const start = now()
 
   while (now() - start < options.timeoutMs) {
+    // The interrupt owns the answer and the exit from here on.
+    if (options.interrupted()) return new Promise(() => {})
+
     for (const contract of pending) {
       contract.payload ??= readReadyContract(
         contract,
@@ -498,7 +525,9 @@ export async function runWaitMode(
     now = systemNow,
     sleep = systemSleep,
     loadBridge = loadExtensionDevelopBridgeModule,
-    pidStartedAt = pidStartedAtMs
+    pidStartedAt = pidStartedAtMs,
+    signals = process,
+    endInterrupted = endInterruptedRun
   }: WaitModeDeps = {}
 ): Promise<RunWaitModeResult> {
   if (isHttpUrl(options.pathOrRemoteUrl)) {
@@ -514,16 +543,55 @@ export async function runWaitMode(
   )
   const timeoutMs = parseWaitTimeoutMs(options.waitTimeout)
   const format = parseWaitFormat(options.waitFormat)
-  const payloads = await waitForReadyContracts({
-    command: options.command,
-    readyPaths: options.browsers.map((browser) =>
-      sessionReadyPath(bridge, projectPath, browser)
-    ),
-    timeoutMs,
-    now,
-    sleep,
-    isLive: sessionLiveness(pidStartedAt)
+  let interrupted = false
+
+  // No session is ours to stop, so nothing else answers a signal here and the
+  // run would die of it with nothing on stdout when telemetry is off.
+  const listeners = TERMINATION_SIGNALS.map((signal) => {
+    const listener = () => {
+      interrupted = true
+
+      const frame =
+        format === 'json'
+          ? ENVELOPE.fail(
+              options.command,
+              'stopped',
+              {
+                code: CODES.E_INTERRUPTED,
+                message: `The ${options.command} --wait run was interrupted by ${signal} before every session reported ready.`
+              },
+              {value: {signal}}
+            )
+          : null
+
+      void endInterrupted(frame, signalExitCode(signal))
+    }
+
+    signals.once(signal, listener)
+
+    return [signal, listener] as const
   })
+
+  let payloads: ReadyContractPayload[]
+
+  try {
+    payloads = await waitForReadyContracts({
+      command: options.command,
+      readyPaths: options.browsers.map((browser) =>
+        sessionReadyPath(bridge, projectPath, browser)
+      ),
+      timeoutMs,
+      now,
+      sleep,
+      isLive: sessionLiveness(pidStartedAt),
+      interrupted: () => interrupted
+    })
+  } finally {
+    for (const [signal, listener] of listeners) {
+      signals.removeListener(signal, listener)
+    }
+  }
+
   const results = payloads.map((payload, index) => ({
     ...payload,
     browser: options.browsers[index]
