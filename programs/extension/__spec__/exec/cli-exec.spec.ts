@@ -348,6 +348,8 @@ function getPackagesForRunner() {
   return [cliTgz, createTgz, developTgz]
 }
 
+// No bunx lane: bunx keeps one --package and takes that package's own
+// dependencies from the registry, so it would run a published engine.
 const runners: Runner[] = [
   {
     name: 'npx',
@@ -385,17 +387,6 @@ const runners: Runner[] = [
     isAvailable: () =>
       isRunnerAvailable(pnpmCommand) &&
       supportsPackageFlag(pnpmCommand, ['dlx', '--help'])
-  },
-  {
-    name: 'bunx',
-    command: 'bunx',
-    buildArgs: (packages, cmdArgs) => [
-      ...packages.flatMap((pkg) => ['--package', pkg]),
-      'extension',
-      ...cmdArgs
-    ],
-    isAvailable: () =>
-      isRunnerAvailable('bunx') && supportsPackageFlag('bunx', ['--help'])
   }
 ]
 
