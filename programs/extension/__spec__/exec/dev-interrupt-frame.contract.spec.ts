@@ -164,14 +164,17 @@ function listen(handler: http.RequestListener): Promise<{
   })
 }
 
-// Loaded ahead of the CLI: writes the marker once a signal listener is added,
-// the first sign the CLI can answer a signal its own way.
+// Loaded ahead of the CLI: writes the marker once per signal listener added.
+// Node 22 builds process.once on process.on, so only the outer call counts.
 const SIGNAL_LISTENER_PRELOAD = `const fs = require('node:fs')
+let depth = 0
 for (const method of ['on', 'once']) {
   const original = process[method]
   process[method] = function (event, ...rest) {
-    const added = original.call(this, event, ...rest)
-    if (event === 'SIGINT' || event === 'SIGTERM') {
+    depth++
+    let added
+    try { added = original.call(this, event, ...rest) } finally { depth-- }
+    if (depth === 0 && (event === 'SIGINT' || event === 'SIGTERM')) {
       try { fs.appendFileSync(process.env.EXTJS_SPEC_SIGNAL_MARKER, event + '\\n') } catch {}
     }
     return added
