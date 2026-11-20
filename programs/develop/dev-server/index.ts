@@ -311,11 +311,6 @@ async function startDevSession(
   const exportEnv = (name: string, value: string) =>
     holdings.add(exportSessionEnv(name, value))
 
-  exportEnv(
-    'EXTENSION_BROWSER_LAUNCH_ENABLED',
-    devOptions.noBrowser ? '0' : '1'
-  )
-
   const {manifestPath} = projectStructure
   const packageJsonDir = resolveDevProjectRoot(projectStructure)
   const sessionBrowser = String(devOptions.browser || 'chromium')
