@@ -47,6 +47,24 @@ function project(background = 'console.log("background")\n') {
   return root
 }
 
+// A config whose compiler waits, per browser, for the spec to let it run.
+const GATED_CONFIG = `module.exports = {config: (config) => {
+  config.plugins = [...(config.plugins || []), {apply(compiler) {
+    compiler.hooks.beforeRun.tapPromise('spec-gate', async () => {
+      const gate = globalThis.__hostEnvGates || {}
+      const name = Object.keys(gate).find((browser) =>
+        new RegExp('[\\\\/]dist[\\\\/][^\\\\/]*' + browser).test(
+          String(compiler.options.output.path)
+        )
+      )
+
+      if (name) await gate[name]
+    })
+  }}]
+  return config
+}}
+`
+
 function quiet() {
   for (const method of ['log', 'warn', 'error'] as const) {
     vi.spyOn(console, method).mockImplementation(() => undefined)
@@ -145,6 +163,170 @@ describe('a library host after a build (real rspack)', () => {
 
     expect(ended).toBeInstanceOf(Error)
     expect(seenAtLaunch).toEqual(['from-file', 1])
+    expect(process.env[PROBE]).toBeUndefined()
+    expect(cardsOf(root)).toEqual([])
+  }, 120_000)
+
+  it('keeps the env files for a build still running when another one ends', async () => {
+    const root = project()
+    fs.writeFileSync(path.join(root, 'extension.config.js'), GATED_CONFIG)
+
+    let open: () => void = () => undefined
+    const gates = {
+      chrome: new Promise<void>((resolve) => {
+        open = resolve
+      })
+    }
+
+    Object.assign(globalThis, {__hostEnvGates: gates})
+
+    const waiting = build(root, {browser: 'chrome'})
+
+    try {
+      expect(await build(root, {browser: 'firefox'})).toBeUndefined()
+      // The chrome build has not compiled yet and reads the same files.
+      expect(process.env[PROBE]).toBe('from-file')
+
+      open()
+
+      expect(await waiting).toBeUndefined()
+      expect(process.env[PROBE]).toBeUndefined()
+    } finally {
+      open()
+      await waiting
+      Reflect.deleteProperty(globalThis, '__hostEnvGates')
+    }
+  }, 180_000)
+
+  it('gives the card back when printing it throws', async () => {
+    const root = project()
+    const {extensionBuild, resetBuildToolchainLine} = await import(
+      '../command-build'
+    )
+
+    resetBuildToolchainLine()
+    quiet()
+    vi.spyOn(console, 'log').mockImplementation((...parts: unknown[]) => {
+      if (parts.join(' ').includes('Host env 1.0.0')) {
+        throw new Error('the terminal is gone')
+      }
+    })
+
+    await extensionBuild(root, {
+      browser: 'chrome',
+      install: false,
+      mode: 'production',
+      exitOnError: false
+    } as never).catch(() => undefined)
+
+    vi.restoreAllMocks()
+
+    expect(cardsOf(root)).toEqual([])
+  }, 120_000)
+
+  it('takes the start build card back from a preview leg that fails early', async () => {
+    const root = project()
+
+    // Only a leg with no browser named reads this, after it knows its
+    // project and before it knows its output folder.
+    fs.writeFileSync(
+      path.join(root, 'extension.config.js'),
+      'module.exports = {commands: {start: {browser: "no-such-browser"}}}\n'
+    )
+
+    expect(
+      await build(root, {metadataCommand: 'start', launchFollows: true})
+    ).toBeUndefined()
+
+    expect(cardsOf(root)).toHaveLength(1)
+
+    const {extensionPreview} = await import('../command-preview')
+
+    quiet()
+
+    const ended = await extensionPreview(
+      root,
+      {mode: 'production', metadataCommand: 'start'} as never,
+      async () => undefined
+    ).catch((error: unknown) => error)
+
+    vi.restoreAllMocks()
+
+    expect(ended).toBeInstanceOf(Error)
+    expect(process.env[PROBE]).toBeUndefined()
+    expect(cardsOf(root)).toEqual([])
+  }, 120_000)
+
+  it('takes what a start build parked back from a leg refused at once', async () => {
+    const root = project()
+
+    expect(
+      await build(root, {metadataCommand: 'start', launchFollows: true})
+    ).toBeUndefined()
+
+    const {extensionPreview} = await import('../command-preview')
+
+    // No launcher: refused before the project is even looked for.
+    const ended = await extensionPreview(root, {
+      browser: 'chrome',
+      mode: 'production',
+      metadataCommand: 'start'
+    } as never).catch((error: unknown) => error)
+
+    expect(ended).toBeInstanceOf(Error)
+    expect(process.env[PROBE]).toBeUndefined()
+    expect(cardsOf(root)).toEqual([])
+  }, 120_000)
+
+  it('holds nothing after a dry run, which opens no browser', async () => {
+    const root = project()
+
+    expect(await build(root)).toBeUndefined()
+
+    const {extensionPreview} = await import('../command-preview')
+
+    quiet()
+    await extensionPreview(
+      root,
+      {browser: 'chrome', mode: 'production', dryRun: true} as never,
+      async () => undefined
+    )
+
+    vi.restoreAllMocks()
+
+    expect(process.env[PROBE]).toBeUndefined()
+    expect(cardsOf(root)).toEqual([])
+  }, 120_000)
+
+  it('holds both while the browser is open and gives them back when it is gone', async () => {
+    const root = project()
+
+    expect(
+      await build(root, {metadataCommand: 'start', launchFollows: true})
+    ).toBeUndefined()
+
+    const {extensionPreview} = await import('../command-preview')
+    let close: () => void = () => undefined
+    const ended = new Promise<void>((resolve) => {
+      close = resolve
+    })
+
+    quiet()
+    await extensionPreview(
+      root,
+      {browser: 'chrome', mode: 'production', metadataCommand: 'start'},
+      async () => ({ended})
+    )
+
+    vi.restoreAllMocks()
+
+    expect(process.env[PROBE]).toBe('from-file')
+    expect(cardsOf(root)).toHaveLength(1)
+
+    close()
+    await ended
+    await new Promise((resolve) => setImmediate(resolve))
+
     expect(process.env[PROBE]).toBeUndefined()
     expect(cardsOf(root)).toEqual([])
   }, 120_000)

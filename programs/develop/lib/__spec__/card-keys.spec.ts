@@ -1,6 +1,11 @@
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
-import {claimCardKey, isCardKeyClaimed, releaseCardKeysOf} from '../messaging'
+import {
+  claimCardKey,
+  holdCardKey,
+  isCardKeyClaimed,
+  releaseCardKeysOf
+} from '../messaging'
 
 const ENV = 'EXTENSION_CLI_CARD_KEYS'
 let saved: string | undefined
@@ -37,5 +42,28 @@ describe('identity card keys', () => {
 
     expect(isCardKeyClaimed(`chrome::${chrome}`)).toBe(false)
     expect(isCardKeyClaimed(`firefox::${firefox}`)).toBe(true)
+  })
+
+  it('hands the release back with the claim, and nothing when it is taken', () => {
+    const release = holdCardKey(`chrome::${chrome}`)
+
+    expect(release).toBeTypeOf('function')
+    expect(holdCardKey(`chrome::${chrome}`)).toBeUndefined()
+
+    claimCardKey(`firefox::${firefox}`)
+    release?.()
+
+    expect(isCardKeyClaimed(`chrome::${chrome}`)).toBe(false)
+    expect(isCardKeyClaimed(`firefox::${firefox}`)).toBe(true)
+  })
+
+  it('does not take back a card claimed again after its release', () => {
+    const release = holdCardKey(`chrome::${chrome}`)
+
+    release?.()
+    claimCardKey(`chrome::${chrome}`)
+    release?.()
+
+    expect(isCardKeyClaimed(`chrome::${chrome}`)).toBe(true)
   })
 })

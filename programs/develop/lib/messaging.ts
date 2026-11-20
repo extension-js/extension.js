@@ -319,21 +319,42 @@ export function claimCardKey(key: string): boolean {
   return true
 }
 
-// A session that ends gives back the cards of its output folder, so a
-// library host keeps no registry of a session that is gone.
-export function releaseCardKeysOf(outputPath: string): void {
+// The claim and the way to give it back are one value, so no path can keep
+// the card without also holding its release. Nothing comes back when taken.
+export function holdCardKey(key: string): (() => void) | undefined {
+  if (!claimCardKey(key)) return undefined
+
+  let released = false
+
+  return () => {
+    if (released) return
+
+    released = true
+    writeCardKeys(readCardKeys().filter((claimed) => claimed !== key))
+  }
+}
+
+function readCardKeys(): string[] {
   const claimed = String(process.env[CARD_KEYS_ENV] || '')
-  if (!claimed) return
 
-  const kept = claimed
-    .split(CARD_KEYS_SEPARATOR)
-    .filter((key) => !key.endsWith(`::${outputPath}`))
+  return claimed ? claimed.split(CARD_KEYS_SEPARATOR) : []
+}
 
-  if (kept.length > 0) {
-    process.env[CARD_KEYS_ENV] = kept.join(CARD_KEYS_SEPARATOR)
+function writeCardKeys(keys: string[]): void {
+  if (keys.length > 0) {
+    process.env[CARD_KEYS_ENV] = keys.join(CARD_KEYS_SEPARATOR)
   } else {
     delete process.env[CARD_KEYS_ENV]
   }
+}
+
+// A session that ends gives back the cards of its output folder, so a
+// library host keeps no registry of a session that is gone.
+export function releaseCardKeysOf(outputPath: string): void {
+  const claimed = readCardKeys()
+  if (claimed.length === 0) return
+
+  writeCardKeys(claimed.filter((key) => !key.endsWith(`::${outputPath}`)))
 }
 
 const GECKO_BROWSERS = new Set([

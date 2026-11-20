@@ -15,7 +15,7 @@ import {merge} from 'webpack-merge'
 import {codedError} from '../lib/coded-error'
 import {recordCodedWarning} from '../lib/coded-warnings'
 import {
-  forgetPreloadedEnvOf,
+  holdPreloadedEnvOf,
   loadBrowserConfig,
   loadCommandConfig,
   loadConfigResolvedHook,
@@ -338,7 +338,7 @@ async function startDevSession(
 
   holdings.add(releaseClaim)
   // The env file values the config loads below leave the host with it too.
-  holdings.addLast(() => forgetPreloadedEnvOf(packageJsonDir))
+  holdings.addLast(holdPreloadedEnvOf(packageJsonDir))
 
   // The same env files as the command's own loads, so no layer differs.
   const envTarget = {mode: 'development', browser: String(devOptions.browser)}

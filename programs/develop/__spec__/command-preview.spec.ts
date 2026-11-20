@@ -20,7 +20,7 @@ vi.mock('../lib/project', () => ({
 }))
 
 vi.mock('../lib/config-loader', () => ({
-  forgetPreloadedEnvOf: vi.fn(),
+  holdPreloadedEnvOf: vi.fn(() => () => undefined),
   loadCommandConfig: vi.fn(async () => ({})),
   loadProjectConfigDefaults: vi.fn(async () => ({})),
   loadBrowserConfig: vi.fn(async () => ({}))

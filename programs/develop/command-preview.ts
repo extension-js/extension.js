@@ -14,7 +14,7 @@ import * as devServerMessages from './dev-server/messages'
 import {announceLeftoverOutputFolder} from './lib/build-output-guard'
 import {codedError} from './lib/coded-error'
 import {
-  forgetPreloadedEnvOf,
+  holdPreloadedEnvOf,
   loadBrowserConfig,
   loadCommandConfig,
   loadProjectConfigDefaults
@@ -61,6 +61,7 @@ import {
   ensureSessionArtifactsIgnoreFile,
   sessionArtifactsRootDir
 } from './lib/session-paths'
+import {takeStartLaunchHoldings} from './lib/start-launch-handoff'
 import {assertNoManagedDependencyConflicts} from './lib/validate-user-dependencies'
 import {
   createPlaywrightMetadataWriter,
@@ -123,6 +124,8 @@ export interface ResolvedPreviewOptions {
 export interface PreviewBrowserSession {
   /** Start a suspended background again. Firefox only. */
   wakeBackground?(): Promise<boolean>
+  /** Settles once the browser this session opened is gone. */
+  ended?: Promise<void>
 }
 
 // The browser launcher the CLI injects. extensionPreview refuses to run
@@ -252,12 +255,47 @@ function firstOf(settled: Promise<void>, ms: number): Promise<void> {
   })
 }
 
-// What the host is handed back when the preview leg ends: the env files its
+// What the leg holds in its host until it ends: the env file values its
 // config loaded and the card of the folder it ran, `start`'s build card too.
 interface PreviewLeg {
-  projectDir: string
   outputPath: string
-  browserOpen: boolean
+  // Set once a browser is up, with what the launcher says about its end.
+  openSession?: PreviewBrowserSession
+  holdProject(projectDir: string): void
+  end(): void
+}
+
+function createPreviewLeg(
+  pathOrRemoteUrl: string | undefined,
+  startLeg: boolean
+): PreviewLeg {
+  const releases: Array<() => void> = []
+  let ended = false
+
+  const leg: PreviewLeg = {
+    outputPath: '',
+    holdProject(projectDir) {
+      releases.push(holdPreloadedEnvOf(projectDir))
+
+      if (startLeg) {
+        releases.push(...takeStartLaunchHoldings(pathOrRemoteUrl, projectDir))
+      }
+    },
+    end() {
+      if (ended) return
+
+      ended = true
+
+      // A start leg that failed before it found its project still owes the
+      // host what the build parked for the path both were given.
+      if (startLeg) releases.push(...takeStartLaunchHoldings(pathOrRemoteUrl))
+      if (leg.outputPath) releaseCardKeysOf(path.resolve(leg.outputPath))
+
+      for (const release of releases.splice(0)) release()
+    }
+  }
+
+  return leg
 }
 
 export async function extensionPreview(
@@ -265,22 +303,34 @@ export async function extensionPreview(
   previewOptions: PreviewOptions,
   browserLauncher?: PreviewLauncherFn
 ) {
-  const leg: PreviewLeg = {projectDir: '', outputPath: '', browserOpen: false}
+  const leg = createPreviewLeg(
+    pathOrRemoteUrl,
+    previewOptions.metadataCommand === 'start'
+  )
+  let result: Awaited<ReturnType<typeof runPreview>>
 
   try {
-    return await runPreview(
+    result = await runPreview(
       pathOrRemoteUrl,
       previewOptions,
       leg,
       browserLauncher
     )
-  } finally {
-    // An open browser is a live session, and it keeps both until it ends.
-    if (!leg.browserOpen) {
-      if (leg.outputPath) releaseCardKeysOf(path.resolve(leg.outputPath))
-      if (leg.projectDir) forgetPreloadedEnvOf(leg.projectDir)
-    }
+  } catch (error) {
+    leg.end()
+
+    throw error
   }
+
+  // An open browser is a live session, and it keeps both until it is gone.
+  // A launcher that cannot say when leaves them to the end of the process.
+  if (leg.openSession) {
+    void leg.openSession.ended?.then(leg.end, leg.end)
+  } else {
+    leg.end()
+  }
+
+  return result
 }
 
 async function runPreview(
@@ -317,7 +367,7 @@ async function runPreview(
   const debug = isDebug()
   const {manifestDir, packageJsonDir} = getDirs(projectStructure)
 
-  leg.projectDir = packageJsonDir
+  leg.holdProject(packageJsonDir)
   announceLeftoverOutputFolder(projectStructure)
 
   const userManifestPath =
@@ -823,7 +873,8 @@ async function runPreview(
       openSession.writeShutdown(`the ${metadataCommand} session ended`)
     })
 
-    leg.browserOpen = true
+    // A dry run prints the launch and opens nothing, so nothing stays held.
+    if (!merged.dryRun) leg.openSession = launched || {}
 
     return {warnings}
   } catch (error) {
