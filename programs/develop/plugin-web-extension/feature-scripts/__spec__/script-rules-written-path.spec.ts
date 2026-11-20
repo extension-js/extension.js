@@ -74,19 +74,27 @@ describe('script rules on a project path as written', () => {
         })
       ]
     })
-    const wrapperRules = (compiler.options.module.rules as any[]).filter(
+    const rules = compiler.options.module.rules as unknown as Array<{
+      use?: Array<{loader?: unknown}>
+      include?: unknown
+      issuer?: {not: RegExp}
+    } | null>
+    const wrapperRules = rules.filter(
       (rule) =>
-        Array.isArray(rule?.use) &&
-        rule.use.some((use: any) =>
+        rule !== null &&
+        Array.isArray(rule.use) &&
+        rule.use.some((use) =>
           String(use.loader).includes('content-script-wrapper')
         )
     )
 
     await new Promise<void>((resolve) => compiler.close(() => resolve()))
 
-    const plain = wrapperRules.find((rule) => rule.issuer?.not)
+    const plain = wrapperRules.find((rule) => rule?.issuer?.not)
 
     expect(plain).toBeDefined()
+    if (!plain?.issuer) throw new Error('no wrapper rule with an issuer')
+
     expect(matches(plain.include, at('content/isolated.js'))).toBe(true)
     expect(plain.issuer.not.test(at('content/main.js'))).toBe(true)
   })
