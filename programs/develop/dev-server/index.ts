@@ -27,7 +27,8 @@ import {resolveConnectableHost} from '../lib/connectable-host'
 import {
   isEmulatorBrowser,
   isGeckoBasedBrowser,
-  isWebkitBasedBrowser
+  isWebkitBasedBrowser,
+  STOCK_COMPANION_EXTENSIONS
 } from '../lib/constants'
 import {
   companionsDeclaredIn,
@@ -72,10 +73,7 @@ import {
 } from '../plugin-reload'
 import {resolveCompanionExtensionsConfig} from '../plugin-special-folders/folder-extensions/resolve-config'
 import {rememberExcludedFiles} from '../plugin-special-folders/folders-config'
-import {
-  getSpecialFoldersDataForProjectRoot,
-  rememberSpecialFoldersConfig
-} from '../plugin-special-folders/get-data'
+import {rememberSpecialFoldersConfig} from '../plugin-special-folders/get-data'
 import {publicFolderOrDefault} from '../plugin-special-folders/resolve-public-folder'
 import webpackConfig from '../rspack-config'
 import type {
@@ -658,17 +656,12 @@ async function startDevSession(
     (mergedDevOptions as Partial<CommonWebpackOptions>).exclude
   )
 
-  const specialFoldersData = getSpecialFoldersDataForProjectRoot(
-    packageJsonDir,
-    foldersConfig
-  )
-
   const mergedExtensionsConfig =
     safeDevOptions.extensions ??
     safeCommandConfig.extensions ??
     safeBrowserConfig.extensions ??
     safeProjectConfig.extensions ??
-    specialFoldersData.extensions
+    STOCK_COMPANION_EXTENSIONS
   const resolvedExtensionsConfig = await resolveCompanionExtensionsConfig({
     projectRoot: packageJsonDir,
     browser: devOptions.browser,

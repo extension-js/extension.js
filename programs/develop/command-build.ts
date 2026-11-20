@@ -53,6 +53,7 @@ import {
   loadProjectConfigDefaults
 } from './lib/config-loader'
 import {ConfigResolvedPlugin} from './lib/config-resolved-plugin'
+import {STOCK_COMPANION_EXTENSIONS} from './lib/constants'
 import {
   findDuplicateOutputFiles,
   importedAssetSources
@@ -131,10 +132,7 @@ import {removeDevelopmentArtifacts} from './plugin-reload/reload-lib/development
 import {resolveCompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/resolve-config'
 import type {CompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/types'
 import {rememberExcludedFiles} from './plugin-special-folders/folders-config'
-import {
-  getSpecialFoldersDataForProjectRoot,
-  rememberSpecialFoldersConfig
-} from './plugin-special-folders/get-data'
+import {rememberSpecialFoldersConfig} from './plugin-special-folders/get-data'
 import type {
   BuildOptions,
   CommonWebpackOptions,
@@ -552,11 +550,6 @@ async function runBuild(
       commandConfig.folders ?? browserConfig.folders ?? projectConfig.folders
     rememberSpecialFoldersConfig(packageJsonDir, foldersConfig)
 
-    const specialFoldersData = getSpecialFoldersDataForProjectRoot(
-      packageJsonDir,
-      foldersConfig
-    )
-
     // stock defaults, then top-level config, then browser.*, then command
     // config, then CLI. Unset CLI keys are stripped so config wins. An
     // explicit flag beats it. The browser layer matches dev:
@@ -626,7 +619,7 @@ async function runBuild(
       commandConfig.extensions ??
       browserConfig.extensions ??
       projectConfig.extensions ??
-      specialFoldersData.extensions
+      STOCK_COMPANION_EXTENSIONS
     // Nothing a build writes loads a companion. Only the start leg, whose
     // launch follows, resolves them, which is where a store download happens.
     const resolvedExtensionsConfig: CompanionExtensionsConfig | undefined =
