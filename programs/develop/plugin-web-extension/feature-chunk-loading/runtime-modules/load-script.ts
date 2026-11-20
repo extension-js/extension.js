@@ -59,7 +59,7 @@ export function LoadScriptRuntimeModule(
 
       if (!compilation) {
         return Template.asString(
-          '/* [webpack-target-webextension] ChunkLoaderFallbackRuntimeModule skipped because no compilation is found. */'
+          '/* [webpack-target-webextension] LoadScriptRuntimeModule skipped because no compilation is found. */'
         )
       }
 

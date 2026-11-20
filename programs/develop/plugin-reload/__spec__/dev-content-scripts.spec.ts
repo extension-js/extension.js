@@ -1387,7 +1387,8 @@ describe('SetupDevContentScripts step', () => {
       hooks: {
         thisCompilation: {
           tap: (_n: string, fn: (c: unknown) => void) => fn(comp)
-        }
+        },
+        done: {tap: () => undefined}
       }
     }
 

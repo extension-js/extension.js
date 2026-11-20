@@ -53,7 +53,6 @@ describe('buildServerConfig', () => {
   it.each([
     ['/proj/dist/chrome/background.js', '/proj/dist/chrome', true],
     ['/proj/dist/chrome/manifest.json', '/proj/dist/chrome', false],
-    ['/proj/dist/chrome/MANIFEST.JSON', '/proj/dist/chrome', false],
     ['/proj/dist/chrome/manifest.json', '/proj/dist/chrome/', false],
     ['/proj/dist/chrome/./manifest.json', '/proj/dist/chrome', false],
     ['manifest.json', '/proj/dist/chrome', false],
@@ -105,6 +104,19 @@ describe('buildServerConfig', () => {
     ['/proj/dist/chrome/background.js', true]
   ])('with no output folder known, writes %s to disk: %s', (file, expected) => {
     expect(shouldWriteAssetToDisk(file, undefined)).toBe(expected)
+  })
+
+  // A manifest spelled in other letters is the manifest on every platform,
+  // since a Linux mount can ignore case too.
+  it.each([
+    ['/proj/dist/chrome/MANIFEST.JSON', '/proj/dist/chrome', false],
+    ['/proj/dist/Chrome/manifest.json', '/proj/dist/chrome', false],
+    ['c:\\Proj\\Dist\\Chrome\\Manifest.json', 'C:\\proj\\dist\\chrome', false],
+    ['C:/proj/dist/chrome/Manifest.json', 'C:/proj/dist/chrome', false],
+    ['/proj/dist/chrome/Manifest.json', undefined, false],
+    ['/proj/dist/chrome/app/MANIFEST.JSON', '/proj/dist/chrome', true]
+  ])('writes %s under %s to disk: %s', (file, outputPath, expected) => {
+    expect(shouldWriteAssetToDisk(file, outputPath)).toBe(expected)
   })
 
   it('judges a file against the output folder of the live compiler', () => {

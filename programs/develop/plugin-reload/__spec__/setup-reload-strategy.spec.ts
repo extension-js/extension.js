@@ -181,8 +181,9 @@ describe('SetupReloadStrategy background entry', () => {
       background: {service_worker: 'b.js'}
     })
 
+    // The missing file is the scripts feature's report, so none is added here.
     expect(result.entries).toEqual({})
-    expect(result.taps.thisCompilation).toContain(
+    expect(result.taps.thisCompilation ?? []).not.toContain(
       'plugin-reload:setup-background-entry'
     )
   })

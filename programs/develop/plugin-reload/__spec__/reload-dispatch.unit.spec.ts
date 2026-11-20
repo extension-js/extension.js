@@ -12,6 +12,7 @@ import {
   dispatchReload,
   dispatchRestartReload,
   fullReloadsDeliveredTo,
+  noteManifestPath,
   type ReloadBroker
 } from '../reload-dispatch'
 
@@ -155,13 +156,29 @@ describe('dispatchReload', () => {
       )
     })
 
-    it('keeps the reloading line when the file ran again in no tab', async () => {
+    it('says the page was updated when the file ran again in no tab', async () => {
       for (const tabs of [0, undefined]) {
         const lines = await printed(INJECTED, tabs)
 
         expect(lines).toHaveLength(1)
-        expect(lines[0]).toContain('Reloading page (scripts/widget.ts)…')
+        expect(lines[0]).toContain('Updated page (scripts/widget.ts).')
       }
+    })
+
+    // The dev client swaps the module, so no page reloads for a script edit.
+    it('says a page script edit updated the page, with no reload', async () => {
+      const lines = await printed(
+        {
+          type: 'page',
+          changedAssets: ['src/popup/index.js'],
+          label: 'popup page (src/popup/index.js)'
+        },
+        0
+      )
+
+      expect(lines).toHaveLength(1)
+      expect(lines[0]).toContain('Updated popup page (src/popup/index.js).')
+      expect(lines[0]).not.toContain('Reloading')
     })
 
     it('keeps the reloading line for a page edit that names no injected file', async () => {
@@ -708,37 +725,69 @@ describe('createChangedSourcesTracker', () => {
     expect(instruction?.changedAssets).toEqual(['_locales/en/messages.json'])
   })
 
-  // Pins current behavior: the forced full reload matches on a substring.
-  it('forces a full reload for a file whose name only ends in manifest.json', () => {
+  it('reloads only the page for a file whose name only ends in manifest.json', () => {
     const {compiler, fireWatchRun} = fakeCompiler()
     const tracker = createChangedSourcesTracker(compiler)
     compiler.modifiedFiles = new Set(['/proj/src/pwa/site-manifest.json'])
     fireWatchRun()
 
     expect(tracker.snapshot()).toEqual({
-      forcedFull: true,
+      forcedFull: false,
       changedSources: ['src/pwa/site-manifest.json']
     })
   })
 
-  // Pins current behavior: the forced full reload matches on a substring.
-  it('forces a full reload for a source file under any _locales folder', () => {
+  it('forces no full reload for a source file under a nested _locales folder', () => {
     const {compiler, fireWatchRun} = fakeCompiler()
     const tracker = createChangedSourcesTracker(compiler)
     compiler.modifiedFiles = new Set(['/proj/src/i18n/_locales/strings.ts'])
     fireWatchRun()
 
     expect(tracker.snapshot()).toEqual({
-      forcedFull: true,
+      forcedFull: false,
       changedSources: ['src/i18n/_locales/strings.ts']
     })
   })
 
-  it('resets on each watchRun (no stale carryover)', () => {
+  it('forces no full reload for a manifest.json copied from public/', () => {
     const {compiler, fireWatchRun} = fakeCompiler()
+    const tracker = createChangedSourcesTracker(compiler)
+    compiler.modifiedFiles = new Set(['/proj/public/app/manifest.json'])
+    fireWatchRun()
+
+    expect(tracker.snapshot().forcedFull).toBe(false)
+  })
+
+  it('forces a full reload for the manifest the plugin was given and its _locales', () => {
+    const {compiler, fireWatchRun, fireDone} = fakeCompiler()
+    noteManifestPath(compiler, '/proj/extension/manifest.json')
+    const tracker = createChangedSourcesTracker(compiler)
+
+    compiler.modifiedFiles = new Set(['/proj/extension/manifest.json'])
+    fireWatchRun()
+    fireDone()
+    expect(tracker.snapshot().forcedFull).toBe(true)
+
+    compiler.modifiedFiles = new Set([
+      '/proj/extension/_locales/en/messages.json'
+    ])
+
+    fireWatchRun()
+    fireDone()
+    expect(tracker.snapshot().forcedFull).toBe(true)
+
+    compiler.modifiedFiles = new Set(['/proj/src/manifest.json'])
+    fireWatchRun()
+    fireDone()
+    expect(tracker.snapshot().forcedFull).toBe(false)
+  })
+
+  it('resets on the watchRun after a compile ended (no stale carryover)', () => {
+    const {compiler, fireWatchRun, fireDone} = fakeCompiler()
     const tracker = createChangedSourcesTracker(compiler)
     compiler.modifiedFiles = new Set(['/proj/src/manifest.json'])
     fireWatchRun()
+    fireDone()
     expect(tracker.snapshot().forcedFull).toBe(true)
 
     compiler.modifiedFiles = new Set()
@@ -780,6 +829,23 @@ describe('createChangedSourcesTracker', () => {
     fireDone([], {fileDependencies: read.slice(0, 1)})
 
     expect(tracker.snapshot().changedSources).toEqual(['src/parts/a.js'])
+  })
+
+  // A save during a compile starts the next one, and the first never ends.
+  it('keeps the files of a compile a newer save superseded', () => {
+    const {compiler, fireWatchRun, fireDone} = fakeCompiler()
+    const tracker = createChangedSourcesTracker(compiler)
+
+    compiler.modifiedFiles = new Set(['/proj/src/background.ts'])
+    fireWatchRun()
+    compiler.modifiedFiles = new Set(['/proj/src/popup/index.js'])
+    fireWatchRun()
+    fireDone()
+
+    expect(tracker.snapshot()).toEqual({
+      forcedFull: false,
+      changedSources: ['src/background.ts', 'src/popup/index.js']
+    })
   })
 
   it('holds a failed compile so the next success reloads every pending change', () => {
@@ -1002,7 +1068,9 @@ describe('createChangedSourcesTracker on a symlinked project dir', () => {
           tap: (_name: string, fn: () => void) => {
             runner = fn
           }
-        }
+        },
+        done: {tap: () => undefined},
+        assetEmitted: {tap: () => undefined}
       }
     }
     const tracker = createChangedSourcesTracker(compiler)
@@ -1118,30 +1186,40 @@ function recordingBroker(answers: {
 }
 
 describe('dispatchReload when the broker fails', () => {
-  // Pins current behavior: a broker failure is not caught here.
-  it('rejects with the error a throwing broadcast raised', async () => {
-    const gone = new Error('socket gone')
+  // A broker fault must not fail the compile: the edit is said to be unsent.
+  it('warns and reports false when the broadcast throws', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const {broker, sent} = recordingBroker({
       broadcast: () => {
-        throw gone
+        throw new Error('socket gone')
       }
     })
 
-    await expect(dispatchReload(CS, {broker})).rejects.toBe(gone)
+    await expect(dispatchReload(CS, {broker})).resolves.toBe(false)
     expect(sent).toHaveLength(1)
     expect(fullReloadsDeliveredTo(broker)).toBe(0)
+    expect(warn.mock.calls.map((call) => String(call[0]))).toEqual([
+      expect.stringContaining(
+        'content_script (src/content/scripts.js) compiled but the extension never confirmed the reload'
+      )
+    ])
   })
 
-  it('rejects with the error a rejected ack wait raised', async () => {
-    const lost = new Error('ack channel closed')
-    const {broker, sent} = recordingBroker({ack: () => Promise.reject(lost)})
+  it('warns and reports false when the ack wait rejects', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const {broker, sent} = recordingBroker({
+      ack: () => Promise.reject(new Error('ack channel closed'))
+    })
 
     await expect(
       dispatchReload({type: 'full', label: 'extension'}, {broker})
-    ).rejects.toBe(lost)
+    ).resolves.toBe(false)
 
     expect(sent).toHaveLength(1)
     expect(fullReloadsDeliveredTo(broker)).toBe(0)
+    expect(warn.mock.calls.map((call) => String(call[0]))).toEqual([
+      expect.stringContaining('extension compiled but the extension never')
+    ])
   })
 })
 
