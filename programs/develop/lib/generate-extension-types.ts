@@ -64,7 +64,7 @@ function projectReadsTypesFile(manifestDir: string, file: string): boolean {
 export async function generateExtensionTypes(
   manifestDir: string,
   packageJsonDir: string,
-  envTarget?: ConfigEnvTarget
+  envTarget: ConfigEnvTarget
 ) {
   const extensionEnvFile = path.join(packageJsonDir, 'extension-env.d.ts')
   const fileContent = renderExtensionEnvTypes(
