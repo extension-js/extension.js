@@ -6,9 +6,10 @@
 //  ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═══╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import * as path from 'node:path'
 import colors from 'pintor'
 import {prefix} from '../../lib/messaging'
-import {displayPath} from '../../lib/paths'
+import {collapseHomeDir, displayPath} from '../../lib/paths'
 
 export interface CompileReport {
   errors: number
@@ -403,4 +404,33 @@ export function unresolvedBareRequire(
       : `Install the package if it's a real dependency, or set `) +
     `EXTENSION_STRICT_REFS=true to make this fail the build.`
   )
+}
+
+export function manifestGoneDuringSession(
+  manifestPath: string,
+  projectDirGone: boolean
+) {
+  const what = projectDirGone
+    ? 'The project directory disappeared during the session.'
+    : 'The manifest.json file disappeared during the session.'
+  const where = projectDirGone ? path.dirname(manifestPath) : manifestPath
+
+  return (
+    `${prefix('error')} ${what}\n` +
+    `${colors.gray('NOT FOUND')} ${colors.underline(collapseHomeDir(where))}\n` +
+    `The last good build stays loaded. Restore it to keep working, or stop and run ` +
+    `${colors.blue('extension dev')} again with the right path.`
+  )
+}
+
+export function noEntrypointsDetected(port: number) {
+  return [
+    `${prefix('warn')} The first compilation produced no entrypoints or assets.`,
+    `The dev server is running on 127.0.0.1:${port}, but nothing is being built.`,
+    `Possible causes:`,
+    `- Empty or missing entry configuration.`,
+    `- Extension plugins are disabled, so entries aren't derived from the manifest.`,
+    `- All sources are ignored or excluded.`,
+    `Set ${colors.blue('EXTENSION_VERBOSE=1')} to see verbose logs, or review your extension config.`
+  ].join('\n')
 }

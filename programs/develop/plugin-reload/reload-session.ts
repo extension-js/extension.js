@@ -80,6 +80,10 @@ export interface ReloadSession {
   ): ((timeoutMs: number) => Promise<'settled' | 'timeout'>) | undefined
 }
 
+// The longest a delivery holds the next build. The broker bounds its own
+// waits below this: five seconds to wake a worker and three for the receipt.
+export const RELOAD_DELIVERY_HOLD_MS = 10_000
+
 // One owner for the reload of a dev session. What the browser read outlives
 // a restart of the compiler, so a caller keeps one session for its lifetime.
 export function createReloadSession(
@@ -168,10 +172,19 @@ export function createReloadSession(
 
     deliver(instruction, compilation) {
       const delivery = send(instruction, compilation)
-      const settled: Promise<void> = delivery.then(
-        () => undefined,
-        () => undefined
-      )
+      const settled: Promise<void> = new Promise((resolve) => {
+        // The hold ends with the delivery or at its bound, whichever is
+        // first, so a broker that never answers cannot stop the builds.
+        const bound = setTimeout(resolve, RELOAD_DELIVERY_HOLD_MS)
+
+        bound.unref?.()
+        void delivery.then(
+          () => resolve(),
+          () => resolve()
+        )
+
+        void delivery.finally(() => clearTimeout(bound)).catch(() => undefined)
+      })
 
       delivering = settled
       void settled.then(() => {

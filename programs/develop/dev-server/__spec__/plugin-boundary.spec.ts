@@ -130,7 +130,7 @@ describe('what the plugins reach in the dev server', () => {
     expect(pluginFiles.length).toBeGreaterThan(100)
   })
 
-  it('reaches the control bridge from plugin-reload, and one hook file from plugin-compilation', () => {
+  it('reaches the control bridge from plugin-reload and nothing else', () => {
     const rows = pluginFiles
       .flatMap(({file, text}) =>
         reached(text).map((module) => `${file.split('/')[0]} ${module}`)
@@ -139,7 +139,6 @@ describe('what the plugins reach in the dev server', () => {
       .sort()
 
     expect(rows).toEqual([
-      'plugin-compilation compiler-hooks',
       'plugin-reload control-bridge/contracts',
       'plugin-reload control-bridge/producer-runtime'
     ])

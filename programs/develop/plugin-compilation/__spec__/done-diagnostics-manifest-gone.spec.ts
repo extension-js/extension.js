@@ -10,7 +10,7 @@ import {
   type MockInstance,
   vi
 } from 'vitest'
-import {setupCompilerDoneDiagnostics} from '../compiler-hooks'
+import {setupCompilerDoneDiagnostics} from '../done-diagnostics'
 
 let root: string
 let manifestPath: string
