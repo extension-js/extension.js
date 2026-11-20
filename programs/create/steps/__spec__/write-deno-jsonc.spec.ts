@@ -25,7 +25,13 @@ function expectAbsent(target: string) {
   })
 }
 
-function parseJsonc(contents: string): Record<string, any> {
+interface DenoConfig {
+  nodeModulesDir?: string
+  tasks: Record<string, string>
+  imports: Record<string, string>
+}
+
+function parseJsonc(contents: string): DenoConfig {
   const withoutComments = contents
     .split('\n')
     .filter((line) => !line.trim().startsWith('//'))

@@ -160,9 +160,7 @@ export async function runCreate(
     }
 
     // The failure is still the one thrown, and it now says what was left.
-    noteIncompleteCleanup(error, {leftBehind, notRestored})
-
-    throw error
+    throw noteIncompleteCleanup(error, {leftBehind, notRestored})
   }
 }
 

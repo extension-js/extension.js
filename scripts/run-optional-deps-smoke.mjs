@@ -958,7 +958,88 @@ async function rewriteConsumerPackageJson(workdir, pm, packedTarballs = null) {
   )
 }
 
+// A dependency published minutes ago can still be missing a sibling it needs,
+// so the consumer install takes nothing younger than an hour. The repo's own
+// exclusions carry over, so a first-party pin bumped today still resolves.
+const SMOKE_RELEASE_AGE_MINUTES = 60
+
+// Read line by line: the smoke can start before the workspace is installed,
+// so no YAML package is loaded here.
+/**
+ * @param {string} [text]
+ * @returns {string[]}
+ */
+function repoReleaseAgeExclusions(
+  text = fsSync.readFileSync(path.join(ROOT_DIR, 'pnpm-workspace.yaml'), 'utf8')
+) {
+  /** @type {string[]} */
+  const names = []
+  let inList = false
+
+  for (const line of text.split(/\r?\n/)) {
+    if (!line.startsWith(' ') && line.trim() !== '') {
+      inList = line.startsWith('minimumReleaseAgeExclude:')
+      continue
+    }
+
+    const item = line.trim()
+    if (!inList || !item.startsWith('- ')) continue
+
+    names.push(
+      item
+        .slice(2)
+        .trim()
+        .replace(/^['"]|['"]$/g, '')
+    )
+  }
+
+  return names
+}
+
+// Only pnpm and bun read an age gate with exclusions from a project file.
+// npm and Yarn Classic have no exclusions, Deno keeps its own setting below.
+/**
+ * @param {string} pm
+ * @param {string[]} [exclusions]
+ * @returns {Record<string, string>}
+ */
+function consumerReleaseAgeFiles(pm, exclusions = repoReleaseAgeExclusions()) {
+  const quoted = exclusions.map((name) => JSON.stringify(name))
+
+  if (pm === 'pnpm') {
+    return {
+      'pnpm-workspace.yaml': [
+        `minimumReleaseAge: ${SMOKE_RELEASE_AGE_MINUTES}`,
+        'minimumReleaseAgeExclude:',
+        ...quoted.map((name) => `  - ${name}`),
+        ''
+      ].join('\n')
+    }
+  }
+
+  if (pm === 'bun') {
+    return {
+      'bunfig.toml': [
+        '[install]',
+        `minimumReleaseAge = ${SMOKE_RELEASE_AGE_MINUTES * 60}`,
+        `minimumReleaseAgeExcludes = [${quoted.join(', ')}]`,
+        ''
+      ].join('\n')
+    }
+  }
+
+  return {}
+}
+
+// pnpm reads the gate only from the consumer's own pnpm-workspace.yaml, which
+// --ignore-workspace would skip, so that file makes the consumer its own root.
+const PNPM_CONSUMER_INSTALL = ['install', '--frozen-lockfile']
+
 function installAndBuild(workdir, pm) {
+  for (const [file, content] of Object.entries(consumerReleaseAgeFiles(pm))) {
+    fsSync.writeFileSync(path.join(workdir, file), content)
+  }
+
   const smokeEnv = {
     ...buildSmokeEnv(pm),
     EXTENSION_JS_CACHE_DIR: path.join(workdir, '.extensionjs-cache')
@@ -968,22 +1049,12 @@ function installAndBuild(workdir, pm) {
     const lockfilePath = path.join(workdir, 'pnpm-lock.yaml')
     runInstall(
       'pnpm',
-      [
-        'install',
-        '--lockfile-only',
-        '--ignore-workspace',
-        '--no-frozen-lockfile'
-      ],
+      ['install', '--lockfile-only', '--no-frozen-lockfile'],
       workdir,
       smokeEnv
     )
 
-    runInstall(
-      'pnpm',
-      ['install', '--frozen-lockfile', '--ignore-workspace'],
-      workdir,
-      smokeEnv
-    )
+    runInstall('pnpm', PNPM_CONSUMER_INSTALL, workdir, smokeEnv)
 
     const firstLockHash = sha1FileSync(lockfilePath)
     run('pnpm', ['build:production'], workdir, smokeEnv)
@@ -993,12 +1064,7 @@ function installAndBuild(workdir, pm) {
       throw new Error('pnpm build mutated pnpm-lock.yaml after initial install')
     }
 
-    runInstall(
-      'pnpm',
-      ['install', '--frozen-lockfile', '--ignore-workspace'],
-      workdir,
-      smokeEnv
-    )
+    runInstall('pnpm', PNPM_CONSUMER_INSTALL, workdir, smokeEnv)
 
     const secondLockHash = sha1FileSync(lockfilePath)
     run('pnpm', ['build:production'], workdir, smokeEnv)
@@ -1399,6 +1465,9 @@ if (isDirectExecution) {
 
 export {
   assertLocalWorkspacePackagesExist,
+  consumerReleaseAgeFiles,
+  PNPM_CONSUMER_INSTALL,
+  repoReleaseAgeExclusions,
   fileSpecifier,
   getLocalWorkspacePackagePaths,
   getPackedDependencyNames,

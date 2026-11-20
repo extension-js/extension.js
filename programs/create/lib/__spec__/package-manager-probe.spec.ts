@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 import {fakeSpawn, missingBinary} from '../../__spec__/fake-spawn'
+import {windowsTaskkillPath} from '../install-runner'
 import {
   declarePackageManager,
   type VersionProbe,
@@ -390,7 +391,7 @@ describe('the child the version probe starts', () => {
 
     expect(calls.map((call) => [call.command, ...call.args])).toEqual([
       ['npm', '--version'],
-      ['taskkill', '/pid', String(calls[0].pid), '/T', '/F']
+      [windowsTaskkillPath(), '/pid', String(calls[0].pid), '/T', '/F']
     ])
 
     expect(calls[0].signals).toEqual([])

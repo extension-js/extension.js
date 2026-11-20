@@ -5,11 +5,14 @@ import path from 'node:path'
 import test from 'node:test'
 import {
   assertLocalWorkspacePackagesExist,
+  consumerReleaseAgeFiles,
   fileSpecifier,
   getLocalWorkspacePackagePaths,
   getPackedDependencyNames,
   isTransientRegistryFailure,
+  PNPM_CONSUMER_INSTALL,
   removeDirectoryWithRetries,
+  repoReleaseAgeExclusions,
   resolveSmokeTempRootParent,
   rewriteConsumerPackageJson,
   runWithRegistryRetries,
@@ -384,4 +387,50 @@ test('runWithRegistryRetries never retries a real install error', () => {
 
   assert.equal(result.status, 1)
   assert.equal(calls, 1)
+})
+
+// A release still in flight cannot fail the smoke, and the repo's own
+// exclusions keep a first-party pin bumped today resolvable.
+test('the pnpm consumer takes nothing younger than an hour, the repo exclusions kept', () => {
+  assert.deepEqual(consumerReleaseAgeFiles('pnpm', ['zen-location']), {
+    'pnpm-workspace.yaml':
+      'minimumReleaseAge: 60\nminimumReleaseAgeExclude:\n  - "zen-location"\n'
+  })
+
+  // pnpm skips a project pnpm-workspace.yaml under --ignore-workspace.
+  assert.ok(!PNPM_CONSUMER_INSTALL.includes('--ignore-workspace'))
+})
+
+test('the bun consumer takes the same hour, in seconds', () => {
+  assert.deepEqual(consumerReleaseAgeFiles('bun', ['zen-location']), {
+    'bunfig.toml':
+      '[install]\nminimumReleaseAge = 3600\nminimumReleaseAgeExcludes = ["zen-location"]\n'
+  })
+})
+
+test('npm, yarn and deno consumers get no age file', () => {
+  for (const pm of ['npm', 'yarn', 'deno']) {
+    assert.deepEqual(consumerReleaseAgeFiles(pm, ['zen-location']), {})
+  }
+})
+
+test('the exclusions are the ones the repo itself keeps', () => {
+  assert.deepEqual(
+    repoReleaseAgeExclusions(
+      [
+        'packages:',
+        "  - './programs/*'",
+        'minimumReleaseAge: 4320',
+        'minimumReleaseAgeExclude:',
+        '  # first-party',
+        '  - image-size',
+        "  - 'zen-location'",
+        'onlyBuiltDependencies:',
+        '  - esbuild'
+      ].join('\n')
+    ),
+    ['image-size', 'zen-location']
+  )
+
+  assert.ok(repoReleaseAgeExclusions().includes('firefox-location2'))
 })
