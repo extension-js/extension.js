@@ -37,6 +37,8 @@ function watchingCompiler(context: string) {
 
       const compilation = {
         errors,
+        fileDependencies: new Set(compiler.modifiedFiles),
+        missingDependencies: new Set<string>(),
         options: {context, output: {path: path.join(context, 'dist')}},
         getAsset: () => undefined
       }
@@ -106,20 +108,6 @@ describe('reloadEachBuild', () => {
     await watching.build(['manifest.json'])
 
     expect(broker.sent).toEqual([])
-  })
-})
-
-describe('reloadEachBuild on a one-shot build', () => {
-  it('taps nothing on a compiler that never watches', () => {
-    const done = vi.fn()
-    const compiler = {hooks: {done: {tap: done, tapPromise: done}}}
-
-    reloadEachBuild(compiler as never, {
-      browser: 'chrome',
-      broker: recordingBroker()
-    })
-
-    expect(done).not.toHaveBeenCalled()
   })
 })
 

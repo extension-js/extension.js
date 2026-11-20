@@ -2,7 +2,9 @@ import {describe, expect, it} from 'vitest'
 import {
   executableOf,
   findLiveBrowserPid,
+  listProcesses,
   type ProcessRow,
+  type ProcessTableIo,
   parseProcessRows,
   resolveLiveBrowserPid
 } from '../../browsers-lib/resolve-live-pid'
@@ -198,6 +200,140 @@ describe('parseProcessRows', () => {
           '"C:\\Program Files\\Mozilla Firefox\\firefox.exe" -profile C:\\p'
       }
     ])
+  })
+})
+
+// Each platform asks its own tool, and no host runs all three, so the tool is
+// stood in for and the question it was asked is what the row reads.
+describe('listProcesses', () => {
+  const tableOf = (answer: {
+    output: string | null
+    files?: Record<string, string>
+  }) => {
+    const asked: Array<{bin: string; args: string[]}> = []
+    const read: string[] = []
+    const io: ProcessTableIo = {
+      run: (bin, args) => {
+        asked.push({bin, args})
+
+        return answer.output
+      },
+      readFile: (file) => {
+        read.push(file)
+
+        const content = answer.files?.[file]
+        if (content === undefined) throw new Error(`ENOENT ${file}`)
+
+        return content
+      }
+    }
+
+    return {io, asked, read}
+  }
+
+  it('asks ps for the environment on macOS, where a relaunched browser has a blank argv', () => {
+    const table = tableOf({
+      output: [
+        `31246 31000 ${BIN} ${ARGS}`,
+        `31279 31246 ${BIN} ${HANDOFF_ENV}`
+      ].join('\n')
+    })
+    const rows = listProcesses('darwin', table.io)
+
+    expect(table.asked).toEqual([
+      {bin: 'ps', args: ['-axEo', 'pid=,ppid=,command=']}
+    ])
+
+    expect(table.read).toEqual([])
+    expect(
+      findLiveBrowserPid({
+        profilePath: PROFILE,
+        binary: BIN,
+        launcherPid: 31246,
+        rows
+      })
+    ).toBe(31279)
+  })
+
+  it('reads the handoff variable from /proc on Linux, where ps prints no environment', () => {
+    const linuxBin = '/home/dev/.cache/extension.js/browsers/firefox/firefox'
+    const table = tableOf({
+      output: [
+        `31246 31000 ${linuxBin} ${ARGS}`,
+        `31279 31246 ${linuxBin}`,
+        `31300 1 /usr/bin/node server.js`
+      ].join('\n'),
+      files: {
+        '/proc/31246/environ': 'HOME=/home/dev\0PWD=/tmp/proj\0',
+        '/proc/31279/environ': `HOME=/home/dev\0XRE_PROFILE_PATH=${PROFILE}\0MOZ_LAUNCHED_CHILD=1\0`
+      }
+    })
+    const rows = listProcesses('linux', table.io)
+
+    expect(table.asked).toEqual([
+      {bin: 'ps', args: ['-axo', 'pid=,ppid=,command=']}
+    ])
+
+    expect(table.read).toEqual([
+      '/proc/31246/environ',
+      '/proc/31279/environ',
+      '/proc/31300/environ'
+    ])
+
+    // A process whose environment cannot be read keeps its row as ps gave it.
+    expect(rows).toEqual([
+      row(31246, 31000, `${linuxBin} ${ARGS}`),
+      row(31279, 31246, `${linuxBin} XRE_PROFILE_PATH=${PROFILE}`),
+      row(31300, 1, '/usr/bin/node server.js')
+    ])
+
+    expect(
+      findLiveBrowserPid({
+        profilePath: PROFILE,
+        binary: linuxBin,
+        launcherPid: 31246,
+        rows
+      })
+    ).toBe(31279)
+  })
+
+  it('asks PowerShell on Windows, with no profile script and no prompt', () => {
+    const table = tableOf({
+      output:
+        '5120 4000 "C:\\Mozilla Firefox\\firefox.exe" -profile C:\\p\\keen-newt\r\n' +
+        '5200 5120 "C:\\Mozilla Firefox\\firefox.exe" -contentproc -profile C:\\p\\keen-newt\r\n'
+    })
+    const rows = listProcesses('win32', table.io)
+
+    expect(table.asked).toHaveLength(1)
+    expect(table.asked[0].bin).toBe('powershell.exe')
+    expect(table.asked[0].args.slice(0, 3)).toEqual([
+      '-NoProfile',
+      '-NonInteractive',
+      '-Command'
+    ])
+
+    expect(table.asked[0].args[3]).toContain('Get-CimInstance Win32_Process')
+    expect(table.read).toEqual([])
+    expect(
+      findLiveBrowserPid({
+        profilePath: 'C:\\p\\keen-newt',
+        binary: 'C:\\Mozilla Firefox\\firefox.exe',
+        launcherPid: 5120,
+        rows
+      })
+    ).toBe(5120)
+  })
+
+  it.each([
+    'darwin',
+    'linux',
+    'win32'
+  ] as const)('answers no rows on %s when the tool gives nothing', (platform) => {
+    const table = tableOf({output: null})
+
+    expect(listProcesses(platform, table.io)).toEqual([])
+    expect(table.read).toEqual([])
   })
 })
 

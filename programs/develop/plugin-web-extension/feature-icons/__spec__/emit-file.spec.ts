@@ -29,7 +29,8 @@ const FS = {
   // No link in these stand-in trees: a path is its own real path.
   realpathSync: vi.fn((p: string) => p)
 }
-vi.mock('fs', () => ({
+vi.mock('fs', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('node:fs')>()),
   ...FS
 }))
 

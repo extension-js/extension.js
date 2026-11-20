@@ -22,6 +22,7 @@ function exists(target: string): boolean {
 
     return true
   } catch {
+    // A path lstat cannot read is treated as absent
     return false
   }
 }
@@ -34,6 +35,7 @@ function devContentScriptStandIns(distPath: string): string[] {
       .readdirSync(path.join(distPath, CONTENT_SCRIPTS_DIR))
       .map((name) => String(name))
   } catch {
+    // A build with no content scripts folder has no stand-ins
     return []
   }
 
@@ -65,6 +67,7 @@ export function removeDevelopmentArtifacts(distPath: string): {
       fs.rmSync(target, {recursive: true, force: true})
       removed.push(relative)
     } catch {
+      // A file that cannot be removed is reported back as kept
       kept.push(relative)
     }
   }

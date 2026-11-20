@@ -13,7 +13,11 @@ import {STOCK_COMPANION_DIR} from '../lib/constants'
 import {debugLine, isDebug} from '../lib/messaging'
 import {isInsidePath} from '../lib/real-path'
 import type {FilepathList, SpecialFoldersConfig} from '../types'
-import {type ScanEntryFolder, scanEntryFolder} from './entry-folders'
+import {
+  type EntryNameCollision,
+  type ScanEntryFolder,
+  scanEntryFolder
+} from './entry-folders'
 import type {CompanionExtensionsConfig} from './folder-extensions/types'
 import {
   excludedFiles,
@@ -461,10 +465,15 @@ function scanSpecialFolders(
   projectRoot: string,
   folders: SpecialFoldersConfig,
   scan: ScanSpecialFolders
-): {data: ScannedFolders; leftOut: string[]} {
+): {
+  data: ScannedFolders
+  leftOut: string[]
+  collisions: EntryNameCollision[]
+} {
   const roots = foldersRoots(projectRoot, folders)
   const data: ScannedFolders = {pages: {}, scripts: {}}
   const leftOut: string[] = []
+  const collisions: EntryNameCollision[] = []
 
   for (const name of ['pages', 'scripts'] as const) {
     const dir = roots[name]
@@ -472,18 +481,40 @@ function scanSpecialFolders(
     if (!dir) continue
 
     // Asked ahead of every step below, some of which read the file.
+    const rivals: Record<string, string[]> = {}
     const walked: WalkedEntries = guardWalkedEntries(
       name,
-      scan(name, dir),
+      scan(name, dir, rivals),
       projectRoot,
-      folders
+      folders,
+      rivals
     )
 
     data[name] = walked.kept
     leftOut.push(...walked.leftOut)
+    collisions.push(...walked.collisions)
   }
 
-  return {data, leftOut}
+  return {data, leftOut, collisions}
+}
+
+// The entry names more than one pages/ or scripts/ file builds under, with
+// every file by its path from the project root.
+export function walkedEntryCollisions(
+  projectRoot: string,
+  folders: SpecialFoldersConfig = rememberedFolders(projectRoot),
+  {scan = scanEntryFolder}: {scan?: ScanSpecialFolders} = {}
+): EntryNameCollision[] {
+  const fromRoot = (file: string) =>
+    path.relative(projectRoot, file).split(path.sep).join('/')
+
+  return scanSpecialFolders(projectRoot, folders, scan)
+    .collisions.map(({name, used, dropped}) => ({
+      name,
+      used: fromRoot(used),
+      dropped: dropped.map(fromRoot)
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name))
 }
 
 // The pages/ and scripts/ files the build leaves out for a private name or

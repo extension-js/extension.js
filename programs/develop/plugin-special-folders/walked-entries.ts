@@ -10,9 +10,11 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type {SpecialFoldersConfig} from '../types'
 import {
+  type EntryNameCollision,
   entryNameOf,
   isEntryFolderFile,
-  isSkippedEntryName
+  isSkippedEntryName,
+  pickEntryFile
 } from './entry-folders'
 import {
   foldersRoots,
@@ -25,6 +27,8 @@ export interface WalkedEntries {
   kept: Record<string, string>
   // Left out for a private name or for a place outside the project.
   leftOut: string[]
+  // The names more than one file builds under, and the file each one took.
+  collisions: EntryNameCollision[]
 }
 
 interface WalkedFolder {
@@ -53,7 +57,7 @@ function walkedFolderRoots(
 // and asked the same way. A folder reached twice is walked once.
 function walkLinkedEntries(
   folder: WalkedFolder,
-  kept: Record<string, string>,
+  claim: (name: string, file: string) => void,
   leftOut: string[]
 ) {
   const walked = new Set<string>()
@@ -112,7 +116,7 @@ function walkLinkedEntries(
         continue
       }
 
-      kept[entryNameOf(folder.name, folder.dir, full)] = full
+      claim(entryNameOf(folder.name, folder.dir, full), full)
     }
   }
 
@@ -125,13 +129,14 @@ export function guardWalkedEntries(
   name: SpecialFolderName,
   scanned: Record<string, string> | undefined,
   projectRoot: string,
-  folders: SpecialFoldersConfig
+  folders: SpecialFoldersConfig,
+  rivals: Record<string, string[]> = {}
 ): WalkedEntries {
   const folder = walkedFolderRoots(name, projectRoot, folders)
   const kept: Record<string, string> = {}
   const leftOut: string[] = []
 
-  if (!folder) return {kept: {...scanned}, leftOut}
+  if (!folder) return {kept: {...scanned}, leftOut, collisions: []}
 
   const mayBeEntry = (entry: unknown) => {
     const file = String(entry)
@@ -149,20 +154,48 @@ export function guardWalkedEntries(
     return false
   }
 
-  for (const [key, value] of Object.entries(scanned || {})) {
-    const files: unknown[] = Array.isArray(value) ? value : [value]
-    const entries = files.filter(mayBeEntry)
+  // Every file that may be an entry, by the name it would build under.
+  const claims = new Map<string, string[]>()
 
-    if (entries.length === 0) continue
+  const claim = (key: string, file: string) => {
+    const held = claims.get(key) || []
 
-    kept[key] = Array.isArray(value)
-      ? (entries as unknown as string)
-      : String(entries[0])
+    if (!held.includes(file)) claims.set(key, [...held, file])
   }
 
-  walkLinkedEntries(folder, kept, leftOut)
+  for (const [key, value] of Object.entries(scanned || {})) {
+    if (Array.isArray(value)) {
+      const entries = (value as unknown[]).filter(mayBeEntry)
 
-  return {kept, leftOut}
+      if (entries.length > 0) kept[key] = entries as unknown as string
+
+      continue
+    }
+
+    for (const file of rivals[key] || [value]) {
+      if (mayBeEntry(file)) claim(key, String(file))
+    }
+  }
+
+  walkLinkedEntries(folder, claim, leftOut)
+
+  const collisions: EntryNameCollision[] = []
+
+  for (const [key, files] of claims) {
+    const used = pickEntryFile(files)
+
+    kept[key] = used
+
+    if (files.length > 1) {
+      collisions.push({
+        name: key,
+        used,
+        dropped: files.filter((file) => file !== used).sort()
+      })
+    }
+  }
+
+  return {kept, leftOut, collisions}
 }
 
 // The linked files the walk takes as entries, so the watcher lists them
@@ -178,9 +211,7 @@ export function linkedEntryFiles(
 
     if (!folder) continue
 
-    const kept: Record<string, string> = {}
-    walkLinkedEntries(folder, kept, [])
-    files.push(...Object.values(kept))
+    walkLinkedEntries(folder, (_name, file) => files.push(file), [])
   }
 
   return files

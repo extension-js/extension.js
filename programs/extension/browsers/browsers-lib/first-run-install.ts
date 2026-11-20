@@ -12,7 +12,9 @@ import {humanLine} from '../../helpers/messaging'
 import * as messages from './messages'
 import {resolveManagedBinaryIn} from './output-binaries-resolver'
 
-export type InstallableTarget = 'chrome' | 'chromium' | 'edge' | 'firefox'
+// Chrome for Testing is the one browser offered on a first run. Edge is a
+// system install and Firefox needs its update policy, which only launch sets.
+export type InstallableTarget = 'chrome'
 
 function isCI(): boolean {
   const v = process.env

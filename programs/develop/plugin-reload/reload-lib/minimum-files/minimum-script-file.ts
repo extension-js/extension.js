@@ -57,7 +57,7 @@ try {
     }
   }
 } catch {
-  // Ignore
+  // A page that cannot rewrite its URL keeps the marker, which is harmless
 }
 
 // The document this page loaded, as served. Read once at startup and again on
@@ -71,6 +71,7 @@ async function ownMarkup(): Promise<string | null> {
 
     return response.ok ? await response.text() : null
   } catch {
+    // A fetch that fails compares nothing, so the page is left as it is
     return null
   }
 }
@@ -132,7 +133,7 @@ try {
     })
   }
 } catch {
-  // Ignore
+  // A page with no hot API gets no markup check and still loads
 }
 
 export {}

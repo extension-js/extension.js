@@ -94,6 +94,8 @@ describe('diagnosticCode', () => {
     ['ScriptsFolderFilesLeftOutWarning', 'W_PROJECT_LAYOUT'],
     ['PublicEnvFilesWarning', 'W_PROJECT_LAYOUT'],
     ['PublicLinkedFilesWarning', 'W_PROJECT_LAYOUT'],
+    ['EntryFolderCaseWarning', 'W_PROJECT_LAYOUT'],
+    ['EntryNameCollisionWarning', 'W_PROJECT_LAYOUT'],
     ['NamespaceImportReadAsValue', 'E_ASSET_IMPORT_SHAPE'],
     ['ManifestV2OnChromiumWarning', 'W_MANIFEST_COMPAT'],
     ['ManifestLegacyWarning', 'W_MANIFEST_COMPAT'],
@@ -126,7 +128,9 @@ describe('diagnosticCode', () => {
     ['EnvReservedName', 'W_ENV_NAME_RESERVED'],
     ['EnvDefinedNameWritten', 'W_ENV_DEFINE_WRITTEN'],
     ['EnvPlaceholderNotUtf8', 'W_ENV_ASSET_NOT_UTF8'],
-    ['UnknownRegistrationWorld', 'W_SCRIPT_WORLD_UNKNOWN']
+    ['HtmlPageNotUtf8', 'W_HTML_NOT_UTF8'],
+    ['UnknownRegistrationWorld', 'W_SCRIPT_WORLD_UNKNOWN'],
+    ['CssSetupNotApplied', 'W_CSS_NOT_APPLIED']
   ])('maps a diagnostic named %s to %s', (name, code) => {
     expect(diagnosticCode(named(name))).toBe(code)
   })
@@ -441,7 +445,7 @@ describe('the warning class', () => {
   })
 
   it('finds the W_ names in the catalog', () => {
-    expect(WARNING_NAMES.length).toBe(45)
+    expect(WARNING_NAMES.length).toBe(46)
   })
 
   it.each(WARNING_NAMES)('reports %s on a warning as it is', (code) => {

@@ -12,6 +12,7 @@ import {Compilation, type Compiler, type StatsError} from '@rspack/core'
 import type {FilepathList, PluginInterface} from '../../../types'
 import {reportToCompilation} from '../../shared/compilation-issues'
 import * as messages from '../html-lib/messages'
+import {readHtmlText} from '../html-lib/read-html'
 import {getAssetsFromHtml} from '../html-lib/utils'
 
 // The page and the file behind a "Module not found" of a page entry.
@@ -70,7 +71,7 @@ function missingPageEntry(
           let isPublicRoot = false
           let matchedRawAttr: string | null = null
 
-          const htmlText = fs.readFileSync(resource as string, 'utf8')
+          const htmlText = readHtmlText(resource as string)
           const attrRe = /(src|href)=["']([^"']+)["']/g
 
           let m: RegExpExecArray | null

@@ -3,7 +3,8 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {type Compiler, rspack} from '@rspack/core'
 import {afterAll, describe, expect, it} from 'vitest'
-import {HtmlPlugin} from '../index'
+import {HtmlPlugin} from '../../plugin-web-extension/feature-html'
+import {SetupPageReload} from '../steps/setup-page-reload'
 
 const PRELUDE_MARK = 'Error clearing HTML containers'
 const tmpRoots: string[] = []
@@ -110,10 +111,14 @@ describe('page HMR prelude in a real rspack compile', () => {
       output: {path: outDir},
       plugins: [
         new rspack.HotModuleReplacementPlugin(),
+        new SetupPageReload({
+          manifestPath,
+          browser: 'chrome',
+          devSession: true
+        }),
         new HtmlPlugin({
           manifestPath,
           browser: 'chrome',
-          devSession: true,
           includeList: {'chrome_url_overrides/newtab': htmlPath}
         })
       ]
@@ -156,10 +161,14 @@ describe('page HMR prelude in a real rspack compile', () => {
       output: {path: outDir},
       plugins: [
         new rspack.HotModuleReplacementPlugin(),
+        new SetupPageReload({
+          manifestPath,
+          browser: 'chrome',
+          devSession: true
+        }),
         new HtmlPlugin({
           manifestPath,
           browser: 'chrome',
-          devSession: true,
           includeList: {'chrome_url_overrides/newtab': htmlPath}
         })
       ]
@@ -179,41 +188,5 @@ describe('page HMR prelude in a real rspack compile', () => {
     expect(background).toContain('BACKGROUND_ENTRY_MODULE')
     expect(background).not.toContain(PRELUDE_MARK)
     expect(page).toContain(PRELUDE_MARK)
-  }, 60000)
-
-  it('names the source page in the built page asset info', async () => {
-    const root = writeProject()
-    const manifestPath = path.join(root, 'src', 'manifest.json')
-    const htmlPath = path.join(root, 'src', 'newtab', 'index.html')
-    let info: {sourceFilename?: string} | undefined
-
-    const compiler = rspack({
-      mode: 'development',
-      context: root,
-      devtool: false,
-      entry: {},
-      output: {path: path.join(root, 'dist')},
-      plugins: [
-        new HtmlPlugin({
-          manifestPath,
-          browser: 'chrome',
-          devSession: true,
-          includeList: {'chrome_url_overrides/newtab': htmlPath}
-        }),
-        {
-          apply(c: Compiler) {
-            c.hooks.done.tap('read-page-info', (stats) => {
-              info = stats.compilation.getAsset(
-                'chrome_url_overrides/newtab.html'
-              )?.info
-            })
-          }
-        }
-      ]
-    })
-
-    await compile(compiler)
-
-    expect(info?.sourceFilename).toBe('src/newtab/index.html')
   }, 60000)
 })

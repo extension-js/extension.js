@@ -108,6 +108,49 @@ test('pull requests run each suite once on the engines floor, newer Node on main
   assert.match(step(lane, 'Close the red lane').if, /success\(\)/)
 })
 
+// Both suites delete EXTENSION_AUTHOR_MODE in every worker, so a nightly job
+// that runs one again only repeats ci.yml on a Node it already covers.
+test('the nightly reruns a whole package suite only on current Node', () => {
+  const nightly = readWorkflow('programs-nightly.yml')
+  const whole = /pnpm (?:run )?(?:ci:)?test:(?:cli|dev|develop|create)\b/
+
+  for (const [id, entry] of Object.entries(nightly.jobs)) {
+    if (id === 'nightly-node-current') continue
+
+    const repro = (entry.steps || [])
+      .map((item) => item.env?.RED_LANE_REPRO)
+      .filter(Boolean)
+      .join('\n')
+
+    assert.doesNotMatch(runText(entry), whole, id)
+    assert.doesNotMatch(repro, whole, `${id} red lane repro`)
+  }
+
+  // If a suite starts honoring author mode, a nightly author-mode run of it
+  // proves something again and this rule must be revisited.
+  for (const file of [
+    'programs/extension/__spec__/setup/env.ts',
+    'programs/develop/__spec__/setup/quiet-output.ts'
+  ]) {
+    const text = fs.readFileSync(path.join(root, file), 'utf8')
+    assert.match(text, /deleteProperty\([^)]*'EXTENSION_AUTHOR_MODE'\)/, file)
+  }
+})
+
+test('every pull request workflow cancels the run a new push supersedes', () => {
+  for (const file of fs.readdirSync(workflowsDir)) {
+    if (!file.endsWith('.yml')) continue
+
+    const workflow = readWorkflow(file)
+    const on = workflow.on ?? workflow[true]
+    if (!on || typeof on !== 'object' || !('pull_request' in on)) continue
+
+    const group = workflow.concurrency?.group ?? ''
+    assert.match(group, /pull_request\.number|github\.ref/, file)
+    assert.ok(workflow.concurrency['cancel-in-progress'], file)
+  }
+})
+
 test('windows runs the suites as parallel jobs, the develop one in two shards', () => {
   const ci = readWorkflow('ci.yml')
 

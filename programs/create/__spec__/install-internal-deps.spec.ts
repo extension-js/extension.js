@@ -188,26 +188,12 @@ describe('detectOptionalDependencies', () => {
       }
     },
     {
-      name: 'Preact asks for prefresh and preact itself',
+      // The build compiles Preact with no refresh transform, and preact is
+      // the project's own dependency, so the toolchain needs nothing added.
+      name: 'Preact asks for nothing',
       dependencies: {preact: '^10.0.0'},
       files: [],
-      plan: {
-        integrations: ['Preact'],
-        dependencies: [
-          '@prefresh/core',
-          '@prefresh/utils',
-          '@rspack/plugin-preact-refresh',
-          'preact'
-        ],
-        dependenciesByIntegration: {
-          Preact: [
-            '@prefresh/core',
-            '@prefresh/utils',
-            '@rspack/plugin-preact-refresh',
-            'preact'
-          ]
-        }
-      }
+      plan: {integrations: [], dependencies: [], dependenciesByIntegration: {}}
     },
     {
       name: 'Vue asks for its loader and the SFC compiler',
@@ -551,6 +537,7 @@ describe('installInternalDependencies', () => {
     expect(frame.split('\n')[2]).toMatch(/^REASON .*JSON/)
     expect(frame.match(/⏵⏵⏵/g)).toHaveLength(1)
     expect(error.cause).toBeInstanceOf(SyntaxError)
+    expect((error as {code?: unknown}).code).toBe('E_TEMPLATE_NOT_FOUND')
     expect(logs).toEqual([])
     expect(installCalls).toEqual([])
   })
@@ -594,6 +581,7 @@ describe('installInternalDependencies', () => {
     expect(frame.match(/⏵⏵⏵/g)).toHaveLength(1)
     expect(frame).not.toMatch(/^\s+at /m)
     expect(error.cause).toBe(spawnError)
+    expect((error as {code?: unknown}).code).toBe('E_DEPENDENCY_INSTALL')
     // Only the progress line, on the log channel: the failure is the throw.
     expect(logs.map((line) => line.split('\n')[0])).toEqual([
       expect.stringMatching(/ Installing the dependencies for Vue…$/)
@@ -617,6 +605,25 @@ describe('installInternalDependencies', () => {
 
     expect(logs).toEqual([])
     expect(installCalls).toEqual([])
+  })
+
+  it('starts no install for a Preact project, even with nothing resolvable', async () => {
+    const projectRoot = makeProject({preact: '^10.0.0'}, [])
+    vi.stubEnv('EXTENSION_CREATE_DEVELOP_ROOT', makeDevelopRoot())
+
+    const {logger, logs} = recordingLogger()
+    await installInternalDependencies(
+      projectRoot,
+      logger,
+      'pnpm',
+      undefined,
+      nothingResolves,
+      undefined,
+      runInstall
+    )
+
+    expect(installCalls).toEqual([])
+    expect(logs).toEqual([])
   })
 
   it('installs every missing integration into the develop root in one run', async () => {
@@ -840,6 +847,12 @@ describe('installInternalDependencies', () => {
 
     // React and Vue share the one run, so one failure is the whole story.
     expect(installCalls).toHaveLength(1)
+    expect((error as {code?: unknown}).code).toBe('E_DEPENDENCY_INSTALL')
+    expect((error as {cause?: unknown}).cause).toMatchObject({
+      name: 'InstallExitError',
+      command: 'npm',
+      exitCode: 1
+    })
   })
 
   it('shows the output live in development and still frames the reason', async () => {

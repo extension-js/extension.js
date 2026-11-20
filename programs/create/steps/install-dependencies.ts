@@ -15,6 +15,7 @@ import {
 } from '../lib/deno-manifest'
 import {readTemplatePackageJson} from '../lib/find-manifest-json'
 import {
+  InstallExitError,
   type InstallResult,
   type InstallRunner,
   installExit,
@@ -22,11 +23,12 @@ import {
   runInstall as runInstallCommand
 } from '../lib/install-runner'
 import * as messages from '../lib/messages'
+import {CODES} from '../lib/messaging'
 import {
   resolveProjectPackageManager,
   type ScaffoldPackageManager
 } from '../lib/package-manager'
-import {failStep} from '../lib/utils'
+import {CreateError, failStep} from '../lib/utils'
 
 // The runner's own reason leads, so a long captured output cannot push it
 // past the point where the frame truncates.
@@ -289,25 +291,29 @@ export async function installDependencies(
           return
         }
 
-        throw new Error(
+        throw new CreateError(
           messages.installingDependenciesFailed(
             command,
             dependenciesArgs,
             installExit(retryRun),
             failureOutput(retryRun),
             retry
-          )
+          ),
+          CODES.E_DEPENDENCY_INSTALL,
+          new InstallExitError(command, dependenciesArgs, retryRun)
         )
       }
 
-      throw new Error(
+      throw new CreateError(
         messages.installingDependenciesFailed(
           command,
           dependenciesArgs,
           installExit(firstRun),
           output,
           retry
-        )
+        ),
+        CODES.E_DEPENDENCY_INSTALL,
+        new InstallExitError(command, dependenciesArgs, firstRun)
       )
     }
   } catch (error) {
@@ -326,7 +332,8 @@ export async function installDependencies(
             error,
             retry
           ),
-      error
+      error,
+      CODES.E_DEPENDENCY_INSTALL
     )
   }
 }

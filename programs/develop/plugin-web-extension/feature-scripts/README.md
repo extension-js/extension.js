@@ -105,9 +105,8 @@ The rest of the dev pipeline does not infer content entries from user folder nam
 That contract is consumed by:
 
 - `feature-manifest` (manifest overrides, dev content script paths, dev injected hosts)
-- `feature-html` (keeps the page HMR loader off content entries)
 - `feature-web-resources` (web accessible resources)
-- `plugin-reload` (classifier, dev content script registry, reload strategy)
+- `plugin-reload` (classifier, dev content script registry, reload strategy, and keeping the page HMR loader off content entries)
 - `plugin-css` and `plugin-js-frameworks` (the content script layer)
 
 If this contract changes, update those consumers together.

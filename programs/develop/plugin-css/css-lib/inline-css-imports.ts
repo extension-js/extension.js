@@ -1220,3 +1220,9 @@ export function readCssImports(css: string): LeftCssImport[] {
 
   return found
 }
+
+// Whether an @import of this sheet names the request, so a file that is not
+// there is reported as an import and not as a url().
+export function isNamedByCssImport(css: string, request: string): boolean {
+  return readCssImports(css).some((found) => found.request === request)
+}

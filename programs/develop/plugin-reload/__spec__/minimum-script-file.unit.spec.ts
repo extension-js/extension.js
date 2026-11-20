@@ -64,7 +64,7 @@ describe('minimum-script-file (dev page) query-param shim', () => {
   })
 
   it('leaves a clean extension page URL untouched so HMR stays enabled', async () => {
-    await import('../../steps/minimum-script-file.ts')
+    await import('../reload-lib/minimum-files/minimum-script-file.ts')
 
     expect(storedPath).toBe('')
     expect((globalThis as any).location.search).toBe('')
@@ -76,7 +76,7 @@ describe('minimum-script-file (dev page) query-param shim', () => {
     ;(globalThis as any).location.search =
       '?rspack-dev-server-hot=false&webpack-dev-server-hot=false'
 
-    await import('../../steps/minimum-script-file.ts')
+    await import('../reload-lib/minimum-files/minimum-script-file.ts')
 
     expect(storedPath).toBe('chrome-extension://abc/options/index.html')
     expect(storedPath).not.toContain('dev-server-hot')
@@ -88,7 +88,7 @@ describe('minimum-script-file (dev page) query-param shim', () => {
     ;(globalThis as any).location.search =
       '?tab=general&webpack-dev-server-hot=false'
 
-    await import('../../steps/minimum-script-file.ts')
+    await import('../reload-lib/minimum-files/minimum-script-file.ts')
 
     expect(storedPath).toContain('tab=general')
     expect(storedPath).not.toContain('dev-server-hot')
@@ -158,13 +158,13 @@ describe('minimum-script-file (dev page) html-change reload', () => {
   }
 
   it('listens for the dev-server client hash message on an extension page', async () => {
-    await import('../../steps/minimum-script-file.ts')
+    await import('../reload-lib/minimum-files/minimum-script-file.ts')
     await settle()
     expect(listeners).toHaveLength(1)
   })
 
   it('reloads when the served markup changed since the page loaded', async () => {
-    await import('../../steps/minimum-script-file.ts')
+    await import('../reload-lib/minimum-files/minimum-script-file.ts')
     await settle()
     served = '<html><body>v2 DevLiveHtmlUpdate</body></html>'
     await announceHash()
@@ -172,7 +172,7 @@ describe('minimum-script-file (dev page) html-change reload', () => {
   })
 
   it('keeps the page (and its HMR state) when only scripts or styles changed', async () => {
-    await import('../../steps/minimum-script-file.ts')
+    await import('../reload-lib/minimum-files/minimum-script-file.ts')
     await settle()
     await announceHash()
     await vi.advanceTimersByTimeAsync(600)
@@ -180,7 +180,7 @@ describe('minimum-script-file (dev page) html-change reload', () => {
   })
 
   it('takes a second look when the markup lands after the message', async () => {
-    await import('../../steps/minimum-script-file.ts')
+    await import('../reload-lib/minimum-files/minimum-script-file.ts')
     await settle()
     await announceHash()
     served = '<html><body>v2</body></html>'
@@ -191,7 +191,7 @@ describe('minimum-script-file (dev page) html-change reload', () => {
   it('does nothing on a plain web page', async () => {
     ;(globalThis as any).location.protocol = 'https:'
     ;(globalThis as any).location.href = 'https://example.com/'
-    await import('../../steps/minimum-script-file.ts')
+    await import('../reload-lib/minimum-files/minimum-script-file.ts')
     await settle()
     expect(listeners).toHaveLength(0)
   })

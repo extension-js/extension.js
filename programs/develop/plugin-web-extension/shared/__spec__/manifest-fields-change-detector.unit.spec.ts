@@ -12,11 +12,15 @@ vi.mock('../../feature-scripts/steps/add-content-script-wrapper', () => ({
   }
 }))
 
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import {
   bindDevSessionRestart,
   DevSessionRestartScheduler,
+  requestDevSessionRestart,
   unbindDevSessionRestart
 } from '../../../dev-server/session-restart'
+import {listenForManifestChange} from '../manifest-change-signal'
 import {ManifestFieldsChangeDetector} from '../manifest-fields-change-detector'
 
 afterEach(() => {
@@ -58,8 +62,62 @@ function makeCompiler(modified: string[], errorsArr: any[]) {
     }
   }
 
+  // The config wires the session to the signal the same way.
+  listenForManifestChange(compiler, (change) =>
+    requestDevSessionRestart(compiler, change)
+  )
+
   return compiler
 }
+
+describe('the manifest change signal', () => {
+  it('is the only way the detector reaches a session', () => {
+    const source = fs.readFileSync(
+      path.resolve(__dirname, '..', 'manifest-fields-change-detector.ts'),
+      'utf8'
+    )
+
+    expect(source).not.toMatch(/dev-server|plugin-reload|plugin-browsers/)
+    expect(source).toContain("from './manifest-change-signal'")
+  })
+
+  it('hands the listener the change and takes its answer', async () => {
+    for (const carried of [true, false]) {
+      const errors: any[] = []
+      const compiler = makeCompiler(['/root/manifest.json'], errors)
+      const heard: unknown[] = []
+
+      listenForManifestChange(compiler, (change) => {
+        heard.push(change)
+
+        return carried
+      })
+
+      mockFields = {scripts: {bg: '/a.js'}, html: {}, icons: {}, json: {}}
+      new ManifestFieldsChangeDetector({
+        manifestPath: '/root/manifest.json',
+        browser: 'chrome'
+      } as any).apply(compiler as any)
+
+      await compiler._triggerWatchRun()
+      mockFields = {
+        scripts: {bg: '/a.js', extra: '/b.js'},
+        html: {},
+        icons: {},
+        json: {}
+      }
+
+      await compiler._triggerWatchRun()
+      compiler._triggerThisCompilation()
+
+      expect(heard).toEqual([
+        expect.objectContaining({reason: 'scripts', pathAfter: '/b.js'})
+      ])
+
+      expect(errors).toHaveLength(carried ? 0 : 1)
+    }
+  })
+})
 
 describe('ManifestFieldsChangeDetector', () => {
   it('emits error when scripts change', async () => {

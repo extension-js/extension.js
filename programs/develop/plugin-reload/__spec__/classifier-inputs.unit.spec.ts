@@ -1,19 +1,14 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {
   fakeCompilation,
   fakeCompiler
-} from '../../plugin-browsers/__spec__/fake-compiler'
-import {
-  type BrowserController,
-  type BrowserLaunchOptions,
-  BrowsersPlugin,
-  type CompiledEvent
-} from '../../plugin-browsers/index'
+} from '../../__spec__/helpers/fake-compiler'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import type {BrowserType} from '../../types'
 import {classifyReloadFromSources, type ReloadBroker} from '../index'
+import {LAUNCHED_SESSION, launchedSession} from './helpers/launched-session'
 
 const CONTEXT = '/tmp/ext'
 const OUTPUT = '/tmp/ext/dist/firefox'
@@ -40,12 +35,6 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-type Launcher = (options: BrowserLaunchOptions) => Promise<BrowserController>
-
-const browserUp: Launcher = async () => ({
-  enableUnifiedLogging: vi.fn().mockResolvedValue(undefined)
-})
-
 interface Build {
   // The content script bundle the emitted manifest names.
   bundle?: string
@@ -60,13 +49,7 @@ interface Build {
 // A launched session on a fake compiler, with a broker that records every
 // frame it is asked to send and says one producer took it.
 function session(
-  options: {
-    browser?: BrowserType
-    launcher?: Launcher
-    broker?: boolean
-    context?: string
-    output?: string
-  } = {}
+  options: {browser?: BrowserType; context?: string; output?: string} = {}
 ) {
   const context = options.context ?? CONTEXT
   const output = options.output ?? OUTPUT
@@ -78,27 +61,17 @@ function session(
       return 1
     }
   }
-  const launch = vi.fn(options.launcher ?? browserUp)
-  const plugin = new BrowsersPlugin({
-    launcher: launch,
-    browserOptions: {browser: options.browser ?? 'firefox'}
+  const launched = launchedSession({
+    browser: options.browser ?? 'firefox',
+    broker
   })
-  const compiled: CompiledEvent[] = []
-  const errors: string[][] = []
+  const fake = fakeCompiler({owner: LAUNCHED_SESSION, context})
 
-  if (options.broker !== false) plugin.setReloadBroker(broker)
-
-  plugin.emitter.on('compiled', (event) => compiled.push(event))
-  plugin.emitter.on('error', (event) => errors.push(event.errors))
-
-  const fake = fakeCompiler({owner: BrowsersPlugin.name, context})
-  plugin.apply(fake.compiler)
+  launched.apply(fake.compiler)
 
   return {
     frames,
-    launch,
-    compiled,
-    errors,
+    compiled: launched.compiled,
     compile: async (build: Build = {}) => {
       fake.watchRun(build.files ?? [])
 
@@ -130,11 +103,11 @@ function session(
   }
 }
 
-describe('what a launched session hands the reload classifier and the broker', () => {
+describe('what a reload session hands the classifier and the broker', () => {
   // Only a classifier told both folders can see that the build copied the
   // page, which is what makes the producer reload the tabs that show it.
   it('hands over the output folder and the project root, so a copied page names itself', async () => {
-    const root = makeTempFolder('extjs-browsers-page-')
+    const root = makeTempFolder('extjs-reload-page-')
     const output = path.join(root, 'dist')
     const page = '<!doctype html><title>options</title>\n'
 
