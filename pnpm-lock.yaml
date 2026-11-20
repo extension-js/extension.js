@@ -260,6 +260,9 @@ importers:
       postcss-loader:
         specifier: 8.2.1
         version: 8.2.1(@rspack/core@2.3.3(@swc/helpers@0.5.23))(postcss@8.5.25)(typescript@7.0.2)(webpack@5.104.1(esbuild@0.28.2))
+      postcss-scss:
+        specifier: 4.0.9
+        version: 4.0.9(postcss@8.5.25)
       preact:
         specifier: 11.0.0
         version: 11.0.0
@@ -293,6 +296,9 @@ importers:
       webpack-merge:
         specifier: ^6.0.1
         version: 6.0.1
+      webpack-target-webextension:
+        specifier: ^2.1.3
+        version: 2.1.3(webpack@5.104.1(esbuild@0.28.2))
       ws:
         specifier: ^8.20.1
         version: 8.21.0
@@ -3555,6 +3561,12 @@ packages:
       webpack:
         optional: true
 
+  postcss-scss@4.0.9:
+    resolution: {integrity: sha512-AjKOeiwAitL/MXxQW2DliT28EKukvvbEWx3LBmJIRN8KfBGZbRTxNYW0kSqi1COiTZ57nZ9NW06S6ux//N1c9A==}
+    engines: {node: '>=12.0'}
+    peerDependencies:
+      postcss: ^8.5.23
+
   postcss@8.5.25:
     resolution: {integrity: sha512-DTPx3RWSSnWyzLxQnlH0rJP+EW5ekl16ZU4/psbIhA0e53kJfdgaN5vKM+xP7yJtXVu+nfdVFmlgFDEKAe4Pyw==}
     engines: {node: ^10 || ^12 || >=14}
@@ -4089,6 +4101,12 @@ packages:
   webpack-sources@3.3.3:
     resolution: {integrity: sha512-yd1RBzSGanHkitROoPFd6qsrxt+oFhg/129YzheDGqeustzX0vTZJZsSsQjVQC4yzBQ56K55XU8gaNCtIzOnTg==}
     engines: {node: '>=10.13.0'}
+
+  webpack-target-webextension@2.1.3:
+    resolution: {integrity: sha512-rDNTgo0hdE1p6ayBy92qSRXdfivAqlaFbBOIirqfq/DSVdJvMbZ1yaDlftfzGDkkLlEeAblzl0zcQzTgp1UaKA==}
+    engines: {node: '>=18.20.5'}
+    peerDependencies:
+      webpack: ^5.0.0
 
   webpack@5.104.1:
     resolution: {integrity: sha512-Qphch25abbMNtekmEGJmeRUhLDbe+QfiWTiqpKYkpCOWY64v9eyl+KRRLmqOFA2AvKPpc9DC6+u2n76tQLBoaA==}
@@ -6988,6 +7006,10 @@ snapshots:
     transitivePeerDependencies:
       - typescript
 
+  postcss-scss@4.0.9(postcss@8.5.25):
+    dependencies:
+      postcss: 8.5.25
+
   postcss@8.5.25:
     dependencies:
       nanoid: 3.3.19
@@ -7463,6 +7485,10 @@ snapshots:
       wildcard: 2.0.1
 
   webpack-sources@3.3.3: {}
+
+  webpack-target-webextension@2.1.3(webpack@5.104.1(esbuild@0.28.2)):
+    dependencies:
+      webpack: 5.104.1(esbuild@0.28.2)
 
   webpack@5.104.1(esbuild@0.28.2):
     dependencies:

@@ -1,4 +1,5 @@
 import * as fs from 'node:fs'
+import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import {type Compilation, rspack} from '@rspack/core'
 import postcss from 'postcss'
@@ -77,29 +78,83 @@ function productionSources(dir: string): string[] {
   return found
 }
 
+// Listed on purpose although no production file names them.
+const KEPT_UNNAMED: Record<string, string> = {
+  // A project's PostCSS config may name it as syntax or parser, and it then
+  // resolves from the CLI folder.
+  'postcss-scss': 'named by a user PostCSS config',
+  'webpack-target-webextension': 'kept by maintainer decision'
+}
+
 // A listed dependency that no production file names is installed for nothing.
 describe('the dependencies of this package', () => {
-  it('are each named by a production file, and Sass asks only for its loaders', () => {
+  it('are each named by a production file or kept on purpose', () => {
     const pkg = JSON.parse(
       fs.readFileSync(path.join(DEVELOP, 'package.json'), 'utf8')
     ) as {dependencies: Record<string, string>}
     const sources = productionSources(DEVELOP).map((file) =>
       fs.readFileSync(file, 'utf8')
     )
-    const unnamed = Object.keys(pkg.dependencies).filter((name) => {
-      const specifier = new RegExp(
-        `['"]${name.replace(/[/.]/g, '\\$&')}(/[^'"]*)?['"]`
-      )
+    const unnamed = Object.keys(pkg.dependencies)
+      .filter((name) => !(name in KEPT_UNNAMED))
+      .filter((name) => {
+        const specifier = new RegExp(
+          `['"]${name.replace(/[/.]/g, '\\$&')}(/[^'"]*)?['"]`
+        )
 
-      return !sources.some((text) => specifier.test(text))
-    })
+        return !sources.some((text) => specifier.test(text))
+      })
 
     expect(unnamed).toEqual([])
+    // A kept name that leaves package.json leaves this list too.
+    expect(
+      Object.keys(KEPT_UNNAMED).filter((name) => !(name in pkg.dependencies))
+    ).toEqual([])
+  })
+
+  it('keep postcss-scss in the Sass contract, and import neither it nor postcss-preset-env', () => {
+    const importOf = (name: string) =>
+      new RegExp(
+        `(from\\s*|require\\(\\s*|import\\(\\s*)['"]${name}(/[^'"]*)?['"]`
+      )
+    const importers = productionSources(DEVELOP).filter((file) => {
+      const text = fs.readFileSync(file, 'utf8')
+
+      return (
+        importOf('postcss-preset-env').test(text) ||
+        importOf('postcss-scss').test(text)
+      )
+    })
+
     expect(
       getOptionalDependencyContract('sass').installPackages.map((spec) =>
         spec.replace(/(.)@.*$/, '$1')
       )
-    ).toEqual(['postcss-loader', 'sass-loader'])
+    ).toEqual(['postcss-loader', 'postcss-scss', 'sass-loader'])
+
+    expect(importers).toEqual([])
+  })
+
+  it('resolve postcss-scss from the CLI folder for a config that names it', async () => {
+    const root = makeProject({
+      '.postcssrc': JSON.stringify({
+        plugins: {},
+        syntax: 'postcss-scss',
+        parser: 'postcss-scss'
+      })
+    })
+    const {maybeUsePostCss} = await import('../css-tools/postcss')
+    const rule = await maybeUsePostCss(root, {mode: 'production'} as never)
+    const opts = (
+      rule as {options?: {postcssOptions?: Record<string, unknown>}}
+    ).options?.postcssOptions
+    const shipped = createRequire(
+      path.join(DEVELOP, 'plugin-css', 'css-tools', 'postcss.ts')
+    )('postcss-scss')
+
+    expect(fs.existsSync(path.join(root, 'node_modules'))).toBe(false)
+    expect(opts?.syntax).toBe(shipped)
+    expect(opts?.parser).toBe(shipped)
   })
 })
 

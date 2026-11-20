@@ -153,8 +153,12 @@ const OPTIONAL_DEPENDENCY_CONTRACTS = {
   sass: defineContract({
     id: 'sass',
     integration: 'SASS',
-    installPackages: specs(['postcss-loader', 'sass-loader']),
-    verificationRules: installRootRules(['postcss-loader', 'sass-loader'])
+    installPackages: specs(['postcss-loader', 'postcss-scss', 'sass-loader']),
+    verificationRules: installRootRules([
+      'postcss-loader',
+      'postcss-scss',
+      'sass-loader'
+    ])
   })
 } satisfies Record<string, OptionalDependencyContract>
 

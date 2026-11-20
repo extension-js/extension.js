@@ -27,9 +27,12 @@ function productionSources(dir: string): string[] {
   return found
 }
 
+// Listed on purpose although no production file names them, each with why.
+const KEPT_UNNAMED: Record<string, string> = {}
+
 // A listed dependency that no production file names is installed for nothing.
 describe('the CLI dependencies', () => {
-  it('are each named by a production file', () => {
+  it('are each named by a production file or kept on purpose', () => {
     const pkg = JSON.parse(
       fs.readFileSync(path.join(pkgRoot, 'package.json'), 'utf8')
     ) as {dependencies: Record<string, string>}
@@ -39,6 +42,7 @@ describe('the CLI dependencies', () => {
     const unnamed = Object.keys(pkg.dependencies)
       // Type packages are read by the compiler, never by a specifier.
       .filter((name) => !name.startsWith('@types/'))
+      .filter((name) => !(name in KEPT_UNNAMED))
       .filter((name) => {
         const specifier = new RegExp(
           `['"]${name.replace(/[/.]/g, '\\$&')}(/[^'"]*)?['"]`
@@ -48,5 +52,9 @@ describe('the CLI dependencies', () => {
       })
 
     expect(unnamed).toEqual([])
+    // A kept name that leaves package.json leaves this list too.
+    expect(
+      Object.keys(KEPT_UNNAMED).filter((name) => !(name in pkg.dependencies))
+    ).toEqual([])
   })
 })
