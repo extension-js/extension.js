@@ -11,6 +11,7 @@ import {
 } from '../../__spec__/offline-registry-fixture'
 import {
   buildExecEnv,
+  installTimedOutReason,
   installTimeoutMs,
   invokingNpmrcReleaseAge,
   KILL_GRACE_MS,
@@ -81,7 +82,8 @@ describe('install-runner runInstall', () => {
     expect(calls[0].args).toEqual(args)
     expect(calls[0].options).not.toHaveProperty('shell')
     expect(calls[0].options.cwd).toBe(cwd)
-    expect(calls[0].options.stdio).toBe('pipe')
+    // Stdin is closed: a manager that asks a question reads its end at once.
+    expect(calls[0].options.stdio).toEqual(['ignore', 'pipe', 'pipe'])
     // The child gets the built env, which the table below reads directly.
     expect(calls[0].options.env).toEqual(buildExecEnv(process.env, cwd))
   })
@@ -100,6 +102,14 @@ describe('install-runner runInstall', () => {
       stdout: 'resolving\n',
       stderr: 'npm error code E404\n'
     })
+  })
+
+  it('answers the signal that ended a child that has no exit code', async () => {
+    const {spawn} = fakeSpawn(() => ({exit: null, signal: 'SIGKILL'}))
+
+    await expect(
+      runInstall('npm', ['install'], {cwd: os.tmpdir(), stdio: 'pipe', spawn})
+    ).resolves.toEqual({code: null, signal: 'SIGKILL', stdout: '', stderr: ''})
   })
 
   it('tee writes each stream through as it arrives and still captures it', async () => {
@@ -175,6 +185,22 @@ describe('install-runner runInstall', () => {
   })
 
   describe('the install timeout', () => {
+    it.each([
+      [1, '1 ms'],
+      [400, '400 ms'],
+      [999, '999 ms'],
+      [1000, '1 second'],
+      [1500, '1.5 seconds'],
+      [1999, '2 seconds'],
+      [5000, '5 seconds'],
+      [90_000, '90 seconds'],
+      [1_800_000, '30 minutes']
+    ])('reads a %i ms budget as "%s"', (ms, words) => {
+      expect(installTimedOutReason(ms)).toBe(
+        `The install did not finish within ${words} (EXTENSION_CREATE_INSTALL_TIMEOUT_MS)`
+      )
+    })
+
     it('kills a child that outlives the timeout and names the variable', async () => {
       vi.useFakeTimers()
       const {spawn, calls} = fakeSpawn(() => ({

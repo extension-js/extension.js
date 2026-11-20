@@ -13,6 +13,7 @@ import * as path from 'node:path'
 import axios, {type AxiosRequestConfig, type AxiosResponse} from 'axios'
 import {unzipSync} from 'fflate'
 import {cloneInChild} from '../lib/clone-in-child'
+import {formatDuration} from '../lib/format-duration'
 import * as messages from '../lib/messages'
 import {isDebug} from '../lib/messaging'
 import * as utils from '../lib/utils'
@@ -78,7 +79,7 @@ const CODELOAD_BASE = 'https://codeload.github.com/extension-js/templates/zip'
 // Move it with `node scripts/generate-template-corpus.mjs --ref <sha>`, which
 // regenerates the name list the CLI advertises from the same commit.
 // EXTENSION_CREATE_TEMPLATE_REF=main restores floating.
-export const DEFAULT_TEMPLATES_REF = '1d2aaabd113e6aa8ef6af135ed8a3b74d7e2b8ca'
+export const DEFAULT_TEMPLATES_REF = '983dd0447d344bc8e03f5e4b65d92267e3d6cff2'
 
 // The one template that ships inside the npm package, so it scaffolds with no
 // network call. The help text derives its "no network" promise from this list
@@ -360,7 +361,7 @@ function startFetchBudget(ms: number): FetchBudget {
 
 function fetchBudgetSpent(budget: FetchBudget): Error {
   return new Error(
-    `No answer within ${Math.round(budget.ms / 1000)} seconds (EXTENSION_CREATE_TIMEOUT_MS)`
+    `No answer within ${formatDuration(budget.ms)} (EXTENSION_CREATE_TIMEOUT_MS)`
   )
 }
 
@@ -375,8 +376,34 @@ function budgetSpentBy(error: unknown, budget: FetchBudget): boolean {
   )
 }
 
-// Fetch a repo tarball over plain HTTP (codeload), NOT a git pack negotiation:
-// no git child, so no credential-helper hang (#56). One retry with backoff.
+// The request never left this machine: no name resolved, or no route out.
+// A refused or reset connection reached a host, so those still retry.
+const OFFLINE_CODES = new Set([
+  'ENOTFOUND',
+  'EAI_AGAIN',
+  'ENETUNREACH',
+  'ENETDOWN',
+  'EHOSTUNREACH'
+])
+
+function isOffline(error: unknown): boolean {
+  const failure = error as {
+    code?: unknown
+    response?: unknown
+    cause?: {code?: unknown}
+  } | null
+
+  if (!failure || failure.response !== undefined) return false
+
+  return (
+    OFFLINE_CODES.has(String(failure.code)) ||
+    OFFLINE_CODES.has(String(failure.cause?.code))
+  )
+}
+
+// Fetch an archive over plain HTTP (codeload or a template ZIP URL), NOT a git
+// pack negotiation: no git child, so no credential-helper hang (#56). Both
+// downloads share this one retry and abort policy.
 async function downloadArchive(
   url: string,
   budget: FetchBudget,
@@ -389,15 +416,28 @@ async function downloadArchive(
     const remaining = budget.deadline - Date.now()
     if (remaining <= 0) throw fetchBudgetSpent(budget)
 
+    // axios times out an idle socket and not a reply that trickles in, so
+    // the budget aborts the request itself and its socket goes with it.
+    const abort = new AbortController()
+
     try {
-      const {data, headers} = await fetchTemplate(url, {
-        responseType: 'arraybuffer',
-        maxRedirects: 5,
-        timeout: remaining,
-        signal: AbortSignal.timeout(remaining),
-        headers: {'User-Agent': 'extension-create'},
-        beforeRedirect: refuseHttpRedirect
-      })
+      const {data, headers} = await withTimeout(
+        fetchTemplate(url, {
+          responseType: 'arraybuffer',
+          maxRedirects: 5,
+          timeout: remaining,
+          signal: abort.signal,
+          headers: {'User-Agent': 'extension-create'},
+          beforeRedirect: refuseHttpRedirect
+        }),
+        remaining,
+        () => {
+          const spent = fetchBudgetSpent(budget)
+          abort.abort(spent)
+
+          return spent
+        }
+      )
 
       return {
         body: Buffer.from(data),
@@ -406,7 +446,14 @@ async function downloadArchive(
     } catch (error) {
       lastError = error
       if (findInsecureTemplateUrlError(error)) break
-      if (budgetSpentBy(error, budget)) throw fetchBudgetSpent(budget)
+
+      if (abort.signal.aborted || budgetSpentBy(error, budget)) {
+        throw fetchBudgetSpent(budget)
+      }
+
+      // A wait does not bring the network back, and the default create
+      // falls back to the bundled template the sooner this answers.
+      if (isOffline(error)) break
 
       // A deterministic 4xx (a ref that does not exist) will not change on a
       // retry; only back off for network errors, rate limits, and 5xx.
@@ -516,6 +563,8 @@ async function importFromExamplesCatalog(
       if (insecure) throw insecure
 
       lastError = error
+      // Every candidate is on the same host, so none can answer offline.
+      if (isOffline(error)) break
     }
   }
 
@@ -1088,6 +1137,7 @@ export async function importExternalTemplate(
       }
 
       const abort = new AbortController()
+      const budget = startFetchBudget(timeoutMs)
 
       try {
         await withTimeout(
@@ -1097,11 +1147,10 @@ export async function importExternalTemplate(
             messages.installingFromTemplate(templateName),
             abort.signal
           ),
-          timeoutMs,
+          budget.ms,
           () => {
-            const timedOut = new Error(
-              messages.templateFetchTimedOut(templateName, timeoutMs)
-            )
+            // The reason alone: the URL frame around it is the one frame.
+            const timedOut = fetchBudgetSpent(budget)
             abort.abort(timedOut)
 
             return timedOut
@@ -1116,14 +1165,19 @@ export async function importExternalTemplate(
     }
 
     const fetchZipArchive = async () => {
-      const {data, headers} = await fetchTemplate(template, {
-        responseType: 'arraybuffer',
-        maxRedirects: 5,
-        timeout: timeoutMs,
-        beforeRedirect: refuseHttpRedirect
+      // A refusal to downgrade keeps its own type, and every other failure
+      // of the download is a download failure.
+      const {body, contentType} = await downloadArchive(
+        template,
+        startFetchBudget(timeoutMs),
+        options?.downloadRetry,
+        fetchTemplate
+      ).catch((fetchError: unknown) => {
+        throw (
+          findInsecureTemplateUrlError(fetchError) ??
+          new TemplateDownloadError(template, fetchError)
+        )
       })
-      const contentType = String(headers?.['content-type'] || '')
-      const body = Buffer.from(data)
       const looksZip =
         /zip|octet-stream/i.test(contentType) ||
         template.toLowerCase().endsWith('.zip')
@@ -1164,26 +1218,8 @@ export async function importExternalTemplate(
     } else if (isHttp) {
       // Typed for the same reason as the GitHub branch above: a ZIP URL that
       // answers with a 404 or an HTML page is the user's URL to fix, not a
-      // fault to report with our stack. axios times out an idle socket and
-      // not a reply that trickles in, so the whole fetch gets one budget.
-      const budget = startFetchBudget(timeoutMs)
-      const data = await withTimeout(fetchZipArchive(), budget.ms, () =>
-        fetchBudgetSpent(budget)
-      ).catch((fetchError: unknown) => {
-        // A downgrade refusal and a reply that is not an archive are their
-        // own frames and must keep their own types.
-        throw (
-          findInsecureTemplateUrlError(fetchError) ??
-          (fetchError instanceof TemplateNotZipError
-            ? fetchError
-            : new TemplateDownloadError(
-                template,
-                budgetSpentBy(fetchError, budget)
-                  ? fetchBudgetSpent(budget)
-                  : fetchError
-              ))
-        )
-      })
+      // fault to report with our stack.
+      const data = await fetchZipArchive()
 
       await extractZipBufferTo(data, tempPath, template)
       const sourcePath = await getZipSourcePath(tempPath, template)

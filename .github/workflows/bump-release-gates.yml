@@ -42,7 +42,7 @@ jobs:
     if: ${{ needs.resolve.outputs.corpus_behind == 'true' }}
     permissions:
       contents: read
-    uses: extension-js/corpus/.github/workflows/corpus-gate.yml@3745385c923930525da5241b0b024b4ffae737be # main, 2026-11-17
+    uses: extension-js/corpus/.github/workflows/corpus-gate.yml@99ae2b1734b60f9c732f57f45d20688679eda3c4 # main, 2026-11-19
     with:
       cli-version: latest
       ref: ${{ needs.resolve.outputs.corpus }}

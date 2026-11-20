@@ -9,7 +9,11 @@ afterAll(() => removeFixtureRoots())
 function applyPlugin() {
   const compiler: any = {
     options: {module: {rules: []}},
-    hooks: {afterEmit: {tap() {}}, compilation: {tap() {}}}
+    hooks: {
+      afterEmit: {tap() {}},
+      compilation: {tap() {}},
+      done: {tap() {}}
+    }
   }
   new StaticAssetsPlugin().apply(compiler)
 
@@ -129,7 +133,11 @@ describe('StaticAssetsPlugin raw resourceQuery rule', () => {
     const mine = {resourceQuery: /raw/, type: 'asset/resource'}
     const compiler: any = {
       options: {module: {rules: [mine]}},
-      hooks: {afterEmit: {tap() {}}, compilation: {tap() {}}}
+      hooks: {
+        afterEmit: {tap() {}},
+        compilation: {tap() {}},
+        done: {tap() {}}
+      }
     }
     new StaticAssetsPlugin().apply(compiler)
     const rawRules = compiler.options.module.rules.filter(

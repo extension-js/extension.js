@@ -583,10 +583,11 @@ describe('installInternalDependencies', () => {
     const frame = plain(String(error.message))
 
     expect(asked).toEqual(['npm'])
-    expect(frame.split('\n').slice(0, 3)).toEqual([
+    expect(frame.split('\n').slice(0, 4)).toEqual([
       `⏵⏵⏵ Error: Couldn't install the dependencies for ${path.basename(projectRoot)}.`,
-      'REASON Error: spawn npm ENOENT',
-      'The install process exited unexpectedly.'
+      'COMMAND npm install vue-loader @vue/compiler-sfc --save-optional --legacy-peer-deps',
+      'REASON npm is not installed, or not on PATH',
+      'Install npm or add it to PATH.'
     ])
 
     expect(frame).toContain('--template vue --install')
@@ -909,7 +910,7 @@ describe('installInternalDependencies', () => {
     expect(plain(error.message)).toContain(
       "Couldn't install the dependencies.\n" +
         'COMMAND npm install react-refresh @rspack/plugin-react-refresh --save-optional --legacy-peer-deps\n' +
-        'EXIT null\n' +
+        'EXIT timed out\n' +
         'REASON The install did not finish within 1800 seconds (EXTENSION_CREATE_INSTALL_TIMEOUT_MS)\n' +
         'still resolving\n' +
         'The new project files were removed.'

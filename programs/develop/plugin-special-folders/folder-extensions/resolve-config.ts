@@ -10,7 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {fetchExtensionFromStore} from 'extension-from-store'
 import {codedError} from '../../lib/coded-error'
-import {CODES, debugLine, isDebug} from '../../lib/messaging'
+import {CODES, debugLine, isDebug, prefix} from '../../lib/messaging'
 import {realPath} from '../../lib/real-path'
 import type {CompanionExtensionsConfig} from './types'
 import {
@@ -209,8 +209,9 @@ async function runExtensionFromStore(url: string, outDir: string) {
     logger: isAuthor
       ? {
           onInfo: (message) => debugLine(message),
-          onWarn: (message) => console.warn(message),
-          onError: (message, error) => console.error(message, error)
+          onWarn: (message) => debugLine(`${prefix('warn')} ${message}`),
+          onError: (message, error) =>
+            debugLine(`${prefix('error')} ${message}`, error)
         }
       : undefined
   })

@@ -19,11 +19,17 @@ import type {DevOptions, FilepathList, Manifest} from '../../../types'
 export const isRemoteUrl = (entry: string) =>
   /^([a-z][a-z0-9+.-]*:)?\/\//i.test(entry)
 
-const isRootRelative = (entry: string) =>
-  entry.startsWith('/') && !path.isAbsolute(entry)
+// A manifest path written with a leading slash names the extension root,
+// the manifest folder in source space, as the manifest fields resolve it.
+export function manifestEntrySourcePath(entry: string, manifestDir: string) {
+  return /^[\\/]/.test(entry)
+    ? path.join(manifestDir, entry.replace(/^[\\/]+/, ''))
+    : entry
+}
 
 // The one answer to where a manifest entry is read from, for the check that
 // it exists and for the bundler entry alike, so the two cannot disagree.
+// The entry is a manifest fields path: absolute, or relative to the manifest.
 export function resolveScriptEntryPath(
   entry: string,
   manifestDir: string,
@@ -31,16 +37,13 @@ export function resolveScriptEntryPath(
 ) {
   if (!entry || isRemoteUrl(entry)) return entry
 
-  const source = sourcePathOf(entry, manifestDir, projectPath)
+  const source = path.isAbsolute(entry) ? entry : path.join(manifestDir, entry)
 
   if (fs.existsSync(source)) return source
 
   // public/ ships at the extension root, so a file it holds answers a path
   // that names no source file. The path looked at stays the source one.
-  const fromRoot = path.relative(
-    isRootRelative(entry) ? projectPath : manifestDir,
-    source
-  )
+  const fromRoot = path.relative(manifestDir, source)
 
   if (!fromRoot || fromRoot.startsWith('..') || path.isAbsolute(fromRoot)) {
     return source
@@ -53,18 +56,6 @@ export function resolveScriptEntryPath(
       fromRoot.split(path.sep).join('/')
     ) || source
   )
-}
-
-// Root-relative paths point at the extension output root (served from
-// public/), which maps to the project directory in source space.
-function sourcePathOf(entry: string, manifestDir: string, projectPath: string) {
-  if (isRootRelative(entry)) {
-    return path.join(projectPath, entry.slice(1))
-  }
-
-  if (path.isAbsolute(entry)) return entry
-
-  return path.join(manifestDir, entry)
 }
 
 // The files the manifest names apart from the ones the build withholds: a
@@ -180,7 +171,11 @@ export function getBackgroundWorkerEntryName(options: {
 
   const projectPath = options.projectPath || manifestDir
   const resolve = (entry: string) =>
-    resolveScriptEntryPath(entry, manifestDir, projectPath)
+    resolveScriptEntryPath(
+      manifestEntrySourcePath(entry, manifestDir),
+      manifestDir,
+      projectPath
+    )
   // A file the build withholds is no entry either, like one that is absent.
   const entriesOf = (declared: string[]) =>
     getScriptEntries(

@@ -74,6 +74,7 @@ export const NAMED_CODES: Record<string, ErrorCode> = {
   CssDeadRef: CODES.E_CSS_DEAD_REF,
   CssWithheldRef: CODES.E_CSS_DEAD_REF,
   CssParseWarning: CODES.E_CSS_PARSE,
+  CssMinifierDroppedRules: CODES.E_CSS_PARSE,
   BackgroundRequired: CODES.E_BACKGROUND_REQUIRED,
   ContentScriptSyntax: CODES.E_CONTENT_SCRIPT_SYNTAX,
   ManifestNotFoundError: CODES.E_MANIFEST_NOT_FOUND,
@@ -100,6 +101,8 @@ export const NAMED_CODES: Record<string, ErrorCode> = {
   DNRRegexChromeCannotCompile: CODES.W_JSON_INVALID,
   PublicOutputCollision: CODES.E_PROJECT_LAYOUT,
   IncludeFilesError: CODES.E_PROJECT_LAYOUT,
+  SpecialFolderUnreadable: CODES.E_FOLDER_UNREADABLE,
+  ManifestInPublicFolder: CODES.E_MANIFEST_IN_PUBLIC,
   ManifestPersistFailed: CODES.E_OUTPUT_NOT_WRITABLE,
   PublicFolderShadowedWarning: CODES.W_PROJECT_LAYOUT,
   PublicLayoutWarning: CODES.W_PROJECT_LAYOUT,
@@ -107,6 +110,8 @@ export const NAMED_CODES: Record<string, ErrorCode> = {
   ScriptsFolderFilesLeftOutWarning: CODES.W_PROJECT_LAYOUT,
   PublicEnvFilesWarning: CODES.W_PROJECT_LAYOUT,
   PublicLinkedFilesWarning: CODES.W_PROJECT_LAYOUT,
+  PublicFileShadowedWarning: CODES.W_PROJECT_LAYOUT,
+  PublicFolderCaseWarning: CODES.W_PROJECT_LAYOUT,
   NamespaceImportReadAsValue: CODES.E_ASSET_IMPORT_SHAPE,
   ManifestV2OnChromiumWarning: CODES.W_MANIFEST_COMPAT,
   ManifestLegacyWarning: CODES.W_MANIFEST_COMPAT,
@@ -137,6 +142,7 @@ export const NAMED_CODES: Record<string, ErrorCode> = {
   MissingBuildConstantWarning: CODES.W_BUILD_CONSTANT_UNDEFINED,
   EnvPrivatePlaceholder: CODES.W_BUILD_CONSTANT_UNDEFINED,
   EnvReservedName: CODES.W_ENV_NAME_RESERVED,
+  EnvDefinedNameWritten: CODES.W_ENV_DEFINE_WRITTEN,
   UnknownRegistrationWorld: CODES.W_SCRIPT_WORLD_UNKNOWN
 }
 
