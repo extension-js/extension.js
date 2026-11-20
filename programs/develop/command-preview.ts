@@ -420,7 +420,10 @@ export async function extensionPreview(
         `Expected manifest at ${manifestAtOutput}`
       )
 
-      throw new Error(messages.previewHasNothingToRun(manifestAtOutput))
+      throw codedError(
+        CODES.E_PREVIEW_NO_DIST,
+        messages.previewHasNothingToRun(manifestAtOutput)
+      )
     }
 
     // Load command + browser defaults from the project root; when start.ts

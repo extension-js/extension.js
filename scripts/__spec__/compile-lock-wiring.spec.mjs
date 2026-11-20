@@ -11,6 +11,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import {test} from 'node:test'
 import {fileURLToPath} from 'node:url'
+import {job, readWorkflow} from '../lib/workflow-yaml.mjs'
 import {workspaceSourceEntries} from '../lib/workspace-source-entries.mjs'
 
 const root = path.resolve(
@@ -186,20 +187,18 @@ test('no export names source, and a sibling import still resolves to it', () => 
 })
 
 test('ci checks the emitted declarations in the job that compiles all four packages', () => {
+  const runs = job(readWorkflow('ci.yml'), 'smoke-npx')
+    .steps.map((entry) => entry.run)
+    .filter(Boolean)
+  const smoke = runs.indexOf('pnpm smoke:npx')
+  const check = runs.indexOf('node scripts/check-emitted-types.mjs')
+
+  assert.ok(smoke !== -1 && check > smoke, runs.join(', '))
+
   const ci = fs.readFileSync(
     path.join(root, '.github', 'workflows', 'ci.yml'),
     'utf8'
   )
-  const start = ci.indexOf('\n  smoke-npx:\n')
-  const end = ci.indexOf('\n  bundled-extensions:\n')
-
-  assert.ok(start !== -1 && end > start)
-
-  const job = ci.slice(start, end)
-  const smoke = job.indexOf('run: pnpm smoke:npx')
-  const check = job.indexOf('run: node scripts/check-emitted-types.mjs')
-
-  assert.ok(smoke !== -1 && check > smoke)
   assert.equal(ci.split('check-emitted-types.mjs').length - 1, 1)
 
   const smokeScript = fs.readFileSync(

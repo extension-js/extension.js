@@ -658,6 +658,59 @@ describe('extension build', () => {
       ])
     ).toBe(1)
 
+    // A list that stops partway names the browsers already built and the one
+    // that failed, so a caller knows what dist holds without a second run.
+    expect(frames()).toEqual([
+      {
+        schema: 1,
+        ok: false,
+        command: 'build',
+        status: 'build-failed',
+        value: {
+          projectPath: '.',
+          browsers: ['chrome'],
+          mode: 'production',
+          summaries: [{browser: 'chrome', warnings: [coded]}]
+        },
+        browser: 'firefox',
+        error: {code: 'E_COMPILE', message: 'Build failed with errors'},
+        hint: 'Fix the error above and run build again.',
+        warnings: [coded, perf]
+      }
+    ])
+  })
+
+  it('names the failing browser and an empty built list when the first of a list fails', async () => {
+    build = async () => {
+      throw new Error('Build failed with errors')
+    }
+
+    expect(
+      await run([
+        'build',
+        '.',
+        '--browser',
+        'chrome,firefox',
+        '--output',
+        'json'
+      ])
+    ).toBe(1)
+
+    expect(frames()).toMatchObject([
+      {
+        ok: false,
+        value: {browsers: [], summaries: []},
+        browser: 'chrome'
+      }
+    ])
+  })
+
+  it('keeps a one-browser failure frame as it was, with no value', async () => {
+    build = async () => {
+      throw new Error('Build failed with errors')
+    }
+
+    expect(await run(['build', '.', '--output', 'json'])).toBe(1)
     expect(frames()).toEqual([
       {
         schema: 1,
@@ -667,7 +720,7 @@ describe('extension build', () => {
         value: null,
         error: {code: 'E_COMPILE', message: 'Build failed with errors'},
         hint: 'Fix the error above and run build again.',
-        warnings: [coded, perf]
+        warnings: []
       }
     ])
   })

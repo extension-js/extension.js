@@ -29,9 +29,10 @@ if (!process.env.EXTENSION_TEMPLATE_CATALOG_LIVE) {
   await import('../../../create/__spec__/forbid-network')
 }
 
-// A test that asserts nothing passes whatever the CLI does. cli-exec is
-// left out: it installs from the real registry and was not run under this.
-const MUST_ASSERT = /[/\\]__spec__[/\\](?:exec|contract)[/\\](?!cli-exec\.)/
+// A test that asserts nothing passes whatever the CLI does. The launcher specs
+// under browsers/ are not held to it yet, and cli-exec installs from a registry.
+const MUST_ASSERT =
+  /[/\\]programs[/\\]extension[/\\](?:__spec__[/\\](?!exec[/\\]cli-exec\.)|helpers[/\\]|commands[/\\])/
 
 beforeEach(() => {
   if (MUST_ASSERT.test(expect.getState().testPath ?? '')) {

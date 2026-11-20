@@ -169,6 +169,10 @@ describe('parseLogContexts', () => {
     ])
   })
 
+  it('reads a name in any case', () => {
+    expect(parseLogContexts('Popup, CONTENT')).toEqual(['popup', 'content'])
+  })
+
   it('drops names outside the list and treats all or blank as every context', () => {
     expect(parseLogContexts('content, nope ,popup')).toEqual([
       'content',
@@ -176,6 +180,7 @@ describe('parseLogContexts', () => {
     ])
 
     expect(parseLogContexts('nope')).toBeUndefined()
+    expect(parseLogContexts('ALL')).toBeUndefined()
     expect(parseLogContexts('all')).toBeUndefined()
     expect(parseLogContexts('')).toBeUndefined()
     expect(parseLogContexts(undefined)).toBeUndefined()

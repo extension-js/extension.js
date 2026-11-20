@@ -102,6 +102,21 @@ describe('run() in process', () => {
     ])
   })
 
+  it.each([
+    [['--ai-help', '--output']],
+    [['--ai-help', '--output', '--no-telemetry']]
+  ])('names a missing --output value under --ai-help for %j', async (args) => {
+    const fake = fakeDeps()
+
+    expect(await run(argv(...args), fake.deps)).toBe(1)
+    expect(fake.exits).toEqual([1])
+    expect(fake.stdout()).toBe('')
+    expect(fake.stderr()).toBe(
+      '⏵⏵⏵ Error: Missing value for --output.\n' +
+        'Pass pretty or json, for example extension --ai-help --output json.\n'
+    )
+  })
+
   it('refuses a removed flag before parsing', async () => {
     const fake = fakeDeps()
 
