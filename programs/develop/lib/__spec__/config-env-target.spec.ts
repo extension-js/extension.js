@@ -116,8 +116,12 @@ describe('a config is read for the mode and browser that asked', () => {
         style.type
       )
 
-      const browser = (await loadBrowserConfig(root, 'chrome')) as Seen
-      const dev = (await loadCommandConfig(root, 'dev')) as Seen
+      const browser = (await loadBrowserConfig(root, 'chrome', {
+        mode: 'production'
+      })) as Seen
+      const dev = (await loadCommandConfig(root, 'dev', {
+        mode: 'development'
+      })) as Seen
 
       expect(browser.profile).toBe('from-production')
       expect(dev.profile).toBe('from-development')
@@ -125,22 +129,58 @@ describe('a config is read for the mode and browser that asked', () => {
     })
   }
 
-  it('reads a loader that names no mode the way the run last read the config', async () => {
+  // A dev session and a preview of one project can share a host process, so
+  // no load may take its files from whichever load came before it.
+  it('reads every layer for the run it names, whatever the config was last read for', async () => {
     const root = project({...MODE_FILES, 'extension.config.js': CJS_BODY})
+    const production = {mode: 'production'}
 
-    const dev = (await loadCommandConfig(root, 'dev')) as Seen
-    const defaults = (await loadProjectConfigDefaults(root)) as {
+    const dev = (await loadCommandConfig(root, 'dev', {
+      mode: 'development'
+    })) as Seen
+    const defaults = (await loadProjectConfigDefaults(root, production)) as {
       perfBudgets?: {seen?: string}
     }
-    const browser = (await loadBrowserConfig(root, 'chrome')) as Seen
-    const hook = (await loadConfigResolvedHook(root)) as unknown as () => string
+    const browser = (await loadBrowserConfig(
+      root,
+      'chrome',
+      production
+    )) as Seen
+    const hook = (await loadConfigResolvedHook(
+      root,
+      production
+    )) as unknown as () => string
 
     expect(dev.profile).toBe('from-development')
-    expect(defaults.perfBudgets?.seen).toBe('from-development')
-    expect(browser.profile).toBe('from-development')
-    expect(hook()).toBe('from-development')
-    expect(runsOf(root)).toEqual(['from-development'])
-    expect(process.env[KEY]).toBe('from-development')
+    expect(defaults.perfBudgets?.seen).toBe('from-production')
+    expect(browser.profile).toBe('from-production')
+    expect(hook()).toBe('from-production')
+    expect(runsOf(root)).toEqual(['from-development', 'from-production'])
+  })
+
+  it('cannot be asked for a layer without naming the run', () => {
+    // Never called: the compiler is what refuses each of these.
+    const unnamed = async (root: string) => {
+      // @ts-expect-error the mode and browser of the run are required
+      await loadProjectConfigDefaults(root)
+      // @ts-expect-error the mode and browser of the run are required
+      await loadCommandConfig(root, 'dev')
+      // @ts-expect-error the mode and browser of the run are required
+      await loadBrowserConfig(root, 'chrome')
+      // @ts-expect-error the mode of the run is required
+      await loadBrowserConfig(root, 'chrome', {browser: 'chrome'})
+    }
+
+    expect(unnamed).toBeTypeOf('function')
+
+    const loader = fs.readFileSync(
+      path.join(__dirname, '..', 'config-loader.ts'),
+      'utf-8'
+    )
+
+    expect(loader).not.toMatch(/envOrder\?: string\[\]/)
+    expect(loader).not.toMatch(/envTarget\?: ConfigEnvTarget/)
+    expect(loader).not.toContain('envOrderByConfigPath')
   })
 
   it('gives a named browser its own env file after a load that named none', async () => {
@@ -150,7 +190,9 @@ describe('a config is read for the mode and browser that asked', () => {
       'extension.config.js': CJS_BODY
     })
 
-    const build = (await loadCommandConfig(root, 'build')) as Seen
+    const build = (await loadCommandConfig(root, 'build', {
+      mode: 'production'
+    })) as Seen
     const firefox = (await loadProjectConfigDefaults(root, {
       mode: 'production',
       browser: 'firefox'
@@ -175,16 +217,16 @@ describe('a config is read for the mode and browser that asked', () => {
       'extension.config.js': CJS_BODY
     })
 
-    await loadCommandConfig(root, 'dev')
-    await loadCommandConfig(root, 'build')
+    await loadCommandConfig(root, 'dev', {mode: 'development'})
+    await loadCommandConfig(root, 'build', {mode: 'production'})
     await loadProjectConfigDefaults(root, {
       mode: 'production',
       browser: 'firefox'
     })
 
     await Promise.all([
-      loadBrowserConfig(root, 'chrome'),
-      loadCommandConfig(root, 'dev', {browser: 'chrome'})
+      loadBrowserConfig(root, 'chrome', {mode: 'production'}),
+      loadCommandConfig(root, 'dev', {mode: 'development', browser: 'chrome'})
     ])
 
     expect(runsOf(root)).toEqual(['from-dotenv'])
@@ -222,7 +264,7 @@ describe('a config runs again for the browser only when it read a changed name',
   }
 
   async function loadForBuildThenFirefox(root: string) {
-    await loadCommandConfig(root, 'build')
+    await loadCommandConfig(root, 'build', {mode: 'production'})
 
     return (await loadProjectConfigDefaults(root, {
       mode: 'production',

@@ -20,7 +20,7 @@ describe('config-loader', () => {
       'utf-8'
     )
 
-    const defaults = await loadProjectConfigDefaults(dir)
+    const defaults = await loadProjectConfigDefaults(dir, {mode: 'production'})
     expect(defaults.perfBudgets).toEqual({
       runtime: 25 * 1024 * 1024,
       'service-worker': 10
@@ -35,7 +35,7 @@ describe('config-loader', () => {
       'utf-8'
     )
 
-    const defaults = await loadProjectConfigDefaults(dir)
+    const defaults = await loadProjectConfigDefaults(dir, {mode: 'production'})
     expect(defaults.perfBudgets).toBe(5)
   })
 
@@ -44,7 +44,9 @@ describe('config-loader', () => {
     // the URL as a relative path and never returned.
     const url =
       'https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder'
-    await expect(loadCommandConfig(url, 'dev')).resolves.toEqual({})
+    await expect(
+      loadCommandConfig(url, 'dev', {mode: 'development'})
+    ).resolves.toEqual({})
   })
 
   it('loadCommandConfig on a relative project path resolves like the absolute one', async () => {
@@ -64,8 +66,10 @@ describe('config-loader', () => {
 
     try {
       await expect(
-        loadCommandConfig('packages/extension', 'dev')
-      ).resolves.toEqual(await loadCommandConfig(pkg, 'dev'))
+        loadCommandConfig('packages/extension', 'dev', {mode: 'development'})
+      ).resolves.toEqual(
+        await loadCommandConfig(pkg, 'dev', {mode: 'development'})
+      )
     } finally {
       process.chdir(previous)
       fs.rmSync(root, {recursive: true, force: true})
@@ -74,7 +78,7 @@ describe('config-loader', () => {
 
   it('loadBrowserConfig returns defaults when no config present', async () => {
     const dir = makeTempFolder('tmp-extjs-')
-    const cfg = await loadBrowserConfig(dir, 'chrome')
+    const cfg = await loadBrowserConfig(dir, 'chrome', {mode: 'production'})
     expect(cfg.browser).toBe('chrome')
   })
 
@@ -102,7 +106,7 @@ module.exports = {
       'utf-8'
     )
 
-    const cfg = await loadBrowserConfig(dir, 'chrome')
+    const cfg = await loadBrowserConfig(dir, 'chrome', {mode: 'production'})
     expect(cfg.profile).toBe(path.join(dir, 'dist', 'stable-profile'))
   })
 
@@ -138,7 +142,7 @@ export default {
 
     const previous = process.env.EXTENSION_PUBLIC_START_URL
     delete process.env.EXTENSION_PUBLIC_START_URL
-    const cfg = await loadBrowserConfig(appDir, 'chrome')
+    const cfg = await loadBrowserConfig(appDir, 'chrome', {mode: 'production'})
     expect(cfg.startingUrl).toBe('https://workspace-root.example')
 
     if (previous === undefined) {
@@ -162,7 +166,7 @@ export default {
       "export default {browser: {firefox: {preferences: {'browser.newtabpage.enabled': true}}}}\n"
     )
 
-    const cfg = await loadBrowserConfig(root, 'firefox')
+    const cfg = await loadBrowserConfig(root, 'firefox', {mode: 'production'})
     expect(cfg.preferences).toEqual({'browser.newtabpage.enabled': true})
   })
 
@@ -185,7 +189,7 @@ export default {
       "export default {browser: {firefox: {preferences: {where: 'src'}}}}\n"
     )
 
-    const cfg = await loadBrowserConfig(root, 'firefox')
+    const cfg = await loadBrowserConfig(root, 'firefox', {mode: 'production'})
     expect(cfg.preferences).toEqual({where: 'root'})
   })
 })
