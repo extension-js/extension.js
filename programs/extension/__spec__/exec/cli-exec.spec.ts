@@ -689,7 +689,13 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
 
       const devResult = await runUntilTimeout(
         runner.command,
-        runner.buildArgs(packages, ['dev', projectPath, '--no-browser']),
+        runner.buildArgs(packages, [
+          'dev',
+          projectPath,
+          '--no-browser',
+          '--install',
+          'false'
+        ]),
         {cwd: projectPath, env: defaultEnv},
         6000
       )
@@ -810,7 +816,7 @@ describe('cli direct flow (no npx)', () => {
 
       const devResult = await runUntilTimeout(
         process.execPath,
-        [cliBin, 'dev', projectPath, '--no-browser'],
+        [cliBin, 'dev', projectPath, '--no-browser', '--install', 'false'],
         {cwd: projectPath, env: defaultEnv},
         6000
       )
