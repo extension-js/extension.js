@@ -24,7 +24,7 @@ import {
   refuseCompanionLinksNoStoreReads,
   resolveCompanionExtensionsConfig
 } from './lib/companion-extensions/resolve-config'
-import {resolveCompanionExtensionDirs as resolveCompanionExtensionDirsFromSpecialFolders} from './lib/companion-extensions/resolve-dirs'
+import {resolveCompanionExtensionDirs} from './lib/companion-extensions/resolve-dirs'
 import type {CompanionExtensionsConfig} from './lib/companion-extensions/types'
 import {
   holdPreloadedEnvOf,
@@ -764,14 +764,13 @@ async function runPreview(
       excludeBrowserFlags: merged.excludeBrowserFlags
     })
 
-    const companionUnpackedExtensionDirs =
-      resolveCompanionExtensionDirsFromSpecialFolders({
-        projectRoot: packageJsonDir,
-        config: merged.extensions,
-        browser,
-        // The no-browser run returned above, and a dry run opens nothing.
-        launchesBrowser: !merged.dryRun
-      })
+    const companionUnpackedExtensionDirs = resolveCompanionExtensionDirs({
+      projectRoot: packageJsonDir,
+      config: merged.extensions,
+      browser,
+      // The no-browser run returned above, and a dry run opens nothing.
+      launchesBrowser: !merged.dryRun
+    })
 
     const unpackedExtensionDirsToLoad = computeExtensionsToLoad(
       // __dirname changes after publishing; anchor relative paths at the package
