@@ -45,7 +45,10 @@ function isDirectory(target: string): boolean {
   }
 }
 
-function resolveExtends(specifier: string, fromDir: string): string | null {
+export function resolveExtends(
+  specifier: string,
+  fromDir: string
+): string | null {
   const isPath = specifier.startsWith('.') || path.isAbsolute(specifier)
 
   if (isPath) {

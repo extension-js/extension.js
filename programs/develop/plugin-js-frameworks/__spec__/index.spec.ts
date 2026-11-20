@@ -264,7 +264,8 @@ describe('JsFrameworksPlugin SWC rules', () => {
       ['source-map', true]
     ] as const) {
       const {pages} = swcRules(await configure(root, {devtool}))
-      expect(swcOptionsFor(pages, '/x/a.js').sourceMap).toBe(expected)
+      // SWC's own name for the option, the one its types declare.
+      expect(swcOptionsFor(pages, '/x/a.js').sourceMaps).toBe(expected)
     }
   })
 
@@ -277,7 +278,7 @@ describe('JsFrameworksPlugin SWC rules', () => {
     ] as const) {
       const options = {mode: 'production', devtool} as const
       const {pages} = swcRules(await configure(root, options))
-      expect(swcOptionsFor(pages, '/x/a.js').sourceMap).toBe(expected)
+      expect(swcOptionsFor(pages, '/x/a.js').sourceMaps).toBe(expected)
     }
   })
 
@@ -415,9 +416,11 @@ describe('JsFrameworksPlugin transpiled packages', () => {
 
     expect(pages?.include).toBeUndefined()
 
+    // A .vue file is source wherever it lives, so the Vue rule has none.
+    expect(rulesOf(compiler).find(isVueLoaderRule)?.exclude).toBeUndefined()
+
     const excludes = [
       callable((pages?.exclude as unknown[])[0]),
-      callable(rulesOf(compiler).find(isVueLoaderRule)?.exclude),
       ...rulesOf(compiler)
         .filter(
           (rule) =>
@@ -427,8 +430,8 @@ describe('JsFrameworksPlugin transpiled packages', () => {
         .map((rule) => callable(rule.exclude))
     ]
 
-    // One SWC page rule, one Vue rule and Solid's three Babel rules.
-    expect(excludes).toHaveLength(5)
+    // One SWC page rule and Solid's three Babel rules.
+    expect(excludes).toHaveLength(4)
 
     for (const exclude of excludes) {
       expect(exclude(uiFile(root))).toBe(false)

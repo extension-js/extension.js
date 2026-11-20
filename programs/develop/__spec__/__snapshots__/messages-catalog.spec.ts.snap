@@ -227,6 +227,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "creatingTSConfig: function(0)",
     "isUsingCustomLoader: function(1)",
     "isUsingIntegration: function(1)",
+    "jsFrameworksBabelConfig: function(1)",
     "jsFrameworksConfigsDetected: function(3)",
     "jsFrameworksHmrSummary: function(2)",
     "jsFrameworksIntegrationsEnabled: function(1)",
