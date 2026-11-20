@@ -99,7 +99,7 @@ describe('the dependencies of this package', () => {
       .filter((name) => !(name in KEPT_UNNAMED))
       .filter((name) => {
         const specifier = new RegExp(
-          `['"]${name.replace(/[/.]/g, '\\$&')}(/[^'"]*)?['"]`
+          `['"]${name.replace(/[\\^$.*+?()[\]{}|/]/g, '\\$&')}(/[^'"]*)?['"]`
         )
 
         return !sources.some((text) => specifier.test(text))
