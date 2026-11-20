@@ -9,9 +9,10 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {execSync} from 'node:child_process'
-import {unlinkSync, writeFileSync} from 'node:fs'
+import {realpathSync, unlinkSync, writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
+import {fileURLToPath} from 'node:url'
 
 const DRY_RUN = process.argv.includes('--dry-run')
 
@@ -23,7 +24,7 @@ const EXCLUDE_PATTERNS = [
   /^\s*-\s*Move the changelog to v[0-9]/
 ]
 
-function cleanBody(body) {
+export function cleanBody(body) {
   if (!body || typeof body !== 'string') return body
 
   const lines = body.split('\n')
@@ -119,4 +120,8 @@ async function main() {
   )
 }
 
-main()
+const invokedPath = process.argv[1] ? realpathSync(process.argv[1]) : ''
+
+if (invokedPath === fileURLToPath(import.meta.url)) {
+  main()
+}

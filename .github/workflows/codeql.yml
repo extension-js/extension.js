@@ -66,3 +66,26 @@ jobs:
         uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           category: "/language:${{ matrix.language }}"
+
+  # Each analysis of main saves a new overlay base of about 350 MB and pull
+  # requests restore only the newest, so the older ones are removed here.
+  prune-overlay-caches:
+    name: Keep one CodeQL overlay base
+    needs: analyze
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      # gh cache delete
+      actions: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Delete older overlay bases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/prune-codeql-overlay-caches.mjs
