@@ -166,7 +166,7 @@ describe('RdpTransport', () => {
     const errors: unknown[] = []
     transport.on('error', (e) => errors.push(e))
 
-    sendResponse(sock, {type: 'someEvent'} as any)
+    sendResponse(sock, {type: 'someEvent'})
 
     await new Promise((r) => setTimeout(r, 50))
     expect(errors).toHaveLength(1)

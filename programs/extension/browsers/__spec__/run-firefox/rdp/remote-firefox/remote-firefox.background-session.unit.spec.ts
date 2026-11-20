@@ -52,13 +52,24 @@ class FakeSessionClient extends EventEmitter {
   disconnect() {}
 }
 
+// The private members these rows set, reached through one cast.
+interface RemoteInternals {
+  client: FakeSessionClient | null
+  derivedExtensionId: string | undefined
+  lastInstalledAddonPath: string | undefined
+}
+
+function internals(remote: RemoteFirefox): RemoteInternals {
+  return remote as unknown as RemoteInternals
+}
+
 function makeRemote(client: FakeSessionClient | null, extensionId?: string) {
-  const remote = new RemoteFirefox({browser: 'firefox'} as never) as any
+  const remote = new RemoteFirefox({browser: 'firefox'} as never)
 
-  remote.client = client
-  remote.derivedExtensionId = extensionId
+  internals(remote).client = client
+  internals(remote).derivedExtensionId = extensionId
 
-  return remote as RemoteFirefox
+  return remote
 }
 
 const types = (client: FakeSessionClient) =>
@@ -101,7 +112,7 @@ describe('a session on the background of an installed add-on', () => {
       ])
       const remote = makeRemote(client, ADDON_ID)
 
-      ;(remote as any).lastInstalledAddonPath = folder
+      internals(remote).lastInstalledAddonPath = folder
 
       const session = await remote.openBackgroundSession()
 
@@ -138,7 +149,7 @@ describe('a session on the background of an installed add-on', () => {
     const remote = makeRemote(client, ADDON_ID)
     const session = await remote.openBackgroundSession()
 
-    ;(remote as any).client = new FakeSessionClient([BACKGROUND_FRAME])
+    internals(remote).client = new FakeSessionClient([BACKGROUND_FRAME])
 
     await expect(session?.evaluate('probe()', 1000)).resolves.toBeUndefined()
 

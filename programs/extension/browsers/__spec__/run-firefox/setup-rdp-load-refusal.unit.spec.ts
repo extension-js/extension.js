@@ -16,8 +16,11 @@ const {setupRdpAfterLaunch} = await import(
   '../../run-firefox/firefox-launch/setup-rdp-after-launch'
 )
 
-const plugin = () => ({browser: 'firefox'}) as any
-const compilation = {options: {output: {path: '/dist/firefox'}}} as any
+type Runtime = Parameters<typeof setupRdpAfterLaunch>[0]
+type Compilation = Parameters<typeof setupRdpAfterLaunch>[1]
+
+const plugin = () => ({browser: 'firefox'}) as Runtime
+const compilation: Compilation = {options: {output: {path: '/dist/firefox'}}}
 
 describe('setupRdpAfterLaunch refusal reporting', () => {
   beforeEach(() => {
