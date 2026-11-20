@@ -61,7 +61,7 @@ describe('a Tailwind plugin that fails to start', () => {
 
         compiled.push({
           warnings: compilation.warnings
-            .filter((w) => w.name === 'CssSetupWarning')
+            .filter((w) => w.name === 'CssSetupNotApplied')
             .map((w) => w.message.replace(/^\s*(?:⚠|│)\s?/gm, '').trimEnd()),
           errors: compilation.errors.map((e) => e.message)
         })

@@ -8,12 +8,12 @@
 
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
-import {parseJsoncSafe} from '../lib/deno-manifest'
+import {type ParsedJsonc, parseJsoncSafe} from '../lib/deno-manifest'
 import {readTemplatePackageJson} from '../lib/find-manifest-json'
 import * as messages from '../lib/messages'
-import {isDebug} from '../lib/messaging'
+import {CODES, isDebug} from '../lib/messaging'
 import {isDenoRuntime} from '../lib/package-manager'
-import {failStep} from '../lib/utils'
+import {CreateError, failStep} from '../lib/utils'
 import {
   getTemplateAwareScripts,
   resolveExtensionBinary,
@@ -126,6 +126,28 @@ interface WriteDenoJsoncOptions {
   primary?: boolean
 }
 
+async function readTemplateDenoConfig(
+  configPath: string
+): Promise<ParsedJsonc> {
+  try {
+    const parsed: unknown = parseJsoncSafe(
+      await fs.readFile(configPath, 'utf8')
+    )
+
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new TypeError('The file does not hold a JSON object')
+    }
+
+    return parsed
+  } catch (error) {
+    throw new CreateError(
+      messages.templateFileNotReadable(configPath, error),
+      CODES.E_TEMPLATE_NOT_FOUND,
+      error
+    )
+  }
+}
+
 export async function writeDenoJsonc(
   projectPath: string,
   {template = 'javascript', cliVersion, primary = false}: WriteDenoJsoncOptions,
@@ -155,16 +177,22 @@ export async function writeDenoJsonc(
   const imports = primary
     ? await collectTemplateImports(projectPath, cliVersion)
     : undefined
+  const configPath = existingConfig
+    ? path.join(projectPath, existingConfig)
+    : path.join(projectPath, 'deno.jsonc')
+  // The template's own config is read before anything is written, so a broken
+  // one is the template's file to fix and never a write that failed.
+  const config = existingConfig
+    ? await readTemplateDenoConfig(configPath)
+    : undefined
 
   try {
     if (isDebug()) logger.log(messages.writingDenoJsonc())
 
-    if (existingConfig) {
+    if (config) {
       // Primary mode with a template-shipped config: the config still has to
       // become the only manifest, with the `extension` import folded in and
       // package.json retired, or `deno task dev` never finds the CLI (#482).
-      const configPath = path.join(projectPath, existingConfig)
-      const config = parseJsoncSafe(await fs.readFile(configPath, 'utf8'))
       // Template imports stay authoritative for everything they pin, except
       // `extension`: that always matches the CLI doing the scaffold, same as
       // overridePackageJson rewrites devDependencies.extension. An old
@@ -191,10 +219,7 @@ export async function writeDenoJsonc(
 
       await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`)
     } else {
-      await fs.writeFile(
-        path.join(projectPath, 'deno.jsonc'),
-        renderDenoJsonc(tasks, imports)
-      )
+      await fs.writeFile(configPath, renderDenoJsonc(tasks, imports))
     }
 
     if (primary) {
@@ -202,6 +227,10 @@ export async function writeDenoJsonc(
       await fs.rm(path.join(projectPath, 'package.json'), {force: true})
     }
   } catch (error) {
-    throw failStep(messages.writingDenoJsoncError(error), error)
+    throw failStep(
+      messages.writingDenoJsoncError(error, path.basename(configPath)),
+      error,
+      CODES.E_DESTINATION_NOT_WRITABLE
+    )
   }
 }

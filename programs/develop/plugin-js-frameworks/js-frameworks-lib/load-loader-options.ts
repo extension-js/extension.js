@@ -9,12 +9,11 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {pathToFileURL} from 'node:url'
-import {debugLine, isDebug} from '../../lib/messaging'
+import {codedError} from '../../lib/coded-error'
+import {CODES, debugLine, isDebug} from '../../lib/messaging'
 import type {AnyModule} from '../../lib/optional-deps-resolver'
 import * as messages from './messages'
-
-// Printed once per process. A caller that needs its own record passes one.
-const customLoaderNotice = {delivered: false}
+import type {Notice} from './session-notices'
 
 export function resolveLoaderConfigPath(
   projectPath: string,
@@ -56,12 +55,12 @@ export function mergeLoaderOptions(
 export async function loadLoaderOptions(
   projectPath: string,
   framework: 'vue' | 'svelte',
-  notice: {delivered: boolean} = customLoaderNotice
+  notice?: Notice
 ): Promise<AnyModule> {
   const configPath = resolveLoaderConfigPath(projectPath, framework)
 
   if (configPath) {
-    if (!notice.delivered && isDebug()) {
+    if (notice && !notice.delivered && isDebug()) {
       const display = path.basename(configPath)
       debugLine(messages.isUsingCustomLoader(display))
       notice.delivered = true
@@ -71,13 +70,16 @@ export async function loadLoaderOptions(
       const module = await import(pathToFileURL(configPath).href)
 
       return module.default || module
-    } catch (err: unknown) {
-      const error = err as Error
-      console.error(
-        `Error loading ${framework} loader options: ${error.message}`
+    } catch (cause: unknown) {
+      // The options file is the author's to fix, so the build stops with the
+      // same class a broken extension.config.js gets, said once by the caller.
+      throw Object.assign(
+        codedError(
+          CODES.E_CONFIG_LOAD,
+          messages.loaderOptionsLoadFailed(configPath, cause)
+        ),
+        {cause}
       )
-
-      throw err
     }
   }
 

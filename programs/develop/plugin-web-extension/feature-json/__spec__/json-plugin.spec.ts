@@ -1,6 +1,7 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
-vi.mock('fs', () => ({
+vi.mock('fs', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('node:fs')>()),
   existsSync: vi.fn(),
   readFileSync: vi.fn()
 }))

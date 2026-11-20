@@ -117,8 +117,13 @@ describe('--browser=edge on Windows with only the system Edge installed', () => 
     )
 
     expect(env.LOCALAPPDATA).toBe(localAppData)
+    // The cache root is joined by the Windows rules this run claims, on a
+    // POSIX host too. LOCALAPPDATA stays a temp path so the env stays sealed.
     expect(env.PLAYWRIGHT_BROWSERS_PATH).toBe(
-      path.join(localAppData, 'extension.js', 'browsers', 'edge')
+      path.join(
+        path.win32.join(localAppData, 'extension.js', 'browsers'),
+        'edge'
+      )
     )
 
     expect(env.EDGE_BINARY).toBeUndefined()
