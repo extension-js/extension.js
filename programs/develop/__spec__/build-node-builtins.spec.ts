@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it, vi} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // `node:fs` and `fs` are one module to Node, so a build answers both the same
 // way: the same empty module, the same fallback key, the same error.
@@ -38,7 +39,6 @@ function project(background: string, config?: string) {
 }
 
 async function build(root: string) {
-  const {extensionBuild} = await import('../command-build')
   const printed: string[] = []
 
   const capture = (...args: unknown[]) => {
@@ -52,12 +52,10 @@ async function build(root: string) {
   let warnings = 0
 
   try {
-    const summary = await extensionBuild(root, {
-      browser: 'chrome',
+    const summary = await buildProject(root, {
       silent: false,
-      install: false,
       mode: 'production'
-    } as any)
+    })
     errors = summary.errors_count
     warnings = summary.warnings_count
   } catch {

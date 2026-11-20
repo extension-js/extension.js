@@ -8,6 +8,7 @@ import {getProjectStructure} from '../lib/project'
 import {MAIN_WORLD_BRIDGE_PAIRING_MARK} from '../plugin-web-extension/feature-scripts/scripts-lib/main-world-bridge-pairing'
 import {MAIN_WORLD_COPY_ROUTING_MARK} from '../plugin-web-extension/feature-scripts/scripts-lib/main-world-copy-routing'
 import webpackConfig from '../rspack-config'
+import {buildProject} from './helpers/build-project'
 
 // A browser runs one file once in a frame whatever worlds name it, and each
 // world needs its own build, so a file both worlds run ships twice.
@@ -97,15 +98,9 @@ function project(background: string) {
 }
 
 async function build(root: string, browser: 'chrome' | 'firefox') {
-  const {extensionBuild} = await import('../command-build')
   let warnings: string[] = []
 
-  const summary = await extensionBuild(root, {
-    browser,
-    silent: true,
-    install: false,
-    mode: 'production'
-  } as any)
+  const summary = await buildProject(root, {browser, mode: 'production'})
   expect(summary.errors_count).toBe(0)
   warnings = summary.warnings || []
 

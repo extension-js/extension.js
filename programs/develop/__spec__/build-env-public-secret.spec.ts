@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it, vi} from 'vitest'
 import {looksLikeSecretName} from '../plugin-compilation/env'
+import {buildProject} from './helpers/build-project'
 
 const roots: string[] = []
 
@@ -39,7 +40,6 @@ function project(env: string) {
 }
 
 async function build(root: string, mode: 'production' | 'development') {
-  const {extensionBuild} = await import('../command-build')
   const printed: string[] = []
 
   const capture = (...args: unknown[]) => {
@@ -50,12 +50,11 @@ async function build(root: string, mode: 'production' | 'development') {
   const warn = vi.spyOn(console, 'warn').mockImplementation(capture)
 
   try {
-    const summary = await extensionBuild(root, {
+    const summary = await buildProject(root, {
       browser: 'chromium',
       silent: false,
-      install: false,
       mode
-    } as never)
+    })
 
     return {
       summary: summary as {warnings_count?: number},

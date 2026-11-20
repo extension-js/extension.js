@@ -15,6 +15,7 @@ import {ensureOptionalPackageResolved} from '../lib/optional-deps-resolver'
 import {type ParsedJson, parseJsonSafe} from '../lib/parse-json-safe'
 import {toResourceKey} from '../lib/resource-path'
 import {NOT_RAW_RESOURCE_QUERY, RAW_RESOURCE_QUERY} from '../lib/resource-query'
+import {setupInOrder} from '../lib/setup-in-order'
 import {classifyEntrySurface} from '../lib/split-chunks'
 import {resolveEngineTargets} from '../lib/swc-targets'
 import {
@@ -753,7 +754,9 @@ export class JsFrameworksPlugin {
     // promise from both hooks. watchRun covers the dev server; beforeRun covers
     // a one-shot development build (compiler.run), which otherwise read the
     // rules while the async contract resolution was still racing.
-    const configuring = this.configureOptions(compiler)
+    const configuring = setupInOrder(compiler, () =>
+      this.configureOptions(compiler)
+    )
     compiler.hooks.beforeRun.tapPromise(
       JsFrameworksPlugin.name,
       () => configuring

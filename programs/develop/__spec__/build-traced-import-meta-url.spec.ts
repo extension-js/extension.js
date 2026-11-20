@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import * as vm from 'node:vm'
 import * as acorn from 'acorn'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // A runtime-loaded module (a getURL target, a root-absolute page module) is
 // fetched at one known path, so its import.meta.url must be that path. The
@@ -71,17 +72,11 @@ function writeFixture() {
 }
 
 async function buildFixture(mode: 'production' | 'development') {
-  const {extensionBuild} = await import('../command-build')
   const previousAuthorMode = process.env.EXTENSION_AUTHOR_MODE
   Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
 
   try {
-    return await extensionBuild(ROOT, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      mode
-    } as any)
+    return await buildProject(ROOT, {mode})
   } finally {
     if (previousAuthorMode === undefined) {
       Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')

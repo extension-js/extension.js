@@ -456,21 +456,25 @@ export function registerDevCommand(
             // Under --output json the engine exits nothing, so this does.
             endSession: () => {
               let ended = false
+              let stopping = false
 
               // One call ends one session, and a run holds one per browser.
               for (let turn = 0; turn < 16; turn++) {
-                if (
-                  endEngineSession?.(CODES.E_PARENT_GONE, parentGone) !== true
-                ) {
-                  break
-                }
+                const answer = endEngineSession?.(
+                  CODES.E_PARENT_GONE,
+                  parentGone
+                )
+
+                // A shutdown under way keeps its own frame and exit code.
+                if (answer === 'ending') stopping = true
+                if (answer !== true) break
 
                 ended = true
               }
 
               if (ended && asJson) void exitDrained(1)
 
-              return ended
+              return ended || stopping
             },
             emitFrame: () => {
               if (!asJson) return

@@ -6,19 +6,24 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {
+  loadProjectAndCommandConfig,
+  logOptionsOf,
+  prepareProjectTypes,
+  refuseManagedDependencyConflicts,
+  resolveCommandBrowser
+} from './command-steps/project-setup'
 import {announceLeftoverOutputFolder} from './lib/build-output-guard'
 import {
   findConfigFile,
   loadBrowserConfig,
-  loadCommandConfig,
-  loadProjectConfigDefaults
+  loadCommandConfig
 } from './lib/config-loader'
 import {withDarkMode} from './lib/dark-mode'
 import {
   ensureDevelopArtifacts,
   ensureUserProjectDependencies
 } from './lib/ensure-develop-artifacts'
-import {generateExtensionTypes} from './lib/generate-extension-types'
 import {
   DEV_COMMAND_DEFAULTS,
   falseProfileSource,
@@ -26,15 +31,9 @@ import {
 } from './lib/merge-options'
 import * as messages from './lib/messages'
 import {debugLine, isDebug, isMachineOutput} from './lib/messaging'
-import {
-  browserOptionOrThrow,
-  configBrowserOrThrow,
-  getDirs,
-  normalizeBrowser
-} from './lib/paths'
+import {browserOptionOrThrow, getDirs} from './lib/paths'
 import {getProjectStructure} from './lib/project'
 import {resolveSafariIdentity} from './lib/safari-identity'
-import {assertNoManagedDependencyConflicts} from './lib/validate-user-dependencies'
 import {
   type BrowserLauncherFn,
   BrowsersPlugin,
@@ -42,10 +41,6 @@ import {
   type RunnerPlugin
 } from './plugin-browsers'
 import {SafariDevPlugin} from './plugin-browsers/safari-dev-plugin'
-import {
-  ensureTypeScriptConfig,
-  isUsingTypeScript
-} from './plugin-js-frameworks/js-tools/typescript'
 import {resolvePerfBudgets} from './plugin-perf-budgets'
 import {
   rememberExcludedFiles,
@@ -101,42 +96,25 @@ export async function extensionDev(
       await ensureUserProjectDependencies(packageJsonDir)
     }
 
-    const userManifestPath =
-      projectStructure.packageJsonPath || projectStructure.denoJsonPath
-
-    if (userManifestPath) {
-      assertNoManagedDependencyConflicts(userManifestPath, packageJsonDir)
-    }
+    refuseManagedDependencyConflicts(projectStructure, packageJsonDir)
 
     const geckoBinary = devOptions.geckoBinary || devOptions.firefoxBinary
-    const namesBinary = Boolean(
-      devOptions.chromiumBinary || geckoBinary || devOptions.safariBinary
-    )
-    // The same stock default as build. A binary with no name picks its own
-    // family, so the default only applies when neither was given.
-    const browserFor = (named: typeof askedBrowser) =>
-      normalizeBrowser(
-        named || (namesBinary ? undefined : 'chromium'),
-        devOptions.chromiumBinary,
-        geckoBinary,
-        devOptions.safariBinary
-      )
     // commands.dev.browser is read before the target is picked, so the config
-    // can choose the browser when no --browser flag arrived. That read sees
-    // the env files of the browser that runs when the config names none.
-    const browser = askedBrowser
-      ? browserFor(askedBrowser)
-      : browserFor(
-          configBrowserOrThrow(
-            (
-              (await loadCommandConfig(packageJsonDir, 'dev', {
-                mode: 'development',
-                browser: String(browserFor(undefined))
-              })) as {browser?: unknown}
-            ).browser,
-            'dev'
-          )
-        )
+    // can choose the browser when no --browser flag arrived.
+    const browser = await resolveCommandBrowser({
+      asked: askedBrowser,
+      command: 'dev',
+      chromiumBinary: devOptions.chromiumBinary,
+      geckoBinary,
+      safariBinary: devOptions.safariBinary,
+      configBrowser: async (stockBrowser) =>
+        (
+          (await loadCommandConfig(packageJsonDir, 'dev', {
+            mode: 'development',
+            browser: stockBrowser
+          })) as {browser?: unknown}
+        ).browser
+    })
 
     if (debug) {
       debugLine(messages.debugDirs(manifestDir, packageJsonDir))
@@ -150,11 +128,7 @@ export async function extensionDev(
     // extension.config.js values apply. Every layer reads the env files the
     // bundle will, the browser's included.
     const envTarget = {mode: 'development', browser: String(browser)}
-    const projectConfig = await loadProjectConfigDefaults(
-      packageJsonDir,
-      envTarget
-    )
-    const commandConfig = await loadCommandConfig(
+    const {projectConfig, commandConfig} = await loadProjectAndCommandConfig(
       packageJsonDir,
       'dev',
       envTarget
@@ -187,14 +161,13 @@ export async function extensionDev(
     )
 
     rememberExcludedFiles(packageJsonDir, merged.exclude)
-    ensureTypeScriptConfig(manifestDir, {
+    await prepareProjectTypes({
+      manifestDir,
+      packageJsonDir,
       manifestPath: projectStructure.manifestPath,
-      browser
+      browser,
+      envTarget
     })
-
-    if (isUsingTypeScript(manifestDir)) {
-      await generateExtensionTypes(manifestDir, packageJsonDir, envTarget)
-    }
 
     if (
       (browser === 'safari' || browser === 'webkit-based') &&
@@ -234,13 +207,7 @@ export async function extensionDev(
           chromiumBinary: merged.chromiumBinary,
           geckoBinary: merged.geckoBinary || merged.firefoxBinary,
           port: merged.port,
-          logLevel: merged.logLevel,
-          logContexts: merged.logContexts,
-          logFormat: merged.logFormat,
-          logTimestamps: merged.logTimestamps,
-          logColor: merged.logColor,
-          logUrl: merged.logUrl,
-          logTab: merged.logTab
+          ...logOptionsOf(merged)
         }
       })
 

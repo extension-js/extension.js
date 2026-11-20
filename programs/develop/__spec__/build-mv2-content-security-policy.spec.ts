@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // One source manifest serves MV3 on Chromium and MV2 on Firefox through the
 // prefixed manifest_version. Firefox MV2 reads content_security_policy as one
@@ -48,17 +49,13 @@ async function build(
   browser: 'chrome' | 'firefox',
   mode: 'production' | 'development'
 ) {
-  const {extensionBuild} = await import('../command-build')
-
   // Only a dev session (named by its command) takes the dev CSP, a plain
   // development-mode build stays shippable.
-  const summary = await extensionBuild(root, {
+  const summary = await buildProject(root, {
     browser,
-    silent: true,
-    install: false,
     mode,
     ...(mode === 'development' ? {metadataCommand: 'dev'} : {})
-  } as any)
+  })
   expect(summary.errors_count).toBe(0)
 
   return JSON.parse(

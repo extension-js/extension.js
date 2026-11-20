@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // Firefox drives the toolbar and the address bar independently, so a
 // browser_action/action popup and a page_action popup are two pages unless
@@ -52,7 +53,6 @@ function project(manifest: Record<string, unknown>) {
 }
 
 async function build(root: string, browser: 'firefox' | 'chrome') {
-  const {extensionBuild} = await import('../command-build')
   const warnings: string[] = []
   const originalWarn = console.warn
   const originalLog = console.log
@@ -61,12 +61,11 @@ async function build(root: string, browser: 'firefox' | 'chrome') {
   let summary: {errors_count: number}
 
   try {
-    summary = await extensionBuild(root, {
+    summary = await buildProject(root, {
       browser,
       silent: false,
-      install: false,
       mode: 'production'
-    } as any)
+    })
   } finally {
     console.warn = originalWarn
     console.log = originalLog

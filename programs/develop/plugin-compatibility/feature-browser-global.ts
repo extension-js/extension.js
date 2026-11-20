@@ -65,7 +65,7 @@ export function browserReadLine(text: string): number | undefined {
 
 // The project files bundled into an offending script that spell the name
 // out, so the warning points at source the author wrote, not at dist.
-function sourcesBehind(
+export function sourcesBehind(
   compilation: ScanCompilation,
   scripts: string[],
   manifestDir: string
@@ -82,7 +82,7 @@ function sourcesBehind(
       const resource = scannableSourcePath(module.resource)
       if (!resource) continue
 
-      const text = readProjectSource(resource)
+      const text = readProjectSource(resource, compilation)
       if (text === undefined || !mentionsBrowserName(text)) continue
 
       const relative = path

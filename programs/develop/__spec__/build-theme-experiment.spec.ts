@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 import {workspacePackage} from './helpers/workspace-package'
 
 // Firefox theme_experiment: the built manifest names a stylesheet under
@@ -56,14 +57,10 @@ function project(stylesheetName: string, source: string) {
 }
 
 async function build(root: string) {
-  const {extensionBuild} = await import('../command-build')
-
-  const summary = await extensionBuild(root, {
+  const summary = await buildProject(root, {
     browser: 'firefox',
-    silent: true,
-    install: false,
     mode: 'production'
-  } as any)
+  })
   expect(summary.errors_count).toBe(0)
 
   const distDir = path.join(root, 'dist', 'firefox')

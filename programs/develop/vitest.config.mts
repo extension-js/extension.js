@@ -7,17 +7,13 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import {defineConfig} from 'vitest/config'
+import {droppedVitestFiltersMessage} from '../../scripts/lib/vitest-filter-args.mjs'
 
-// Vitest drops every filter after `--`, so a direct `vitest run -- <path>`
-// would start the whole suite. pnpm test strips them and this refuses them.
-const dashes = process.argv.indexOf('--')
-const afterDashes = dashes === -1 ? [] : process.argv.slice(dashes + 1)
+// Vitest drops a filter written after `--` or right after `-u`, and a
+// direct call would then start the whole suite. pnpm test rewrites both.
+const dropped = droppedVitestFiltersMessage(process.argv.slice(2))
 
-if (afterDashes.length > 0) {
-  throw new Error(
-    `vitest ignores what follows --, so the whole suite would run. Pass it without the --: vitest run ${afterDashes.join(' ')}`
-  )
-}
+if (dropped) throw new Error(dropped)
 
 // Every fixture lives in its own temp folder, so files run side by side. On
 // macOS two watch sessions closing at once block their processes for minutes.

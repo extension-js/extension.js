@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 const FIXTURE_ROOT = fs.mkdtempSync(
   path.join(os.tmpdir(), 'extjs-manifest-contract-')
@@ -136,14 +137,7 @@ afterAll(() => {
 
 describe('manifest output contract (real rspack, golden fixture)', () => {
   it('emits the documented predictable paths for every manifest surface', async () => {
-    const {extensionBuild} = await import('../command-build')
-
-    const summary = await extensionBuild(FIXTURE_ROOT, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      exitOnError: false
-    } as any)
+    const summary = await buildProject(FIXTURE_ROOT, {exitOnError: false})
 
     expect(summary.errors_count).toBe(0)
 

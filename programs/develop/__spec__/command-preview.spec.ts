@@ -1,156 +1,176 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
+import {strToU8, zipSync} from 'fflate'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import type {
+  PreviewBrowserSession,
+  ResolvedPreviewOptions
+} from '../command-preview'
+import type {
+  ProductionControlOptions,
+  ProductionControlSession
+} from '../lib/production-control'
+import type {PreviewOptions} from '../types'
+import {
+  type ExtensionProject,
+  type ProjectFile,
+  writeExtensionProject,
+  writeProjectFiles
+} from './helpers/extension-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
-vi.mock('fs', async () => {
-  const actual = await vi.importActual<any>('fs')
+type ControlStart = (
+  options: ProductionControlOptions
+) => Promise<ProductionControlSession>
+
+const control = vi.hoisted(() => ({
+  fake: undefined as ControlStart | undefined,
+  calls: [] as ProductionControlOptions[],
+  sessions: [] as ProductionControlSession[]
+}))
+
+// Opens a loopback control server. It runs for real unless a test arms a
+// session whose extension dials in on the test's own clock.
+vi.mock('../lib/production-control', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../lib/production-control')>()
 
   return {
     ...actual,
-    existsSync: vi.fn()
+    startProductionControl: async (options: ProductionControlOptions) => {
+      control.calls.push(options)
+
+      const session = await (control.fake ?? actual.startProductionControl)(
+        options
+      )
+
+      control.sessions.push(session)
+
+      return session
+    }
   }
 })
 
-vi.mock('../lib/project', () => ({
-  getProjectStructure: vi.fn(async () => ({
-    manifestPath: '/proj/manifest.json',
-    packageJsonPath: '/proj/package.json'
-  }))
-}))
+import {EXECUTOR_ATTACH_WAIT_MS, extensionPreview} from '../command-preview'
+import {remoteArchiveCacheKey} from '../lib/remote-archive'
+import {
+  readyContractPath,
+  sessionArtifactsIgnoreFilePath
+} from '../lib/session-paths'
+import {writeRemoteSource} from '../lib/zip'
 
-vi.mock('../lib/config-loader', () => ({
-  holdPreloadedEnvOf: vi.fn(() => () => undefined),
-  loadCommandConfig: vi.fn(async () => ({})),
-  loadProjectConfigDefaults: vi.fn(async () => ({})),
-  loadBrowserConfig: vi.fn(async () => ({}))
-}))
+const DARK_FLAGS = ['--force-dark-mode', '--enable-features=WebUIDarkMode']
 
-vi.mock('../lib/validate-user-dependencies', () => ({
-  assertNoManagedDependencyConflicts: vi.fn()
-}))
+const tempFolder = trackTempFolders()
 
-const ensureSessionArtifactsIgnoreFile = vi.hoisted(() => vi.fn())
-vi.mock('../lib/session-paths', async () => ({
-  ...(await vi.importActual<any>('../lib/session-paths')),
-  ensureSessionArtifactsIgnoreFile
-}))
+interface PreviewProject extends ExtensionProject {
+  // The browsers a build already exists for. Chrome unless the test says.
+  built?: string[]
+}
 
-vi.mock('../plugin-special-folders/folder-extensions/resolve-dirs', () => ({
-  resolveCompanionExtensionDirs: vi.fn(() => ['/comp/a'])
-}))
+function builtManifest(name = 'spec-extension') {
+  return {manifest_version: 3, name, version: '1.0.0'}
+}
 
-vi.mock('../plugin-special-folders/folder-extensions/resolve-config', () => ({
-  refuseCompanionLinksNoStoreReads: vi.fn(),
-  resolveCompanionExtensionsConfig: vi.fn(async () => ({paths: ['/comp/a']}))
-}))
+function project(options: PreviewProject = {}): string {
+  const {built = ['chrome'], files, ...rest} = options
+  const builds: Record<string, ProjectFile> = {}
 
-vi.mock('../plugin-special-folders/get-data', () => ({
-  getSpecialFoldersDataForProjectRoot: vi.fn(() => ({extensions: undefined}))
-}))
+  for (const browser of built) {
+    builds[`dist/${browser}/manifest.json`] = builtManifest(rest.name)
+  }
 
-vi.mock('../lib/extensions-to-load', () => ({
-  companionsDeclaredIn: vi.fn(),
-  namedCompanionFoldersInsideProject: vi.fn(() => []),
-  companionScanDirInsideProject: vi.fn(),
-  scannedCompanionsOutsideProject: vi.fn(() => []),
-  unresolvedNamedCompanions: vi.fn(() => []),
-  computeExtensionsToLoad: vi.fn(() => ['/theme', '/comp/a', '/out'])
-}))
+  return writeExtensionProject(tempFolder('extjs-command-preview-'), {
+    ...rest,
+    files: {...builds, ...files}
+  })
+}
 
-vi.mock('../lib/dark-mode', () => ({
-  withDarkMode: vi.fn(({browserFlags, preferences}: any) => ({
-    browserFlags,
-    preferences
-  }))
-}))
+function dist(root: string, browser = 'chrome'): string {
+  return path.join(root, 'dist', browser)
+}
 
-const metadataWriter = vi.hoisted(() => ({
-  readyPath: '',
-  setManagedExtensionDirs: vi.fn(),
-  writeStarting: vi.fn(),
-  writeReady: vi.fn(),
-  writeError: vi.fn(),
-  writeShutdown: vi.fn(),
-  appendEvent: vi.fn(),
-  stampExecutorAttached: vi.fn(),
-  stampExecutorDetached: vi.fn()
-}))
-const createAutomationMetadataWriter = vi.fn(
-  (..._args: unknown[]) => metadataWriter
-)
-vi.mock('../plugin-playwright', () => ({
-  createPlaywrightMetadataWriter: (...args: any[]) =>
-    createAutomationMetadataWriter(...args),
-  getSessionRunId: vi.fn(() => 'preview-run')
-}))
+function readReady(root: string, browser = 'chrome'): Record<string, any> {
+  return JSON.parse(fs.readFileSync(readyContractPath(root, browser), 'utf8'))
+}
 
-const runOnlyPreviewBrowser = vi.fn(async (..._args: any[]) => {})
+type Launcher = (
+  options: ResolvedPreviewOptions
+) => Promise<PreviewBrowserSession | undefined>
 
-const controlSession = vi.hoisted(() => ({attachAfterMs: 0}))
-const startProductionControl = vi.hoisted(() =>
-  vi.fn(async (options: any) => {
-    setTimeout(
-      () => options.onExecutorAttached?.(),
-      controlSession.attachAfterMs
-    )
+let launcher = vi.fn<Launcher>(async () => undefined)
+
+function launched(): ResolvedPreviewOptions {
+  return launcher.mock.calls[0]?.[0]
+}
+
+function preview(
+  source: string,
+  options: Record<string, unknown> = {},
+  launch: Launcher = launcher
+) {
+  return extensionPreview(source, options as unknown as PreviewOptions, launch)
+}
+
+// A session whose background never answers, or answers after the given wait.
+function armControlSession(attachAfterMs?: number) {
+  control.fake = async (options) => {
+    if (attachAfterMs !== undefined) {
+      setTimeout(() => options.onExecutorAttached?.(), attachAfterMs)
+    }
+
+    const controlledPath = path.join(options.packageJsonDir, 'controlled-copy')
+
+    fs.cpSync(options.distPath, controlledPath, {recursive: true})
 
     return {
       controlPort: 5555,
       instanceId: 'inst-1',
-      controlledPath: '/proj/dist/extension-js/chrome/controlled',
+      controlledPath,
       logsPath: 'dist/extension-js/chrome/logs.ndjson',
       backgroundAssets: ['background/service_worker.js'],
       broker: {},
-      close: vi.fn(async () => {})
-    }
-  })
-)
-vi.mock('../lib/production-control', () => ({
-  startProductionControl
-}))
-
-const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-const printed: string[] = []
-
-// humanLine prints to console.log, or to stderr under machine output. The
-// spies are re-armed per test because afterEach restores every mock.
-function captureOutput() {
-  printed.length = 0
-  vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
-    printed.push(args.join(' '))
-  })
-
-  vi.spyOn(process.stderr, 'write').mockImplementation(((chunk: unknown) => {
-    printed.push(String(chunk))
-
-    return true
-  }) as typeof process.stderr.write)
+      close: async () => {}
+    } as unknown as ProductionControlSession
+  }
 }
 
-function printedLines() {
-  return printed.join('\n')
+// An archive case has to finish from the disk alone, so any fetch fails it.
+function refuseNetwork() {
+  const fetched = vi.fn(async () => {
+    throw new Error('this spec never reaches the network')
+  })
+
+  vi.stubGlobal('fetch', fetched)
+
+  return fetched
 }
 
-import {EXECUTOR_ATTACH_WAIT_MS, extensionPreview} from '../command-preview'
-import * as configLoaderMod from '../lib/config-loader'
-import {withDarkMode} from '../lib/dark-mode'
-import * as extensionsToLoadMod from '../lib/extensions-to-load'
-import * as projectMod from '../lib/project'
-import * as validateDepsMod from '../lib/validate-user-dependencies'
-import * as resolveConfigMod from '../plugin-special-folders/folder-extensions/resolve-config'
-import * as resolveDirsMod from '../plugin-special-folders/folder-extensions/resolve-dirs'
+function standIn(folder: string) {
+  const real = fs.realpathSync(folder)
 
-describe('webpack/command-preview (run-only)', () => {
-  let metadataRoot = ''
-  // Exit handlers are captured, not registered, so the worker's own exit never
-  // runs a mocked writer and the listener count does not grow per test.
+  vi.spyOn(process, 'cwd').mockReturnValue(real)
+
+  return real
+}
+
+describe('extensionPreview, which runs what a build left', () => {
+  const logged: string[] = []
+  const warned: string[] = []
+  const stderr: string[] = []
+  // Exit handlers are captured, not registered, so listeners do not pile up
+  // on the worker and a test can run the one the command asked for.
   const exitHandlers: Array<() => void> = []
 
   beforeEach(() => {
-    vi.resetModules()
+    launcher = vi.fn<Launcher>(async () => undefined)
     exitHandlers.length = 0
+    logged.length = 0
+    warned.length = 0
+    stderr.length = 0
+
     const realOnce = process.once.bind(process)
+
     vi.spyOn(process, 'once').mockImplementation(((
       event: string,
       listener: (...args: any[]) => void
@@ -164,318 +184,242 @@ describe('webpack/command-preview (run-only)', () => {
       return realOnce(event, listener)
     }) as typeof process.once)
 
-    runOnlyPreviewBrowser.mockClear()
-    logSpy.mockClear()
-    captureOutput()
-    ;(fs.existsSync as any)?.mockReset?.()
-    ;(resolveConfigMod as any).resolveCompanionExtensionsConfig?.mockClear?.()
-    ;(resolveDirsMod as any).resolveCompanionExtensionDirs?.mockClear?.()
-    ;(validateDepsMod as any).assertNoManagedDependencyConflicts?.mockClear?.()
-    metadataWriter.writeStarting.mockClear()
-    metadataWriter.writeReady.mockClear()
-    metadataWriter.writeError.mockClear()
-    metadataWriter.writeShutdown.mockClear()
-    metadataWriter.appendEvent.mockClear()
-    createAutomationMetadataWriter.mockClear()
-    metadataRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-preview-meta-'))
-    metadataWriter.readyPath = path.join(metadataRoot, 'ready.json')
-    metadataWriter.writeStarting.mockImplementation(() => {
-      fs.writeFileSync(
-        metadataWriter.readyPath,
-        JSON.stringify({runId: 'preview-run', pid: 1234, status: 'starting'}),
-        'utf-8'
-      )
+    // Human lines go to console.log, or to stderr while a machine reads stdout.
+    vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
+      logged.push(args.join(' '))
     })
 
-    metadataWriter.writeReady.mockImplementation(() => {
-      fs.writeFileSync(
-        metadataWriter.readyPath,
-        JSON.stringify({runId: 'preview-run', pid: 1234, status: 'ready'}),
-        'utf-8'
-      )
+    vi.spyOn(console, 'warn').mockImplementation((...args: unknown[]) => {
+      warned.push(args.join(' '))
     })
 
-    metadataWriter.writeError.mockImplementation(() => {})
+    vi.spyOn(process.stderr, 'write').mockImplementation(((chunk: unknown) => {
+      stderr.push(String(chunk))
+
+      return true
+    }) as typeof process.stderr.write)
   })
 
-  afterEach(() => {
+  afterEach(async () => {
+    vi.useRealTimers()
     vi.restoreAllMocks()
+    vi.unstubAllEnvs()
+    vi.unstubAllGlobals()
 
-    try {
-      fs.rmSync(metadataRoot, {recursive: true, force: true})
-    } catch {
-      // Ignore
-    }
+    for (const session of control.sessions.splice(0)) await session.close()
+
+    control.calls.length = 0
+    control.fake = undefined
   })
 
   it('loads the controlled copy and publishes its control port with allowControl', async () => {
-    startProductionControl.mockClear()
-    ;(fs.existsSync as any).mockImplementation(
-      (p: string) => p === path.join('/proj', 'dist', 'chrome', 'manifest.json')
-    )
+    const root = project()
 
-    await extensionPreview(
-      '/proj',
-      {browser: 'chrome', allowEval: true, metadataCommand: 'start'} as any,
-      runOnlyPreviewBrowser
-    )
-
-    expect(startProductionControl).toHaveBeenCalledTimes(1)
-    const [controlOpts] = startProductionControl.mock.calls[0] as any[]
-    expect(controlOpts).toMatchObject({
-      packageJsonDir: '/proj',
+    await preview(root, {
       browser: 'chrome',
-      distPath: path.join('/proj', 'dist', 'chrome'),
+      allowEval: true,
+      metadataCommand: 'start'
+    })
+
+    expect(control.calls).toHaveLength(1)
+    expect(control.calls[0]).toMatchObject({
+      packageJsonDir: root,
+      browser: 'chrome',
+      distPath: dist(root),
       allowEval: true
     })
 
-    const call = runOnlyPreviewBrowser.mock.calls[0]?.[0] as any
-    expect(call.outPath).toBe('/proj/dist/extension-js/chrome/controlled')
+    const [session] = control.sessions
+
+    expect(launched().outPath).toBe(session.controlledPath)
+    expect(session.controlledPath).not.toBe(dist(root))
+    expect(
+      JSON.parse(
+        fs.readFileSync(path.join(launched().outPath, 'manifest.json'), 'utf8')
+      )
+    ).toMatchObject({name: 'spec-extension'})
+
     // The copy carries the control runtime, so the launcher is told where
     // the author's own files are.
-    expect(call.shippedPath).toBe(path.join('/proj', 'dist', 'chrome'))
+    expect(launched().shippedPath).toBe(dist(root))
 
-    const writerOpts = createAutomationMetadataWriter.mock.calls.at(
-      -1
-    )?.[0] as any
-    expect(writerOpts).toMatchObject({
+    expect(session.controlPort).toBeGreaterThan(0)
+    expect(readReady(root)).toMatchObject({
+      status: 'ready',
       command: 'start',
-      distPath: '/proj/dist/extension-js/chrome/controlled',
-      controlPort: 5555,
-      instanceId: 'inst-1',
-      logsPath: 'dist/extension-js/chrome/logs.ndjson'
+      distPath: session.controlledPath,
+      controlPort: session.controlPort,
+      instanceId: session.instanceId,
+      logsPath: path.join('dist', 'extension-js', 'chrome', 'logs.ndjson')
     })
 
-    expect(metadataWriter.writeReady).toHaveBeenCalled()
-    expect(printedLines()).toContain('Control channel open')
+    expect(logged.join('\n')).toContain('Control channel open')
   })
 
   it('holds ready on a control session until the extension dials in', async () => {
-    startProductionControl.mockClear()
-    metadataWriter.writeReady.mockClear()
-    metadataWriter.stampExecutorAttached.mockClear()
-    controlSession.attachAfterMs = 150
-    ;(fs.existsSync as any).mockImplementation(
-      (p: string) => p === path.join('/proj', 'dist', 'chrome', 'manifest.json')
-    )
-
+    const root = project()
+    let statusAtLaunch = ''
     let launchedAt = 0
-    const launcher = vi.fn(async (..._args: any[]) => {
+
+    armControlSession(150)
+
+    await preview(root, {browser: 'chrome', allowControl: true}, async () => {
       launchedAt = Date.now()
-    })
-    const order: string[] = []
+      statusAtLaunch = readReady(root).status
 
-    metadataWriter.stampExecutorAttached.mockImplementation(() => {
-      order.push('attached')
+      return undefined
     })
 
-    metadataWriter.writeReady.mockImplementation(() => {
-      order.push('ready')
-    })
+    const ready = readReady(root)
 
-    try {
-      await extensionPreview(
-        '/proj',
-        {browser: 'chrome', allowControl: true} as any,
-        launcher
-      )
-    } finally {
-      controlSession.attachAfterMs = 0
-    }
-
-    expect(launchedAt).toBeGreaterThan(0)
-    expect(order).toEqual(['attached', 'ready'])
+    expect(statusAtLaunch).toBe('starting')
+    expect(Date.now() - launchedAt).toBeGreaterThanOrEqual(100)
+    expect(ready).toMatchObject({status: 'ready', runtime: 'attached'})
+    expect(Date.parse(ready.executorAttachedAt)).toBeLessThanOrEqual(
+      Date.parse(ready.ts)
+    )
   })
 
   it('writes ready after a bounded wait when no extension ever dials in', async () => {
-    startProductionControl.mockClear()
-    metadataWriter.writeReady.mockClear()
-    metadataWriter.stampExecutorAttached.mockClear()
-    controlSession.attachAfterMs = 10 * 60 * 1000
-    ;(fs.existsSync as any).mockImplementation(
-      (p: string) => p === path.join('/proj', 'dist', 'chrome', 'manifest.json')
+    const root = project()
+
+    let noteLaunched = () => {}
+
+    const browserUp = new Promise<void>((resolve) => {
+      noteLaunched = resolve
+    })
+
+    armControlSession()
+    vi.useFakeTimers({toFake: ['setTimeout', 'clearTimeout']})
+
+    const running = preview(
+      root,
+      {browser: 'chrome', allowControl: true},
+      async () => {
+        noteLaunched()
+
+        return undefined
+      }
     )
 
-    vi.useFakeTimers()
+    await browserUp
+    await vi.advanceTimersByTimeAsync(EXECUTOR_ATTACH_WAIT_MS - 1)
+    expect(readReady(root).status).toBe('starting')
 
-    try {
-      const running = extensionPreview(
-        '/proj',
-        {browser: 'chrome', allowControl: true} as any,
-        runOnlyPreviewBrowser
-      )
+    await vi.advanceTimersByTimeAsync(1)
+    await running
 
-      await vi.advanceTimersByTimeAsync(EXECUTOR_ATTACH_WAIT_MS - 1)
-      expect(metadataWriter.writeReady).not.toHaveBeenCalled()
-
-      await vi.advanceTimersByTimeAsync(1)
-      await running
-
-      expect(metadataWriter.writeReady).toHaveBeenCalledTimes(1)
-      expect(metadataWriter.stampExecutorAttached).not.toHaveBeenCalled()
-    } finally {
-      vi.clearAllTimers()
-      vi.useRealTimers()
-      controlSession.attachAfterMs = 0
-    }
+    expect(readReady(root).status).toBe('ready')
+    expect(readReady(root)).not.toHaveProperty('executorAttachedAt')
   })
 
   it("hands the launched browser's background wake to the control broker", async () => {
-    startProductionControl.mockClear()
-    ;(fs.existsSync as any).mockImplementation(
-      (p: string) =>
-        p === path.join('/proj', 'dist', 'firefox', 'manifest.json')
-    )
-
+    const root = project({built: ['firefox']})
     const wakeBackground = vi.fn(async () => true)
-    const launcher = vi.fn(async (..._args: any[]) => ({wakeBackground}))
 
-    await extensionPreview(
-      '/proj',
-      {browser: 'firefox', allowControl: true, metadataCommand: 'start'} as any,
-      launcher
+    await preview(
+      root,
+      {browser: 'firefox', allowControl: true, metadataCommand: 'start'},
+      async () => ({wakeBackground})
     )
 
-    const [controlOpts] = startProductionControl.mock.calls[0] as any[]
-    expect(typeof controlOpts.wakeExecutor).toBe('function')
-    await expect(controlOpts.wakeExecutor()).resolves.toBe(true)
+    const [controlOptions] = control.calls
+
+    expect(typeof controlOptions.wakeExecutor).toBe('function')
+    await expect(controlOptions.wakeExecutor?.()).resolves.toBe(true)
     expect(wakeBackground).toHaveBeenCalledTimes(1)
   })
 
   it('opens no control channel unless asked', async () => {
-    startProductionControl.mockClear()
-    ;(fs.existsSync as any).mockImplementation(
-      (p: string) => p === path.join('/proj', 'dist', 'chrome', 'manifest.json')
-    )
+    const root = project()
 
-    await extensionPreview(
-      '/proj',
-      {browser: 'chrome'} as any,
-      runOnlyPreviewBrowser
-    )
+    await preview(root, {browser: 'chrome'})
 
-    expect(startProductionControl).not.toHaveBeenCalled()
-    const call = runOnlyPreviewBrowser.mock.calls[0]?.[0] as any
-    expect(call.outPath).toBe(path.join('/proj', 'dist', 'chrome'))
-    expect('shippedPath' in call).toBe(false)
+    expect(control.calls).toHaveLength(0)
+    expect(launched().outPath).toBe(dist(root))
+    expect('shippedPath' in launched()).toBe(false)
+    expect(readReady(root)).not.toHaveProperty('controlPath')
   })
 
   it('falls back to manifest directory when dist/<browser> lacks manifest.json', async () => {
-    ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
-        return false
-      }
+    const root = project({built: []})
 
-      if (p === path.join('/proj', 'manifest.json')) return true
+    await preview(root, {browser: 'chrome'})
 
-      return false
-    })
-
-    await extensionPreview(
-      '/proj',
-      {browser: 'chrome'} as any,
-      runOnlyPreviewBrowser
-    )
-
-    expect(runOnlyPreviewBrowser).toHaveBeenCalledTimes(1)
-    const call = runOnlyPreviewBrowser.mock.calls[0]?.[0] as any
-    expect(call.outPath).toBe('/proj')
+    expect(launcher).toHaveBeenCalledTimes(1)
+    expect(launched().outPath).toBe(root)
   })
 
   it('previews a downloaded build archive where it landed, with no dist lookup or build advice', async () => {
-    const {getProjectStructure} = (await import('../lib/project')) as any
-    getProjectStructure.mockResolvedValueOnce({
-      manifestPath: '/dl/firefox/manifest.json',
-      packageJsonPath: undefined
-    })
-    ;(fs.existsSync as any).mockImplementation(
-      (p: string) => p === path.join('/dl', 'firefox', 'manifest.json')
+    const url =
+      'https://registry.example/ws/project/builds/abc/firefox.zip?t=token'
+    const cache = fs.realpathSync(tempFolder('extjs-preview-cache-'))
+    const landed = path.join(
+      cache,
+      'extension.js',
+      'previews',
+      remoteArchiveCacheKey(url)
     )
+    const fetched = refuseNetwork()
 
-    const localLog = vi.spyOn(console, 'log').mockImplementation(() => {})
+    // The archive was fetched by an earlier run, so this one reads the cache.
+    writeProjectFiles(landed, {'manifest.json': builtManifest()})
+    writeRemoteSource(landed, url.split('?')[0])
+    vi.stubEnv('XDG_CACHE_HOME', cache)
 
-    await extensionPreview(
-      'https://registry.example/ws/project/builds/abc/firefox.zip?t=token',
-      {browser: 'firefox'} as any,
-      runOnlyPreviewBrowser
-    )
+    await preview(url, {browser: 'firefox'})
 
-    const call = runOnlyPreviewBrowser.mock.calls[0]?.[0] as any
-    // The extracted folder is passed through as dirname gives it, slashes kept.
-    expect(call.outPath).toBe('/dl/firefox')
+    expect(fetched).not.toHaveBeenCalled()
+    expect(launched().outPath).toBe(landed)
 
-    const printed = localLog.mock.calls
-      .map((c: any[]) => String(c[0]))
-      .join('\n')
+    const printed = logged.join('\n')
+
     expect(printed).not.toContain('No production build found')
     expect(printed).not.toContain('extension build')
   })
 
   it('previews a local build zip the same way', async () => {
-    const {getProjectStructure} = (await import('../lib/project')) as any
-    getProjectStructure.mockResolvedValueOnce({
-      manifestPath: '/here/chrome/manifest.json',
-      packageJsonPath: undefined
-    })
-    ;(fs.existsSync as any).mockImplementation(
-      (p: string) => p === path.join('/here', 'chrome', 'manifest.json')
+    const here = standIn(tempFolder('extjs-preview-zip-'))
+
+    fs.writeFileSync(
+      path.join(here, 'chrome.zip'),
+      zipSync({'manifest.json': strToU8(JSON.stringify(builtManifest()))})
     )
 
-    await extensionPreview(
-      './chrome.zip',
-      {browser: 'chrome'} as any,
-      runOnlyPreviewBrowser
-    )
+    await preview('./chrome.zip', {browser: 'chrome'})
 
-    const call = runOnlyPreviewBrowser.mock.calls[0]?.[0] as any
-    expect(call.outPath).toBe('/here/chrome')
+    expect(launched().outPath).toBe(path.join(here, 'chrome'))
+    expect(fs.existsSync(path.join(here, 'chrome', 'manifest.json'))).toBe(true)
+    expect(logged.join('\n')).not.toContain('No production build found')
   })
 
   it('keeps the project path for a downloaded source archive that has a package.json', async () => {
-    const {getProjectStructure} = (await import('../lib/project')) as any
-    getProjectStructure.mockResolvedValueOnce({
-      manifestPath: '/dl/repo/manifest.json',
-      packageJsonPath: '/dl/repo/package.json'
+    const url = 'https://github.com/owner/repo'
+    const here = standIn(tempFolder('extjs-preview-clone-'))
+    const fetched = refuseNetwork()
+
+    fs.mkdirSync(path.join(here, 'repo'))
+
+    const repo = writeExtensionProject(path.join(here, 'repo'), {
+      files: {'dist/chrome/manifest.json': builtManifest()}
     })
-    ;(fs.existsSync as any).mockImplementation((p: string) =>
-      [
-        path.join('/dl', 'repo', 'manifest.json'),
-        path.join('/dl', 'repo', 'package.json'),
-        path.join('/dl', 'repo', 'dist', 'chrome', 'manifest.json')
-      ].includes(p)
-    )
 
-    await extensionPreview(
-      'https://github.com/owner/repo',
-      {browser: 'chrome'} as any,
-      runOnlyPreviewBrowser
-    )
+    // Stamped as this url's clone, so the command reuses it and fetches nothing.
+    writeRemoteSource(repo, url)
 
-    const call = runOnlyPreviewBrowser.mock.calls[0]?.[0] as any
-    expect(call.outPath).toBe(path.join('/dl', 'repo', 'dist', 'chrome'))
+    await preview(url, {browser: 'chrome'})
+
+    expect(fetched).not.toHaveBeenCalled()
+    expect(launched().outPath).toBe(dist(repo))
   })
 
   it('says so when it falls back to the source manifest dir', async () => {
-    const localLog = vi.spyOn(console, 'log').mockImplementation(() => {})
-    ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
-        return false
-      }
+    const root = project({built: []})
 
-      if (p === path.join('/proj', 'manifest.json')) return true
+    await preview(root, {browser: 'chrome'})
 
-      return false
-    })
+    const printed = logged.join('\n')
 
-    await extensionPreview(
-      '/proj',
-      {browser: 'chrome'} as any,
-      runOnlyPreviewBrowser
-    )
-
-    const printed = localLog.mock.calls
-      .map((c: any[]) => String(c[0]))
-      .join('\n')
     expect(printed).toContain('previewing the source manifest directory')
     expect(printed).toContain('extension build --browser chrome')
   })
@@ -483,17 +427,11 @@ describe('webpack/command-preview (run-only)', () => {
   // An unprefixed throw reaches the CLI sink as a raw stack with dist offsets,
   // so the refusal has to carry the channel glyph to print as one frame.
   it('refuses a directory with no manifest as a framed sentence, not a stack', async () => {
-    ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'manifest.json')) return true
-
-      return false
+    const root = project()
+    const thrown = await preview(root, {
+      browser: 'chrome',
+      outputPath: path.join(root, 'nope')
     })
-
-    const thrown = await extensionPreview(
-      '/proj',
-      {browser: 'chrome', outputPath: '/nope'} as any,
-      runOnlyPreviewBrowser
-    )
       .then(() => undefined)
       .catch((err: Error) => err)
 
@@ -502,25 +440,13 @@ describe('webpack/command-preview (run-only)', () => {
     expect(thrown?.message).toContain('⏵⏵⏵')
     expect(thrown?.message).toContain('Preview is run-only')
     expect(thrown?.message).toContain('NOT FOUND')
-    expect(runOnlyPreviewBrowser).not.toHaveBeenCalled()
+    expect(thrown?.message).toContain(path.join(root, 'nope', 'manifest.json'))
+    expect(launcher).not.toHaveBeenCalled()
   })
 
   it('returns the fallback as a warning so json output carries it', async () => {
-    ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
-        return false
-      }
-
-      if (p === path.join('/proj', 'manifest.json')) return true
-
-      return false
-    })
-
-    const result = await extensionPreview(
-      '/proj',
-      {browser: 'chrome'} as any,
-      runOnlyPreviewBrowser
-    )
+    const root = project({built: []})
+    const result = await preview(root, {browser: 'chrome'})
 
     expect(result?.warnings).toHaveLength(1)
     expect(result?.warnings[0]).toContain(
@@ -531,239 +457,147 @@ describe('webpack/command-preview (run-only)', () => {
   })
 
   it('says so on the no-browser path too, and returns it as a warning', async () => {
-    const localWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
-        return false
-      }
+    const root = project({built: []})
+    const result = await preview(root, {browser: 'chrome', noBrowser: true})
 
-      if (p === path.join('/proj', 'manifest.json')) return true
-
-      return false
-    })
-
-    const result = await extensionPreview(
-      '/proj',
-      {browser: 'chrome', noBrowser: true} as any,
-      runOnlyPreviewBrowser
+    expect(warned.join('\n')).toContain(
+      'previewing the source manifest directory'
     )
 
-    const warned = localWarn.mock.calls
-      .map((c: any[]) => String(c[0]))
-      .join('\n')
-    expect(warned).toContain('previewing the source manifest directory')
     expect(result?.warnings).toHaveLength(1)
-    expect(runOnlyPreviewBrowser).not.toHaveBeenCalled()
+    expect(launcher).not.toHaveBeenCalled()
   })
 
   it('stays quiet about the fallback when dist/<browser> is served', async () => {
-    const localLog = vi.spyOn(console, 'log').mockImplementation(() => {})
-    ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
-        return true
-      }
+    const root = project()
+    const result = await preview(root, {browser: 'chrome'})
 
-      return false
-    })
-
-    await extensionPreview(
-      '/proj',
-      {browser: 'chrome'} as any,
-      runOnlyPreviewBrowser
+    expect(logged.join('\n')).not.toContain(
+      'previewing the source manifest directory'
     )
 
-    const printed = localLog.mock.calls
-      .map((c: any[]) => String(c[0]))
-      .join('\n')
-    expect(printed).not.toContain('previewing the source manifest directory')
+    expect(result?.warnings).toEqual([])
   })
 
   it('describes itself as preview by default', async () => {
-    const localLog = vi.spyOn(console, 'log').mockImplementation(() => {})
-    ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
-        return true
-      }
+    await preview(project(), {browser: 'chrome'})
 
-      return false
-    })
+    const printed = logged.join('\n')
 
-    await extensionPreview(
-      '/proj',
-      {browser: 'chrome'} as any,
-      runOnlyPreviewBrowser
-    )
-
-    const printed = localLog.mock.calls
-      .map((c: any[]) => String(c[0]))
-      .join('\n')
     expect(printed).toContain('Previewing on Chrome.')
     expect(printed).not.toContain('Starting on')
   })
 
   it('describes itself as start when invoked by start', async () => {
-    const localLog = vi.spyOn(console, 'log').mockImplementation(() => {})
-    ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
-        return true
-      }
+    await preview(project(), {browser: 'chrome', metadataCommand: 'start'})
 
-      return false
-    })
+    const printed = logged.join('\n')
 
-    await extensionPreview(
-      '/proj',
-      {browser: 'chrome', metadataCommand: 'start'} as any,
-      runOnlyPreviewBrowser
-    )
-
-    const printed = localLog.mock.calls
-      .map((c: any[]) => String(c[0]))
-      .join('\n')
     expect(printed).toContain('Starting on Chrome.')
     expect(printed).not.toContain('Previewing on')
   })
 
   it('keeps the previewing banner off stdout in machine mode', async () => {
-    const originalOutput = process.env.EXTENSION_OUTPUT
-    process.env.EXTENSION_OUTPUT = 'json'
-    const localLog = vi.spyOn(console, 'log').mockImplementation(() => {})
-    ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
-        return true
-      }
+    vi.stubEnv('EXTENSION_OUTPUT', 'json')
 
-      return false
-    })
+    await preview(project(), {browser: 'chrome'})
 
-    try {
-      await extensionPreview(
-        '/proj',
-        {browser: 'chrome'} as any,
-        runOnlyPreviewBrowser
-      )
-
-      expect(localLog).not.toHaveBeenCalled()
-    } finally {
-      if (originalOutput === undefined) delete process.env.EXTENSION_OUTPUT
-      else process.env.EXTENSION_OUTPUT = originalOutput
-    }
+    expect(logged).toEqual([])
+    expect(stderr.join('')).toContain('Previewing on Chrome.')
   })
 
   it('uses dist/<browser> when dist manifest exists', async () => {
-    ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
-        return true
-      }
+    const root = project()
 
-      return false
-    })
+    await preview(root, {browser: 'chrome'})
 
-    await extensionPreview(
-      '/proj',
-      {browser: 'chrome'} as any,
-      runOnlyPreviewBrowser
-    )
-
-    expect(runOnlyPreviewBrowser).toHaveBeenCalledTimes(1)
-    const call = runOnlyPreviewBrowser.mock.calls[0]?.[0] as any
-    expect(call.outPath).toBe(path.join('/proj', 'dist', 'chrome'))
+    expect(launcher).toHaveBeenCalledTimes(1)
+    expect(launched().outPath).toBe(dist(root))
   })
 
   it('uses an explicit outputPath over dist/<browser>', async () => {
-    ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
-        return true
-      }
+    const root = project()
+    // Left as the temp folder spells it, links and all, to prove the path
+    // reaches the launcher and the run record exactly as it was passed.
+    const custom = tempFolder('extjs-preview-unpacked-')
 
-      if (p === path.join('/custom/unpacked', 'manifest.json')) return true
+    writeProjectFiles(custom, {'manifest.json': builtManifest('unpacked')})
 
-      return false
-    })
+    await preview(root, {browser: 'chrome', outputPath: custom})
 
-    await extensionPreview(
-      '/proj',
-      {browser: 'chrome', outputPath: '/custom/unpacked'} as any,
-      runOnlyPreviewBrowser
-    )
-
-    expect(runOnlyPreviewBrowser).toHaveBeenCalledTimes(1)
-    const call = runOnlyPreviewBrowser.mock.calls[0]?.[0] as any
-    // asAbsolute keeps already-absolute input verbatim on every platform;
-    // path.resolve would rewrite this to D:\... on Windows and diverge.
-    expect(call.outPath).toBe('/custom/unpacked')
+    expect(launcher).toHaveBeenCalledTimes(1)
+    expect(launched().outPath).toBe(custom)
     // The run record describes the loaded directory, so the recorded path and
     // the extension id derived from it match the load.
-    expect(createAutomationMetadataWriter).toHaveBeenCalledWith(
-      expect.objectContaining({distPath: '/custom/unpacked'})
-    )
+    expect(readReady(root)).toMatchObject({
+      distPath: custom,
+      extensionName: 'unpacked'
+    })
 
-    expect(ensureSessionArtifactsIgnoreFile).toHaveBeenCalledWith('/proj')
-    const printed = printedLines()
-    expect(printed).toContain('Previewing chrome from /custom/unpacked')
-    expect(printed).toContain(path.join('/proj', 'dist', 'chrome'))
+    expect(
+      fs.readFileSync(sessionArtifactsIgnoreFilePath(root), 'utf8')
+    ).toMatch(/^\*$/m)
+
+    const printed = logged.join('\n')
+
+    expect(printed).toContain(`Previewing chrome from ${custom}`)
+    expect(printed).toContain(dist(root))
   })
 
   it('previews the build commands.preview.browser names when no browser is passed', async () => {
-    ;(configLoaderMod.loadCommandConfig as any).mockResolvedValueOnce({
-      browser: 'firefox'
-    })
-    ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'firefox', 'manifest.json')) {
-        return true
-      }
-
-      return false
+    const root = project({
+      built: ['firefox'],
+      config: `{commands: {preview: {browser: 'firefox'}}}`
     })
 
-    await extensionPreview('/proj', {} as any, runOnlyPreviewBrowser)
+    await preview(root)
 
-    const call = runOnlyPreviewBrowser.mock.calls[0]?.[0] as any
-    expect(call.outPath).toBe(path.join('/proj', 'dist', 'firefox'))
-    expect(call.browser).toBe('firefox')
+    expect(launched().outPath).toBe(dist(root, 'firefox'))
+    expect(launched().browser).toBe('firefox')
   })
 
   it('records the stock build folder when no outputPath is given', async () => {
-    ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
-        return true
-      }
+    const root = project()
 
-      return false
-    })
+    await preview(root, {browser: 'chrome'})
 
-    await extensionPreview(
-      '/proj',
-      {browser: 'chrome'} as any,
-      runOnlyPreviewBrowser
-    )
-
-    expect(createAutomationMetadataWriter).toHaveBeenCalledWith(
-      expect.objectContaining({distPath: path.join('/proj', 'dist', 'chrome')})
-    )
-
-    expect(printedLines()).not.toContain('Previewing chrome from')
+    expect(readReady(root).distPath).toBe(dist(root))
+    expect(logged.join('\n')).not.toContain('Previewing chrome from')
   })
 
   it('throws when outputPath does not contain manifest.json', async () => {
-    ;(fs.existsSync as any).mockImplementation(() => false)
+    const root = project()
+    const empty = path.join(root, 'empty')
+
+    fs.mkdirSync(empty)
 
     await expect(
-      extensionPreview(
-        '/proj',
-        {browser: 'chrome'} as any,
-        runOnlyPreviewBrowser
-      )
+      preview(root, {browser: 'chrome', outputPath: empty})
     ).rejects.toThrow(/Preview is run-only and does not compile/)
 
-    expect(runOnlyPreviewBrowser).not.toHaveBeenCalled()
-    expect(metadataWriter.writeError).toHaveBeenCalledWith(
-      'preview_manifest_missing',
-      expect.stringContaining('Expected manifest at')
-    )
-
-    expect(metadataWriter.writeError).toHaveBeenCalledTimes(1)
+    expect(launcher).not.toHaveBeenCalled()
+    // The refusal names the missing manifest and nothing later rewrites it.
+    expect(readReady(root)).toMatchObject({
+      status: 'error',
+      code: 'preview_manifest_missing',
+      message: `Expected manifest at ${path.join(empty, 'manifest.json')}`
+    })
   })
+
+  // The exit listener is registered once per copy of the command, so a test
+  // that counts it or runs it reads a fresh copy.
+  async function freshPreview() {
+    vi.resetModules()
+
+    const fresh = await import('../command-preview')
+
+    return (root: string, options: Record<string, unknown>) =>
+      fresh.extensionPreview(
+        root,
+        options as unknown as PreviewOptions,
+        launcher
+      )
+  }
 
   it.each([
     {label: 'preview', metadataCommand: undefined as 'start' | undefined},
@@ -772,309 +606,245 @@ describe('webpack/command-preview (run-only)', () => {
     label,
     metadataCommand
   }) => {
-    ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
-        return true
-      }
+    const root = project()
+    const run = await freshPreview()
 
-      return false
-    })
+    await run(root, {browser: 'chrome', metadataCommand})
+    await run(root, {browser: 'chrome', metadataCommand})
 
-    // The listener is added once per process, so this reads a fresh module.
-    const fresh = await import('../command-preview')
-
-    await fresh.extensionPreview(
-      '/proj',
-      {browser: 'chrome', metadataCommand} as any,
-      runOnlyPreviewBrowser
-    )
-
-    await fresh.extensionPreview(
-      '/proj',
-      {browser: 'chrome', metadataCommand} as any,
-      runOnlyPreviewBrowser
-    )
-
-    expect(metadataWriter.writeReady).toHaveBeenCalledTimes(2)
-    expect(metadataWriter.writeShutdown).not.toHaveBeenCalled()
+    expect(launcher).toHaveBeenCalledTimes(2)
+    expect(readReady(root).status).toBe('ready')
     expect(exitHandlers).toHaveLength(1)
+
+    const readyAt = readReady(root).ts
 
     exitHandlers[0]()
 
-    expect(metadataWriter.writeShutdown).toHaveBeenCalledTimes(1)
-    expect(metadataWriter.writeShutdown).toHaveBeenCalledWith(
-      `the ${label} session ended`
-    )
+    const ended = readReady(root)
 
-    expect(
-      metadataWriter.writeShutdown.mock.invocationCallOrder[0]
-    ).toBeGreaterThan(metadataWriter.writeReady.mock.invocationCallOrder[0])
+    expect(ended).toMatchObject({
+      status: 'stopped',
+      code: 'shutdown',
+      message: `the ${label} session ended`
+    })
+
+    expect(Date.parse(ended.ts)).toBeGreaterThanOrEqual(Date.parse(readyAt))
   })
 
   it('leaves a no-browser ready.json at ready after the process exits', async () => {
-    ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
-        return true
-      }
+    const root = project()
+    const run = await freshPreview()
 
-      return false
-    })
+    await run(root, {browser: 'chrome', noBrowser: true})
 
-    const fresh = await import('../command-preview')
-
-    await fresh.extensionPreview(
-      '/proj',
-      {browser: 'chrome', noBrowser: true} as any,
-      runOnlyPreviewBrowser
-    )
-
-    expect(metadataWriter.writeReady).toHaveBeenCalledTimes(1)
+    expect(readReady(root).status).toBe('ready')
     expect(exitHandlers).toHaveLength(0)
   })
 
   it('skips browser launch when noBrowser is true', async () => {
-    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-    ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
-        return true
-      }
+    const root = project()
 
-      return false
+    await preview(root, {browser: 'chrome', noBrowser: true})
+
+    expect(launcher).not.toHaveBeenCalled()
+
+    const ready = readReady(root)
+
+    expect(ready).toMatchObject({
+      status: 'ready',
+      command: 'preview',
+      distPath: dist(root),
+      port: null
     })
 
-    await extensionPreview(
-      '/proj',
-      {
-        browser: 'chrome',
-        noBrowser: true
-      } as any,
-      runOnlyPreviewBrowser
-    )
+    const output = logged.join('\n')
 
-    expect(runOnlyPreviewBrowser).not.toHaveBeenCalled()
-    expect(metadataWriter.writeStarting).toHaveBeenCalledTimes(1)
-    expect(metadataWriter.writeReady).toHaveBeenCalledTimes(1)
-    const output = consoleSpy.mock.calls
-      .map((call) => String(call[0] || ''))
-      .join('\n')
     expect(output).toContain('Run ID')
-    expect(output).toContain('preview-run')
+    expect(output).toContain(ready.runId)
     expect(output).toContain('Previewing on Chrome (no-browser mode).')
     expect(output).not.toContain('Skipping the browser launch')
-    consoleSpy.mockRestore()
   })
 
   it('shows Run ID for firefox no-browser preview', async () => {
-    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-    ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'firefox', 'manifest.json')) {
-        return true
-      }
+    const root = project({built: ['firefox']})
 
-      return false
-    })
+    await preview(root, {browser: 'firefox', noBrowser: true})
 
-    await extensionPreview(
-      '/proj',
-      {
-        browser: 'firefox',
-        noBrowser: true
-      } as any,
-      runOnlyPreviewBrowser
-    )
+    expect(launcher).not.toHaveBeenCalled()
 
-    expect(runOnlyPreviewBrowser).not.toHaveBeenCalled()
-    const output = consoleSpy.mock.calls
-      .map((call) => String(call[0] || ''))
-      .join('\n')
+    const output = logged.join('\n')
+
     expect(output).toContain('Run ID')
-    expect(output).toContain('preview-run')
+    expect(output).toContain(readReady(root, 'firefox').runId)
     expect(output).toContain('Firefox (no-browser mode)')
-    consoleSpy.mockRestore()
   })
 
   it('keeps the no-browser card off stdout in machine mode', async () => {
-    const originalOutput = process.env.EXTENSION_OUTPUT
-    process.env.EXTENSION_OUTPUT = 'json'
-    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-    ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
-        return true
-      }
+    const root = project()
 
-      return false
-    })
+    vi.stubEnv('EXTENSION_OUTPUT', 'json')
 
-    try {
-      await extensionPreview(
-        '/proj',
-        {
-          browser: 'chrome',
-          noBrowser: true
-        } as any,
-        runOnlyPreviewBrowser
-      )
+    await preview(root, {browser: 'chrome', noBrowser: true})
 
-      expect(runOnlyPreviewBrowser).not.toHaveBeenCalled()
-      expect(consoleSpy).not.toHaveBeenCalled()
-    } finally {
-      if (originalOutput === undefined) delete process.env.EXTENSION_OUTPUT
-      else process.env.EXTENSION_OUTPUT = originalOutput
-
-      consoleSpy.mockRestore()
-    }
+    expect(launcher).not.toHaveBeenCalled()
+    expect(logged).toEqual([])
+    expect(stderr.join('')).toContain(readReady(root).runId)
   })
 
   it('resolves companion extensions before scanning', async () => {
-    ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
-        return true
+    const storeId = 'fmkadmapgofadopljbjfkapdkoienihi'
+    const storeLink = `https://chromewebstore.google.com/detail/react-developer-tools/${storeId}`
+    // The store copy is on disk from an earlier run, so nothing is fetched.
+    const root = project({
+      built: ['chrome', 'firefox'],
+      files: {
+        [`extensions/chrome/${storeId}/manifest.json`]:
+          builtManifest('from-store')
       }
-
-      return false
     })
+    const fetched = refuseNetwork()
 
-    await extensionPreview(
-      '/proj',
-      {
-        browser: 'chrome',
-        extensions: [
-          'https://chromewebstore.google.com/detail/react-developer-tools/fmkadmapgofadopljbjfkapdkoienihi'
-        ]
-      } as any,
-      runOnlyPreviewBrowser
-    )
+    await preview(root, {browser: 'chrome', extensions: [storeLink]})
 
-    expect(
-      resolveConfigMod.resolveCompanionExtensionsConfig
-    ).toHaveBeenCalledWith({
-      projectRoot: '/proj',
-      browser: 'chrome',
-      config: [
-        'https://chromewebstore.google.com/detail/react-developer-tools/fmkadmapgofadopljbjfkapdkoienihi'
-      ]
-    })
+    expect(fetched).not.toHaveBeenCalled()
+    expect(launched().extensionsToLoad).toEqual([
+      path.join(root, 'extensions', 'chrome', storeId),
+      dist(root)
+    ])
 
-    // The browser rides along so a browser-named companion folder is scoped
-    // to its own sessions in the preview run record too.
-    expect(resolveDirsMod.resolveCompanionExtensionDirs).toHaveBeenCalledWith(
-      expect.objectContaining({config: {paths: ['/comp/a']}, browser: 'chrome'})
-    )
+    // The browser rides along, so a Chrome store link stays out of a Firefox
+    // session.
+    launcher.mockClear()
+
+    await preview(root, {browser: 'firefox', extensions: [storeLink]})
+
+    expect(fetched).not.toHaveBeenCalled()
+    expect(launched().extensionsToLoad).toEqual([dist(root, 'firefox')])
   })
 
+  // A link in the scanned folder that leads out of the project is left out,
+  // and only a run that opens a browser says so.
   it.each([
     ['a run that opens a browser', {}, true],
     ['a dry run', {dryRun: true}, false]
   ])('tells the companion scan whether a browser opens: %s', async (_run, options, launches) => {
-    ;(fs.existsSync as any).mockImplementation(
-      (p: string) => p === path.join('/proj', 'dist', 'chrome', 'manifest.json')
-    )
+    const outside = fs.realpathSync(tempFolder('extjs-preview-outside-'))
+    const root = project({config: `{extensions: {dir: './extensions'}}`})
 
-    await extensionPreview(
-      '/proj',
-      {browser: 'chrome', ...options} as any,
-      runOnlyPreviewBrowser
-    )
+    writeProjectFiles(outside, {'manifest.json': builtManifest('outside')})
+    fs.mkdirSync(path.join(root, 'extensions'))
+    fs.symlinkSync(outside, path.join(root, 'extensions', 'linked'), 'junction')
 
-    expect(resolveDirsMod.resolveCompanionExtensionDirs).toHaveBeenCalledWith(
-      expect.objectContaining({launchesBrowser: launches})
-    )
+    await preview(root, {browser: 'chrome', ...options})
+
+    expect(launched().extensionsToLoad).toEqual([dist(root)])
+    expect(
+      warned
+        .join('\n')
+        .includes('leads outside the project, so it is not loaded')
+    ).toBe(launches)
   })
 
-  it('passes built-in devtools + theme + user output to preview runner', async () => {
-    ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
-        return true
+  it('passes the companions the project names, then the user output, to the preview runner', async () => {
+    const root = project({
+      config: `{extensions: {dir: './extensions', paths: ['./companions/a']}}`,
+      files: {
+        'companions/a/manifest.json': builtManifest('companion-a'),
+        'extensions/b/manifest.json': builtManifest('companion-b'),
+        'extensions/firefox/c/manifest.json': builtManifest('companion-c')
       }
-
-      return false
     })
 
-    ;(extensionsToLoadMod.computeExtensionsToLoad as any).mockReturnValue([
-      '/builtins/devtools',
-      '/builtins/theme',
-      '/comp/a',
-      path.join('/proj', 'dist', 'chrome')
+    await preview(root, {browser: 'chrome'})
+
+    expect(launched()).toMatchObject({
+      readyPath: readyContractPath(root, 'chrome'),
+      contextDir: root,
+      extensionsToLoad: [
+        path.join(root, 'companions', 'a'),
+        path.join(root, 'extensions', 'b'),
+        dist(root)
+      ]
+    })
+
+    // The run record lists what loads beside the user's build, and not it.
+    expect(
+      readReady(root).managedExtensions.map((managed: any) => managed.path)
+    ).toEqual([
+      path.join(root, 'companions', 'a'),
+      path.join(root, 'extensions', 'b')
     ])
-
-    await extensionPreview(
-      '/proj',
-      {browser: 'chrome'} as any,
-      runOnlyPreviewBrowser
-    )
-
-    expect(extensionsToLoadMod.computeExtensionsToLoad).toHaveBeenCalledWith(
-      expect.any(String),
-      'production',
-      'chrome',
-      path.join('/proj', 'dist', 'chrome'),
-      ['/comp/a'],
-      '/proj/manifest.json'
-    )
-
-    expect(runOnlyPreviewBrowser).toHaveBeenCalledWith(
-      expect.objectContaining({
-        readyPath: metadataWriter.readyPath,
-        extensionsToLoad: [
-          '/builtins/devtools',
-          '/builtins/theme',
-          '/comp/a',
-          path.join('/proj', 'dist', 'chrome')
-        ]
-      })
-    )
   })
+
+  // Each env file sets the same two keys, so the address the config builds
+  // says which mode and which browser the config was read for.
+  const ENV_FILES = {
+    '.env.production': 'PREVIEW_SPEC_MODE=production\n',
+    '.env.development': 'PREVIEW_SPEC_MODE=development\n',
+    '.env.chrome': 'PREVIEW_SPEC_BROWSER=chrome\n',
+    '.env.firefox': 'PREVIEW_SPEC_BROWSER=firefox\n'
+  }
+  const ENV_ADDRESS =
+    "'https://' + process.env.PREVIEW_SPEC_MODE + '-' + process.env.PREVIEW_SPEC_BROWSER"
+
+  function forgetEnvFiles() {
+    delete process.env.PREVIEW_SPEC_MODE
+    delete process.env.PREVIEW_SPEC_BROWSER
+  }
 
   it('loads commands.preview config when invoked as preview', async () => {
-    ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
-        return true
-      }
-
-      return false
+    const root = project({
+      config: `{
+  commands: {
+    preview: {startingUrl: ${ENV_ADDRESS} + '.preview.example'},
+    start: {startingUrl: ${ENV_ADDRESS} + '.start.example'}
+  }
+}`,
+      files: ENV_FILES
     })
 
-    await extensionPreview(
-      '/proj',
-      {browser: 'chrome'} as any,
-      runOnlyPreviewBrowser
-    )
+    try {
+      await preview(root, {browser: 'chrome'})
+    } finally {
+      forgetEnvFiles()
+    }
 
-    expect(configLoaderMod.loadCommandConfig).toHaveBeenCalledWith(
-      '/proj',
-      'preview',
-      {mode: 'production', browser: 'chrome'}
+    expect(launched().startingUrl).toBe(
+      'https://production-chrome.preview.example'
     )
   })
 
   it('loads commands.start config when invoked via start delegation', async () => {
-    ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
-        return true
-      }
-
-      return false
-    })
-    ;(configLoaderMod.loadCommandConfig as any).mockResolvedValueOnce({
+    const root = project({
+      config: `{
+  commands: {
+    preview: {
+      startingUrl: ${ENV_ADDRESS} + '.preview.example',
+      profile: '/from/commands/preview',
+      browserFlags: ['--preview-flag']
+    },
+    start: {
+      startingUrl: ${ENV_ADDRESS} + '.start.example',
       profile: '/from/commands/start',
       browserFlags: ['--start-flag']
+    }
+  }
+}`,
+      files: ENV_FILES
     })
 
-    await extensionPreview(
-      '/proj',
-      {browser: 'chrome', metadataCommand: 'start'} as any,
-      runOnlyPreviewBrowser
+    try {
+      await preview(root, {browser: 'chrome', metadataCommand: 'start'})
+    } finally {
+      forgetEnvFiles()
+    }
+
+    expect(launched().startingUrl).toBe(
+      'https://production-chrome.start.example'
     )
 
-    expect(configLoaderMod.loadCommandConfig).toHaveBeenCalledWith(
-      '/proj',
-      'start',
-      {mode: 'production', browser: 'chrome'}
-    )
-
-    const call = runOnlyPreviewBrowser.mock.calls[0]?.[0] as any
-    expect(call.profile).toBe('/from/commands/start')
-    expect(call.browserFlags).toEqual(['--start-flag'])
+    expect(launched().profile).toBe('/from/commands/start')
+    expect(launched().browserFlags).toEqual(['--start-flag', ...DARK_FLAGS])
   })
 
   describe.each([
@@ -1084,30 +854,8 @@ describe('webpack/command-preview (run-only)', () => {
     label,
     metadataCommand
   }) => {
-    function setupDist() {
-      ;(fs.existsSync as any).mockImplementation((p: string) => {
-        if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
-          return true
-        }
-
-        return false
-      })
-    }
-
-    function launched() {
-      return runOnlyPreviewBrowser.mock.calls[0]?.[0] as any
-    }
-
     it('applies stock logger defaults when neither config nor CLI sets them', async () => {
-      setupDist()
-      ;(configLoaderMod.loadBrowserConfig as any).mockResolvedValueOnce({})
-      ;(configLoaderMod.loadCommandConfig as any).mockResolvedValueOnce({})
-
-      await extensionPreview(
-        '/proj',
-        {browser: 'chrome', metadataCommand} as any,
-        runOnlyPreviewBrowser
-      )
+      await preview(project(), {browser: 'chrome', metadataCommand})
 
       expect(launched()).toMatchObject({
         logFormat: 'pretty',
@@ -1118,22 +866,21 @@ describe('webpack/command-preview (run-only)', () => {
     })
 
     it(`lets commands.${label} beat browser config for logger options (config-only)`, async () => {
-      setupDist()
-      ;(configLoaderMod.loadBrowserConfig as any).mockResolvedValueOnce({
-        startingUrl: 'https://from-browser.example'
-      })
-      ;(configLoaderMod.loadCommandConfig as any).mockResolvedValueOnce({
-        startingUrl: `https://from-commands-${label}.example`,
-        logFormat: 'json',
-        logColor: false,
-        logLevel: 'debug'
+      const root = project({
+        config: `{
+  browser: {chrome: {startingUrl: 'https://from-browser.example'}},
+  commands: {
+    ${label}: {
+      startingUrl: 'https://from-commands-${label}.example',
+      logFormat: 'json',
+      logColor: false,
+      logLevel: 'debug'
+    }
+  }
+}`
       })
 
-      await extensionPreview(
-        '/proj',
-        {browser: 'chrome', metadataCommand} as any,
-        runOnlyPreviewBrowser
-      )
+      await preview(root, {browser: 'chrome', metadataCommand})
 
       expect(launched()).toMatchObject({
         startingUrl: `https://from-commands-${label}.example`,
@@ -1144,24 +891,25 @@ describe('webpack/command-preview (run-only)', () => {
     })
 
     it(`lets explicit CLI values beat commands.${label} in both directions (both)`, async () => {
-      setupDist()
-      ;(configLoaderMod.loadCommandConfig as any).mockResolvedValueOnce({
-        startingUrl: `https://from-commands-${label}.example`,
-        logFormat: 'json',
-        logColor: false
+      const root = project({
+        config: `{
+  commands: {
+    ${label}: {
+      startingUrl: 'https://from-commands-${label}.example',
+      logFormat: 'json',
+      logColor: false
+    }
+  }
+}`
       })
 
-      await extensionPreview(
-        '/proj',
-        {
-          browser: 'chrome',
-          metadataCommand,
-          startingUrl: 'https://from-cli.example',
-          logFormat: 'pretty',
-          logColor: true
-        } as any,
-        runOnlyPreviewBrowser
-      )
+      await preview(root, {
+        browser: 'chrome',
+        metadataCommand,
+        startingUrl: 'https://from-cli.example',
+        logFormat: 'pretty',
+        logColor: true
+      })
 
       expect(launched()).toMatchObject({
         startingUrl: 'https://from-cli.example',
@@ -1171,19 +919,12 @@ describe('webpack/command-preview (run-only)', () => {
     })
 
     it('applies flag-only logger values over stock defaults (flag-only)', async () => {
-      setupDist()
-      ;(configLoaderMod.loadCommandConfig as any).mockResolvedValueOnce({})
-
-      await extensionPreview(
-        '/proj',
-        {
-          browser: 'chrome',
-          metadataCommand,
-          logFormat: 'ndjson',
-          logColor: false
-        } as any,
-        runOnlyPreviewBrowser
-      )
+      await preview(project(), {
+        browser: 'chrome',
+        metadataCommand,
+        logFormat: 'ndjson',
+        logColor: false
+      })
 
       expect(launched()).toMatchObject({
         logFormat: 'ndjson',
@@ -1193,76 +934,83 @@ describe('webpack/command-preview (run-only)', () => {
     })
 
     it('concatenates browserFlags and deep-merges preferences across layers', async () => {
-      setupDist()
-      ;(configLoaderMod.loadBrowserConfig as any).mockResolvedValueOnce({
-        browserFlags: ['--from-browser'],
-        preferences: {a: 1, nested: {x: 1}}
-      })
-      ;(configLoaderMod.loadCommandConfig as any).mockResolvedValueOnce({
-        browserFlags: ['--from-command'],
-        preferences: {b: 2, nested: {y: 2}}
+      const root = project({
+        config: `{
+  browser: {
+    chrome: {
+      browserFlags: ['--from-browser'],
+      preferences: {a: 1, nested: {x: 1}}
+    }
+  },
+  commands: {
+    ${label}: {
+      browserFlags: ['--from-command'],
+      preferences: {b: 2, nested: {y: 2}}
+    }
+  }
+}`
       })
 
-      await extensionPreview(
-        '/proj',
-        {
-          browser: 'chrome',
-          metadataCommand,
-          browserFlags: ['--from-cli'],
-          preferences: {a: 99, nested: {x: 3}}
-        } as any,
-        runOnlyPreviewBrowser
-      )
+      await preview(root, {
+        browser: 'chrome',
+        metadataCommand,
+        browserFlags: ['--from-cli'],
+        preferences: {a: 99, nested: {x: 3}}
+      })
 
-      expect(launched()).toMatchObject({
-        browserFlags: ['--from-browser', '--from-command', '--from-cli'],
-        preferences: {a: 99, b: 2, nested: {x: 3, y: 2}}
+      expect(launched().browserFlags).toEqual([
+        '--from-browser',
+        '--from-command',
+        '--from-cli',
+        ...DARK_FLAGS
+      ])
+
+      expect(launched().preferences).toEqual({
+        a: 99,
+        b: 2,
+        nested: {x: 3, y: 2}
       })
     })
 
     it('hands excludeBrowserFlags to the shared appearance defaults', async () => {
-      setupDist()
-      ;(withDarkMode as any).mockClear()
+      const root = project()
 
-      await extensionPreview(
-        '/proj',
-        {
-          browser: 'chrome',
-          metadataCommand,
-          excludeBrowserFlags: ['--force-dark-mode']
-        } as any,
-        runOnlyPreviewBrowser
-      )
+      await preview(root, {browser: 'chrome', metadataCommand})
 
-      expect(withDarkMode).toHaveBeenCalledWith(
-        expect.objectContaining({
-          excludeBrowserFlags: ['--force-dark-mode']
-        })
-      )
+      expect(launched().browserFlags).toEqual(DARK_FLAGS)
+
+      launcher.mockClear()
+
+      await preview(root, {
+        browser: 'chrome',
+        metadataCommand,
+        excludeBrowserFlags: ['--force-dark-mode']
+      })
+
+      expect(launched().browserFlags).toEqual([])
+      expect(launched().excludeBrowserFlags).toEqual(['--force-dark-mode'])
     })
   })
 
+  // The package root holds the config and the dependency, and the manifest
+  // sits one folder down, so the warning proves which folder was read.
   it('checks managed dependency conflicts using package root when manifest is in src', async () => {
-    ;(projectMod.getProjectStructure as any).mockResolvedValueOnce({
-      manifestPath: '/proj/src/manifest.json',
-      packageJsonPath: '/proj/package.json'
-    })
-    ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
-        return true
-      }
-
-      return false
+    const root = project({
+      manifestFile: 'src/manifest.json',
+      packageJson: {devDependencies: {'@rspack/core': '1.0.0'}},
+      config: `{config: (config) => config} // loads '@rspack/core'`
     })
 
-    await extensionPreview(
-      '/proj',
-      {browser: 'chrome'} as any,
-      runOnlyPreviewBrowser
+    await preview(root, {browser: 'chrome'})
+
+    expect(launched()).toMatchObject({contextDir: root, outPath: dist(root)})
+    expect(readReady(root).manifestPath).toBe(
+      path.join(root, 'src', 'manifest.json')
     )
 
-    expect(
-      validateDepsMod.assertNoManagedDependencyConflicts
-    ).toHaveBeenCalledWith('/proj/package.json', '/proj')
+    const warnings = warned.join('\n')
+
+    expect(warnings).toContain('@rspack/core')
+    expect(warnings).toContain('extension.config.js')
   })
 })

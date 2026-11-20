@@ -95,7 +95,10 @@ describe('build toolchain line', () => {
   })
 
   it('is printed once per production build run, recorded in every summary and handed to the reviewer note', () => {
-    const source = readFileSync(resolve(HERE, '../command-build.ts'), 'utf8')
+    const source = readFileSync(
+      resolve(HERE, '../command-steps/build-green.ts'),
+      'utf8'
+    )
 
     expect(source).toContain('toolchain: getBuildToolchain()')
     expect(source).toContain("resolvedMode === 'production' &&")

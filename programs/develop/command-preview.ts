@@ -8,6 +8,12 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {
+  loadProjectAndCommandConfig,
+  logOptionsOf,
+  refuseManagedDependencyConflicts,
+  resolveCommandBrowser
+} from './command-steps/project-setup'
 import {controlledBuildParts} from './controlled-build-parts'
 import {CONTROL_WS_PATH} from './dev-server/control-bridge/contracts'
 import * as devServerMessages from './dev-server/messages'
@@ -16,9 +22,9 @@ import {codedError} from './lib/coded-error'
 import {
   holdPreloadedEnvOf,
   loadBrowserConfig,
-  loadCommandConfig,
-  loadProjectConfigDefaults
+  loadCommandConfig
 } from './lib/config-loader'
+import {STOCK_COMPANION_EXTENSIONS} from './lib/constants'
 import {withDarkMode} from './lib/dark-mode'
 import {
   companionScanDirInsideProject,
@@ -43,11 +49,10 @@ import {
   stripChannelPrefix
 } from './lib/messaging'
 import {
+  type BrowserInput,
   computePreviewOutputPath,
-  configBrowserOrThrow,
   getDirs,
-  getDistPath,
-  normalizeBrowser
+  getDistPath
 } from './lib/paths'
 import {startProductionControl} from './lib/production-control'
 import {getProjectStructure, type RemoteArchiveTarget} from './lib/project'
@@ -63,7 +68,6 @@ import {
   sessionArtifactsRootDir
 } from './lib/session-paths'
 import {takeStartLaunchHoldings} from './lib/start-launch-handoff'
-import {assertNoManagedDependencyConflicts} from './lib/validate-user-dependencies'
 import {
   createPlaywrightMetadataWriter,
   getSessionRunId
@@ -74,7 +78,6 @@ import {
 } from './plugin-special-folders/folder-extensions/resolve-config'
 import {resolveCompanionExtensionDirs as resolveCompanionExtensionDirsFromSpecialFolders} from './plugin-special-folders/folder-extensions/resolve-dirs'
 import type {CompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/types'
-import {getSpecialFoldersDataForProjectRoot} from './plugin-special-folders/get-data'
 import type {
   BrowserConfig,
   BrowserType,
@@ -371,43 +374,25 @@ async function runPreview(
   leg.holdProject(packageJsonDir)
   announceLeftoverOutputFolder(projectStructure)
 
-  const userManifestPath =
-    projectStructure.packageJsonPath || projectStructure.denoJsonPath
+  refuseManagedDependencyConflicts(projectStructure, packageJsonDir)
 
-  if (userManifestPath) {
-    assertNoManagedDependencyConflicts(userManifestPath, packageJsonDir)
-  }
-
-  const namesBinary = Boolean(
-    previewOptions.chromiumBinary ||
-      previewOptions.geckoBinary ||
-      previewOptions.firefoxBinary
-  )
   // The same stock default as build, so a build made with no browser named
-  // is the one previewed. A binary with no name picks its own family.
-  const browserFor = (named: unknown) =>
-    normalizeBrowser(
-      (named as PreviewOptions['browser']) ||
-        (namesBinary ? undefined : 'chromium'),
-      previewOptions.chromiumBinary,
-      previewOptions.geckoBinary || previewOptions.firefoxBinary
-    )
-  // A browser passed in wins; with none, commands.<cmd>.browser from the
-  // project config decides which build is previewed. That read sees the env
-  // files of the browser that is previewed when the config names none.
-  const browser = previewOptions.browser
-    ? browserFor(previewOptions.browser)
-    : browserFor(
-        configBrowserOrThrow(
-          (
-            await loadCommandConfig(packageJsonDir, metadataCommand, {
-              mode: 'production',
-              browser: String(browserFor(undefined))
-            })
-          ).browser,
-          metadataCommand
-        )
-      )
+  // is the one previewed. A browser passed in wins. With none,
+  // commands.<cmd>.browser from the project config decides which build is
+  // previewed.
+  const browser = await resolveCommandBrowser({
+    asked: previewOptions.browser as BrowserInput | undefined,
+    command: metadataCommand,
+    chromiumBinary: previewOptions.chromiumBinary,
+    geckoBinary: previewOptions.geckoBinary || previewOptions.firefoxBinary,
+    configBrowser: async (stockBrowser) =>
+      (
+        await loadCommandConfig(packageJsonDir, metadataCommand, {
+          mode: 'production',
+          browser: stockBrowser
+        })
+      ).browser
+  })
   // A directory that holds a manifest but no package.json is an unpacked
   // extension (a build folder, a downloaded release): preview exactly that,
   // instead of walking up to an ancestor project and looking for its dist.
@@ -428,7 +413,7 @@ async function runPreview(
   // With no project around it, the folder that was named and is loaded is
   // the build, so no dist/<browser> is looked for beneath it.
   const namedFolderIsTheBuild =
-    !userManifestPath &&
+    !(projectStructure.packageJsonPath || projectStructure.denoJsonPath) &&
     !previewOptions.outputPath &&
     isNamedLoadFolder(pathOrRemoteUrl, outputPath)
   const distPath =
@@ -525,11 +510,7 @@ async function runPreview(
     // Preview loads a production build, so the config reads the env files
     // that build read: production ones, and those named for this browser.
     const envTarget = {mode: 'production', browser: String(browser)}
-    const projectConfig = await loadProjectConfigDefaults(
-      packageJsonDir,
-      envTarget
-    )
-    const commandConfig = await loadCommandConfig(
+    const {projectConfig, commandConfig} = await loadProjectAndCommandConfig(
       packageJsonDir,
       metadataCommand,
       envTarget
@@ -561,23 +542,15 @@ async function runPreview(
       folders?: SpecialFoldersConfig
     }
     const safePreviewOptions = sanitize(previewOptions) as PreviewOptions
-    // Preview never compiles, so an ancestor project's scripts/ folder has no
-    // say here. Only its companion extensions folder does.
-    const specialFoldersData = unpackedDir
-      ? {extensions: undefined}
-      : getSpecialFoldersDataForProjectRoot(
-          packageJsonDir,
-          safeCommandConfig.folders ??
-            safeBrowserConfig.folders ??
-            safeProjectConfig.folders
-        )
+    // An unpacked folder handed in has no project around it to hold companions.
+    const stockExtensions = unpackedDir ? undefined : STOCK_COMPANION_EXTENSIONS
 
     const mergedExtensionsConfig =
       safePreviewOptions.extensions ??
       safeCommandConfig.extensions ??
       safeBrowserConfig.extensions ??
       safeProjectConfig.extensions ??
-      specialFoldersData.extensions
+      stockExtensions
     // With no browser nothing loads a companion, so none is fetched from a
     // store. A named folder outside the project is refused either way.
     const resolvedExtensionsConfig = previewOptions.noBrowser
@@ -846,13 +819,7 @@ async function runPreview(
       instanceId: merged.instanceId,
       port: merged.port,
       dryRun: merged.dryRun,
-      logLevel: merged.logLevel,
-      logContexts: merged.logContexts,
-      logFormat: merged.logFormat,
-      logTimestamps: merged.logTimestamps,
-      logColor: merged.logColor,
-      logUrl: merged.logUrl,
-      logTab: merged.logTab
+      ...logOptionsOf(merged)
     }
 
     launching = true

@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, afterEach, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // A config that re-points output.path is resolved by the bundler against the
 // compiler context. The CLI's wipe, receipt and summary must resolve it the
@@ -64,19 +65,16 @@ function writePage(root: string, name: string) {
 }
 
 async function build(root: string, cwd: string) {
-  const {extensionBuild} = await import('../command-build')
   process.chdir(cwd)
   const lines: string[] = []
   const originalLog = console.log
   console.log = (...args: unknown[]) => lines.push(args.join(' '))
 
   try {
-    const summary = await extensionBuild(root, {
-      browser: 'chrome',
+    const summary = await buildProject(root, {
       silent: false,
-      install: false,
       mode: 'production'
-    } as any)
+    })
     expect(summary.errors_count).toBe(0)
 
     return {summary, output: lines.join('\n')}

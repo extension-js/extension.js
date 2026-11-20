@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // A one-shot development build runs compiler.run(), so the frameworks plugin
 // must finish configuring SWC before the first module is parsed: a TypeScript
@@ -51,7 +52,6 @@ function project() {
 describe('one-shot development build with a TypeScript content script', () => {
   it('transpiles the content script before the parser sees it', async () => {
     const root = project()
-    const {extensionBuild} = await import('../command-build')
     const lines: string[] = []
     const originalStderr = process.stderr.write.bind(process.stderr)
     const originalError = console.error
@@ -66,12 +66,10 @@ describe('one-shot development build with a TypeScript content script', () => {
     console.log = (...args: unknown[]) => lines.push(args.join(' '))
 
     try {
-      const summary = await extensionBuild(root, {
-        browser: 'chrome',
+      const summary = await buildProject(root, {
         silent: false,
-        install: false,
         mode: 'development'
-      } as any)
+      })
       expect(summary.errors_count, lines.join('\n')).toBe(0)
     } catch (error) {
       throw new Error(`build failed: ${String(error)}\n${lines.join('\n')}`)

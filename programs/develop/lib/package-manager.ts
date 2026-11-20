@@ -25,6 +25,7 @@ const require = createRequire(import.meta.url)
 
 import type {SUPPORTED_PACKAGE_MANAGERS} from './constants'
 import {corepackRegistryEnv} from './corepack-registry'
+import {readPackageJson} from './package-json'
 
 export type PackageManagerName = (typeof SUPPORTED_PACKAGE_MANAGERS)[number]
 
@@ -538,9 +539,7 @@ export type WorkspaceMember = PnpmWorkspaceMember & {
 
 function readPackageJsonWorkspaces(dir: string): string[] | undefined {
   try {
-    const pkg = JSON.parse(
-      fs.readFileSync(path.join(dir, 'package.json'), 'utf8')
-    )
+    const pkg = readPackageJson(path.join(dir, 'package.json'))
     const field = pkg?.workspaces
     const list = Array.isArray(field) ? field : field?.packages
 

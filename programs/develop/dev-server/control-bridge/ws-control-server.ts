@@ -85,7 +85,21 @@ export function startControlServer(
         isAdmittedOrigin(info.origin, options.viewerOrigin)
     })
 
-    wss.on('error', reject)
+    let listening = false
+
+    // A server that could not bind is closed, so nothing of it stays held.
+    // One already serving keeps serving through an error on one accept.
+    wss.on('error', (error: Error) => {
+      if (listening) return
+
+      try {
+        wss.close()
+      } catch {
+        // The bind failure is the answer.
+      }
+
+      reject(error)
+    })
 
     wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
       const origin = request?.headers?.origin
@@ -161,6 +175,7 @@ export function startControlServer(
     })
 
     wss.on('listening', () => {
+      listening = true
       const address = wss.address()
       const port = typeof address === 'object' && address ? address.port : 0
       const keepalive = setInterval(

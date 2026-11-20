@@ -1148,6 +1148,30 @@ describe('extension dev when the --parent-pid owner goes away', () => {
     expect(process.exit).not.toHaveBeenCalled()
   })
 
+  // The shutdown under way writes the terminal frame and picks the exit code.
+  it.each([
+    ['under --output json', ['--output', 'json']],
+    ['in pretty mode', []]
+  ])('adds no frame and no exit when the owner goes during a shutdown %s', async (_name, flags) => {
+    endSessionAsFailed.mockImplementation(() => 'ending')
+
+    expect(
+      await runWithRealWatchdog(['dev', '.', '--parent-pid', '4242', ...flags])
+    ).toBe(0)
+
+    stdout.length = 0
+    parentAlive = false
+    vi.advanceTimersByTime(POLL_MS)
+
+    expect(endSessionAsFailed.mock.calls).toEqual([
+      ['E_PARENT_GONE', PARENT_GONE]
+    ])
+
+    expect(terminalFrames()).toEqual([])
+    expect(kill).not.toHaveBeenCalled()
+    expect(drainedExits).toEqual([])
+  })
+
   // Before the engine loads nothing is there to tear down, so the run ends
   // with its own exit code and never reaches the engine.
   it.each([

@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
 import {stripAnsi} from '../dev-server/lifecycle-stream'
+import {buildProject} from './helpers/build-project'
 
 type Mode = 'development' | 'production' | 'none'
 
@@ -81,19 +82,16 @@ function project() {
 }
 
 async function build(root: string, mode: Mode) {
-  const {extensionBuild} = await import('../command-build')
   const lines: string[] = []
   const originalLog = console.log
   console.log = (...args: unknown[]) => lines.push(args.join(' '))
 
   try {
-    const summary = await extensionBuild(root, {
-      browser: 'chrome',
+    const summary = await buildProject(root, {
       silent: false,
-      install: false,
       mode,
       exitOnError: false
-    } as any)
+    })
     expect(summary.errors_count).toBe(0)
 
     return {summary, output: stripAnsi(lines.join('\n'))}

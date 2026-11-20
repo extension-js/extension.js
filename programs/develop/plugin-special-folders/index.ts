@@ -19,6 +19,7 @@ import {
 import {rememberPublicRoots} from '../lib/public-roots'
 import {isInsidePath} from '../lib/real-path'
 import {requestSessionRestart} from '../lib/session-restart-signal'
+import {emitRootAbsoluteRefs} from '../plugin-web-extension/feature-html/steps/emit-root-absolute-refs'
 import {localeDirsWithoutMessages} from '../plugin-web-extension/feature-locales/get-locales'
 import {htmlPageEntries} from '../plugin-web-extension/shared/html-page-entries'
 import {getResolvedManifestFieldsData} from '../plugin-web-extension/shared/manifest-fields'
@@ -33,7 +34,6 @@ import {
   explainPublicOutputCollision,
   publicFilesShadowedByEntries
 } from './check-public-output-collision'
-import {emitRootAbsoluteRefs} from './emit-root-absolute-refs'
 import {
   excludedFiles,
   miscasedEntryFolders,

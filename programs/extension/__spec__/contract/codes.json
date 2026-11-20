@@ -58,6 +58,10 @@
       "area": "project",
       "summary": "extension.config.js threw while loading or did not export an object."
     },
+    "E_PACKAGE_JSON_INVALID": {
+      "area": "project",
+      "summary": "The project's package.json is not parseable JSON, opens with a byte order mark, or is saved as UTF-16."
+    },
     "E_DEPENDENCY_INSTALL": {
       "area": "project",
       "summary": "Installing project dependencies failed."
@@ -406,7 +410,7 @@
     },
     "E_OUTPUT_NOT_WRITABLE": {
       "area": "compile",
-      "summary": "The build could not write manifest.json into the output folder."
+      "summary": "The build could not write into the output folder: the folder is not writable, or manifest.json could not be written into it."
     },
     "E_PREVIEW_NO_DIST": {
       "area": "preview",
@@ -467,6 +471,10 @@
     "E_ENV_FILE_UNREADABLE": {
       "area": "project",
       "summary": "A .env file the build has to read for its browser and mode is a folder or cannot be read."
+    },
+    "E_INLINE_SCRIPT_SYNTAX": {
+      "area": "compile",
+      "summary": "An inline script of an HTML file no longer parses once an unquoted placeholder is filled with its env value."
     },
     "W_MANAGED_DEP_CONFLICT": {
       "area": "project",

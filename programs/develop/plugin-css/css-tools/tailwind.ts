@@ -8,16 +8,16 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {hasDependency} from '../../lib/has-dependency'
 import {debugLine, isDebug, prefix} from '../../lib/messaging'
+import {hasProjectDependency} from '../../lib/project-manifest'
 import * as messages from '../css-lib/messages'
 
 let userMessageDelivered = false
 
 export function isUsingTailwind(projectPath: string) {
   const isUsingTailwind =
-    hasDependency(projectPath, 'tailwindcss') ||
-    hasDependency(projectPath, '@tailwindcss/postcss')
+    hasProjectDependency(projectPath, 'tailwindcss') ||
+    hasProjectDependency(projectPath, '@tailwindcss/postcss')
 
   if (isUsingTailwind) {
     if (!userMessageDelivered) {
