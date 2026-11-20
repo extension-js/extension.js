@@ -26,14 +26,14 @@ function functionBody(source: string, name: string): string {
 // The steps that decide what the id is. The engine writes it and the CLI
 // compares it, so one side reading another field would never match.
 const FORMAT_STEPS = [
-  '`/proc/${pid}/stat`',
+  `\`/proc/\${pid}/stat\``,
   "stat.lastIndexOf(')') + 2",
   ".split(' ')",
   'afterName[19]',
   "'/proc/sys/kernel/random/boot_id'",
   '.trim()',
   '/^\\d+$/.test(String(startTicks))',
-  'return `${bootId}:${startTicks}`'
+  `return \`\${bootId}:\${startTicks}\``
 ]
 
 describe('the process start id the CLI compares', () => {
