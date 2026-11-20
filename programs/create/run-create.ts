@@ -93,9 +93,8 @@ export async function runCreate(
   const updateSuffix = process.env.EXTENSION_CLI_UPDATE_SUFFIX || ''
   if (updateSuffix) delete process.env.EXTENSION_CLI_UPDATE_SUFFIX
 
-  // The card names exactly what the user asked for. The alias that once
-  // rewrote `init` to `javascript` here is gone, a swapped name in the header
-  // is the same lie as a swapped scaffold (section 126).
+  // The card names exactly what the user asked for. A swapped name in the
+  // header misleads as much as a swapped scaffold.
   const requestedTemplate = effectiveTemplate
   logger.log(' ')
   logger.log(
@@ -325,12 +324,8 @@ async function scaffoldProject({
   return {
     projectPath,
     projectName,
-    // The name the scaffold actually came from, which is what the provenance
-    // file records. Reporting the raw request here made one run answer with
-    // two names: `new-react` in the envelope, `newtab-react` in the project,
-    // and the envelope's value absent from the CLI's own names[]. The session
-    // header still echoes what was typed (section 126): that surface reports
-    // the request, this one reports the result.
+    // The template the scaffold came from, as the provenance file records it.
+    // The header reports the request, this field reports the result.
     template: scaffoldedTemplate,
     depsInstalled: install,
     ...(installSeconds === undefined ? {} : {installSeconds}),

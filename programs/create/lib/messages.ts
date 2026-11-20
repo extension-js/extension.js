@@ -146,8 +146,8 @@ export function writingTypeDefinitionsError(error: unknown) {
 }
 
 export function installingFromTemplate(templateName: string) {
-  // Only the bundled default hides its name here. `init` used to share this
-  // branch as an alias for `javascript`, that alias is gone (section 126).
+  // Only the bundled default hides its name here, every other template is
+  // named as the person typed it.
   if (templateName === 'javascript') {
     return `${prefix('info')} Copying the template files…`
   }
