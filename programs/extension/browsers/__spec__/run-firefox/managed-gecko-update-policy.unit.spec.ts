@@ -276,48 +276,46 @@ describe('managed Gecko update policy writes', () => {
     })
   })
 
-  it.skipIf(process.platform === 'win32')(
-    'takes the platform for the paths and the retry, so a Windows lock is retried off Windows',
-    () => {
-      let renames = 0
-      const pauses: number[] = []
-      const written: string[] = []
-      const windowsFs = {
-        existsSync: () => false,
-        readFileSync: () => '',
-        writeFileSync: (file: string) => written.push(file),
-        mkdirSync: () => undefined,
-        renameSync() {
-          renames += 1
+  // Platform, file system and pauses are all passed in, so every host runs it.
+  it('takes the platform for the paths and the retry, so a Windows lock is retried off Windows', () => {
+    let renames = 0
+    const pauses: number[] = []
+    const written: string[] = []
+    const windowsFs = {
+      existsSync: () => false,
+      readFileSync: () => '',
+      writeFileSync: (file: string) => written.push(file),
+      mkdirSync: () => undefined,
+      renameSync() {
+        renames += 1
 
-          throw Object.assign(new Error('EPERM: operation not permitted'), {
-            code: 'EPERM'
-          })
-        }
-      } as unknown as Parameters<typeof ensureManagedGeckoUpdatePolicy>[0]['fs']
+        throw Object.assign(new Error('EPERM: operation not permitted'), {
+          code: 'EPERM'
+        })
+      }
+    } as unknown as Parameters<typeof ensureManagedGeckoUpdatePolicy>[0]['fs']
 
-      const result = ensureManagedGeckoUpdatePolicy({
-        binaryPath: 'C:\\cache\\firefox\\win64-stable_140.0\\core\\firefox.exe',
-        managedRoots: ['C:\\cache'],
-        platform: 'win32',
-        fs: windowsFs,
-        retry: {sleep: (ms) => pauses.push(ms)}
-      })
+    const result = ensureManagedGeckoUpdatePolicy({
+      binaryPath: 'C:\\cache\\firefox\\win64-stable_140.0\\core\\firefox.exe',
+      managedRoots: ['C:\\cache'],
+      platform: 'win32',
+      fs: windowsFs,
+      retry: {sleep: (ms) => pauses.push(ms)}
+    })
 
-      const policyPath =
-        'C:\\cache\\firefox\\win64-stable_140.0\\core\\distribution\\policies.json'
+    const policyPath =
+      'C:\\cache\\firefox\\win64-stable_140.0\\core\\distribution\\policies.json'
 
-      expect(written).toEqual([`${policyPath}.${process.pid}.tmp`])
-      expect(result).toEqual({
-        status: 'failed',
-        policyPath,
-        error: 'EPERM: operation not permitted'
-      })
+    expect(written).toEqual([`${policyPath}.${process.pid}.tmp`])
+    expect(result).toEqual({
+      status: 'failed',
+      policyPath,
+      error: 'EPERM: operation not permitted'
+    })
 
-      expect(renames).toBe(7)
-      expect(pauses).toEqual([10, 20, 40, 80, 160, 320])
-    }
-  )
+    expect(renames).toBe(7)
+    expect(pauses).toEqual([10, 20, 40, 80, 160, 320])
+  })
 
   it('applies the policy to a fresh managed Firefox install', () => {
     const binaryPath = fakeManagedBinary(cacheRoot)
