@@ -39,7 +39,10 @@ function makeDeferredPackager() {
   return {fn, calls, callFor, modes}
 }
 
-function makeCompiler(context = 'ctx') {
+// A real compiler's context is absolute, and saves are relative to it.
+const CTX = path.join(os.tmpdir(), 'extjs-safari-coalesce-ctx')
+
+function makeCompiler(context = CTX) {
   const fake = fakeCompiler({owner: SafariDevPlugin.name, context})
 
   const trigger = (
@@ -131,7 +134,7 @@ describe('SafariDevPlugin watch-loop coalescing', () => {
     h.callFor('/out1').resolve()
     await p
     expect(h.compiled).toEqual([
-      {outputPath: '/out1', contextDir: 'ctx', isFirstCompile: true}
+      {outputPath: '/out1', contextDir: CTX, isFirstCompile: true}
     ])
   })
 

@@ -6,11 +6,11 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {exitAfterDrain} from './exit-after-drain'
 import {usageRefusal} from './messages'
 import {parseWholeNumber} from './normalize-options'
 
 const POLL_INTERVAL_MS = 2_000
-const HARD_EXIT_GRACE_MS = 5_000
 
 function isProcessAlive(pid: number): boolean {
   try {
@@ -24,17 +24,10 @@ function isProcessAlive(pid: number): boolean {
   }
 }
 
-// SIGTERM self-delivery runs the cleanup a live run installed.
-export function shutDownBySignal(): void {
-  // Backstop first: if the graceful path wedges, still exit.
-  const hardExit = setTimeout(() => process.exit(1), HARD_EXIT_GRACE_MS)
-  hardExit.unref?.()
-
-  try {
-    process.kill(process.pid, 'SIGTERM')
-  } catch {
-    process.exit(1)
-  }
+// With no live session nothing installed a cleanup a signal would run, so
+// the run exits 1 itself and the parent reads an exit code, not a signal.
+function exitAsParentGone(): void {
+  void exitAfterDrain(1)
 }
 
 // Exit when the parent pid dies (--parent-pid): an orphaned dev otherwise races
@@ -49,7 +42,7 @@ export function setupParentWatchdog(
     // The last thing a machine consumer sees, so it is written before the
     // shutdown that closes stdout behind it.
     emitFrame?: () => void
-    // Replaces the SIGTERM-self shutdown.
+    // Replaces the exit 1 that ends a run with no live session.
     onDeath?: () => void
     pollIntervalMs?: number
     // Answers whether a pid is alive, the system probe when left out.
@@ -59,7 +52,7 @@ export function setupParentWatchdog(
   const log = options?.log ?? console.error
   const pollIntervalMs = options?.pollIntervalMs ?? POLL_INTERVAL_MS
   const isAlive = options?.isAlive ?? isProcessAlive
-  const shutdown = options?.onDeath ?? shutDownBySignal
+  const shutdown = options?.onDeath ?? exitAsParentGone
 
   const endedBySession = () => {
     try {

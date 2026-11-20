@@ -1,7 +1,13 @@
+import * as path from 'node:path'
+import {rspack, type Stats} from '@rspack/core'
 import {describe, expect, it, vi} from 'vitest'
 import {compileIssues, writeProject} from '../../__spec__/helpers/real-compiler'
+import {decodeSourceMap} from '../../__spec__/helpers/sourcemap-decode'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
-import {stripDevServerStartupFromContentScript} from '../steps/remove-content-script-dev-server-runtime'
+import {
+  contentScriptRetainsDevServerRuntime,
+  stripDevServerStartupFromContentScript
+} from '../steps/remove-content-script-dev-server-runtime'
 import {StripContentScriptDevServerRuntime} from '../steps/strip-content-script-dev-server-runtime'
 
 const makeTempFolder = trackTempFolders()
@@ -157,6 +163,7 @@ describe('content script dev-server runtime stripping', () => {
           }
         ]
       },
+      getAsset: () => undefined,
       updateAsset
     })
 
@@ -171,33 +178,128 @@ describe('content script dev-server runtime stripping', () => {
 })
 
 describe('the dev-server runtime warning', () => {
-  it('names the content script that still carries the client text', async () => {
+  it('is not raised for a content script that only names the client', async () => {
     const root = writeProject(makeTempFolder('extjs-strip-warning-'), {
-      'content.js': "console.log('@rspack/dev-server/client/index.js?x')\n",
-      'options.js': "console.log('@rspack/dev-server/client/index.js?x')\n"
+      'content.js': "console.log('see @rspack/dev-server/client for details')\n"
     })
     const {errors, warnings} = await compileIssues(
       root,
       'development',
-      {
-        'content_scripts/content-0': 'content.js',
-        'options/index': 'options.js'
-      },
+      {'content_scripts/content-0': 'content.js'},
       [new StripContentScriptDevServerRuntime()]
     )
 
     expect(errors).toEqual([])
-    expect(warnings).toEqual([
-      {
-        name: 'ContentScriptDevServerRuntimeWarning',
-        file: 'content_scripts/content-0.js',
-        message:
-          'Could not strip the dev-server runtime from content_scripts/content-0.js. ' +
-          "This usually means the bundler's output format changed and " +
-          'Extension.js needs an update. The content script may try to ' +
-          'open a dev-server connection on the host page. Please report ' +
-          'this at https://github.com/extension-js/extension.js/issues.'
-      }
-    ])
+    expect(warnings).toEqual([])
+  })
+
+  it('is not raised once the client start was taken out', async () => {
+    const root = writeProject(makeTempFolder('extjs-strip-warning-'), {
+      'client.js': "console.log('@rspack/dev-server/client/index.js?x')\n",
+      'content.js': "console.log('content')\n"
+    })
+    const {warnings} = await compileIssues(
+      root,
+      'development',
+      {'content_scripts/content-0': 'content.js'},
+      [
+        {
+          apply(compiler) {
+            compiler.options.entry = {
+              'content_scripts/content-0': {
+                import: [
+                  path.join(root, 'client.js'),
+                  path.join(root, 'content.js')
+                ]
+              }
+            }
+          }
+        },
+        new StripContentScriptDevServerRuntime()
+      ]
+    )
+
+    expect(warnings).toEqual([])
+  })
+
+  it('names a content script whose client start is still required', () => {
+    const source = [
+      '123(module) {',
+      "  console.log('@rspack/dev-server/client/index.js?test')",
+      '}',
+      '// startup',
+      'var client = __webpack_require__(123);',
+      'var __webpack_exports__ = __webpack_require__(999);'
+    ].join('\n')
+
+    expect(
+      contentScriptRetainsDevServerRuntime(
+        stripDevServerStartupFromContentScript(source)
+      )
+    ).toBe(true)
+  })
+})
+
+// The devtool wrote the map before this step, so the line it removes must
+// leave the map too, or each line below it points one line off.
+describe('the source map of a stripped content script', () => {
+  async function build(root: string, strip: boolean) {
+    const compiler = rspack({
+      mode: 'development',
+      context: root,
+      devtool: 'source-map',
+      entry: {
+        'content_scripts/content-0': {
+          import: [path.join(root, 'client.js'), path.join(root, 'content.js')]
+        }
+      },
+      output: {
+        path: path.join(root, strip ? 'dist' : 'plain'),
+        publicPath: '/'
+      },
+      // What a dev session builds with: numeric ids and the hot runtime.
+      optimization: {moduleIds: 'deterministic', concatenateModules: false},
+      plugins: [
+        new rspack.HotModuleReplacementPlugin(),
+        ...(strip ? [new StripContentScriptDevServerRuntime()] : [])
+      ]
+    })
+    const stats = await new Promise<Stats>((resolve, reject) =>
+      compiler.run((error, result) =>
+        error || !result ? reject(error) : resolve(result)
+      )
+    )
+    await new Promise((resolve) => compiler.close(resolve))
+    const read = (name: string) =>
+      String(stats.compilation.getAsset(name)?.source.source())
+
+    expect(stats.hasErrors()).toBe(false)
+
+    return {
+      code: read('content_scripts/content-0.js'),
+      map: decodeSourceMap(read('content_scripts/content-0.js.map'))
+    }
+  }
+
+  it('drops the mapping of the start line it removes', async () => {
+    const root = writeProject(makeTempFolder('extjs-strip-map-'), {
+      'client.js': "console.log('@rspack/dev-server/client/index.js?x')\n",
+      'content.js': "console.log('content')\n"
+    })
+    const plain = await build(root, false)
+    const stripped = await build(root, true)
+    const lines = stripped.code.split('\n')
+    const removed = plain.code
+      .split('\n')
+      .findIndex((line, index) => line !== lines[index])
+
+    expect(removed).toBeGreaterThan(0)
+    expect(stripped.code.split('\n')).toHaveLength(
+      plain.code.split('\n').length - 1
+    )
+
+    expect(stripped.map.lines).toEqual(
+      plain.map.lines.filter((_, index) => index !== removed)
+    )
   })
 })

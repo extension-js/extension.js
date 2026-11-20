@@ -988,6 +988,8 @@ describe('extension dev when the --parent-pid owner goes away', () => {
 
   let parentAlive = true
   let sessionLive = false
+  // False for an engine that loaded and has no session up yet.
+  let startsSession = true
   let ended = false
   let kill: ReturnType<typeof vi.spyOn>
   let endSessionAsFailed: ReturnType<typeof vi.fn>
@@ -1006,6 +1008,7 @@ describe('extension dev when the --parent-pid owner goes away', () => {
   beforeEach(() => {
     parentAlive = true
     sessionLive = false
+    startsSession = true
     ended = false
     drainedExits = []
     vi.useFakeTimers({
@@ -1054,7 +1057,7 @@ describe('extension dev when the --parent-pid owner goes away', () => {
       loadDevelop: async () =>
         developStandIn({
           extensionDev: async () => {
-            sessionLive = true
+            sessionLive = startsSession
           },
           endSessionAsFailed,
           loadCommandConfig: async () => ({})
@@ -1106,6 +1109,41 @@ describe('extension dev when the --parent-pid owner goes away', () => {
     expect(drainedExits).toEqual(exits)
 
     // No backstop exit is left behind either.
+    vi.advanceTimersByTime(60_000)
+    expect(process.exit).not.toHaveBeenCalled()
+  })
+
+  // A loaded engine with no session up has installed no cleanup a signal
+  // would run, so the run exits 1 itself and its parent reads an exit code.
+  it.each([
+    ['under --output json', ['--output', 'json'], 1],
+    ['in pretty mode', [], 0]
+  ])('exits 1 with no signal when the owner goes while no session is live %s', async (_name, flags, frameCount) => {
+    startsSession = false
+
+    expect(
+      await runWithRealWatchdog(['dev', '.', '--parent-pid', '4242', ...flags])
+    ).toBe(0)
+
+    stdout.length = 0
+    parentAlive = false
+    vi.advanceTimersByTime(POLL_MS)
+
+    expect(endSessionAsFailed.mock.calls).toEqual([
+      ['E_PARENT_GONE', PARENT_GONE]
+    ])
+
+    expect(terminalFrames()).toHaveLength(frameCount)
+
+    if (frameCount > 0) {
+      expect(terminalFrames()).toMatchObject([
+        {status: 'failed', error: {code: 'E_PARENT_GONE', message: PARENT_GONE}}
+      ])
+    }
+
+    expect(kill).not.toHaveBeenCalled()
+    expect(drainedExits).toEqual([1])
+
     vi.advanceTimersByTime(60_000)
     expect(process.exit).not.toHaveBeenCalled()
   })

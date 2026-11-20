@@ -9,7 +9,10 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
-import {getDevServerHmrImports} from '../../../lib/dev-server-client-import'
+import {
+  getDevServerHmrImports,
+  resolveStockSocketClientPath
+} from '../../../lib/dev-server-client-import'
 import {resolveDevelopDistFile} from '../../../lib/develop-context'
 import type {FilepathList, PluginInterface} from '../../../types'
 import {EXTENSIONJS_SANDBOX_LAYER} from '../../feature-scripts/contracts'
@@ -43,6 +46,21 @@ export class AddScriptsAndStylesToCompilation {
             port: this.port
           })
         : []
+
+    // The dev server provides its stock socket class to the client. Pointing
+    // that file at ours names the page, so a saved page reloads only its tabs.
+    const stockSocketClient =
+      devServerHmrImports.length > 0
+        ? resolveStockSocketClientPath()
+        : undefined
+
+    if (stockSocketClient) {
+      const resolve = (compiler.options.resolve ||= {})
+      resolve.alias = {
+        ...(resolve.alias as Record<string, string | false | string[]>),
+        [`${stockSocketClient}$`]: resolveDevelopDistFile('page-socket-client')
+      }
+    }
 
     for (const field of Object.entries(htmlEntries)) {
       const [feature, resource] = field

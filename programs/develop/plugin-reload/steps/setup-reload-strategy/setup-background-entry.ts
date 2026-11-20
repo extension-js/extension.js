@@ -14,9 +14,7 @@ import {resolveDevelopDistFile} from '../../../lib/develop-context'
 import {isStaticTheme} from '../../../lib/manifest-utils'
 import {parseAuthoredJson} from '../../../lib/parse-json-safe'
 import {filterKeysForThisBrowser} from '../../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
-import {reportToCompilation} from '../../../plugin-web-extension/shared/compilation-issues'
 import type {DevOptions, Manifest} from '../../../types'
-import * as reloadMessages from '../../messages'
 
 export class SetupBackgroundEntry {
   // The entry this step generated for a manifest that declares no
@@ -32,23 +30,6 @@ export class SetupBackgroundEntry {
   }) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
-  }
-
-  private getMissingBackgroundError(bgFile: string) {
-    if (!fs.existsSync(bgFile) && this.manifestPath) {
-      const manifest = parseAuthoredJson(
-        fs.readFileSync(this.manifestPath, 'utf8')
-      )
-      const patched = filterKeysForThisBrowser(manifest, this.browser)
-      const fieldKey =
-        patched.manifest_version === 3
-          ? 'background/service_worker'
-          : 'background/scripts'
-
-      return reloadMessages.backgroundIsRequiredMessageOnly(fieldKey)
-    }
-
-    return undefined
   }
 
   private addDefaultEntry(
@@ -85,22 +66,6 @@ export class SetupBackgroundEntry {
     // script; adding one turns the dist into something that is not a theme.
     if (isStaticTheme(filteredManifest)) return
 
-    function hookError(maybeError: string) {
-      compiler.hooks.thisCompilation.tap(
-        'plugin-reload:setup-background-entry',
-        (compilation) => {
-          reportToCompilation(
-            compilation,
-            compiler,
-            maybeError,
-            'error',
-            undefined,
-            'BackgroundRequired'
-          )
-        }
-      )
-    }
-
     // A declared background page is the background context, and the built
     // manifest keeps naming it, so a default script entry here loads nowhere.
     const hasBackgroundPage = Boolean(manifestBg?.page)
@@ -108,11 +73,7 @@ export class SetupBackgroundEntry {
     if (isGecko) {
       const bgScripts = manifestBg?.scripts
 
-      if (bgScripts && bgScripts.length > 0) {
-        const bgScriptPath = path.join(dirname, bgScripts[0])
-        const maybeError = this.getMissingBackgroundError(bgScriptPath)
-        if (maybeError) hookError(maybeError)
-      } else if (!hasBackgroundPage) {
+      if (!bgScripts?.length && !hasBackgroundPage) {
         this.addDefaultEntry(compiler, 'background/script', minimumBgScript)
         this.generated = {pageEntry: 'background/script'}
       }
@@ -125,12 +86,7 @@ export class SetupBackgroundEntry {
     if (manifestVersion === 2) {
       const bgScripts = manifestBg?.scripts
 
-      if (bgScripts && bgScripts.length > 0) {
-        const bgScriptPath = path.join(dirname, bgScripts[0])
-        const maybeError = this.getMissingBackgroundError(bgScriptPath)
-
-        if (maybeError) hookError(maybeError)
-      } else if (!hasBackgroundPage) {
+      if (!bgScripts?.length && !hasBackgroundPage) {
         this.addDefaultEntry(compiler, 'background/script', minimumBgScript)
         this.generated = {pageEntry: 'background/script'}
       }
@@ -138,11 +94,8 @@ export class SetupBackgroundEntry {
       const serviceWorker = manifestBg?.service_worker
 
       if (serviceWorker) {
+        // A missing file is the scripts feature's report, in every mode.
         const swPath = path.join(dirname, serviceWorker)
-        const maybeError = this.getMissingBackgroundError(swPath)
-
-        if (maybeError) hookError(maybeError)
-
         const existingEntry =
           compiler.options.entry &&
           'background/service_worker' in compiler.options.entry

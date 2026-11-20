@@ -18,18 +18,15 @@ export interface EntrypointLike {
   getEntrypointChunk?(): ChunkLike | null | undefined
 }
 
-const HOT_UPDATE_FILE = /\.hot-update\.m?js$/i
-// Hot update chunks are emitted into `hot/` at the bundle root, and some
-// arrive without the `.hot-update` infix. Anchored, so that a user page under
-// its own `hot/` folder keeps its chunk.
-const HOT_UPDATE_DIR = /^hot\//i
+// A dev session writes hot updates under `hot/` with no `.hot-update` infix,
+// and a compile without its renaming keeps the infix. Anchored, so a user
+// page under its own `hot/` folder keeps its chunk.
+export function isHotUpdateFile(file: string): boolean {
+  return /^hot\//i.test(file) || /\.hot-update\./i.test(file)
+}
 
 export function isJsFile(file: string): boolean {
-  return (
-    /\.m?js$/i.test(file) &&
-    !HOT_UPDATE_FILE.test(file) &&
-    !HOT_UPDATE_DIR.test(file)
-  )
+  return /\.m?js$/i.test(file) && !isHotUpdateFile(file)
 }
 
 // Every JavaScript file the entry must load before it runs: the runtime

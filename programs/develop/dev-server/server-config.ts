@@ -29,12 +29,15 @@ import {
   type EmulatorFileIndexHolder
 } from './emulator-lane'
 
-// Both separators, either letter case and the long-path prefix name one
-// file on Windows, so two spellings of a path compare equal here.
+// Letter case is folded on every platform. A case-insensitive Linux mount
+// (WSL /mnt/c, casefold ext4) would let MANIFEST.JSON replace the manifest.
+// Both separators and the long-path prefix name one file on Windows, so two
+// spellings of a path compare equal here.
 function comparablePath(filePath: string) {
   const forward = filePath.replace(/\\/g, '/').replace(/^\/\/\?\//, '')
+  const normalized = path.posix.normalize(forward)
 
-  return path.posix.normalize(forward).toLowerCase()
+  return normalized.toLowerCase()
 }
 
 // Only manifest.json at the root of the output folder is the extension's own.

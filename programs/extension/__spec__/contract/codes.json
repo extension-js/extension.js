@@ -160,7 +160,9 @@
     },
     "E_BACKGROUND_REQUIRED": {
       "area": "compile",
-      "summary": "The reload runtime needs a background chunk that is absent."
+      "summary": "The reload runtime needs a background chunk that is absent.",
+      "reserved": true,
+      "reason": "A missing background script is reported by the scripts feature as E_ENTRY_NOT_FOUND in every mode, so the reload pipeline raises this code nowhere."
     },
     "E_CONTENT_SCRIPT_SYNTAX": {
       "area": "compile",
@@ -659,6 +661,11 @@
     "W_ENV_DEFINE_WRITTEN": {
       "area": "compile",
       "summary": "Project code writes to a process.env or import.meta.env name the build replaces with its value. The write runs, and reads of that name keep the build value.",
+      "warn": true
+    },
+    "W_ENV_ASSET_NOT_UTF8": {
+      "area": "compile",
+      "summary": "An emitted .json or .html file holds a $EXTENSION_ placeholder but is not UTF-8 text, so it ships byte for byte and the placeholder is left as written.",
       "warn": true
     },
     "W_CDP_NOT_CONNECTED": {

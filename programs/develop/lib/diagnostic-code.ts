@@ -75,7 +75,6 @@ export const NAMED_CODES: Record<string, ErrorCode> = {
   CssWithheldRef: CODES.E_CSS_DEAD_REF,
   CssParseWarning: CODES.E_CSS_PARSE,
   CssMinifierDroppedRules: CODES.E_CSS_PARSE,
-  BackgroundRequired: CODES.E_BACKGROUND_REQUIRED,
   ContentScriptSyntax: CODES.E_CONTENT_SCRIPT_SYNTAX,
   ManifestNotFoundError: CODES.E_MANIFEST_NOT_FOUND,
   ManifestFatalShapeWarning: CODES.W_MANIFEST_INVALID,
@@ -149,6 +148,7 @@ export const NAMED_CODES: Record<string, ErrorCode> = {
   EnvPrivatePlaceholder: CODES.W_BUILD_CONSTANT_UNDEFINED,
   EnvReservedName: CODES.W_ENV_NAME_RESERVED,
   EnvDefinedNameWritten: CODES.W_ENV_DEFINE_WRITTEN,
+  EnvPlaceholderNotUtf8: CODES.W_ENV_ASSET_NOT_UTF8,
   UnknownRegistrationWorld: CODES.W_SCRIPT_WORLD_UNKNOWN
 }
 
