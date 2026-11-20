@@ -34,9 +34,19 @@ import {CODES, debugLine, isDebug} from '../lib/messaging'
 import {toProjectRelativePath} from '../lib/resource-path'
 import {setCurrentManifestContent} from '../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import type {DevOptions, PluginInterface} from '../types'
+import {
+  escapeForHtmlAsset,
+  isInsideJsonString,
+  substituteForJsonAsset
+} from './compilation-lib/asset-sinks'
 import {toJsStringLiteral} from './compilation-lib/js-literal'
 import * as messages from './compilation-lib/messages'
-import {isEnvTemplatedAsset, setEnvAssetTemplater} from './copied-asset-env'
+import {
+  type EnvAssetTemplater,
+  isEnvTemplatedAsset,
+  setEnvAssetTemplater,
+  templateAssetBytes
+} from './copied-asset-env'
 import {processModuleRequest} from './process-module'
 import {WatchEnvFilesPlugin} from './watch-env-files'
 
@@ -53,134 +63,6 @@ export function importMetaUrlForEmitPath(emitPath: string): string {
   const request = emitPath.replace(/\\/g, '/').replace(/^\/+/, '')
 
   return `(function(){try{var g=globalThis;return (g.browser||g.chrome).runtime.getURL(${toJsStringLiteral(request)})}catch(_){return ${IMPORT_META_URL_RUNTIME}}})()`
-}
-
-export function escapeForJsonAsset(value: string): string {
-  return JSON.stringify(value).slice(1, -1)
-}
-
-const HTML_ENTITIES: Record<string, string> = {
-  '&': '&amp;',
-  '<': '&lt;',
-  '>': '&gt;',
-  '"': '&quot;',
-  "'": '&#39;'
-}
-
-function rawTextElementAt(content: string, offset: number) {
-  const before = content.slice(0, offset).toLowerCase()
-
-  for (const tag of ['script', 'style'] as const) {
-    const open = before.lastIndexOf(`<${tag}`)
-    const openEnd = before.indexOf('>', open)
-
-    if (
-      open !== -1 &&
-      open > before.lastIndexOf(`</${tag}`) &&
-      openEnd !== -1
-    ) {
-      return {tag, textStart: openEnd + 1}
-    }
-  }
-
-  return undefined
-}
-
-// Walks code up to the placeholder and reports whether it sits inside a
-// string literal. Comments are skipped so a quote in one does not flip it.
-function insideStringLiteral(
-  text: string,
-  quotes: string,
-  templates: boolean
-): boolean {
-  let quote = ''
-  // Depth of open braces per template expression the scan is inside
-  const expressions: number[] = []
-
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i]
-
-    if (quote) {
-      if (char === '\\') i++
-      else if (quote === '`' && char === '$' && text[i + 1] === '{') {
-        expressions.push(0)
-        quote = ''
-        i++
-      } else if (char === quote) quote = ''
-
-      continue
-    }
-
-    if (char === '/' && text[i + 1] === '/') {
-      const end = text.indexOf('\n', i)
-      if (end === -1) return false
-
-      i = end
-    } else if (char === '/' && text[i + 1] === '*') {
-      const end = text.indexOf('*/', i + 2)
-      if (end === -1) return false
-
-      i = end + 1
-    } else if (quotes.includes(char) || (templates && char === '`')) {
-      quote = char
-    } else if (expressions.length && char === '{') {
-      expressions[expressions.length - 1]++
-    } else if (expressions.length && char === '}') {
-      if (expressions[expressions.length - 1] === 0) {
-        expressions.pop()
-        quote = '`'
-      } else {
-        expressions[expressions.length - 1]--
-      }
-    }
-  }
-
-  return quote !== ''
-}
-
-export function isInsideJsonString(content: string, offset: number): boolean {
-  return insideStringLiteral(content.slice(0, offset), '"', false)
-}
-
-// A quoted placeholder takes a JSON string body. A bare one stands where a
-// JSON value goes, so it is inserted as written and the caller checks it parses.
-export function substituteForJsonAsset(
-  content: string,
-  offset: number,
-  value: string
-): string {
-  return isInsideJsonString(content, offset) ? escapeForJsonAsset(value) : value
-}
-
-// Markup sinks take entities, which decode the same in attributes and text.
-// A <script> never decodes entities: a quoted placeholder takes a JS string
-// body, a bare one is code and only loses the power to close the tag.
-export function escapeForHtmlAsset(
-  content: string,
-  offset: number,
-  value: string
-): string {
-  const element = rawTextElementAt(content, offset)
-
-  if (element?.tag === 'script') {
-    const script = content.slice(element.textStart, offset)
-
-    if (!insideStringLiteral(script, '"\'', true)) {
-      return value.replace(/<\/(script)/gi, '<\\/$1').replace(/<!--/g, '<\\!--')
-    }
-
-    return toJsStringLiteral(value)
-      .slice(1, -1)
-      .replace(/'/g, '\\u0027')
-      .replace(/`/g, '\\u0060')
-      .replace(/\$\{/g, '\\u0024{')
-  }
-
-  if (element?.tag === 'style') {
-    return value
-  }
-
-  return value.replace(/[&<>"']/g, (char) => HTML_ENTITIES[char])
 }
 
 function parsesAsJson(text: string): boolean {
@@ -651,16 +533,16 @@ export class EnvPlugin {
 
         // Steps that copy a .json or .html from disk after this stage run it
         // through the same templater, so every shipped copy is filled alike.
-        setEnvAssetTemplater(compilation, templater.template)
+        setEnvAssetTemplater(compilation, templater)
 
         // After the last late copy, so one warning names every file that
-        // kept a private placeholder, wherever it came from.
+        // kept a placeholder, wherever it came from.
         compilation.hooks.processAssets.tap(
           {
             name: 'env:private-placeholders',
             stage: Compilation.PROCESS_ASSETS_STAGE_REPORT + 1000
           },
-          () => templater.reportUnfilled()
+          () => templater.report()
         )
 
         compilation.hooks.processAssets.tap(
@@ -675,20 +557,21 @@ export class EnvPlugin {
             const files = Object.keys(compilation.assets || assets)
 
             files.forEach((filename) => {
-              if (isEnvTemplatedAsset(filename)) {
-                const fileContent = templater.template(
-                  filename,
-                  String(compilation.assets[filename]?.source() ?? '')
-                )
+              if (!isEnvTemplatedAsset(filename)) return
 
-                compilation.updateAsset(
-                  filename,
-                  new sources.RawSource(fileContent)
-                )
+              const authored = compilation.assets[filename]?.buffer()
+              if (!authored) return
 
-                if (filename === 'manifest.json') {
-                  setCurrentManifestContent(compilation, fileContent)
-                }
+              const filled = templateAssetBytes(templater, filename, authored)
+
+              // The same buffer back means nothing was filled, so the asset
+              // is left as it is and ships the bytes it was authored with.
+              if (filled !== authored) {
+                compilation.updateAsset(filename, new sources.RawSource(filled))
+              }
+
+              if (filename === 'manifest.json') {
+                setCurrentManifestContent(compilation, filled.toString('utf8'))
               }
             })
           }
@@ -703,18 +586,28 @@ type EnvAssetCompilation = {
   warnings: {push: (warning: Error) => unknown}
 }
 
+// The messages of one locale, where the browser reads $NAME$ as its own
+// placeholder and fills it from the message's placeholders object.
+const LOCALE_CATALOG = /^_locales\/[^/]+\/messages\.json$/
+
 // Fills $EXTENSION_* in one .json or .html text. A value is escaped for the
 // sink it lands in, so a quote, a backslash or a < keeps its authored meaning.
 function createEnvAssetTemplater(
   compilation: EnvAssetCompilation,
   templateVars: Record<string, string>,
   privateNames: Set<string>
-) {
+): EnvAssetTemplater & {report: () => void} {
   const unfilled = new Map<string, Set<string>>()
+  const notUtf8 = new Set<string>()
 
   const template = (filename: string, original: string): string => {
     const isJsonAsset = filename.endsWith('.json')
+    const isLocaleCatalog = LOCALE_CATALOG.test(filename.replace(/\\/g, '/'))
     const substituted = new Set<string>()
+
+    // A token closed by a second $ in a locale catalog is the browser's.
+    const belongsToBrowser = (match: string, offset: number) =>
+      isLocaleCatalog && original[offset + match.length] === '$'
 
     const resolveVar = (name: string, offset: number): string => {
       if (!Object.prototype.hasOwnProperty.call(templateVars, name)) {
@@ -740,7 +633,10 @@ function createEnvAssetTemplater(
     const placeholder = /\$EXTENSION_[A-Z0-9_]+/g
     const fileContent = original.replace(
       placeholder,
-      (match: string, offset: number) => resolveVar(match.slice(1), offset)
+      (match: string, offset: number) =>
+        belongsToBrowser(match, offset)
+          ? match
+          : resolveVar(match.slice(1), offset)
     )
 
     // Only the substitution is judged: a file that would not parse with a
@@ -748,7 +644,7 @@ function createEnvAssetTemplater(
     const parsedBefore = () =>
       parsesAsJson(
         original.replace(placeholder, (match: string, offset: number) =>
-          !substituted.has(match.slice(1))
+          !substituted.has(match.slice(1)) || belongsToBrowser(match, offset)
             ? match
             : isInsideJsonString(original, offset)
               ? ''
@@ -773,7 +669,15 @@ function createEnvAssetTemplater(
     return fileContent
   }
 
-  const reportUnfilled = () => {
+  const report = () => {
+    if (notUtf8.size > 0) {
+      const warn = new WebpackError(
+        messages.envPlaceholderNotUtf8([...notUtf8].sort())
+      ) as Error & {name?: string}
+      warn.name = 'EnvPlaceholderNotUtf8'
+      compilation.warnings.push(warn)
+    }
+
     if (unfilled.size === 0) return
 
     const warn = new WebpackError(
@@ -788,7 +692,13 @@ function createEnvAssetTemplater(
     compilation.warnings.push(warn)
   }
 
-  return {template, reportUnfilled}
+  return {
+    template,
+    leaveNotUtf8: (filename) => {
+      notUtf8.add(filename)
+    },
+    report
+  }
 }
 
 // The names a dotted env read is replaced for, NODE_ENV included: the bundler

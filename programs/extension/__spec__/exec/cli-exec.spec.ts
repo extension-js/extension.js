@@ -1,4 +1,4 @@
-import {execFileSync, spawn, spawnSync} from 'node:child_process'
+import {spawn, spawnSync} from 'node:child_process'
 import {
   existsSync,
   mkdirSync,
@@ -19,6 +19,7 @@ import {
   serveExamplesCatalog
 } from '../../../create/__spec__/examples-catalog-fixture'
 import {DEFAULT_TEMPLATE} from '../../helpers/template-catalog'
+import {killCliTree} from '../helpers/run-cli'
 
 type Runner = {
   name: string
@@ -205,25 +206,6 @@ async function runUntilTimeout(
     let timedOut = false
     let resolved = false
 
-    const killWindowsProcessTree = (force: boolean) => {
-      if (process.platform !== 'win32' || !child.pid) return false
-
-      try {
-        execFileSync(
-          'taskkill',
-          ['/pid', String(child.pid), '/t', ...(force ? ['/f'] : [])],
-          {
-            stdio: ['ignore', 'ignore', 'ignore'],
-            windowsHide: true
-          }
-        )
-
-        return true
-      } catch {
-        return false
-      }
-    }
-
     child.stdout?.on('data', (chunk) => {
       stdout += chunk.toString()
     })
@@ -242,45 +224,26 @@ async function runUntilTimeout(
       resolvePromise({status, signal, stdout, stderr, timedOut})
     }
 
-    const useProcessGroupKill = process.platform !== 'win32'
+    // Windows has no polite signal for a console tree, so the first ask
+    // there is already the tree kill.
     const timer = setTimeout(() => {
       timedOut = true
 
+      if (process.platform === 'win32' || !child.pid) {
+        killCliTree(child)
+
+        return
+      }
+
       try {
-        if (useProcessGroupKill && child.pid) {
-          process.kill(-child.pid, 'SIGTERM')
-        } else if (killWindowsProcessTree(false)) {
-          return
-        } else {
-          throw new Error('skip')
-        }
+        process.kill(-child.pid, 'SIGTERM')
       } catch {
-        try {
-          child.kill('SIGTERM')
-        } catch {
-          // Ignore
-        }
+        // Already gone
       }
     }, timeoutMs)
 
     const killTimer = setTimeout(() => {
-      if (resolved) return
-
-      try {
-        if (useProcessGroupKill && child.pid) {
-          process.kill(-child.pid, 'SIGKILL')
-        } else if (killWindowsProcessTree(true)) {
-          return
-        } else {
-          throw new Error('skip')
-        }
-      } catch {
-        try {
-          child.kill('SIGKILL')
-        } catch {
-          // Ignore
-        }
-      }
+      if (!resolved) killCliTree(child)
     }, timeoutMs + 3000)
 
     const forceFinalizeTimer = setTimeout(() => {
@@ -379,15 +342,9 @@ let createTgz = ''
 let developTgz = ''
 const runnerReady = new Map<string, boolean>()
 
-function getPackagesForRunner(runnerName: string) {
-  if (runnerName === 'pnpmDlx') {
-    return [
-      `extension@file:${cliTgz}`,
-      `extension-create@file:${createTgz}`,
-      `extension-develop@file:${developTgz}`
-    ]
-  }
-
+// Every runner takes the tarball paths bare. pnpm 10 dlx reads a
+// `name@file:/abs` spec under its own cache folder and fails with ENOENT.
+function getPackagesForRunner() {
   return [cliTgz, createTgz, developTgz]
 }
 
@@ -474,7 +431,7 @@ beforeAll(
       try {
         const smoke = runCommand(
           runner.command,
-          runner.buildArgs(getPackagesForRunner(runner.name), ['--help']),
+          runner.buildArgs(getPackagesForRunner(), ['--help']),
           {cwd: smokeDir, env: defaultEnv, timeoutMs: PROBE_TIMEOUT_MS}
         )
         const ready = !smoke.error && (smoke.status || 0) === 0
@@ -484,8 +441,14 @@ beforeAll(
           const why = smoke.error
             ? `did not finish within ${PROBE_TIMEOUT_MS} ms`
             : `exited ${smoke.status ?? smoke.signal}`
+          // The runner's own last lines, or a skip on CI never names its cause.
+          const said = String(smoke.stderr || smoke.stdout || '')
+            .trim()
+            .split(/\r?\n/)
+            .slice(-6)
+            .join('\n')
           console.warn(
-            `[cli-exec] ${runner.name} probe ${why}; its cases are skipped`
+            `[cli-exec] ${runner.name} probe ${why}; its cases are skipped\n${said}`
           )
         }
       } finally {
@@ -510,7 +473,7 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
   // resolve the --package specs here so they hold real paths, not empty strings.
   let packages: string[] = []
   beforeAll(() => {
-    packages = getPackagesForRunner(runner.name)
+    packages = getPackagesForRunner()
   })
 
   const isNpmFamilyExec = runner.name === 'npx' || runner.name === 'npmExec'
