@@ -49,6 +49,7 @@ export class PruneRemovedPublicFiles {
     compiler.hooks.done.tap(PruneRemovedPublicFiles.name, (stats) => {
       const compilation = stats.compilation
       const outputPath = compiler.options.output?.path
+      if (!compiler.watchMode) return
       if (!outputPath || compilation.errors.length > 0) return
 
       const emitted = new Set<string>()

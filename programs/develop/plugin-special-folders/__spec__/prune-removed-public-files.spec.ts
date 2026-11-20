@@ -53,6 +53,7 @@ function createCompiler(publicDir: string, outputPath: string) {
   const taps: Array<(stats: unknown) => void> = []
   const compiler = {
     options: {output: {path: outputPath}},
+    watchMode: true,
     hooks: {
       done: {
         tap: (_name: string, fn: (stats: unknown) => void) => taps.push(fn)
