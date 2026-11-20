@@ -11,6 +11,9 @@ import {appendDevAdditions} from '../../lib/dev-additions'
 import {setupNoBrowserBannerOnFirstDone} from '../compiler-hooks'
 import {devAdditionsNote} from '../messages'
 
+type BannerOptions = Parameters<typeof setupNoBrowserBannerOnFirstDone>[0]
+type DoneTap = (stats: {hasErrors: () => boolean; compilation: object}) => void
+
 const plain = (text: string) => text.replace(/\u001b\[[0-9;]*m/g, '')
 
 const additions = [
@@ -94,10 +97,12 @@ describe('the no-browser card', () => {
   })
 
   const firstDone = (compilation: object) => {
-    const compiler: any = {hooks: {done: {tap: vi.fn()}}}
+    const compiler = {
+      hooks: {done: {tap: vi.fn<(name: string, fn: DoneTap) => void>()}}
+    }
 
     setupNoBrowserBannerOnFirstDone({
-      compiler,
+      compiler: compiler as unknown as BannerOptions['compiler'],
       browser: 'chromium',
       manifestPath: '/proj/manifest.json',
       readyPath: '/proj/dist/extension-js/chromium/ready.json',

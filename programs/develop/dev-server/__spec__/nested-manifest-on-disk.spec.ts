@@ -14,6 +14,8 @@ import {
   freeLoopbackPort
 } from './helpers/loopback-dev-server'
 
+type WebpackConfigOptions = Parameters<typeof webpackConfig>[1]
+
 const tempFolder = trackTempFolders()
 const tracked: string[] = []
 
@@ -83,7 +85,7 @@ async function compilerFor(root: string, mode: 'development' | 'production') {
     silent: true,
     include: INCLUDE,
     output: {clean: false, path: distPath}
-  } as any)
+  } as WebpackConfigOptions)
   config.plugins = (config.plugins || []).filter(
     (plugin) =>
       plugin?.constructor.name !== 'plugin-browsers' &&

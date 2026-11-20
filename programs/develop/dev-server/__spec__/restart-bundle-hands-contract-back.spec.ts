@@ -7,7 +7,7 @@ import {buildRestartBundle} from '../session-restart-handler'
 
 const tempFolder = trackTempFolders()
 
-type Tap = (...args: any[]) => unknown
+type Tap = (...args: unknown[]) => unknown
 
 // A compiler as the contract plugin sees it: it applies, then builds finish.
 function compilerOf(root: string) {
