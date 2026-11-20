@@ -143,7 +143,8 @@ describe('what plugin-reload reaches in the other plugins', () => {
       'plugin-web-extension/shared/chunk-loading-target-extensions',
       'plugin-web-extension/shared/content-script-wrapper-extensions',
       'plugin-web-extension/shared/html-page-extensions',
-      'plugin-web-extension/shared/initial-files'
+      'plugin-web-extension/shared/initial-files',
+      'plugin-web-extension/shared/kept-resource-extensions'
     ])
   })
 })

@@ -254,6 +254,12 @@ names one, otherwise any mode but production), so it also runs under
   the control verbs and the logs only. `buildDevProducerSource` is the
   producer a dev background runs.
 
+- `steps/keep-open-tab-stylesheets.ts`
+  A tab opened before a rebuild still names the stylesheet of the build it
+  loaded, and a development output is never cleaned. This step reads the
+  sheets left under `content_scripts/` and hands them to
+  plugin-web-extension through `shared/kept-resource-extensions`, which
+  keeps them web accessible. Applied in every development build.
 - `steps/inject-bridge-producer.ts` / `steps/inject-bridge-relay.ts`
   Control-bridge instrumentation: forward background-SW and content-script
   console output to the dev-server control WS. Not reload in the strict
@@ -342,6 +348,10 @@ consumes that contract. It does not define it, and nothing in
   tabs, registered scripts and script addresses
 - `inject-scripts-replay-shim.spec.ts`, `scripts-replay-shim.runtime.spec.ts`,
   `scripts-replay-shim-namespaces.spec.ts`, the worker replay shim
+- `keep-open-tab-stylesheets.spec.ts`, the leftover sheets read from real
+  folders and what the manifest step is handed
+- `producer-reload-reinject-failure.spec.ts`, the full reload a reinject
+  falls back to when the manifest cannot be read
 - `strip-content-script-dev-server-runtime.spec.ts`,
   `prune-stale-hot-updates.spec.ts`, `prune-unreachable-chunks.spec.ts`,
   emitted-asset steps
