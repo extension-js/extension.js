@@ -56,6 +56,17 @@ export function noProjectName() {
   )
 }
 
+export function projectNameUnusable(projectName: string, problem: string) {
+  return (
+    `${prefix('error')} ${colors.blue(JSON.stringify(projectName))} can't be a package name: ${problem}.\n` +
+    `${colors.red('Use letters, digits and dashes, for example')} ${colors.blue('extension create my-extension')}.`
+  )
+}
+
+export function packageNameDerived(projectName: string, packageName: string) {
+  return `${prefix('info')} package.json names it ${colors.blue(packageName)}, because npm refuses ${colors.blue(JSON.stringify(projectName))} as a package name.`
+}
+
 export function noUrlAllowed() {
   return (
     `${prefix('error')} A URL is not a valid project path.\n` +

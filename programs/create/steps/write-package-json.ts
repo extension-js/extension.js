@@ -88,6 +88,8 @@ export function getTemplateAwareScripts(
 interface OverridePackageJsonOptions {
   template?: string
   cliVersion?: string
+  // The name npm takes, which create derives from the folder name.
+  packageName?: string
   packageManager?: ScaffoldPackageManager
   // How the installed manager is asked its version, cross-spawn unless given.
   probeVersion?: VersionProbe
@@ -164,6 +166,7 @@ export async function overridePackageJson(
   logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
 ): Promise<OverridePackageJsonResult> {
   const {template = 'javascript', cliVersion} = options
+  const packageName = options.packageName ?? path.basename(projectPath)
   const extensionBinary = await resolveExtensionBinary()
 
   // Web-only remote templates may not include package.json, so a missing one
@@ -171,7 +174,7 @@ export async function overridePackageJson(
   const packageJson: Record<string, unknown> = readTemplatePackageJson(
     projectPath
   ) ?? {
-    name: path.basename(projectPath),
+    name: packageName,
     private: true,
     scripts: {},
     dependencies: {},
@@ -254,7 +257,7 @@ export async function overridePackageJson(
 
   const packageMetadata = {
     ...templateFields,
-    name: path.basename(projectPath),
+    name: packageName,
     private: true,
     ...(packageManagerSpec ? {packageManager: packageManagerSpec} : {}),
     scripts: {

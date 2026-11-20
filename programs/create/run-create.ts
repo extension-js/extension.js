@@ -16,6 +16,7 @@ import {
   resolveProjectPackageManager,
   type VersionProbe
 } from './lib/package-manager'
+import {packageNameFor} from './lib/package-name'
 import {isUrlProjectName} from './lib/project-name'
 import * as utils from './lib/utils'
 import type {CreateLogger, CreateOptions, CreateResult} from './module'
@@ -87,6 +88,16 @@ export async function runCreate(
     : path.join(process.cwd(), projectNameInput)
 
   const projectName = path.basename(projectPath)
+  // Refused here, before the directory exists, when no name npm takes can
+  // be read off the folder name without guessing.
+  const packageName = packageNameFor(projectName)
+
+  if ('problem' in packageName) {
+    throw new utils.CreateError(
+      messages.projectNameUnusable(projectName, packageName.problem),
+      CODES.E_ARGS
+    )
+  }
 
   // The card is the session header, printed before the first step line and
   // through the injected logger so programmatic hosts keep capturing it.
@@ -133,6 +144,7 @@ export async function runCreate(
     return await scaffoldProject({
       projectPath,
       projectName,
+      packageName,
       effectiveTemplate,
       templateWasOmitted,
       ownsProjectDir,
@@ -167,6 +179,7 @@ export async function runCreate(
 interface ScaffoldInput {
   projectPath: string
   projectName: string
+  packageName: {name: string; derived: boolean}
   effectiveTemplate: string
   templateWasOmitted: boolean
   ownsProjectDir: boolean
@@ -180,6 +193,7 @@ interface ScaffoldInput {
 async function scaffoldProject({
   projectPath,
   projectName,
+  packageName,
   effectiveTemplate,
   templateWasOmitted,
   ownsProjectDir,
@@ -240,11 +254,16 @@ async function scaffoldProject({
       {
         template: scaffoldedTemplate,
         cliVersion,
+        packageName: packageName.name,
         packageManager,
         probeVersion: seams.probeVersion
       },
       logger
     )
+
+    if (packageName.derived) {
+      logger.log(messages.packageNameDerived(projectName, packageName.name))
+    }
 
     packageManagerSpec = written.packageManagerSpec
 
@@ -322,6 +341,7 @@ async function scaffoldProject({
   return {
     projectPath,
     projectName,
+    packageName: packageName.name,
     // The template the scaffold came from, as the provenance file records it.
     // The header reports the request, this field reports the result.
     template: scaffoldedTemplate,
