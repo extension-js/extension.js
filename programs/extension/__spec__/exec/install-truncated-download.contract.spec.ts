@@ -71,207 +71,204 @@ function runInstall(
   })
 }
 
-// The npx.cmd stand-in has never run on Windows, so this stays off there
-// until one Windows run of these three cases is seen to pass.
-describe.skipIf(process.platform === 'win32')(
-  'install verifies the destination before claiming success',
-  () => {
-    let work = ''
-    let cacheRoot = ''
-    let binDir = ''
+// Windows runs npx.cmd through cross-spawn, which finds the stand-in first on
+// the prepended PATH, and taskkill ends the cmd.exe tree at the timeout.
+describe('install verifies the destination before claiming success', () => {
+  let work = ''
+  let cacheRoot = ''
+  let binDir = ''
 
-    beforeEach(() => {
-      work = makeTempFolder('extjs-install-door-')
-      cacheRoot = path.join(work, 'cache')
-      binDir = path.join(work, 'bin')
-      fs.mkdirSync(binDir, {recursive: true})
+  beforeEach(() => {
+    work = makeTempFolder('extjs-install-door-')
+    cacheRoot = path.join(work, 'cache')
+    binDir = path.join(work, 'bin')
+    fs.mkdirSync(binDir, {recursive: true})
+  })
+
+  it('frames a truncated download as E_BROWSER_DOWNLOAD and removes the tree', async () => {
+    writeFakeNpx(binDir, 'truncated')
+
+    const result = await runInstall(
+      ['install', 'chrome', '--output', 'json'],
+      {EXT_BROWSERS_CACHE_DIR: cacheRoot},
+      binDir
+    )
+
+    expect(result.status).toBe(1)
+    const lines = result.stdout.split('\n').filter((line) => line.trim())
+    expect(lines).toHaveLength(1)
+    const frame = JSON.parse(lines[0]) as Record<string, unknown>
+    expect(frame).toMatchObject({
+      schema: 1,
+      ok: false,
+      command: 'install',
+      status: 'failed'
     })
 
-    it('frames a truncated download as E_BROWSER_DOWNLOAD and removes the tree', async () => {
-      writeFakeNpx(binDir, 'truncated')
+    const error = frame.error as {code: string; message: string}
+    expect(error.code).toBe('E_BROWSER_DOWNLOAD')
+    expect(error.message).toContain(path.join(cacheRoot, 'chrome'))
+    expect(error.message).toMatch(/non-empty executable file/)
+    expect(fs.existsSync(path.join(cacheRoot, 'chrome'))).toBe(false)
+  })
 
-      const result = await runInstall(
-        ['install', 'chrome', '--output', 'json'],
-        {EXT_BROWSERS_CACHE_DIR: cacheRoot},
-        binDir
-      )
+  it('says so in text, with no success line, and exits non-zero', async () => {
+    writeFakeNpx(binDir, 'truncated')
 
-      expect(result.status).toBe(1)
-      const lines = result.stdout.split('\n').filter((line) => line.trim())
-      expect(lines).toHaveLength(1)
-      const frame = JSON.parse(lines[0]) as Record<string, unknown>
-      expect(frame).toMatchObject({
-        schema: 1,
-        ok: false,
-        command: 'install',
-        status: 'failed'
-      })
+    const result = await runInstall(
+      ['install', 'chrome'],
+      {EXT_BROWSERS_CACHE_DIR: cacheRoot},
+      binDir
+    )
 
-      const error = frame.error as {code: string; message: string}
-      expect(error.code).toBe('E_BROWSER_DOWNLOAD')
-      expect(error.message).toContain(path.join(cacheRoot, 'chrome'))
-      expect(error.message).toMatch(/non-empty executable file/)
-      expect(fs.existsSync(path.join(cacheRoot, 'chrome'))).toBe(false)
+    expect(result.status).toBe(1)
+    expect(result.stdout).not.toMatch(/is installed/)
+    expect(result.stderr).toMatch(/^⏵⏵⏵ Error: Couldn't download chrome\./)
+    expect(result.stderr).toContain(path.join(cacheRoot, 'chrome'))
+    expect(result.stderr).toMatch(/Run the install again/)
+    expect(fs.existsSync(path.join(cacheRoot, 'chrome'))).toBe(false)
+  })
+
+  // PATH is the empty bin folder alone, so no package runner can start:
+  // the stand-in is not written and the machine's own npx is out of reach.
+  it('frames a package runner that is not there as its own failure, not a retry', async () => {
+    expect(fs.readdirSync(binDir)).toEqual([])
+
+    const result = await runInstall(
+      ['install', 'chrome', '--output', 'json'],
+      {EXT_BROWSERS_CACHE_DIR: cacheRoot, PATH: binDir},
+      binDir
+    )
+
+    expect(result.status).toBe(1)
+    const lines = result.stdout.split('\n').filter((line) => line.trim())
+    expect(lines).toHaveLength(1)
+    const frame = JSON.parse(lines[0]) as Record<string, unknown>
+    expect(frame).toMatchObject({
+      schema: 1,
+      ok: false,
+      command: 'install',
+      status: 'failed'
     })
 
-    it('says so in text, with no success line, and exits non-zero', async () => {
-      writeFakeNpx(binDir, 'truncated')
+    const error = frame.error as {code: string; message: string}
+    expect(error.code).toBe('E_BROWSER_INSTALLER_NOT_FOUND')
+    expect(error.message).toBe(
+      "Couldn't install Chrome. The package runner npx wasn't found on " +
+        'this machine. Install npm, or run this command through a package ' +
+        'manager that is installed.'
+    )
 
-      const result = await runInstall(
-        ['install', 'chrome'],
-        {EXT_BROWSERS_CACHE_DIR: cacheRoot},
-        binDir
-      )
+    expect(String(frame.hint)).toMatch(/^Install the package runner/)
+    expect(String(frame.hint)).not.toMatch(/retry|manually/i)
+    expect(fs.existsSync(path.join(cacheRoot, 'chrome'))).toBe(false)
+  })
 
-      expect(result.status).toBe(1)
-      expect(result.stdout).not.toMatch(/is installed/)
-      expect(result.stderr).toMatch(/^⏵⏵⏵ Error: Couldn't download chrome\./)
-      expect(result.stderr).toContain(path.join(cacheRoot, 'chrome'))
-      expect(result.stderr).toMatch(/Run the install again/)
-      expect(fs.existsSync(path.join(cacheRoot, 'chrome'))).toBe(false)
-    })
+  it('stops an installer that never ends at EXTENSION_INSTALL_TIMEOUT_MS and frames it as E_BROWSER_INSTALL_TIMEOUT', async () => {
+    writeFakeNpx(binDir, 'hangs')
 
-    // PATH is the empty bin folder alone, so no package runner can start:
-    // the stand-in is not written and the machine's own npx is out of reach.
-    it('frames a package runner that is not there as its own failure, not a retry', async () => {
-      expect(fs.readdirSync(binDir)).toEqual([])
+    const result = await runInstall(
+      ['install', 'chrome', '--output', 'json'],
+      {
+        EXT_BROWSERS_CACHE_DIR: cacheRoot,
+        EXTENSION_INSTALL_TIMEOUT_MS: '3000'
+      },
+      binDir
+    )
 
-      const result = await runInstall(
-        ['install', 'chrome', '--output', 'json'],
-        {EXT_BROWSERS_CACHE_DIR: cacheRoot, PATH: binDir},
-        binDir
-      )
+    expect(result.status).toBe(1)
+    const lines = result.stdout.split('\n').filter((line) => line.trim())
+    expect(lines).toHaveLength(1)
+    const frame = JSON.parse(lines[0]) as Record<string, unknown>
+    const error = frame.error as {code: string; message: string}
 
-      expect(result.status).toBe(1)
-      const lines = result.stdout.split('\n').filter((line) => line.trim())
-      expect(lines).toHaveLength(1)
-      const frame = JSON.parse(lines[0]) as Record<string, unknown>
-      expect(frame).toMatchObject({
-        schema: 1,
-        ok: false,
-        command: 'install',
-        status: 'failed'
-      })
+    expect(error.code).toBe('E_BROWSER_INSTALL_TIMEOUT')
+    // Three seconds, so the stand-in has written its file by the stop.
+    expect(error.message).toBe(
+      "Couldn't install Chrome. The installer didn't finish within 3 seconds " +
+        'and was stopped. The incomplete files were removed. Set ' +
+        'EXTENSION_INSTALL_TIMEOUT_MS to a larger number of milliseconds, ' +
+        'then run the install again.'
+    )
 
-      const error = frame.error as {code: string; message: string}
-      expect(error.code).toBe('E_BROWSER_INSTALLER_NOT_FOUND')
-      expect(error.message).toBe(
-        "Couldn't install Chrome. The package runner npx wasn't found on " +
-          'this machine. Install npm, or run this command through a package ' +
-          'manager that is installed.'
-      )
+    expect(frame.hint).toBe(
+      'Set EXTENSION_INSTALL_TIMEOUT_MS to a larger number of milliseconds, then run the install again.'
+    )
 
-      expect(String(frame.hint)).toMatch(/^Install the package runner/)
-      expect(String(frame.hint)).not.toMatch(/retry|manually/i)
-      expect(fs.existsSync(path.join(cacheRoot, 'chrome'))).toBe(false)
-    })
+    // The broken tree and the lock are both gone, and the root stays.
+    expect(fs.readdirSync(cacheRoot)).toEqual([])
+  })
 
-    it('stops an installer that never ends at EXTENSION_INSTALL_TIMEOUT_MS and frames it as E_BROWSER_INSTALL_TIMEOUT', async () => {
-      writeFakeNpx(binDir, 'hangs')
+  // EXT_BROWSERS_CACHE_DIR pointed at an application folder, where the
+  // chrome folder is a browser profile. Built from nothing, in a temp folder.
+  it('refuses to install over a folder that holds a browser profile, and changes nothing in it', async () => {
+    writeFakeNpx(binDir, 'complete')
+    const profile = path.join(cacheRoot, 'chrome')
+    fs.mkdirSync(path.join(profile, 'Default'), {recursive: true})
+    fs.writeFileSync(path.join(profile, 'Default', 'Preferences'), '{"a":1}')
+    fs.writeFileSync(path.join(profile, 'Local State'), '{"b":2}')
 
-      const result = await runInstall(
-        ['install', 'chrome', '--output', 'json'],
-        {
-          EXT_BROWSERS_CACHE_DIR: cacheRoot,
-          EXTENSION_INSTALL_TIMEOUT_MS: '3000'
-        },
-        binDir
-      )
+    const result = await runInstall(
+      ['install', 'chrome', '--output', 'json'],
+      {EXT_BROWSERS_CACHE_DIR: cacheRoot},
+      binDir
+    )
 
-      expect(result.status).toBe(1)
-      const lines = result.stdout.split('\n').filter((line) => line.trim())
-      expect(lines).toHaveLength(1)
-      const frame = JSON.parse(lines[0]) as Record<string, unknown>
-      const error = frame.error as {code: string; message: string}
+    expect(result.status).toBe(1)
+    const frame = JSON.parse(result.stdout) as Record<string, unknown>
+    const error = frame.error as {code: string; message: string}
 
-      expect(error.code).toBe('E_BROWSER_INSTALL_TIMEOUT')
-      // Three seconds, so the stand-in has written its file by the stop.
-      expect(error.message).toBe(
-        "Couldn't install Chrome. The installer didn't finish within 3 seconds " +
-          'and was stopped. The incomplete files were removed. Set ' +
-          'EXTENSION_INSTALL_TIMEOUT_MS to a larger number of milliseconds, ' +
-          'then run the install again.'
-      )
-
-      expect(frame.hint).toBe(
-        'Set EXTENSION_INSTALL_TIMEOUT_MS to a larger number of milliseconds, then run the install again.'
-      )
-
-      // The broken tree and the lock are both gone, and the root stays.
-      expect(fs.readdirSync(cacheRoot)).toEqual([])
-    })
-
-    // EXT_BROWSERS_CACHE_DIR pointed at an application folder, where the
-    // chrome folder is a browser profile. Built from nothing, in a temp folder.
-    it('refuses to install over a folder that holds a browser profile, and changes nothing in it', async () => {
-      writeFakeNpx(binDir, 'complete')
-      const profile = path.join(cacheRoot, 'chrome')
-      fs.mkdirSync(path.join(profile, 'Default'), {recursive: true})
-      fs.writeFileSync(path.join(profile, 'Default', 'Preferences'), '{"a":1}')
-      fs.writeFileSync(path.join(profile, 'Local State'), '{"b":2}')
-
-      const result = await runInstall(
-        ['install', 'chrome', '--output', 'json'],
-        {EXT_BROWSERS_CACHE_DIR: cacheRoot},
-        binDir
-      )
-
-      expect(result.status).toBe(1)
-      const frame = JSON.parse(result.stdout) as Record<string, unknown>
-      const error = frame.error as {code: string; message: string}
-
-      expect(error.code).toBe('E_BROWSER_FOLDER_FOREIGN')
-      expect(error.message).toBe(
-        `Couldn't install Chrome. The folder ${profile} holds files ` +
-          "Extension.js didn't put there, so nothing in it was changed. " +
-          'Set EXT_BROWSERS_CACHE_DIR to a folder that only Extension.js uses.'
-      )
-
-      expect(frame.hint).toBe(
+    expect(error.code).toBe('E_BROWSER_FOLDER_FOREIGN')
+    expect(error.message).toBe(
+      `Couldn't install Chrome. The folder ${profile} holds files ` +
+        "Extension.js didn't put there, so nothing in it was changed. " +
         'Set EXT_BROWSERS_CACHE_DIR to a folder that only Extension.js uses.'
-      )
+    )
 
-      expect(fs.readdirSync(cacheRoot)).toEqual(['chrome'])
-      expect(fs.readdirSync(profile).sort()).toEqual(['Default', 'Local State'])
-      expect(
-        fs.readFileSync(path.join(profile, 'Default', 'Preferences'), 'utf8')
-      ).toBe('{"a":1}')
+    expect(frame.hint).toBe(
+      'Set EXT_BROWSERS_CACHE_DIR to a folder that only Extension.js uses.'
+    )
 
-      expect(fs.readFileSync(path.join(profile, 'Local State'), 'utf8')).toBe(
-        '{"b":2}'
-      )
+    expect(fs.readdirSync(cacheRoot)).toEqual(['chrome'])
+    expect(fs.readdirSync(profile).sort()).toEqual(['Default', 'Local State'])
+    expect(
+      fs.readFileSync(path.join(profile, 'Default', 'Preferences'), 'utf8')
+    ).toBe('{"a":1}')
+
+    expect(fs.readFileSync(path.join(profile, 'Local State'), 'utf8')).toBe(
+      '{"b":2}'
+    )
+  })
+
+  it('still reports a finished download as installed', async () => {
+    writeFakeNpx(binDir, 'complete')
+
+    const result = await runInstall(
+      ['install', 'chrome', '--output', 'json'],
+      {EXT_BROWSERS_CACHE_DIR: cacheRoot},
+      binDir
+    )
+
+    expect(result.status).toBe(0)
+    const frame = JSON.parse(result.stdout) as Record<string, unknown>
+    expect(frame).toMatchObject({
+      ok: true,
+      command: 'install',
+      status: 'installed',
+      value: {browsers: ['chrome']}
     })
 
-    it('still reports a finished download as installed', async () => {
-      writeFakeNpx(binDir, 'complete')
-
-      const result = await runInstall(
-        ['install', 'chrome', '--output', 'json'],
-        {EXT_BROWSERS_CACHE_DIR: cacheRoot},
-        binDir
-      )
-
-      expect(result.status).toBe(0)
-      const frame = JSON.parse(result.stdout) as Record<string, unknown>
-      expect(frame).toMatchObject({
-        ok: true,
-        command: 'install',
-        status: 'installed',
-        value: {browsers: ['chrome']}
-      })
-
-      expect(
-        fs.existsSync(
-          path.join(
-            cacheRoot,
-            'chrome',
-            'chrome',
-            'linux-152.0.9999.1',
-            'chrome-linux64',
-            CHROME
-          )
+    expect(
+      fs.existsSync(
+        path.join(
+          cacheRoot,
+          'chrome',
+          'chrome',
+          'linux-152.0.9999.1',
+          'chrome-linux64',
+          CHROME
         )
-      ).toBe(true)
-    })
-  }
-)
+      )
+    ).toBe(true)
+  })
+})
