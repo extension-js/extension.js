@@ -129,6 +129,45 @@ describe('dev-server-client-import', () => {
     }
   })
 
+  // Two sessions in one host: the environment holds what the newest wrote.
+  it('dials the socket of its own session, whatever another one left in the environment', () => {
+    const names = ['PROTOCOL', 'HOST', 'CONNECTABLE_HOST', 'PORT', 'PATH']
+    const kept = names.map(
+      (name) => process.env[`EXTENSION_DEV_SERVER_${name}`]
+    )
+
+    process.env.EXTENSION_DEV_SERVER_PROTOCOL = 'wss'
+    process.env.EXTENSION_DEV_SERVER_HOST = '0.0.0.0'
+    process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST = 'other.example.com'
+    process.env.EXTENSION_DEV_SERVER_PORT = '9191'
+    process.env.EXTENSION_DEV_SERVER_PATH = '/ws/other-session'
+
+    try {
+      const [clientEntry] = getDevServerHmrImports({options: {}} as any, {
+        protocol: 'ws',
+        host: '127.0.0.1',
+        connectableHost: '127.0.0.1',
+        port: 8080,
+        path: '/ws/this-session'
+      })
+      const query = new URLSearchParams(clientEntry.split('?')[1])
+
+      expect(Object.fromEntries(query)).toMatchObject({
+        protocol: 'ws',
+        hostname: '127.0.0.1',
+        port: '8080',
+        pathname: '/ws/this-session'
+      })
+    } finally {
+      names.forEach((name, index) => {
+        const key = `EXTENSION_DEV_SERVER_${name}`
+
+        if (kept[index] === undefined) delete process.env[key]
+        else process.env[key] = kept[index]
+      })
+    }
+  })
+
   it('prefers the resolved connectable host env over the bind host', () => {
     const prev = process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST
     process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST = 'devbox.example.com'
