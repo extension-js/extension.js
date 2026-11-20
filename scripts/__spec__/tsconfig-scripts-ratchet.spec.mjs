@@ -39,12 +39,27 @@ test('tsconfig.scripts.json excludes no script', () => {
   assert.deepEqual(config.exclude, ['node_modules'])
 })
 
+// The shared helpers refuse implicit any too. Only the ESLint rules file is
+// left out, and nothing joins it.
+test('tsconfig.scripts-lib.json refuses implicit any in the shared helpers', () => {
+  const config = readTsconfig('tsconfig.scripts-lib.json')
+
+  assert.equal(config.extends, './tsconfig.scripts.json')
+  assert.equal(config.compilerOptions.noImplicitAny, true)
+  assert.ok(config.include.includes('./scripts/lib/**/*.mjs'))
+  assert.deepEqual(config.exclude, [
+    'node_modules',
+    './scripts/lib/eslint-style-rules.mjs'
+  ])
+})
+
 test('the typecheck script runs the scripts project', () => {
   const scripts = JSON.parse(
     fs.readFileSync(path.join(root, 'package.json'), 'utf8')
   ).scripts
 
   assert.match(scripts.typecheck, /tsc --noEmit -p tsconfig\.scripts\.json/)
+  assert.match(scripts.typecheck, /tsc --noEmit -p tsconfig\.scripts-lib\.json/)
 })
 
 // Explicit any is an error everywhere except the spec folders that still hold

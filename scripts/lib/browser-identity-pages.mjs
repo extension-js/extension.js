@@ -6,6 +6,7 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+/** @param {any} ready the session contract */
 export function ownExtensionIds(ready) {
   const ids = new Set()
   if (typeof ready?.extensionId === 'string') ids.add(ready.extensionId)
@@ -35,6 +36,10 @@ export const ENGINE_BLANK_PAGES = [
   /^moz-extension:\/\//
 ]
 
+/**
+ * @param {unknown} url
+ * @param {Set<string>} ownIds
+ */
 export function isOwnPage(url, ownIds) {
   const text = String(url || '')
   const extension = /^chrome-extension:\/\/([a-p]{32})\//.exec(text)
@@ -43,6 +48,10 @@ export function isOwnPage(url, ownIds) {
   return /^moz-extension:\/\//.test(text)
 }
 
+/**
+ * @param {unknown} url
+ * @param {Set<string>} ownIds
+ */
 export function isOwnOrBlankPage(url, ownIds) {
   const text = String(url || '')
   if (!text) return true
@@ -55,6 +64,7 @@ export function isOwnOrBlankPage(url, ownIds) {
 
 // A Chromium session whose contract never got its port still debugs on the
 // one in its argv, so the page listing has a second place to read it from.
+/** @param {unknown} argvText */
 export function debugPortFromArgv(argvText) {
   const match = /(?:^|\s)--remote-debugging-port=(\d+)(?=\s|$)/.exec(
     String(argvText || '')
