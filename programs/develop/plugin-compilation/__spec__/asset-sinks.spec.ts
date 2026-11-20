@@ -512,6 +512,72 @@ describe('a value that joins the authored text beside it', () => {
     }
   })
 
+  // An authored backslash outside a quote has to escape a character, so it
+  // escapes the first one of the value and the value reads as it was given.
+  const AFTER_BACKSLASH = ['d', '/', '.', 'n', '\\', '</script>', '\u{1f600}x']
+
+  it.each(
+    AFTER_BACKSLASH
+  )('reads %j as given after an authored backslash in a regex', (value) => {
+    const code =
+      'out.v = /^a\\$EXTENSION_PUBLIC_V$/.test(out.text); ' +
+      'out.u = /^a\\$EXTENSION_PUBLIC_V$/u.test(out.text);'
+    const scope = runInlineScript(fill(script(code), value), {
+      text: `a${value}`
+    })
+
+    expect(scope).toEqual({text: `a${value}`, v: true, u: true})
+  })
+
+  it.each(
+    AFTER_BACKSLASH
+  )('reads %j as given after an authored backslash in a handler', (value) => {
+    for (const quote of ["'", '`']) {
+      const page = parse(
+        fill(
+          `<button id="handler" onclick="out.v=${quote}a\\$EXTENSION_PUBLIC_V${quote}"></button>`,
+          value
+        )
+      )
+      const scope: Record<string, unknown> = {}
+
+      new Function('out', page.attribute('handler', 'onclick') || '')(scope)
+
+      expect([quote, scope]).toEqual([quote, {v: `a${value}`}])
+    }
+  })
+
+  // No character follows, so the backslash can only stand for itself. The
+  // statement after it still runs, which is what the value must not change.
+  it('reads an empty value after an authored backslash as the backslash', () => {
+    const scope = runInlineScript(
+      fill(
+        script('out.v = /^a\\$EXTENSION_PUBLIC_V$/.test(out.text); out.w = 1;'),
+        ''
+      ),
+      {text: 'a\\'}
+    )
+
+    expect(scope).toEqual({text: 'a\\', v: true, w: 1})
+  })
+
+  // The value adds no character here, so the page reads as it was authored.
+  it.each([
+    ['out.v = /<\\/scr$EXTENSION_PUBLIC_Vipt/.test("</script");'],
+    ['out.v = /<\\/scr$EXTENSION_PUBLIC_Vipt/.test("</script"); return;']
+  ])('adds nothing to %s with an empty value', (code) => {
+    const html = script(code)
+
+    expect(fill(html, '')).toBe(html.replace('$EXTENSION_PUBLIC_V', ''))
+  })
+
+  it('adds nothing to markup text with an empty value', () => {
+    const html = '<p id="text">a <$EXTENSION_PUBLIC_Vb>bold</b></p>'
+
+    expect(fill(html, '')).toBe(html.replace('$EXTENSION_PUBLIC_V', ''))
+    expect(parse(fill(html, 'x')).text('text')).toBe('a <xb>bold')
+  })
+
   it('cannot end a JSON script or a data block', () => {
     const json = parse(
       fill(
@@ -581,5 +647,22 @@ describe('a value that joins the authored text beside it', () => {
 
       expect([value, found['.b color']]).toEqual([value, 'red'])
     }
+  })
+
+  it.each([
+    'a',
+    ')',
+    ' ',
+    '\\',
+    '"',
+    '\u{1f600}x'
+  ])('reads %j as given after an authored backslash in url()', (value) => {
+    const found = declarations(
+      parse(
+        fill(sheet('.u{background:url(a\\$EXTENSION_PUBLIC_V)}'), value)
+      ).text('sheet')
+    )
+
+    expect(unescapeCss(found['.u background'].slice(4, -1))).toBe(`a${value}`)
   })
 })
