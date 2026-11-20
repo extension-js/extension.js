@@ -12,15 +12,15 @@ import * as path from 'node:path'
 import {resolveDevelopDistFile} from '../../lib/develop-context'
 import {debugLine, isDebug, prefix} from '../../lib/messaging'
 import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-resolver'
+import {hasProjectDependency} from '../../lib/project-manifest'
 import {NOT_RAW_RESOURCE_QUERY} from '../../lib/resource-query'
 import {createNodeModulesExclude} from '../../lib/transpile-packages'
 import type {JsFramework} from '../../types'
-import {hasDependency} from '../frameworks-lib/integrations'
 import * as messages from '../js-frameworks-lib/messages'
 import type {Notice, SessionNotices} from '../js-frameworks-lib/session-notices'
 
 export function isUsingSolid(projectPath: string, notice?: Notice) {
-  const using = hasDependency(projectPath, 'solid-js')
+  const using = hasProjectDependency(projectPath, 'solid-js')
 
   if (using && notice && !notice.delivered) {
     if (isDebug()) {

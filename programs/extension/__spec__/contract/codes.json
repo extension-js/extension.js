@@ -472,6 +472,10 @@
       "area": "project",
       "summary": "A .env file the build has to read for its browser and mode is a folder or cannot be read."
     },
+    "E_INLINE_SCRIPT_SYNTAX": {
+      "area": "compile",
+      "summary": "An inline script of an HTML file no longer parses once an unquoted placeholder is filled with its env value."
+    },
     "W_MANAGED_DEP_CONFLICT": {
       "area": "project",
       "summary": "The project declares a package the toolchain manages.",

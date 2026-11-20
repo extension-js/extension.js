@@ -7,9 +7,9 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {resolveDevelopInstallRoot} from '../../lib/develop-context'
-import {hasDependency} from '../../lib/has-dependency'
+import {hasProjectDependency} from '../../lib/project-manifest'
 
-export {hasDependency, resolveDevelopInstallRoot}
+export {resolveDevelopInstallRoot}
 
 export function isUsingJSFramework(projectPath: string): boolean {
   const frameworks = [
@@ -21,5 +21,5 @@ export function isUsingJSFramework(projectPath: string): boolean {
     'preact'
   ]
 
-  return frameworks.some((fw) => hasDependency(projectPath, fw))
+  return frameworks.some((fw) => hasProjectDependency(projectPath, fw))
 }

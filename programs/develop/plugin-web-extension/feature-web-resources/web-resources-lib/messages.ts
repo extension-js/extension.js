@@ -139,6 +139,20 @@ export function warPatternLeavesRoot(pattern: string) {
   return lines.join('\n')
 }
 
+export function warSheetTargetsNotShipped(sheet: string, targets: string[]) {
+  const many = targets.length !== 1
+
+  return [
+    `${colors.yellow(sheet)} is listed in ${colors.blue('web_accessible_resources')} and names ` +
+      `${many ? `${targets.length} files` : 'a file'} with ${colors.blue('url()')} that the build does not ship.`,
+    ...targets.map(
+      (target) => `${colors.gray('NOT SHIPPED')} ${colors.underline(target)}`
+    ),
+    `A listed stylesheet is copied as written, so the browser answers ${many ? 'each of these' : 'it'} with a 404.`,
+    `List ${many ? 'them' : 'it'} in ${colors.blue('web_accessible_resources')} beside the stylesheet, or remove the ${many ? 'references' : 'reference'}.`
+  ].join('\n')
+}
+
 export function warUnreachableResource(resource: string, entryName: string) {
   const lines: string[] = []
   lines.push(

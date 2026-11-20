@@ -6,15 +6,15 @@
 //  ╚═════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {hasDependency} from '../../lib/has-dependency'
 import {debugLine, isDebug, prefix} from '../../lib/messaging'
 import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-resolver'
+import {hasProjectDependency} from '../../lib/project-manifest'
 import * as messages from '../css-lib/messages'
 
 let userMessageDelivered = false
 
 export function isUsingLess(projectPath: string): boolean {
-  if (hasDependency(projectPath, 'less')) {
+  if (hasProjectDependency(projectPath, 'less')) {
     if (!userMessageDelivered) {
       if (isDebug()) {
         debugLine(`${prefix('debug')} ${messages.isUsingIntegration('LESS')}`)

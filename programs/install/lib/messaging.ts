@@ -507,6 +507,7 @@ export const CODES = {
   E_PROJECT_LAYOUT: 'E_PROJECT_LAYOUT',
   E_ASSET_IMPORT_SHAPE: 'E_ASSET_IMPORT_SHAPE',
   E_ENV_FILE_UNREADABLE: 'E_ENV_FILE_UNREADABLE',
+  E_INLINE_SCRIPT_SYNTAX: 'E_INLINE_SCRIPT_SYNTAX',
   // A W_ code is a warning: the run carried on past it. These shipped under
   // an E_ name before the prefix existed, all but W_MODULE_NOT_FOUND.
   W_MANAGED_DEP_CONFLICT: 'W_MANAGED_DEP_CONFLICT',

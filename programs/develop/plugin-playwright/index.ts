@@ -32,7 +32,10 @@ import {humanWarn} from '../lib/messaging'
 import {parseJsonSafe} from '../lib/parse-json-safe'
 import {type AbsolutePath, asAbsolute} from '../lib/paths'
 import {ownProcessStartedAt, ownProcessStartId} from '../lib/process-started-at'
-import {renameSyncWithRetry} from '../lib/rename-with-retry'
+import {
+  type RenameRetryOptions,
+  renameSyncWithRetry
+} from '../lib/rename-with-retry'
 import {
   browserArtifactsDir,
   type OwedDebuggerPorts,
@@ -225,6 +228,8 @@ type WriterOptions = {
   // A Chromium dev session with a launch ahead: ready waits for the launcher
   // to stamp the browser and its CDP port, or to say the launch is over.
   readyAwaitsCdpPort?: boolean
+  // How a rename onto a file a Windows reader holds is retried.
+  renameRetry?: RenameRetryOptions
 }
 
 type PluginOptions = {
@@ -292,7 +297,10 @@ function rotatedEventsName(eventsPath: string, generation: number): string {
   return eventsPath.replace(/\.ndjson$/, `.${generation}.ndjson`)
 }
 
-function rotateEventsFile(eventsPath: string) {
+function rotateEventsFile(
+  eventsPath: string,
+  renameRetry?: RenameRetryOptions
+) {
   try {
     const oldest = rotatedEventsName(eventsPath, EVENTS_GENERATIONS)
     if (fs.existsSync(oldest)) fs.rmSync(oldest, {force: true})
@@ -301,12 +309,20 @@ function rotateEventsFile(eventsPath: string) {
       const from = rotatedEventsName(eventsPath, n)
 
       if (fs.existsSync(from)) {
-        renameSyncWithRetry(from, rotatedEventsName(eventsPath, n + 1))
+        renameSyncWithRetry(
+          from,
+          rotatedEventsName(eventsPath, n + 1),
+          renameRetry
+        )
       }
     }
 
     if (fs.existsSync(eventsPath)) {
-      renameSyncWithRetry(eventsPath, rotatedEventsName(eventsPath, 1))
+      renameSyncWithRetry(
+        eventsPath,
+        rotatedEventsName(eventsPath, 1),
+        renameRetry
+      )
     }
   } catch {
     // Ignore
@@ -646,12 +662,16 @@ function readJsonRecord(filePath: string): Record<string, unknown> | undefined {
 }
 
 // Answers the error a failed write threw, or undefined once it is in place.
-function writeJsonAtomic(filePath: string, value: unknown): Error | undefined {
+function writeJsonAtomic(
+  filePath: string,
+  value: unknown,
+  renameRetry?: RenameRetryOptions
+): Error | undefined {
   const tmpPath = `${filePath}.tmp-${process.pid}`
 
   try {
     fs.writeFileSync(tmpPath, `${JSON.stringify(value, null, 2)}\n`, 'utf-8')
-    renameSyncWithRetry(tmpPath, filePath)
+    renameSyncWithRetry(tmpPath, filePath, renameRetry)
 
     return undefined
   } catch (error) {
@@ -684,8 +704,12 @@ function noteContractWrite(filePath: string, error: Error | undefined) {
   humanWarn(messages.sessionContractUnwritable(filePath, String(reason)))
 }
 
-function writeContractFile(filePath: string, value: unknown) {
-  noteContractWrite(filePath, writeJsonAtomic(filePath, value))
+function writeContractFile(
+  filePath: string,
+  value: unknown,
+  renameRetry?: RenameRetryOptions
+) {
+  noteContractWrite(filePath, writeJsonAtomic(filePath, value, renameRetry))
 }
 
 export function safariExtensionBase(origin: unknown): string | null {
@@ -833,7 +857,8 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     writerEpochByMetadataDir.get(metadataDir) !== openedEpoch
 
   const readContract = () => readJsonRecord(readyPath)
-  const writeContract = (value: unknown) => writeContractFile(readyPath, value)
+  const writeContract = (value: unknown) =>
+    writeContractFile(readyPath, value, options.renameRetry)
 
   const base = {
     schemaVersion: 2 as const,
@@ -1158,7 +1183,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     }
 
     if (eventsBytes >= MAX_EVENTS_BYTES || eventsLines >= MAX_EVENTS_LINES) {
-      rotateEventsFile(eventsPath)
+      rotateEventsFile(eventsPath, options.renameRetry)
       eventsBytes = 0
       eventsLines = 0
     }

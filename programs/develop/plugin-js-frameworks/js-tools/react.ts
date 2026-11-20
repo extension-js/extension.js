@@ -17,7 +17,6 @@ import {
   resolveOptionalContractPackageWithoutInstall
 } from '../../lib/optional-deps-resolver'
 import type {JsFramework} from '../../types'
-import {hasDependency} from '../frameworks-lib/integrations'
 import * as messages from '../js-frameworks-lib/messages'
 import type {Notice, SessionNotices} from '../js-frameworks-lib/session-notices'
 

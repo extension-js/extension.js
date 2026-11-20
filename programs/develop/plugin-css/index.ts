@@ -18,12 +18,13 @@ import {
 import {isGeckoBasedBrowser} from '../lib/constants'
 import {resolveDevelopDistFile} from '../lib/develop-context'
 import {extensionSchemeFor} from '../lib/extension-base-from-stack'
-import {hasDependency} from '../lib/has-dependency'
 import {filterKeysForThisBrowser} from '../lib/manifest-utils'
 import {debugLine, isDebug} from '../lib/messaging'
 import {parseAuthoredJson} from '../lib/parse-json-safe'
+import {hasProjectDependency} from '../lib/project-manifest'
 import {toResourceKey} from '../lib/resource-path'
 import {NOT_RAW_RESOURCE_QUERY} from '../lib/resource-query'
+import {setupInOrder} from '../lib/setup-in-order'
 import {
   noteWithheldCssRef,
   WITHHELD_CSS_REF,
@@ -100,8 +101,8 @@ export class CssPlugin {
     const projectPath = (compiler.options.context as string) || process.cwd()
 
     const manifestPath = this.manifestPath
-    const usingSass = hasDependency(projectPath, 'sass')
-    const usingLess = hasDependency(projectPath, 'less')
+    const usingSass = hasProjectDependency(projectPath, 'sass')
+    const usingLess = hasProjectDependency(projectPath, 'less')
 
     beginStyleDiagnostics(projectPath, String(mode))
 
@@ -236,9 +237,9 @@ export class CssPlugin {
 
     if (isDebug()) {
       const integrations: string[] = []
-      const usingTailwind = hasDependency(projectPath, 'tailwindcss')
+      const usingTailwind = hasProjectDependency(projectPath, 'tailwindcss')
       const usingPostcss =
-        hasDependency(projectPath, 'postcss') ||
+        hasProjectDependency(projectPath, 'postcss') ||
         findPostCssConfig(projectPath) !== undefined ||
         usingSass ||
         usingLess ||
@@ -613,7 +614,9 @@ export class CssPlugin {
 
     // dev/watch: configure eagerly and gate the first compilation on it.
     // watchRun covers the dev server and beforeRun a one-shot development build.
-    const configuring = this.configureOptions(compiler)
+    const configuring = setupInOrder(compiler, () =>
+      this.configureOptions(compiler)
+    )
     compiler.hooks.beforeRun.tapPromise(CssPlugin.name, () => configuring)
     compiler.hooks.watchRun.tapPromise(CssPlugin.name, () => configuring)
     this.rereadPostCssSetupOnChange(compiler, configuring)

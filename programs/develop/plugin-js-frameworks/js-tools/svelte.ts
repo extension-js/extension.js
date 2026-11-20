@@ -21,7 +21,6 @@ import {
 } from '../../lib/messaging'
 import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-resolver'
 import type {DevOptions, JsFramework} from '../../types'
-import {hasDependency} from '../frameworks-lib/integrations'
 import {
   loadLoaderOptions,
   mergeLoaderOptions
@@ -353,9 +352,11 @@ export async function maybeUseSvelte(
           ? {byDependency: withSvelteConditionByDependency(byDependency)}
           : {}),
         extensions: dedupe(['.svelte', ...existingExtensions]),
+        // After the walk up from the importer, so a package keeps the copy
+        // of a dependency installed inside it.
         modules: dedupe([
-          path.join(projectPath, 'node_modules'),
-          ...existingModules
+          ...(existingModules.length > 0 ? existingModules : ['node_modules']),
+          path.join(projectPath, 'node_modules')
         ])
       }
     }

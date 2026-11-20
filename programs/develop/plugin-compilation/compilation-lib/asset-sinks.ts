@@ -730,6 +730,50 @@ function escapeForText(
   )
 }
 
+function parsesAsScript(script: string, module: boolean): boolean {
+  try {
+    acorn.parse(script, {
+      ecmaVersion: 'latest',
+      sourceType: module ? 'module' : 'script',
+      allowHashBang: true
+    })
+
+    return true
+  } catch {
+    return false
+  }
+}
+
+// A placeholder that stands as code takes the value as written. True when
+// the script it sits in parsed as authored and no longer does once filled.
+export function valueBreaksInlineScript(
+  content: string,
+  offset: number,
+  value: string
+): boolean {
+  const sink = htmlSinkAt(content, offset)
+  if (sink.kind !== 'script') return false
+
+  const language = scriptLanguage(sink.type)
+  if (language !== 'script' && language !== 'module') return false
+
+  const script = content.slice(sink.textStart, sink.textEnd)
+  const at = offset - sink.textStart
+  const module = language === 'module'
+
+  if (jsSinkAt(script, at, module) !== 'code') return false
+
+  PLACEHOLDER_AT.lastIndex = offset
+  const length = PLACEHOLDER_AT.exec(content)?.[0].length ?? 0
+
+  return !parsesAsScript(
+    script.slice(0, at) +
+      escapeForScript(content, offset, sink, value) +
+      script.slice(at + length),
+    module
+  )
+}
+
 // Every sink gets the escape that keeps the value's authored meaning there.
 // Markup takes entities, a script or style takes the escape of its own token.
 export function escapeForHtmlAsset(
