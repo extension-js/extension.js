@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import * as vm from 'node:vm'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // A file under public/ ships as authored. A script `include` declares is
 // minified in production, in a way that keeps the value the file ends on.
@@ -89,15 +90,11 @@ async function build(
   options: Record<string, unknown> = {}
 ) {
   const root = project()
-  const {extensionBuild} = await import('../command-build')
-
-  const summary = await extensionBuild(root, {
+  const summary = await buildProject(root, {
     browser,
-    silent: true,
-    install: false,
     mode: 'production',
     ...options
-  } as any)
+  })
   expect(summary.errors_count).toBe(0)
 
   const distDir = path.join(root, 'dist', browser)

@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import * as vm from 'node:vm'
 import * as acorn from 'acorn'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // A root-absolute ref in HTML or CSS (Chrome resolves a leading '/' from the
 // extension root) used to be read from disk and emitted verbatim, with its
@@ -107,17 +108,11 @@ function writeFixture() {
 }
 
 async function buildFixture(mode: 'production' | 'development') {
-  const {extensionBuild} = await import('../command-build')
   const previousAuthorMode = process.env.EXTENSION_AUTHOR_MODE
   Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
 
   try {
-    return await extensionBuild(ROOT, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      mode
-    } as any)
+    return await buildProject(ROOT, {mode})
   } finally {
     if (previousAuthorMode === undefined) {
       Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')

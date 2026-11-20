@@ -1,10 +1,15 @@
 import assert from 'node:assert/strict'
 import {spawnSync} from 'node:child_process'
 import fs from 'node:fs'
+import {createRequire} from 'node:module'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import {fileURLToPath} from 'node:url'
+import {
+  droppedVitestFilters,
+  droppedVitestFiltersMessage
+} from '../lib/vitest-filter-args.mjs'
 import {vitestArgs, vitestEnv} from '../run-vitest.mjs'
 
 const root = path.resolve(
@@ -47,6 +52,92 @@ test('drops the separator pnpm forwards and keeps the file filter', () => {
 
   assert.deepEqual(vitestArgs([]), ['run'])
 })
+
+test('keeps a file filter written right after the update flag', () => {
+  assert.deepEqual(vitestArgs(['-u', 'a.spec.ts']), ['run', 'a.spec.ts', '-u'])
+  assert.deepEqual(vitestArgs(['--update', 'a.spec.ts', '-t', 'x']), [
+    'run',
+    'a.spec.ts',
+    '-t',
+    'x',
+    '--update'
+  ])
+
+  assert.deepEqual(vitestArgs(['--', '-u', 'a.spec.ts']), [
+    'run',
+    'a.spec.ts',
+    '-u'
+  ])
+})
+
+test('leaves the update flag where vitest already reads it right', () => {
+  for (const argv of [
+    ['a.spec.ts', '-u'],
+    ['-u', 'new', 'a.spec.ts'],
+    ['-u', '--bail', '1', 'a.spec.ts'],
+    ['-u=all', 'a.spec.ts'],
+    ['-u']
+  ]) {
+    assert.deepEqual(vitestArgs(argv), ['run', ...argv])
+    assert.deepEqual(droppedVitestFilters(argv), [])
+    assert.equal(droppedVitestFiltersMessage(argv), undefined)
+  }
+})
+
+test('names every filter vitest would drop and the call that keeps them', () => {
+  assert.deepEqual(droppedVitestFilters(['run', '-u', 'a.spec.ts']), [
+    'a.spec.ts'
+  ])
+
+  assert.deepEqual(
+    droppedVitestFilters(['run', '-u', 'a.spec.ts', '--', 'b.spec.ts']),
+    ['a.spec.ts', 'b.spec.ts']
+  )
+
+  assert.equal(
+    droppedVitestFiltersMessage(['run', '-u', 'a.spec.ts']),
+    'vitest would drop a.spec.ts as a file filter and run the whole suite. Run it as: vitest run a.spec.ts -u'
+  )
+
+  assert.equal(
+    droppedVitestFiltersMessage(['run', '--', 'a.spec.ts']),
+    'vitest would drop a.spec.ts as a file filter and run the whole suite. Run it as: vitest run a.spec.ts'
+  )
+})
+
+// The real vitest with the develop config: a direct call that would lose its
+// filter stops while the config loads. The empty folder keeps a lost guard cheap.
+for (const flags of [['-u'], ['--update'], ['--']]) {
+  test(`a direct vitest run ${flags[0]} <file> in develop refuses to run the suite`, () => {
+    const develop = path.join(root, 'programs', 'develop')
+    const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'run-vitest-empty-'))
+    const vitest = path.join(
+      path.dirname(
+        createRequire(path.join(develop, 'package.json')).resolve(
+          'vitest/package.json'
+        )
+      ),
+      'vitest.mjs'
+    )
+
+    try {
+      const result = spawnSync(
+        process.execPath,
+        [vitest, 'run', '--dir', empty, ...flags, 'no-such-file.spec.ts'],
+        {cwd: develop, encoding: 'utf8'}
+      )
+      const output = `${result.stdout}${result.stderr}`
+
+      assert.notEqual(result.status, 0, output)
+      assert.match(
+        output,
+        /vitest would drop no-such-file\.spec\.ts as a file filter and run the whole suite\. Run it as: vitest run --dir \S+ no-such-file\.spec\.ts/
+      )
+    } finally {
+      fs.rmSync(empty, {recursive: true, force: true})
+    }
+  })
+}
 
 test('runs the package vitest with the filter and passes its exit code', () => {
   const base = makePackage()

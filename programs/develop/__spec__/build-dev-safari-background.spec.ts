@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // A project with no background gets a dev-only reload background. Safari
 // never starts an MV3 service worker, so on a Safari dev build that injected
@@ -35,7 +36,6 @@ function project() {
 }
 
 async function devBuild(root: string, browser: 'chrome' | 'safari') {
-  const {extensionBuild} = await import('../command-build')
   const originalLog = console.log
   const originalWarn = console.warn
   const originalError = console.error
@@ -49,13 +49,11 @@ async function devBuild(root: string, browser: 'chrome' | 'safari') {
   try {
     // Only the dev session (named by its command) takes the dev manifest,
     // and the packager stays out because no safariPackager is passed.
-    const summary = await extensionBuild(root, {
+    const summary = await buildProject(root, {
       browser,
-      silent: true,
-      install: false,
       mode: 'development',
       metadataCommand: 'dev'
-    } as any)
+    })
 
     expect(summary.errors_count).toBe(0)
   } finally {

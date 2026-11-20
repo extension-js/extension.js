@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 import {buildPages} from './helpers/page-builds'
 
 const roots: string[] = []
@@ -71,18 +72,11 @@ function mapSources(distDir: string): string[] {
 describe('dev source maps', () => {
   it('name the files of Extension.js under extension.js/, never by a path to the install', async () => {
     const root = project()
-    const {extensionBuild} = await import('../command-build')
     const previous = process.env.VITEST
     process.env.VITEST = 'true'
 
     try {
-      await extensionBuild(root, {
-        browser: 'chrome',
-        silent: true,
-        install: false,
-        mode: 'development',
-        exitOnError: false
-      } as any)
+      await buildProject(root, {mode: 'development', exitOnError: false})
     } finally {
       if (previous === undefined) delete process.env.VITEST
       else process.env.VITEST = previous

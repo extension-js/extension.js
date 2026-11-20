@@ -1,142 +1,145 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {
+  type ExtensionProject,
+  writeExtensionProject
+} from './helpers/extension-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
-vi.mock('fs', async () => {
-  const actual = await vi.importActual<any>('fs')
+// The server is where a dev session starts to compile and listen, so it is
+// the one seam here. Everything before it reads a real project on disk.
+const devServer = vi.hoisted(() => vi.fn(async (..._args: unknown[]) => {}))
 
-  return {
-    ...actual,
-    existsSync: vi.fn(),
-    readdirSync: vi.fn()
-  }
-})
+vi.mock('../dev-server', () => ({devServer}))
 
-vi.mock('../lib/project', () => ({
-  getProjectStructure: vi.fn(async () => ({
-    manifestPath: '/proj/manifest.json',
-    packageJsonPath: '/proj/package.json'
-  }))
-}))
-
-vi.mock('../dev-server', () => {
-  const devServer = vi.fn(async () => {})
-
-  return {devServer}
-})
-
-vi.mock('../lib/generate-extension-types', () => {
-  const generateExtensionTypes = vi.fn(async () => {})
-
-  return {generateExtensionTypes}
-})
-
-vi.mock('../lib/validate-user-dependencies', () => ({
-  assertNoManagedDependencyConflicts: vi.fn()
-}))
-
-vi.mock('../lib/ensure-develop-artifacts', () => ({
+// Kept real but for the two calls that would spawn a package manager.
+vi.mock('../lib/ensure-develop-artifacts', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/ensure-develop-artifacts')>()),
   ensureDevelopArtifacts: vi.fn(async () => {}),
   ensureUserProjectDependencies: vi.fn(async () => {})
 }))
 
-vi.mock('../plugin-js-frameworks/js-tools/typescript', () => ({
-  isUsingTypeScript: vi.fn(() => true),
-  ensureTypeScriptConfig: vi.fn()
-}))
-
-vi.mock('../lib/config-loader', () => ({
-  findConfigFile: vi.fn(() => undefined),
-  loadBrowserConfig: vi.fn(async () => ({})),
-  loadProjectConfigDefaults: vi.fn(async () => ({})),
-  loadCommandConfig: vi.fn(async () => ({}))
-}))
-
 import {extensionDev} from '../command-dev'
-import * as devServerMod from '../dev-server'
-import * as configLoaderMod from '../lib/config-loader'
 import * as ensureArtifactsMod from '../lib/ensure-develop-artifacts'
-import * as genTypesMod from '../lib/generate-extension-types'
-import * as tsToolsMod from '../plugin-js-frameworks/js-tools/typescript'
-import {rememberedFolders} from '../plugin-special-folders/folders-config'
+
+const tempFolder = trackTempFolders()
+
+function project(options: ExtensionProject = {}): string {
+  return writeExtensionProject(tempFolder('extjs-command-dev-'), options)
+}
+
+function devServerOptions(): any {
+  return devServer.mock.calls[0]?.[1]
+}
+
+function pluginBrowserOptions(): any {
+  return devServerOptions()?.browsersPlugin?.options?.browserOptions
+}
 
 describe('webpack/command-dev', () => {
-  const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-  const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-
   beforeEach(() => {
-    vi.resetModules()
-    ;(devServerMod as any).devServer?.mockClear?.()
-    ;(genTypesMod as any).generateExtensionTypes?.mockClear?.()
-    ;(ensureArtifactsMod as any).ensureDevelopArtifacts?.mockClear?.()
-    ;(ensureArtifactsMod as any).ensureUserProjectDependencies?.mockClear?.()
-    ;(configLoaderMod as any).loadBrowserConfig?.mockReset?.()
-    ;(configLoaderMod as any).loadCommandConfig?.mockReset?.()
-    ;(configLoaderMod as any).loadBrowserConfig?.mockResolvedValue?.({})
-    ;(configLoaderMod as any).loadCommandConfig?.mockResolvedValue?.({})
-    ;(fs.existsSync as any)?.mockReset?.()
-    ;(fs.readdirSync as any)?.mockReset?.()
-    logSpy.mockClear()
-    errorSpy.mockClear()
+    devServer.mockReset()
+    devServer.mockImplementation(async () => {})
+    vi.mocked(ensureArtifactsMod.ensureDevelopArtifacts).mockClear()
+    vi.mocked(ensureArtifactsMod.ensureUserProjectDependencies).mockClear()
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
   afterEach(() => {
     vi.restoreAllMocks()
+    vi.unstubAllEnvs()
   })
 
   it('generates types for TS projects, installs dependencies if needed, and starts dev server with defaults', async () => {
-    const nodeModules = path.join('/proj', 'node_modules')
-    ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) =>
-      String(p) === nodeModules ? false : false
-    )
-    ;(fs.readdirSync as any).mockReturnValue([])
+    const root = project({
+      manifest: {background: {service_worker: 'background.ts'}},
+      files: {
+        'background.ts': 'export const started: boolean = true\n',
+        'tsconfig.json': {compilerOptions: {strict: true}}
+      }
+    })
 
-    await extensionDev('/proj', {browser: undefined, port: 0} as any)
+    await extensionDev(root, {browser: undefined, port: 0} as any)
 
-    expect(genTypesMod.generateExtensionTypes).toHaveBeenCalledWith(
-      '/proj',
-      '/proj',
-      {mode: 'development', browser: 'chromium'}
-    )
+    expect(
+      fs.readFileSync(path.join(root, 'extension-env.d.ts'), 'utf8')
+    ).toContain('extension')
 
     expect(ensureArtifactsMod.ensureDevelopArtifacts).toHaveBeenCalled()
-    expect(devServerMod.devServer).toHaveBeenCalledWith(
-      expect.any(Object),
+    expect(
+      ensureArtifactsMod.ensureUserProjectDependencies
+    ).toHaveBeenCalledWith(root)
+
+    expect(devServer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        manifestPath: path.join(root, 'manifest.json'),
+        packageJsonPath: path.join(root, 'package.json')
+      }),
       expect.objectContaining({mode: 'development', browser: 'chromium'})
     )
   })
 
-  it('checks for TypeScript with the browser and folders the config file names', async () => {
-    ;(fs.existsSync as any).mockReturnValue(false)
-    ;(fs.readdirSync as any).mockReturnValue([])
-    // Every load reads the same file: the one that picks the browser, and
-    // the one under that browser's env files.
-    ;(configLoaderMod as any).loadCommandConfig.mockResolvedValue({
-      browser: 'firefox',
-      folders: {pages: 'src/pages'}
+  it('writes no types file for a project with no TypeScript', async () => {
+    const root = project({
+      manifest: {background: {service_worker: 'background.js'}},
+      files: {'background.js': 'console.log("started")\n'}
     })
 
-    let foldersAtCheck: unknown
+    await extensionDev(root, {browser: undefined, port: 0} as any)
 
-    ;(tsToolsMod as any).ensureTypeScriptConfig.mockImplementationOnce(() => {
-      foldersAtCheck = rememberedFolders('/proj')
+    expect(fs.existsSync(path.join(root, 'extension-env.d.ts'))).toBe(false)
+    expect(fs.existsSync(path.join(root, 'tsconfig.json'))).toBe(false)
+    expect(devServer).toHaveBeenCalledTimes(1)
+  })
+
+  // The only TypeScript the build reaches is the Firefox background, so a
+  // tsconfig is written only when the check runs for the config's browser.
+  it.each([
+    {config: `{commands: {dev: {browser: 'firefox'}}}`, scaffolds: true},
+    {config: `{}`, scaffolds: false}
+  ])('checks for TypeScript with the browser the config file names: $config', async ({
+    config,
+    scaffolds
+  }) => {
+    const root = project({
+      manifest: {'firefox:background': {scripts: ['background.ts']}},
+      config,
+      files: {'background.ts': 'export const started: boolean = true\n'}
     })
 
-    await extensionDev('/proj', {browser: undefined, port: 0} as any)
+    await extensionDev(root, {browser: undefined, port: 0} as any)
 
-    expect(tsToolsMod.ensureTypeScriptConfig).toHaveBeenCalledWith(
-      '/proj',
-      expect.objectContaining({browser: 'firefox'})
-    )
+    expect(fs.existsSync(path.join(root, 'tsconfig.json'))).toBe(scaffolds)
+  })
 
-    expect(foldersAtCheck).toEqual({pages: 'src/pages'})
+  // The only TypeScript is a page under the folder the config names, so the
+  // check finds it only when it runs after that folder is remembered.
+  it.each([
+    {config: `{folders: {pages: 'app/pages'}}`, scaffolds: true},
+    {config: `{}`, scaffolds: false}
+  ])('checks for TypeScript in the folders the config file names: $config', async ({
+    config,
+    scaffolds
+  }) => {
+    const root = project({
+      config,
+      files: {
+        'app/pages/panel.html':
+          '<!doctype html><script src="./panel.ts"></script>\n',
+        'app/pages/panel.ts': 'export const opened: boolean = true\n'
+      }
+    })
+
+    await extensionDev(root, {browser: undefined, port: 0} as any)
+
+    expect(fs.existsSync(path.join(root, 'tsconfig.json'))).toBe(scaffolds)
   })
 
   it('skips user dependency install when install option is false', async () => {
-    ;(fs.existsSync as any).mockReturnValue(false)
-    ;(fs.readdirSync as any).mockReturnValue([])
-
-    await extensionDev('/proj', {
+    await extensionDev(project(), {
       browser: undefined,
       port: 0,
       install: false
@@ -148,13 +151,11 @@ describe('webpack/command-dev', () => {
   })
 
   it('hands the caller onReady to the dev server', async () => {
-    ;(fs.existsSync as any).mockReturnValue(false)
-    ;(fs.readdirSync as any).mockReturnValue([])
     const onReady = vi.fn()
 
-    await extensionDev('/proj', {browser: 'chrome', port: 0, onReady} as any)
+    await extensionDev(project(), {browser: 'chrome', port: 0, onReady} as any)
 
-    expect(devServerMod.devServer).toHaveBeenCalledWith(
+    expect(devServer).toHaveBeenCalledWith(
       expect.any(Object),
       expect.objectContaining({onReady})
     )
@@ -163,33 +164,26 @@ describe('webpack/command-dev', () => {
   })
 
   it('forwards extension.config.js browser.profile to the BrowsersPlugin launcher', async () => {
-    ;(fs.existsSync as any).mockReturnValue(false)
-    ;(fs.readdirSync as any).mockReturnValue([])
-    ;(configLoaderMod as any).loadBrowserConfig.mockResolvedValueOnce({
-      browser: 'chrome',
+    const root = project({
+      config: `{
+  browser: {
+    chrome: {
       profile: '/explicit/profile',
       browserFlags: ['--my-flag'],
       persistProfile: true
+    }
+  }
+}`
     })
-
     const launcher = vi.fn(async () => ({
       reload: vi.fn(async () => {}),
       enableUnifiedLogging: vi.fn(async () => {}),
       close: vi.fn(async () => {})
     }))
 
-    await extensionDev('/proj', {
-      browser: 'chrome',
-      port: 0,
-      launcher
-    } as any)
+    await extensionDev(root, {browser: 'chrome', port: 0, launcher} as any)
 
-    const devServerCall = (devServerMod as any).devServer.mock.calls[0]
-    const forwardedOptions = devServerCall?.[1]
-    const plugin = forwardedOptions?.browsersPlugin
-    expect(plugin).toBeDefined()
-    const browserOptions = (plugin as any).options?.browserOptions
-    expect(browserOptions).toMatchObject({
+    expect(pluginBrowserOptions()).toMatchObject({
       profile: '/explicit/profile',
       browserFlags: [
         '--my-flag',
@@ -201,47 +195,23 @@ describe('webpack/command-dev', () => {
   })
 
   it('lets CLI devOptions.profile override extension.config.js profile', async () => {
-    ;(fs.existsSync as any).mockReturnValue(false)
-    ;(fs.readdirSync as any).mockReturnValue([])
-    ;(configLoaderMod as any).loadBrowserConfig.mockResolvedValueOnce({
-      browser: 'chrome',
-      profile: '/from/config'
+    const root = project({
+      config: `{browser: {chrome: {profile: '/from/config'}}}`
     })
 
-    const launcher = vi.fn()
-
-    await extensionDev('/proj', {
+    await extensionDev(root, {
       browser: 'chrome',
       port: 0,
       profile: '/from/cli',
-      launcher
+      launcher: vi.fn()
     } as any)
 
-    const devServerCall = (devServerMod as any).devServer.mock.calls[0]
-    const plugin = devServerCall?.[1]?.browsersPlugin
-    const browserOptions = (plugin as any).options?.browserOptions
-    expect(browserOptions.profile).toBe('/from/cli')
+    expect(pluginBrowserOptions().profile).toBe('/from/cli')
   })
 
   describe('option precedence (CLI > commands.dev > browser > defaults)', () => {
-    function pluginBrowserOptions() {
-      const devServerCall = (devServerMod as any).devServer.mock.calls[0]
-      const plugin = devServerCall?.[1]?.browsersPlugin
-
-      return (plugin as any).options?.browserOptions
-    }
-
-    function devServerOptions() {
-      return (devServerMod as any).devServer.mock.calls[0]?.[1]
-    }
-
-    beforeEach(() => {
-      ;(fs.existsSync as any).mockReturnValue(false)
-      ;(fs.readdirSync as any).mockReturnValue([])
-    })
-
     it('applies stock defaults when neither config nor CLI sets a value', async () => {
-      await extensionDev('/proj', {
+      await extensionDev(project(), {
         browser: 'chrome',
         port: 0,
         launcher: vi.fn()
@@ -260,19 +230,23 @@ describe('webpack/command-dev', () => {
     })
 
     it('lets commands.dev beat browser config and stock defaults (config-only)', async () => {
-      ;(configLoaderMod as any).loadBrowserConfig.mockResolvedValueOnce({
-        browser: 'chrome',
-        startingUrl: 'https://from-browser.example',
-        noOpen: false
-      })
-      ;(configLoaderMod as any).loadCommandConfig.mockResolvedValueOnce({
-        startingUrl: 'https://from-commands-dev.example',
-        noOpen: true,
-        logFormat: 'json',
-        polyfill: true
+      const root = project({
+        config: `{
+  browser: {
+    chrome: {startingUrl: 'https://from-browser.example', noOpen: false}
+  },
+  commands: {
+    dev: {
+      startingUrl: 'https://from-commands-dev.example',
+      noOpen: true,
+      logFormat: 'json',
+      polyfill: true
+    }
+  }
+}`
       })
 
-      await extensionDev('/proj', {
+      await extensionDev(root, {
         browser: 'chrome',
         port: 0,
         launcher: vi.fn()
@@ -287,12 +261,37 @@ describe('webpack/command-dev', () => {
       expect(devServerOptions().polyfill).toBe(true)
     })
 
-    it('honors commands.dev.browser when no CLI browser is given', async () => {
-      ;(configLoaderMod as any).loadCommandConfig.mockResolvedValueOnce({
-        browser: 'firefox'
+    it('lets browser config beat a top-level value and stock defaults', async () => {
+      const root = project({
+        config: `{
+  startingUrl: 'https://from-top-level.example',
+  browser: {chrome: {startingUrl: 'https://from-browser.example'}}
+}`
       })
 
-      await extensionDev('/proj', {
+      await extensionDev(root, {
+        browser: 'chrome',
+        port: 0,
+        launcher: vi.fn()
+      } as any)
+
+      expect(pluginBrowserOptions().startingUrl).toBe(
+        'https://from-browser.example'
+      )
+    })
+
+    it('honors commands.dev.browser when no CLI browser is given', async () => {
+      const root = project({
+        config: `{
+  browser: {
+    chrome: {startingUrl: 'https://chrome-layer.example'},
+    firefox: {startingUrl: 'https://firefox-layer.example'}
+  },
+  commands: {dev: {browser: 'firefox'}}
+}`
+      })
+
+      await extensionDev(root, {
         browser: undefined,
         port: 0,
         launcher: vi.fn()
@@ -300,45 +299,42 @@ describe('webpack/command-dev', () => {
 
       expect(pluginBrowserOptions().browser).toBe('firefox')
       expect(devServerOptions().browser).toBe('firefox')
-      expect((configLoaderMod as any).loadBrowserConfig).toHaveBeenCalledWith(
-        '/proj',
-        'firefox',
-        {mode: 'development', browser: 'firefox'}
+      // The browser layer read is the one of the browser the config picked.
+      expect(pluginBrowserOptions().startingUrl).toBe(
+        'https://firefox-layer.example'
       )
     })
 
     it('refuses a commands.dev.browser it does not know, with a code', async () => {
-      ;(configLoaderMod as any).loadCommandConfig.mockResolvedValueOnce({
-        browser: 'netscape'
-      })
+      const root = project({config: `{commands: {dev: {browser: 'netscape'}}}`})
 
       await expect(
-        extensionDev('/proj', {browser: undefined, port: 0} as any)
+        extensionDev(root, {browser: undefined, port: 0} as any)
       ).rejects.toMatchObject({
         code: 'E_UNSUPPORTED_BROWSER',
         message: expect.stringContaining('commands.dev.browser: netscape')
       })
 
-      expect((devServerMod as any).devServer).not.toHaveBeenCalled()
+      expect(devServer).not.toHaveBeenCalled()
     })
 
     it('refuses a browser option it does not know, with a code', async () => {
       await expect(
-        extensionDev('/proj', {browser: 'netscape', port: 0} as any)
+        extensionDev(project(), {browser: 'netscape', port: 0} as any)
       ).rejects.toMatchObject({code: 'E_UNSUPPORTED_BROWSER'})
 
-      expect((devServerMod as any).devServer).not.toHaveBeenCalled()
+      expect(devServer).not.toHaveBeenCalled()
     })
 
     it('targets chromium when neither the call nor the config names a browser', async () => {
-      await extensionDev('/proj', {port: 0, launcher: vi.fn()} as any)
+      await extensionDev(project(), {port: 0, launcher: vi.fn()} as any)
 
       expect(pluginBrowserOptions().browser).toBe('chromium')
       expect(devServerOptions().browser).toBe('chromium')
     })
 
     it('lets a binary with no browser name pick its own family', async () => {
-      await extensionDev('/proj', {
+      await extensionDev(project(), {
         port: 0,
         geckoBinary: '/opt/gecko/firefox',
         launcher: vi.fn()
@@ -348,11 +344,9 @@ describe('webpack/command-dev', () => {
     })
 
     it('lets an explicit CLI browser beat commands.dev.browser', async () => {
-      ;(configLoaderMod as any).loadCommandConfig.mockResolvedValueOnce({
-        browser: 'firefox'
-      })
+      const root = project({config: `{commands: {dev: {browser: 'firefox'}}}`})
 
-      await extensionDev('/proj', {
+      await extensionDev(root, {
         browser: 'edge',
         port: 0,
         launcher: vi.fn()
@@ -363,15 +357,21 @@ describe('webpack/command-dev', () => {
     })
 
     it('lets explicit CLI values beat commands.dev in both directions (both)', async () => {
-      ;(configLoaderMod as any).loadCommandConfig.mockResolvedValueOnce({
-        startingUrl: 'https://from-commands-dev.example',
-        noOpen: true,
-        logFormat: 'json',
-        polyfill: false,
-        logColor: false
+      const root = project({
+        config: `{
+  commands: {
+    dev: {
+      startingUrl: 'https://from-commands-dev.example',
+      noOpen: true,
+      logFormat: 'json',
+      polyfill: false,
+      logColor: false
+    }
+  }
+}`
       })
 
-      await extensionDev('/proj', {
+      await extensionDev(root, {
         browser: 'chrome',
         port: 0,
         startingUrl: 'https://from-cli.example',
@@ -393,7 +393,7 @@ describe('webpack/command-dev', () => {
     })
 
     it('applies flag-only values over stock defaults (flag-only)', async () => {
-      await extensionDev('/proj', {
+      await extensionDev(project(), {
         browser: 'chrome',
         port: 0,
         polyfill: true,
@@ -410,19 +410,26 @@ describe('webpack/command-dev', () => {
     })
 
     it('concatenates browserFlags and deep-merges preferences across layers', async () => {
-      ;(configLoaderMod as any).loadBrowserConfig.mockResolvedValueOnce({
-        browser: 'chrome',
-        browserFlags: ['--from-browser'],
-        excludeBrowserFlags: ['--exclude-browser'],
-        preferences: {a: 1, nested: {x: 1}}
-      })
-      ;(configLoaderMod as any).loadCommandConfig.mockResolvedValueOnce({
-        browserFlags: ['--from-command'],
-        excludeBrowserFlags: ['--exclude-command'],
-        preferences: {b: 2, nested: {y: 2}}
+      const root = project({
+        config: `{
+  browser: {
+    chrome: {
+      browserFlags: ['--from-browser'],
+      excludeBrowserFlags: ['--exclude-browser'],
+      preferences: {a: 1, nested: {x: 1}}
+    }
+  },
+  commands: {
+    dev: {
+      browserFlags: ['--from-command'],
+      excludeBrowserFlags: ['--exclude-command'],
+      preferences: {b: 2, nested: {y: 2}}
+    }
+  }
+}`
       })
 
-      await extensionDev('/proj', {
+      await extensionDev(root, {
         browser: 'chrome',
         port: 0,
         browserFlags: ['--from-cli'],
@@ -444,7 +451,7 @@ describe('webpack/command-dev', () => {
     })
 
     it('applies the same dark appearance defaults as preview and start', async () => {
-      await extensionDev('/proj', {
+      await extensionDev(project(), {
         browser: 'chrome',
         port: 0,
         launcher: vi.fn()
@@ -457,7 +464,7 @@ describe('webpack/command-dev', () => {
     })
 
     it('lets excludeBrowserFlags drop the stock dark flags', async () => {
-      await extensionDev('/proj', {
+      await extensionDev(project(), {
         browser: 'chrome',
         port: 0,
         excludeBrowserFlags: ['--force-dark-mode'],
@@ -475,48 +482,55 @@ describe('webpack/command-dev', () => {
   })
 
   it('prints contract errors once, clean, without a stack trace, on the path that exits', async () => {
-    const localErrorSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => {})
+    const printed = vi.mocked(console.error)
     const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
       throw new Error('exit 1')
     })
     // Nightly jobs export author mode, pin it off for this assertion.
     vi.stubEnv('EXTENSION_AUTHOR_MODE', 'false')
 
-    ;(devServerMod as any).devServer.mockImplementationOnce(async () => {
+    devServer.mockImplementationOnce(async () => {
       throw new Error(
         '[Extension.js] Missing tsconfig.json next to package.json. Create one to use TypeScript.'
       )
     })
 
     await expect(
-      extensionDev('/proj', {browser: 'chrome', exitOnError: true} as any)
+      extensionDev(project(), {browser: 'chrome', exitOnError: true} as any)
     ).rejects.toThrow('exit 1')
 
     expect(exitSpy).toHaveBeenCalledWith(1)
-    expect(localErrorSpy).toHaveBeenCalledTimes(1)
-    const printed = localErrorSpy.mock.calls[0][0]
-    expect(typeof printed).toBe('string')
-    expect(printed).toMatch(/Missing tsconfig\.json/)
-    expect(printed).not.toMatch(/\n\s+at /)
+    expect(printed).toHaveBeenCalledTimes(1)
+    const line = printed.mock.calls[0][0]
+    expect(typeof line).toBe('string')
+    expect(line).toMatch(/Missing tsconfig\.json/)
+    expect(line).not.toMatch(/\n\s+at /)
   })
 
+  // The package root holds the config and the dependency, and the manifest
+  // sits one folder down, so the warning proves which folder was read.
   it('checks managed dependency conflicts against the package root when the manifest is in src', async () => {
-    const projectMod = await import('../lib/project')
-    const validateDepsMod = await import('../lib/validate-user-dependencies')
-    ;(projectMod.getProjectStructure as any).mockResolvedValueOnce({
-      manifestPath: '/proj/src/manifest.json',
-      packageJsonPath: '/proj/package.json'
+    const root = project({
+      manifestFile: 'src/manifest.json',
+      packageJson: {devDependencies: {'@rspack/core': '1.0.0'}},
+      config: `{config: (config) => config} // loads '@rspack/core'`
     })
-    ;(fs.existsSync as any).mockReturnValue(false)
-    ;(fs.readdirSync as any).mockReturnValue([])
 
-    await extensionDev('/proj', {browser: 'chrome', port: 0} as any)
+    await extensionDev(root, {browser: 'chrome', port: 0} as any)
 
-    expect(
-      validateDepsMod.assertNoManagedDependencyConflicts
-    ).toHaveBeenCalledWith('/proj/package.json', '/proj')
+    expect(devServerOptions()).toBeDefined()
+    expect(devServer.mock.calls[0][0]).toMatchObject({
+      manifestPath: path.join(root, 'src', 'manifest.json'),
+      packageJsonPath: path.join(root, 'package.json')
+    })
+
+    const warned = vi
+      .mocked(console.warn)
+      .mock.calls.map((call) => String(call[0]))
+      .join('\n')
+
+    expect(warned).toContain('@rspack/core')
+    expect(warned).toContain('extension.config.js')
   })
 
   it('rejects on failure so the CLI wrapper can frame or exit it', async () => {
@@ -524,92 +538,80 @@ describe('webpack/command-dev', () => {
       throw new Error('exit 1')
     })
 
-    ;(devServerMod as any).devServer.mockImplementationOnce(async () => {
+    devServer.mockImplementationOnce(async () => {
       throw new Error('boom')
     })
-
-    const printed = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     // Library contract: no exitOnError means reject, never process.exit; the
     // CLI wrapper opts into exiting on its pretty path.
     await expect(
-      extensionDev('/proj', {browser: 'firefox'} as any)
+      extensionDev(project(), {browser: 'firefox'} as any)
     ).rejects.toThrow('boom')
 
     expect(exitSpy).not.toHaveBeenCalled()
     // The caller holds the rejection, so printing it here would show it twice.
-    expect(printed).not.toHaveBeenCalled()
-    exitSpy.mockRestore()
+    expect(console.error).not.toHaveBeenCalled()
   })
 
   it('keeps the human lines on stderr when a caller frames a later failure for a machine', async () => {
-    const printed = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const printed = vi.mocked(console.error)
+    const root = project()
+    const nowhere = path.join(root, 'no-such-folder')
 
     vi.stubEnv('EXTENSION_OUTPUT', 'json')
     vi.stubEnv('EXTENSION_AUTHOR_MODE', 'false')
 
-    try {
-      ;(devServerMod as any).devServer.mockImplementationOnce(async () => {
-        throw new Error('boom')
-      })
+    devServer.mockImplementationOnce(async () => {
+      throw new Error('boom')
+    })
 
-      await expect(
-        extensionDev('/proj', {browser: 'firefox'} as any)
-      ).rejects.toThrow('boom')
+    await expect(
+      extensionDev(root, {browser: 'firefox'} as any)
+    ).rejects.toThrow('boom')
 
-      expect(printed).toHaveBeenCalledTimes(1)
-      expect(String(printed.mock.calls[0][0])).toContain('boom')
-      expect(String(printed.mock.calls[0][0])).not.toMatch(/\n\s+at /)
+    expect(printed).toHaveBeenCalledTimes(1)
+    expect(String(printed.mock.calls[0][0])).toContain('boom')
+    expect(String(printed.mock.calls[0][0])).not.toMatch(/\n\s+at /)
 
-      // A project that is not found is the whole answer, and the frame has it.
-      const projectMod = await import('../lib/project')
+    // A project that is not found is the whole answer, and the frame has it.
+    printed.mockClear()
 
-      printed.mockClear()
-      ;(projectMod.getProjectStructure as any).mockRejectedValueOnce(
-        new Error('no manifest here')
-      )
+    await expect(
+      extensionDev(nowhere, {browser: 'firefox'} as any)
+    ).rejects.toThrow(/manifest/i)
 
-      await expect(
-        extensionDev('/nowhere', {browser: 'firefox'} as any)
-      ).rejects.toThrow('no manifest here')
-
-      expect(printed).not.toHaveBeenCalled()
-    } finally {
-      vi.unstubAllEnvs()
-    }
+    expect(printed).not.toHaveBeenCalled()
+    expect(devServer).toHaveBeenCalledTimes(1)
   })
 
   it('hands the failure to onExitError only on the path that exits', async () => {
     const failure = new Error('boom')
     const onExitError = vi.fn()
-    const printed = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const printed = vi.mocked(console.error)
+    const root = project()
     const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
       throw new Error('exit 1')
     })
 
-    ;(devServerMod as any).devServer.mockImplementation(async () => {
+    devServer.mockImplementation(async () => {
       throw failure
     })
 
     await expect(
-      extensionDev('/proj', {browser: 'firefox', onExitError} as any)
+      extensionDev(root, {browser: 'firefox', onExitError} as any)
     ).rejects.toThrow('boom')
 
     expect(onExitError).not.toHaveBeenCalled()
 
     printed.mockClear()
 
-    try {
-      await expect(
-        extensionDev('/proj', {
-          browser: 'firefox',
-          exitOnError: true,
-          onExitError
-        } as any)
-      ).rejects.toThrow('exit 1')
-    } finally {
-      ;(devServerMod as any).devServer.mockImplementation(async () => {})
-    }
+    await expect(
+      extensionDev(root, {
+        browser: 'firefox',
+        exitOnError: true,
+        onExitError
+      } as any)
+    ).rejects.toThrow('exit 1')
 
     expect(onExitError).toHaveBeenCalledTimes(1)
     expect(onExitError).toHaveBeenCalledWith(failure)
@@ -623,7 +625,5 @@ describe('webpack/command-dev', () => {
     expect(onExitError.mock.invocationCallOrder[0]).toBeLessThan(
       exitSpy.mock.invocationCallOrder[0]
     )
-
-    exitSpy.mockRestore()
   })
 })

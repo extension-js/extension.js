@@ -6,6 +6,7 @@ import {
   CHROMIUM_EXTENSION_ROOT,
   GECKO_EXTENSION_ROOT
 } from '../plugin-web-extension/feature-scripts/scripts-lib/injected-sheet-urls'
+import {buildProject} from './helpers/build-project'
 
 // The raw tmpdir on purpose: on macOS it is a symlink, and the content-script
 // issuer index must match the sheet to its script through it.
@@ -127,18 +128,11 @@ async function buildFixture(
   browser: 'chrome' | 'firefox',
   mode: 'production' | 'development'
 ) {
-  const {extensionBuild} = await import('../command-build')
-
   const previousAuthorMode = process.env.EXTENSION_AUTHOR_MODE
   Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
 
   try {
-    return await extensionBuild(root, {
-      browser,
-      silent: true,
-      install: false,
-      mode
-    } as any)
+    return await buildProject(root, {browser, mode})
   } finally {
     if (previousAuthorMode === undefined) {
       Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')

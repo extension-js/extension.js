@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import * as vm from 'node:vm'
 import {afterAll, describe, expect, it} from 'vitest'
 import {getEnvFileCandidates} from '../plugin-compilation/env'
+import {buildProject} from './helpers/build-project'
 
 const ROOTS: string[] = []
 
@@ -51,18 +52,11 @@ function makeFixture(envFiles: Record<string, string>): string {
 }
 
 async function buildFixture(root: string) {
-  const {extensionBuild} = await import('../command-build')
-
   const previousAuthorMode = process.env.EXTENSION_AUTHOR_MODE
   Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
 
   try {
-    return await extensionBuild(root, {
-      browser: 'chromium',
-      silent: true,
-      install: false,
-      mode: 'production'
-    } as any)
+    return await buildProject(root, {browser: 'chromium', mode: 'production'})
   } finally {
     if (previousAuthorMode === undefined) {
       Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')

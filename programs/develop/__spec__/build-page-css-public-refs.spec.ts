@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // A page stylesheet's root-absolute url() to a file public/ owns must keep
 // naming the copier's root path: the page resolves it against the extension
@@ -49,14 +50,7 @@ function project() {
 }
 
 async function build(root: string, mode: 'development' | 'production') {
-  const {extensionBuild} = await import('../command-build')
-
-  const summary = await extensionBuild(root, {
-    browser: 'chrome',
-    silent: true,
-    install: false,
-    mode
-  } as any)
+  const summary = await buildProject(root, {mode})
   expect(summary.errors_count).toBe(0)
 
   return path.join(root, 'dist', 'chrome')
