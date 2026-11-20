@@ -8,11 +8,7 @@
 
 import {createHash} from 'node:crypto'
 import {Compilation, type Compiler, sources} from '@rspack/core'
-import {
-  buildBridgeProducerSource,
-  CONTROL_PORT_ASSET_NAME,
-  DEV_BOOT_REGISTERS_GLOBAL
-} from '../../dev-server/control-bridge/producer-runtime'
+import {CONTROL_PORT_ASSET_NAME} from '../../dev-server/control-bridge/producer-runtime'
 import {prependToEmittedAsset} from '../../lib/asset-source-maps'
 import {
   type EmittedCompilation,
@@ -21,6 +17,10 @@ import {
   readProjectSource
 } from '../../plugin-web-extension/feature-manifest/steps/apply-dev-defaults-lib/emitted-evidence'
 import {DEV_BUILD_GLOBAL} from '../reload-dispatch'
+import {
+  buildDevProducerSource,
+  DEV_BOOT_REGISTERS_GLOBAL
+} from '../reload-lib/producer-reload'
 
 // Matches the compiled background entry across engines: Chromium emits
 // background/service_worker.js, Firefox background/scripts.js, and a declared
@@ -141,7 +141,7 @@ export class InjectBridgeProducer {
         this.coordinates.connectableHost ??
           (process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST || '')
       ).trim() || '127.0.0.1'
-    const source = buildBridgeProducerSource({
+    const source = buildDevProducerSource({
       controlPort: Number.isFinite(controlPort) ? controlPort : null,
       instanceId,
       sessionFromFile: true,

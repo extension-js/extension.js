@@ -128,6 +128,18 @@ export function isCompanionStoreLink(entry: string): boolean {
   return url !== null && parseStoreUrl(url) !== null
 }
 
+// Without a browser nothing is fetched, yet a link no store reads gets the
+// refusal the launch path gives it, so preview and dev answer alike.
+export function refuseCompanionLinksNoStoreReads(
+  config?: CompanionExtensionsConfig
+): void {
+  for (const entry of normalizeCompanionConfig(config).paths) {
+    const url = toWebUrl(entry)
+
+    if (url && !parseStoreUrl(url)) throw companionLinkNotAStoreLinkError(entry)
+  }
+}
+
 // A folder of the project, the project itself left out. Real paths are
 // compared, so a link that leads out is outside like any other path.
 function isInsideProject(projectRoot: string, abs: string): boolean {

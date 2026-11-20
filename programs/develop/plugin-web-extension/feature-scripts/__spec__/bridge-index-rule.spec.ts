@@ -8,8 +8,8 @@ import {contentScripts} from '../../feature-manifest/manifest-overrides/common/c
 import {parseCanonicalContentScriptAsset} from '../contracts'
 import {getMainWorldBridgePairs} from '../steps/add-content-script-wrapper/get-bridge-scripts'
 
-// Three owners place the bridge of each MAIN world group: the build here,
-// the emitted manifest and the reload strategy. Each is read as main -> bridge.
+// Three readers place the bridge of each MAIN world group: the build here,
+// the emitted manifest and the chunk loader. Each is read as main -> bridge.
 type Pairs = Array<[number, number]>
 
 const roots: string[] = []
@@ -72,9 +72,8 @@ const matrix = [1, 2, 3, 4].flatMap((count) =>
   }))
 )
 
-describe('the bridge index rule, written three times', () => {
+describe('the bridge index rule', () => {
   it('places every bridge at the declared count plus its ordinal in all three', () => {
-    // Pins today's behavior.
     for (const {count, mains} of matrix) {
       const manifest = {
         manifest_version: 3,
@@ -93,8 +92,9 @@ describe('the bridge index rule, written three times', () => {
     expect(matrix).toHaveLength(30)
   })
 
-  it('disagrees on a MAIN world group left with no file for this browser', () => {
-    // Pins today's behavior.
+  // A group prefixed for another browser is left with no file here. The
+  // manifest declares no bridge for it, so no owner may count it.
+  it('skips a MAIN world group left with no file for this browser in all three', () => {
     const manifest = {
       manifest_version: 3,
       content_scripts: [
@@ -104,18 +104,20 @@ describe('the bridge index rule, written three times', () => {
       ]
     } as unknown as Manifest
 
-    // The build and the reload strategy count the empty group, the manifest
-    // skips it, so the declared bridge points one slot lower.
-    expect(fromBuild(manifest)).toEqual([
-      [1, 3],
-      [2, 4]
-    ])
-
-    expect(fromReload(manifest)).toEqual([
-      [1, 3],
-      [2, 4]
-    ])
-
     expect(fromManifest(manifest)).toEqual([[2, 3]])
+    expect(fromBuild(manifest)).toEqual([[2, 3]])
+    expect(fromReload(manifest)).toEqual([[2, 3]])
+  })
+
+  it('skips the empty group the same way when it was scoped to another browser', () => {
+    const manifest = {
+      manifest_version: 3,
+      content_scripts: [
+        {matches: ['<all_urls>'], world: 'MAIN', 'firefox:js': ['f.js']},
+        main(1)
+      ]
+    } as unknown as Manifest
+
+    expect(fromBuild(manifest)).toEqual([[1, 2]])
   })
 })

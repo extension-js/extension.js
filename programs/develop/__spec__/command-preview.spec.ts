@@ -41,6 +41,7 @@ vi.mock('../plugin-special-folders/folder-extensions/resolve-dirs', () => ({
 }))
 
 vi.mock('../plugin-special-folders/folder-extensions/resolve-config', () => ({
+  refuseCompanionLinksNoStoreReads: vi.fn(),
   resolveCompanionExtensionsConfig: vi.fn(async () => ({paths: ['/comp/a']}))
 }))
 

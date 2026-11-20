@@ -56,4 +56,19 @@ describe('no-browser card with a localized manifest name', () => {
   it('keeps the raw key when the messages file lacks it', () => {
     expect(render('__MSG_other__')).toContain('__MSG_other__ 0.1.0')
   })
+
+  it('names what the written manifest carries for a name set through .env', () => {
+    const distPath = path.join(projectPath, 'dist', 'chromium')
+
+    fs.mkdirSync(distPath, {recursive: true})
+    fs.writeFileSync(
+      path.join(distPath, 'manifest.json'),
+      JSON.stringify({manifest_version: 3, name: 'Filled', version: '0.1.0'})
+    )
+
+    const card = render('$EXTENSION_PUBLIC_NAME')
+
+    expect(card).toContain('Filled 0.1.0')
+    expect(card).not.toContain('$EXTENSION_PUBLIC_NAME')
+  })
 })

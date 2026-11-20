@@ -1,4 +1,5 @@
 import * as path from 'node:path'
+import * as vm from 'node:vm'
 import type {Compiler} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {
@@ -392,4 +393,54 @@ describe('SetupChunkLoadingTarget with a message fallback', () => {
       CLASSIC_FALLBACK
     )
   })
+
+  // A background that loads no chunk of its own never asks for the browser
+  // runtime global, and the fallback listener reads its API from it.
+  for (const [shape, background] of [
+    ['one module', 'console.log("ready")\n'],
+    [
+      'a static import',
+      'import {ready} from "./ready.js"\nconsole.log(ready)\n'
+    ]
+  ]) {
+    it(`registers the fallback listener in a background of ${shape} that loads no chunks`, async () => {
+      const {root, manifestPath} = project({
+        'manifest.json': manifest,
+        'background/index.js': background,
+        'background/ready.js': 'export const ready = "ready"\n',
+        'content/scripts.js': lazyImport,
+        'content/lazy.js': 'export const a = 1\n'
+      })
+      const {errors, files} = await compileFiles(
+        root,
+        {
+          'background/service_worker': 'background/index.js',
+          'content_scripts/content-0': 'content/scripts.js'
+        },
+        withFallback(manifestPath, {
+          serviceWorkerEntry: 'background/service_worker'
+        }),
+        'development'
+      )
+      const listeners: unknown[] = []
+      const chrome = {
+        runtime: {
+          getURL: String,
+          onMessage: {addListener: (fn: unknown) => listeners.push(fn)}
+        },
+        scripting: {executeScript: () => Promise.resolve([])}
+      }
+
+      expect(errors).toEqual([])
+      expect(files['background/service_worker.js']).toContain(CLASSIC_FALLBACK)
+
+      vm.runInNewContext(files['background/service_worker.js'], {
+        chrome,
+        self: {addEventListener() {}},
+        console: {log() {}}
+      })
+
+      expect(listeners).toHaveLength(1)
+    })
+  }
 })

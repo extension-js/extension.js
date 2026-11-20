@@ -363,9 +363,6 @@ importers:
       chromium-location:
         specifier: 2.1.2
         version: 2.1.2
-      commander:
-        specifier: ^15.0.0
-        version: 15.0.0
       edge-location:
         specifier: 2.3.1
         version: 2.3.1
@@ -430,6 +427,9 @@ importers:
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
+      commander:
+        specifier: ^15.0.0
+        version: 15.0.0
       typescript:
         specifier: 7.0.2
         version: 7.0.2

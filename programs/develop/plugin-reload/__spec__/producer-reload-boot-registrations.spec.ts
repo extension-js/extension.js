@@ -1,8 +1,8 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {
-  buildBridgeProducerSource,
+  buildDevProducerSource,
   DEV_BOOT_REGISTERS_GLOBAL
-} from '../producer-runtime'
+} from '../reload-lib/producer-reload'
 
 class FakeWebSocket {
   static instances: FakeWebSocket[] = []
@@ -168,7 +168,7 @@ function boot(
   // eslint-disable-next-line no-new-func
   new Function(
     'globalThis',
-    buildBridgeProducerSource({
+    buildDevProducerSource({
       controlPort: 9999,
       instanceId: 'inst-A',
       context: 'background'

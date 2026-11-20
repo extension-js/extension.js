@@ -5,6 +5,7 @@ import {createEmulatorFileIndexHolder} from '../emulator-lane'
 import {
   buildServerConfig,
   type ServerConfigInput,
+  sessionSocketPath,
   shouldWriteAssetToDisk
 } from '../server-config'
 
@@ -26,6 +27,7 @@ function input(overrides: Partial<ServerConfigInput> = {}): ServerConfigInput {
     onSiteRefused: () => {},
     server: undefined,
     env: {},
+    socketPath: '/ws/0123456789abcdef',
     ...overrides
   }
 }
@@ -180,6 +182,20 @@ describe('buildServerConfig', () => {
         })
       ).allowedHosts
     ).toEqual(['devbox.local', 'viewer.example', 'a.test', '.b.test'])
+  })
+
+  it("listens for the reload socket at the session's own path alone", () => {
+    const config = buildServerConfig(input())
+
+    expect(config.webSocketServer).toMatchObject({
+      type: 'ws',
+      options: {path: '/ws/0123456789abcdef'}
+    })
+  })
+
+  it('names the session in the socket path the extension dials', () => {
+    expect(sessionSocketPath('0123456789abcdef')).toBe('/ws/0123456789abcdef')
+    expect(sessionSocketPath('a b/c')).toBe('/ws/a%20b%2Fc')
   })
 
   it('reflects allow-origin for the extension alone, never a star', () => {

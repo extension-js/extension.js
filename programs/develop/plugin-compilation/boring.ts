@@ -100,10 +100,19 @@ export class BoringPlugin {
       let manifestName: string | undefined
 
       try {
+        // The emitted manifest has its $EXTENSION_PUBLIC_* values filled, so
+        // the line names what ships. The source stands in when none was emitted.
+        const emitted = stats.compilation
+          .getAsset?.('manifest.json')
+          ?.source.source()
         // A __MSG_ name reads as the default locale's value, the way the
         // browser shows it, instead of the key.
         const parsedName = resolveLocalizedManifestName(
-          parseJsonSafe(fs.readFileSync(this.manifestPath, 'utf-8')),
+          parseJsonSafe(
+            emitted
+              ? String(emitted)
+              : fs.readFileSync(this.manifestPath, 'utf-8')
+          ),
           [
             path.dirname(this.manifestPath),
             String(compiler.options?.context || '')
