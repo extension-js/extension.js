@@ -65,6 +65,10 @@ export function dropWebkitUnsupportedKeys(
     dropped.push({path: key, reason})
   }
 
+  // Another browser's version floor is not a feature Safari lacks, so it is
+  // left out without a line in the report.
+  delete next.minimum_chrome_version
+
   for (const listName of PERMISSION_LISTS) {
     const list = next[listName]
     if (!Array.isArray(list)) continue

@@ -15,7 +15,6 @@ import {
   type MessagePort,
   receiveMessageOnPort
 } from 'node:worker_threads'
-import {hasDependency} from '../../lib/has-dependency'
 import {debugLine, isDebug, prefix} from '../../lib/messaging'
 import type {AnyModule} from '../../lib/optional-deps-resolver'
 import {
@@ -23,7 +22,10 @@ import {
   formatInstallHint
 } from '../../lib/optional-deps-resolver'
 import {resolvePackageManager} from '../../lib/package-manager'
-import {readProjectDependencies} from '../../lib/project-manifest'
+import {
+  hasProjectDependency,
+  readProjectDependencies
+} from '../../lib/project-manifest'
 import type {StyleLoaderOptions} from '../common-style-loaders'
 import * as messages from '../css-lib/messages'
 import {reportStyleDiagnostic} from '../css-lib/style-diagnostics'
@@ -867,7 +869,9 @@ function tailwindInstallFix(
     typeof declaredMajor === 'number' && declaredMajor < 4
       ? ['tailwindcss']
       : ['tailwindcss', '@tailwindcss/postcss']
-  const unlisted = needed.filter((name) => !hasDependency(projectPath, name))
+  const unlisted = needed.filter(
+    (name) => !hasProjectDependency(projectPath, name)
+  )
 
   return unlisted.length > 0
     ? formatInstallHint(projectPath, unlisted)
@@ -875,7 +879,7 @@ function tailwindInstallFix(
 }
 
 export function isUsingPostCss(projectPath: string): boolean {
-  if (hasDependency(projectPath, 'postcss')) {
+  if (hasProjectDependency(projectPath, 'postcss')) {
     if (!userMessageDelivered) {
       if (isDebug()) {
         debugLine(
@@ -1406,7 +1410,7 @@ export async function maybeUsePostCss(
 
   if (userConfigIsCjsInEsm || bypassUserConfigForTailwindCompat) {
     try {
-      if (hasDependency(projectPath, 'autoprefixer')) {
+      if (hasProjectDependency(projectPath, 'autoprefixer')) {
         const autoprefixerMod = requireFromProject(projectPath, 'autoprefixer')
         const autoprefixerPlugin =
           typeof autoprefixerMod === 'function'

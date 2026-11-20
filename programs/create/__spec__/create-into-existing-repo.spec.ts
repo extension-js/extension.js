@@ -44,7 +44,7 @@ async function runCreate(dir: string, template = 'javascript') {
       install: false,
       cliVersion: '4.1.12',
       logger
-    } as any)
+    })
 
     return {ok: true, error: ''}
   } catch (err) {

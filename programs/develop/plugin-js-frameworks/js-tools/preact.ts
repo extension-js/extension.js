@@ -9,14 +9,14 @@
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import {debugLine, isDebug, prefix} from '../../lib/messaging'
+import {hasProjectDependency} from '../../lib/project-manifest'
 import type {JsFramework} from '../../types'
-import {hasDependency} from '../frameworks-lib/integrations'
 import * as messages from '../js-frameworks-lib/messages'
 import type {Notice, SessionNotices} from '../js-frameworks-lib/session-notices'
 import {isUsingReact} from './react'
 
 export function isUsingPreact(projectPath: string, notice?: Notice) {
-  if (hasDependency(projectPath, 'preact')) {
+  if (hasProjectDependency(projectPath, 'preact')) {
     if (notice && !notice.delivered) {
       if (isDebug()) {
         debugLine(`${prefix('debug')} ${messages.isUsingIntegration('Preact')}`)

@@ -50,7 +50,7 @@ import {defaultSplitChunks} from './lib/split-chunks'
 import {diagnosticsHaveColor} from './lib/stats-handler'
 import {resolveTranspilePackageDirs} from './lib/transpile-packages'
 import {UnresolvedCssUrlRefs} from './lib/unresolved-css-url-refs'
-import {CompatibilityPlugin} from './plugin-compatibility'
+import {CompatibilityPlugin, polyfillAlias} from './plugin-compatibility'
 import {CompilationPlugin} from './plugin-compilation'
 import {
   NodeBuiltinsPlugin,
@@ -621,6 +621,11 @@ export default function webpackConfig(
         'css-import-local-module': cssImportResolve,
         'css-import-global-module': cssImportResolve
       },
+      alias: polyfillAlias({
+        polyfill: devOptions.polyfill,
+        browser: devOptions.browser,
+        context: packageJsonDir
+      }),
       aliasFields: ['browser'],
       fallback: nodeFallbacks,
       modules:

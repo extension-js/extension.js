@@ -37,23 +37,26 @@ test('the pnpm-only settings live in pnpm-workspace.yaml', () => {
   }
 })
 
-// The create install runner finds the inherited rule by reading .npmrc, so the
-// rule moves only together with that reader.
-test('the release-age rule stays in .npmrc, where create reads it', () => {
+// The release-age rule is a supply-chain guard, so its value and every
+// exclusion are pinned, and create must read the file the rule lives in.
+test('the release-age rule lives in pnpm-workspace.yaml, where create reads it', () => {
   const workspace = readYaml('pnpm-workspace.yaml')
 
-  assert.deepEqual([...new Set(npmrcKeys())].sort(), [
-    'minimum-release-age',
-    'minimum-release-age-exclude'
+  assert.deepEqual(npmrcKeys(), [])
+  assert.equal(workspace.minimumReleaseAge, 4320)
+  assert.deepEqual(workspace.minimumReleaseAgeExclude, [
+    'image-size',
+    'browser-extension-manifest-fields',
+    'zen-location',
+    'floorp-location',
+    'firefox-location2'
   ])
 
-  assert.equal(workspace.minimumReleaseAge, undefined)
-  assert.equal(workspace.minimumReleaseAgeExclude, undefined)
   assert.match(
     fs.readFileSync(
       path.join(root, 'programs', 'create', 'lib', 'install-runner.ts'),
       'utf8'
     ),
-    /'\.npmrc'/
+    /'pnpm-workspace\.yaml'/
   )
 })

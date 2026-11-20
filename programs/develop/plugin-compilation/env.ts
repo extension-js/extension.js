@@ -37,7 +37,8 @@ import type {DevOptions, PluginInterface} from '../types'
 import {
   escapeForHtmlAsset,
   isInsideJsonString,
-  substituteForJsonAsset
+  substituteForJsonAsset,
+  valueBreaksInlineScript
 } from './compilation-lib/asset-sinks'
 import {toJsStringLiteral} from './compilation-lib/js-literal'
 import * as messages from './compilation-lib/messages'
@@ -601,6 +602,7 @@ function createEnvAssetTemplater(
     const isJsonAsset = filename.endsWith('.json')
     const isLocaleCatalog = LOCALE_CATALOG.test(filename.replace(/\\/g, '/'))
     const substituted = new Set<string>()
+    const breaksScript = new Set<string>()
 
     // A token closed by a second $ in a locale catalog is the browser's.
     const belongsToBrowser = (match: string, offset: number) =>
@@ -621,9 +623,15 @@ function createEnvAssetTemplater(
 
       substituted.add(name)
 
-      return isJsonAsset
-        ? substituteForJsonAsset(original, offset, templateVars[name])
-        : escapeForHtmlAsset(original, offset, templateVars[name])
+      if (isJsonAsset) {
+        return substituteForJsonAsset(original, offset, templateVars[name])
+      }
+
+      if (valueBreaksInlineScript(original, offset, templateVars[name])) {
+        breaksScript.add(name)
+      }
+
+      return escapeForHtmlAsset(original, offset, templateVars[name])
     }
 
     // Digits are valid env-name characters (e.g. EXTENSION_PUBLIC_API_V2).
@@ -659,6 +667,15 @@ function createEnvAssetTemplater(
         messages.envValueBreaksJsonAsset(filename, [...substituted])
       ) as Error & {file?: string; name?: string}
       error.name = 'EnvValueBreaksJsonAsset'
+      error.file = filename
+      compilation.errors.push(error)
+    }
+
+    if (breaksScript.size > 0) {
+      const error = new WebpackError(
+        messages.envValueBreaksInlineScript(filename, [...breaksScript])
+      ) as Error & {file?: string; name?: string}
+      error.name = 'EnvValueBreaksInlineScript'
       error.file = filename
       compilation.errors.push(error)
     }

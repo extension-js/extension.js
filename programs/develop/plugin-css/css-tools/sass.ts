@@ -13,19 +13,19 @@ import {debugLine, prefix} from '../../lib/messaging'
 const cjsRequire = createRequire(import.meta.url)
 
 import {resolveDevelopInstallRoot} from '../../lib/develop-context'
-import {hasDependency} from '../../lib/has-dependency'
 import {isDebug} from '../../lib/messaging'
 import type {AnyModule} from '../../lib/optional-deps-resolver'
 import {
   ensureOptionalContractPackageResolved,
   formatInstallHint
 } from '../../lib/optional-deps-resolver'
+import {hasProjectDependency} from '../../lib/project-manifest'
 import * as messages from '../css-lib/messages'
 
 let userMessageDelivered = false
 
 export function isUsingSass(projectPath: string): boolean {
-  if (hasDependency(projectPath, 'sass')) {
+  if (hasProjectDependency(projectPath, 'sass')) {
     if (!userMessageDelivered) {
       if (isDebug()) {
         debugLine(`${prefix('debug')} ${messages.isUsingIntegration('SASS')}`)
