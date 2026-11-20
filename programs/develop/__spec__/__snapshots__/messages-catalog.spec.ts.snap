@@ -101,6 +101,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "localZipNotFound: function(1)",
     "localZipUnreadable: function(2)",
     "managedDependencyCopyWarning: function(2)",
+    "manifestInPublicError: function(1)",
     "manifestInvalidJson: function(2)",
     "manifestNotFoundError: function(1)",
     "manifestV2OnChromium: function(2)",

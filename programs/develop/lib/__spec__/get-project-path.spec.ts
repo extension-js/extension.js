@@ -275,6 +275,25 @@ describe('get-project-path', () => {
     logSpy.mockRestore()
   })
 
+  it('names the public/ manifest when pointed at the folder that holds it', async () => {
+    const root = makeTempDir('extjs-manifest-in-public-')
+    const publicDir = path.join(root, 'public')
+    fs.mkdirSync(publicDir, {recursive: true})
+    fs.writeFileSync(path.join(publicDir, 'manifest.json'), '{}')
+    fs.writeFileSync(
+      path.join(root, 'package.json'),
+      JSON.stringify({name: 'pkg'})
+    )
+
+    // The file exists, so a "not found" message would send the author looking.
+    await expect(getProjectStructure(publicDir)).rejects.toMatchObject({
+      code: 'E_MANIFEST_IN_PUBLIC',
+      message: expect.stringMatching(
+        /public\/ folder[\s\S]*public[\\/]manifest\.json/
+      )
+    })
+  })
+
   it('rejects when multiple nested manifests exist (ambiguous workspace)', async () => {
     const root = makeTempDir('extjs-manifest-multi-candidate-')
     const first = path.join(root, 'packages', 'ext-a')

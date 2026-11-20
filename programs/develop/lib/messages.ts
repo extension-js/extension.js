@@ -146,6 +146,15 @@ export function manifestNotFoundError(
   return `${base}\n\n${colors.gray(hint)}\n${colors.blue(suggestions)}`
 }
 
+// The manifest sits in the folder copied as is, so the way out is moving it.
+export function manifestInPublicError(manifestPath: string) {
+  return (
+    `${getLoggingPrefix('error')} manifest.json sits in the public/ folder.\n` +
+    `${colors.gray('FOUND')} ${colors.underline(manifestPath)}\n` +
+    `Files in public/ are copied to the output as they are. Move manifest.json to the project root or src/, then try again.`
+  )
+}
+
 export function companionManifestNotProjectError(
   manifestPath: string,
   companionManifestPath: string
