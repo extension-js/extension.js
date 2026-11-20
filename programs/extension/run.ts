@@ -387,6 +387,27 @@ async function runUntilEnd(argv: string[], deps: RunDeps): Promise<number> {
   const typedCommand = resolveCommandFromArgv(parsedArgv)
   const commandName = typedCommand || 'extension'
 
+  // A bare run prints the help for a person. A caller that asked for json and
+  // named no command gets that answer as a frame, not a refusal of the flag.
+  const asksForHelpOrVersion = parsedArgv.some((arg) =>
+    ['--help', '-h', '--version', '-V'].includes(arg)
+  )
+
+  if (asJson && !typedCommand && !asksForHelpOrVersion) {
+    const message = messages.noCommandGivenText()
+
+    deps.stderr(`${messages.noCommandGiven()}\n`)
+    deps.writeFrame(earlyExitEnvelope('extension', CODES.E_ARGS, message))
+
+    try {
+      reportCommandFailureNow({code: CODES.E_ARGS, exitCode: 1})
+    } catch {
+      // Ignore
+    }
+
+    return endRun(deps, 1)
+  }
+
   // An unknown flag's value can read as the command, and its help would then
   // name a command that does not exist.
   function commandNameFor(err: {code?: unknown}): string {
