@@ -815,6 +815,36 @@ describe('EnvPlugin placeholders in emitted .json and .html', () => {
     ])
   })
 
+  it('stops the build over a bare placeholder whose value breaks an inline script', async () => {
+    vi.stubEnv('EXTENSION_PUBLIC_FOO', 'two words')
+    vi.stubEnv('EXTENSION_PUBLIC_COUNT', '42')
+    const root = project({
+      'broken.html':
+        '<script>window.count = $EXTENSION_PUBLIC_COUNT; window.foo = $EXTENSION_PUBLIC_FOO;</script>',
+      'fine.html':
+        '<script>window.count = $EXTENSION_PUBLIC_COUNT; window.foo = "$EXTENSION_PUBLIC_FOO";</script>' +
+        '<script type="module">const n = $EXTENSION_PUBLIC_COUNT</script>' +
+        '<script type="text/x-template">$EXTENSION_PUBLIC_FOO</script>' +
+        '<script>this never parsed ( $EXTENSION_PUBLIC_FOO</script>'
+    })
+    const result = await build(root, {copy: ['broken.html', 'fine.html']})
+
+    expect(result.asset('broken.html')).toBe(
+      '<script>window.count = 42; window.foo = two words;</script>'
+    )
+
+    expect(result.errors).toEqual([
+      {
+        name: 'EnvValueBreaksInlineScript',
+        file: 'broken.html',
+        message:
+          '  × An inline script in broken.html no longer parses after substituting $EXTENSION_PUBLIC_FOO.\n' +
+          '  │ Quote the placeholder to get a string: "$EXTENSION_PUBLIC_FOO". ' +
+          'An unquoted placeholder takes the value as written, so the value must be JavaScript itself.\n'
+      }
+    ])
+  })
+
   it('does not blame the value for a file that was never strict JSON', async () => {
     vi.stubEnv('EXTENSION_PUBLIC_FOO', 'sysFoo')
     const root = project({

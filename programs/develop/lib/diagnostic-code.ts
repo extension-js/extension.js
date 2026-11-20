@@ -97,6 +97,7 @@ export const NAMED_CODES: Record<string, ErrorCode> = {
   DNRInvalidRule: CODES.E_JSON_INVALID,
   ManagedSchemaInvalid: CODES.E_JSON_INVALID,
   EnvValueBreaksJsonAsset: CODES.E_JSON_INVALID,
+  EnvValueBreaksInlineScript: CODES.E_INLINE_SCRIPT_SYNTAX,
   DNRRuleShapeIssue: CODES.W_JSON_INVALID,
   DNRDuplicateRuleId: CODES.W_JSON_INVALID,
   DNRRegexChromeCannotCompile: CODES.W_JSON_INVALID,

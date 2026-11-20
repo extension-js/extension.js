@@ -84,6 +84,7 @@ describe('diagnosticCode', () => {
     ['DNRInvalidRule', 'E_JSON_INVALID'],
     ['ManagedSchemaInvalid', 'E_JSON_INVALID'],
     ['EnvValueBreaksJsonAsset', 'E_JSON_INVALID'],
+    ['EnvValueBreaksInlineScript', 'E_INLINE_SCRIPT_SYNTAX'],
     ['DNRRuleShapeIssue', 'W_JSON_INVALID'],
     ['DNRDuplicateRuleId', 'W_JSON_INVALID'],
     ['DNRRegexChromeCannotCompile', 'W_JSON_INVALID'],
@@ -257,6 +258,7 @@ describe('diagnosticCode', () => {
 // Classes the build only ever fails on, so none of them has a W_ name.
 const ERRORS_ONLY = new Set<ErrorCode>([
   CODES.E_CONTENT_SCRIPT_SYNTAX,
+  CODES.E_INLINE_SCRIPT_SYNTAX,
   CODES.E_MANIFEST_NOT_FOUND,
   CODES.E_COMPILE,
   CODES.E_ASSET_IMPORT_SHAPE,

@@ -173,6 +173,15 @@ export function envValueBreaksJsonAsset(asset: string, names: string[]) {
   )
 }
 
+export function envValueBreaksInlineScript(asset: string, names: string[]) {
+  return (
+    `An inline script in ${colors.yellow(asset)} no longer parses after substituting ` +
+    `${names.map((name) => colors.yellow(`$${name}`)).join(', ')}.\n` +
+    `Quote the placeholder to get a string: ${colors.gray(`"$${names[0]}"`)}. ` +
+    `An unquoted placeholder takes the value as written, so the value must be JavaScript itself.`
+  )
+}
+
 // A live session cannot re-read the config file: the loader caches it and the
 // merged options are a session-scoped snapshot. Say so instead of compiling
 // clean and leaving the author to wonder which build their edit landed in.
