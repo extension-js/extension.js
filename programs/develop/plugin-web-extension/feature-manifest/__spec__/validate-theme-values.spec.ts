@@ -25,7 +25,9 @@ describe('collectThemeArrayIssues', () => {
           d: [0, 0, 0, 0],
           e: '#ff0000',
           f: '#000',
-          g: 'rgb(1, 2, 3)'
+          g: 'rgb(1, 2, 3)',
+          h: 'white',
+          i: 'RebeccaPurple'
         },
         tints: {buttons: [0.5, -1, 0.5]}
       })
@@ -37,7 +39,6 @@ describe('collectThemeArrayIssues', () => {
     ['#0008', '[0, 0, 0, 0.53]'],
     ['rgba(255, 0, 0, 0.5)', '[255, 0, 0, 0.5]'],
     ['rgb(255, 0, 0, 1)', '[255, 0, 0, 1]'],
-    ['white', '[255, 255, 255]'],
     ['transparent', '[0, 0, 0, 0]'],
     ['rgba(255, 0, 0, 2)', '[R, G, B]'],
     ['rgb(100%, 0%, 0%)', '[R, G, B]'],
@@ -158,7 +159,7 @@ describe('ValidateThemeArrays step', () => {
       name: 'x',
       version: '1.0.0',
       theme: {
-        colors: {frame: 'red', toolbar: '#fff'},
+        colors: {frame: 'hsl(0, 100%, 50%)', toolbar: '#fff'},
         tints: {buttons: [1, 2]}
       }
     })
@@ -170,7 +171,10 @@ describe('ValidateThemeArrays step', () => {
 
     expect(compilation.errors).toHaveLength(1)
     const message = String(compilation.errors[0].message)
-    expect(message).toContain('theme.colors.frame "red", write [255, 0, 0]')
+    expect(message).toContain(
+      'theme.colors.frame "hsl(0, 100%, 50%)", write [R, G, B]'
+    )
+
     expect(message).toContain('theme.tints.buttons [1,2], write [H, S, L]')
     expect(message).not.toContain('theme.colors.toolbar')
   })
