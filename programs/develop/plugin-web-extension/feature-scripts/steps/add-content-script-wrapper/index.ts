@@ -83,7 +83,8 @@ export function findDeclaredMainWorldFiles(
     const groups = Array.isArray(manifest.content_scripts)
       ? (manifest.content_scripts as Array<{world?: unknown; js?: unknown}>)
       : []
-    const manifestDir = canonicalizeDir(path.dirname(manifestPath))
+    // As written: the issuer condition adds the real spelling itself.
+    const manifestDir = path.dirname(manifestPath)
 
     return groups
       .filter((group) => group?.world === 'MAIN')
@@ -128,14 +129,12 @@ export class AddContentScriptWrapper {
   public apply(compiler: Compiler) {
     const manifestDir = canonicalizeDir(path.dirname(this.manifestPath))
     const packageJsonPath = findNearestProjectManifestSync(this.manifestPath)
-    const packageJsonDir = canonicalizeDir(
-      packageJsonPath ? path.dirname(packageJsonPath) : manifestDir
-    )
-    const includeDirs =
-      packageJsonDir === manifestDir
-        ? [manifestDir]
-        : [manifestDir, packageJsonDir]
-    const includeMatcher = underFolders(includeDirs)
+    // The folders as written: a Windows short name reaches the bundler as is,
+    // and the condition adds the real spelling itself.
+    const includeMatcher = underFolders([
+      path.dirname(this.manifestPath),
+      ...(packageJsonPath ? [path.dirname(packageJsonPath)] : [])
+    ])
 
     // A file the extension registers into the MAIN world at runtime shares the
     // page's globals and DOM prototypes exactly like a declared MAIN world
@@ -182,7 +181,9 @@ export class AddContentScriptWrapper {
     // page, so it builds apart from the copy scripts/ emits as its own file.
     const mainWorldEntryFiles = new Set([
       ...findDeclaredMainWorldFiles(this.manifestPath, this.browser),
-      ...mainWorldScripts
+      ...runtimeMainWorld
+        .filter((entry) => !entry.copyOf)
+        .flatMap((entry) => entry.files)
     ])
     const importedByMainWorldEntry = oneOfFiles([...mainWorldEntryFiles])
     const hasMainWorldEntries =

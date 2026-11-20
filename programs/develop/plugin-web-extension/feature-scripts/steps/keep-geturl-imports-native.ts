@@ -10,7 +10,6 @@ import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import {resolveDevelopDistFile} from '../../../lib/develop-context'
 import {findNearestProjectManifestSync} from '../../../lib/project-manifest'
-import {canonicalizeDir} from '../../../lib/resource-path'
 import {NOT_RAW_RESOURCE_QUERY} from '../../../lib/resource-query'
 import type {PluginInterface} from '../../../types'
 import {addRulesInFront} from '../scripts-lib/front-rules'
@@ -26,15 +25,13 @@ export class KeepGetURLImportsNative {
   }
 
   public apply(compiler: Compiler) {
-    const manifestDir = canonicalizeDir(path.dirname(this.manifestPath))
     const packageJsonPath = findNearestProjectManifestSync(this.manifestPath)
-    const packageJsonDir = canonicalizeDir(
-      packageJsonPath ? path.dirname(packageJsonPath) : manifestDir
-    )
-    const includeDirs =
-      packageJsonDir === manifestDir
-        ? [manifestDir]
-        : [manifestDir, packageJsonDir]
+    // The folders as written: a Windows short name reaches the bundler as is,
+    // and the condition adds the real spelling itself.
+    const includeDirs = [
+      path.dirname(this.manifestPath),
+      ...(packageJsonPath ? [path.dirname(packageJsonPath)] : [])
+    ]
 
     // In front of the rules extension.config.js added, whose loaders run
     // first and so read the file as it is written.
