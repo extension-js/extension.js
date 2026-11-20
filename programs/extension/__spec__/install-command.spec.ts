@@ -493,8 +493,9 @@ describe('extension install', () => {
     expect(wholeStdout().error?.code).toBe(code)
   })
 
-  // An error the package gave no type is not known to be a failed download.
-  it('reports an error of no known kind in its own words, with no retry hint', async () => {
+  // An error the package gave no type is a fault nobody classified, not a
+  // failed download, so it never takes the download code or a retry hint.
+  it('reports an error of no known kind as internal, in its own words, with how to report it', async () => {
     vi.mocked(extensionInstall).mockRejectedValue(
       Object.assign(new Error('spawn pnpm EACCES'), {code: 'EACCES'})
     )
@@ -504,12 +505,15 @@ describe('extension install', () => {
 
     expect(frame.error).toEqual(
       expect.objectContaining({
-        code: 'E_BROWSER_DOWNLOAD',
+        code: 'E_INTERNAL',
         message: 'spawn pnpm EACCES'
       })
     )
 
-    expect('hint' in frame).toBe(false)
+    expect(frame.hint).toBe(
+      'Run the install again. If it fails the same way, report it with this ' +
+        'message at https://github.com/extension-js/extension.js/issues.'
+    )
 
     expect(await run(['install', 'chrome'])).toBe(1)
     expect(errorSpy.mock.calls).toEqual([['spawn pnpm EACCES']])
@@ -975,6 +979,7 @@ describe('extension uninstall', () => {
         removed: false,
         path: '/cache/firefox',
         outcome: 'failed' as const,
+        kind: 'removal',
         reason: 'EBUSY: resource busy or locked'
       }
     ]
@@ -1009,6 +1014,37 @@ describe('extension uninstall', () => {
       expect(await run(['uninstall', '--all'])).toBe(1)
       expect(errorSpy.mock.calls).toEqual([[message]])
     })
+  })
+
+  it.each([
+    [['uninstall', 'chrome', '--all']],
+    [['uninstall', '--browser', 'chrome,firefox', '--all']]
+  ])('refuses names beside --all and removes nothing: %j', async (argv) => {
+    expect(await run([...argv, '--output', 'json'])).toBe(1)
+    expect(wholeStdout()).toMatchObject({
+      ok: false,
+      command: 'uninstall',
+      status: 'usage',
+      error: {
+        code: 'E_ARGS',
+        message:
+          'Pass browser names to remove those browsers, or --all to remove every browser, not both.'
+      }
+    })
+
+    expect(await run(argv)).toBe(1)
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Pass browser names to remove those browsers, or --all to remove every browser, not both.'
+    )
+
+    expect(extensionUninstall).not.toHaveBeenCalled()
+  })
+
+  it('takes the name all beside --all as the one request it is', async () => {
+    expect(await run(['uninstall', 'all', '--all', '--output', 'json'])).toBe(0)
+    expect(extensionUninstall).toHaveBeenCalledWith(
+      expect.objectContaining({all: true, browser: undefined})
+    )
   })
 
   it('uses the same three refusal codes as install for name errors', async () => {

@@ -3,7 +3,7 @@ import * as path from 'node:path'
 import {rspack} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../../plugin-web-extension/feature-scripts/contracts'
-import {JsFrameworksPlugin} from '../index'
+import {EXTENSIONJS_BACKGROUND_LAYER, JsFrameworksPlugin} from '../index'
 import {
   callable,
   compileProject,
@@ -66,7 +66,7 @@ const isVueLoaderRule = (rule: LooseRule) =>
   rule.test !== undefined && /[\\/]vue-loader[\\/]/.test(loaderOf(rule))
 
 describe('JsFrameworksPlugin aliases and framework rules', () => {
-  it('aliases React to the project copy and patches the refresh loader out of content scripts', async () => {
+  it('aliases React to the project copy and keeps the refresh loader out of content scripts and the background', async () => {
     const root = reactProject()
     const compiler = await configure(root)
     const modules = path.join(root, 'node_modules')
@@ -85,7 +85,7 @@ describe('JsFrameworksPlugin aliases and framework rules', () => {
 
     expect(refreshRules).toHaveLength(1)
     expect(refreshRules[0].issuerLayer).toEqual({
-      not: EXTENSIONJS_CONTENT_SCRIPT_LAYER
+      not: [EXTENSIONJS_CONTENT_SCRIPT_LAYER, EXTENSIONJS_BACKGROUND_LAYER]
     })
   })
 

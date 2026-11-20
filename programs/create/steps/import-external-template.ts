@@ -15,7 +15,7 @@ import {unzipSync} from 'fflate'
 import {cloneInChild} from '../lib/clone-in-child'
 import {formatDuration} from '../lib/format-duration'
 import * as messages from '../lib/messages'
-import {isDebug} from '../lib/messaging'
+import {CODES, isDebug} from '../lib/messaging'
 import * as utils from '../lib/utils'
 
 // In-process unzip with a zip-slip guard: entries naming absolute paths or
@@ -170,7 +170,10 @@ export function resolveTemplateAlias(name: string): string {
     : name
 }
 
+// Each class carries the code the CLI answers with, so the code travels with
+// the error and never depends on the frame it is given.
 export class TemplateNotFoundError extends Error {
+  readonly code = CODES.E_TEMPLATE_NOT_FOUND
   readonly templateName: string
   constructor(templateName: string, cause?: unknown) {
     super(`template not found in catalog: ${templateName}`)
@@ -181,6 +184,7 @@ export class TemplateNotFoundError extends Error {
 }
 
 export class InsecureTemplateUrlError extends Error {
+  readonly code = CODES.E_INVALID_OPTION
   readonly url: string
   constructor(url: string) {
     super(`template URL is not https: ${url}`)
@@ -225,6 +229,7 @@ function findInsecureTemplateUrlError(
 }
 
 export class TemplateDownloadError extends Error {
+  readonly code = CODES.E_NETWORK
   readonly templateName: string
   constructor(templateName: string, cause: unknown) {
     const msg = (cause as {message?: string})?.message ?? String(cause)
@@ -238,6 +243,7 @@ export class TemplateDownloadError extends Error {
 // The URL answered, with something that is not an archive. That is a URL to
 // fix, so it never takes the network frame a failed download gets.
 export class TemplateNotZipError extends Error {
+  readonly code = CODES.E_REMOTE_ZIP_INVALID
   readonly url: string
   readonly got: string
   constructor(url: string, got: string) {
@@ -251,6 +257,7 @@ export class TemplateNotZipError extends Error {
 // The body opened like a ZIP and then would not unpack. It is still the URL's
 // archive to fix, so it is typed and never reaches the sink with a stack.
 export class TemplateArchiveDamagedError extends Error {
+  readonly code = CODES.E_REMOTE_ZIP_INVALID
   readonly url: string
   readonly reason: string
   constructor(url: string, cause: unknown) {
@@ -266,6 +273,7 @@ export class TemplateArchiveDamagedError extends Error {
 // An entry that would land outside the project is refused on purpose, and a
 // retry fetches the same archive, so it is not reported as a damaged one.
 export class TemplateArchiveEntryOutsideError extends Error {
+  readonly code = CODES.E_REMOTE_ZIP_INVALID
   readonly url: string
   readonly entry: string
   constructor(url: string, entry: string) {
@@ -468,6 +476,78 @@ async function downloadArchive(
   throw lastError
 }
 
+// The folder a pinned catalog archive is kept in, per user, beside the
+// managed browsers. EXTENSION_CREATE_CACHE_DIR moves it.
+export function templateArchiveCacheDir(
+  env: Record<string, string | undefined> = process.env,
+  platform: NodeJS.Platform = process.platform,
+  home: string = os.homedir()
+): string {
+  const explicit = String(env.EXTENSION_CREATE_CACHE_DIR || '').trim()
+  if (explicit) return path.resolve(explicit)
+
+  const p = platform === 'win32' ? path.win32 : path.posix
+  const userHome = env.HOME || home
+
+  if (platform === 'win32') {
+    const local =
+      env.LOCALAPPDATA || p.join(env.USERPROFILE || home, 'AppData', 'Local')
+
+    return p.join(local, 'extension.js', 'templates')
+  }
+
+  if (platform === 'darwin') {
+    return p.join(userHome, 'Library', 'Caches', 'extension.js', 'templates')
+  }
+
+  return p.join(
+    env.XDG_CACHE_HOME || p.join(userHome, '.cache'),
+    'extension.js',
+    'templates'
+  )
+}
+
+// A few pins at most: two CLI versions on one machine each keep theirs.
+const KEPT_ARCHIVES = 3
+
+async function readCachedArchive(file: string): Promise<Buffer | undefined> {
+  try {
+    const body = await fs.readFile(file)
+
+    return isZipBuffer(body) ? body : undefined
+  } catch {
+    return undefined
+  }
+}
+
+// Best effort: a cache that cannot be written only costs the next download.
+async function keepArchive(dir: string, file: string, body: Buffer) {
+  try {
+    await fs.mkdir(dir, {recursive: true})
+    const partial = `${file}.${process.pid}.partial`
+    await fs.writeFile(partial, body)
+    await fs.rename(partial, file)
+
+    const kept = await Promise.all(
+      (await fs.readdir(dir))
+        .filter((name) => name.endsWith('.zip'))
+        .map(async (name) => {
+          const full = path.join(dir, name)
+
+          return {full, mtime: (await fs.stat(full)).mtimeMs}
+        })
+    )
+
+    kept.sort((a, b) => b.mtime - a.mtime)
+
+    for (const old of kept.slice(KEPT_ARCHIVES)) {
+      await fs.rm(old.full, {force: true})
+    }
+  } catch {
+    // Ignore
+  }
+}
+
 // Extract ONLY `<archive-root>/examples/<templateName>/**` from a GitHub zip
 // into projectPath. Throws TemplateNotFoundError when the slug is absent.
 export async function extractExamplesTemplateFromZip(
@@ -523,7 +603,8 @@ async function importFromExamplesCatalog(
   templateName: string,
   projectPath: string,
   downloadRetry?: DownloadRetryOptions,
-  fetchTemplate?: TemplateFetch
+  fetchTemplate?: TemplateFetch,
+  cacheDir?: string
 ): Promise<{source: string; ref?: string}> {
   const ref = process.env.EXTENSION_CREATE_TEMPLATE_REF || DEFAULT_TEMPLATES_REF
   const overrideUrl = process.env.EXTENSION_CREATE_TEMPLATE_URL || undefined
@@ -535,6 +616,34 @@ async function importFromExamplesCatalog(
   }
 
   const urls = resolveCatalogUrls(ref, overrideUrl)
+
+  // A commit's archive never changes, so a second create from the same pin
+  // reads it from disk. A branch, a tag or an override URL can move.
+  const cachedFile =
+    cacheDir && !overrideUrl && /^[0-9a-f]{40}$/i.test(ref)
+      ? path.join(cacheDir, `${ref.toLowerCase()}.zip`)
+      : undefined
+  const cached = cachedFile ? await readCachedArchive(cachedFile) : undefined
+
+  if (cachedFile && cached) {
+    try {
+      await extractExamplesTemplateFromZip(
+        cached,
+        templateName,
+        projectPath,
+        urls[0]
+      )
+
+      return {source: urls[0], ref}
+    } catch (error) {
+      if (!(error instanceof TemplateArchiveDamagedError)) throw error
+
+      // The archive is unzipped before any write, so a damaged copy left
+      // nothing behind. It is dropped and the archive downloaded again.
+      await fs.rm(cachedFile, {force: true})
+    }
+  }
+
   const budget = startFetchBudget(networkTimeoutMs())
 
   let buffer: Buffer | undefined
@@ -587,6 +696,8 @@ async function importFromExamplesCatalog(
     projectPath,
     source
   )
+
+  if (cacheDir && cachedFile) await keepArchive(cacheDir, cachedFile, buffer)
 
   // An explicit URL override is its own provenance; otherwise record the ref.
   return {source, ref: overrideUrl ? undefined : ref}
@@ -828,6 +939,9 @@ export interface ImportExternalTemplateOptions {
   // Omitted in production, where axios and go-git-it do the work.
   fetch?: TemplateFetch
   clone?: TemplateClone
+  // Where a pinned catalog archive is kept. Left out, the per-user cache is
+  // used with the real transport and none with an injected one.
+  archiveCacheDir?: string
   // How failure cleanup removes a path, fs.rm unless given.
   remove?: RemovePath
 }
@@ -1079,11 +1193,12 @@ export async function importExternalTemplate(
         !outsideTemplate ||
         (!outsideTemplate.startsWith('..') && !path.isAbsolute(outsideTemplate))
       ) {
-        throw new Error(
+        throw new utils.CreateError(
           messages.templateDirectoryIsDestination(
             localTemplateDir,
             path.resolve(projectPath)
-          )
+          ),
+          CODES.E_INVALID_OPTION
         )
       }
     }
@@ -1232,7 +1347,9 @@ export async function importExternalTemplate(
         resolvedTemplateName,
         projectPath,
         options?.downloadRetry,
-        fetchTemplate
+        fetchTemplate,
+        options?.archiveCacheDir ??
+          (options?.fetch ? undefined : templateArchiveCacheDir())
       )
       provenance = {
         template: resolvedTemplateName,
@@ -1356,7 +1473,10 @@ export async function importExternalTemplate(
       frame === null
         ? utils.failStep(
             messages.installingFromTemplateError(templateName, error),
-            error
+            error,
+            // Nothing above recognized the fault, so it is not one a user
+            // can act on from the code alone.
+            CODES.E_INTERNAL
           )
         : error
 

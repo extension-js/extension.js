@@ -1259,12 +1259,8 @@ export class ChromiumLaunchPlugin {
 
     const enableCdp = opts?.enableCdpPostLaunch === false ? false : true
     // Run-only skips the reload wiring but still asks the browser about the
-    // guest, unless the user stripped the debugging flags from the launch.
-    const verifyLoadOnly =
-      !enableCdp &&
-      chromiumConfig.some((flag) => flag.startsWith('--remote-debugging-'))
-
-    const usePipe = chromiumConfig.includes('--remote-debugging-pipe')
+    // guest. Every launch carries the debugging pipe, so it always can.
+    const verifyLoadOnly = !enableCdp
     const closeHandlerOutputPath =
       getExtensionOutputPath(
         compilation,
@@ -1313,14 +1309,6 @@ export class ChromiumLaunchPlugin {
       return
     }
 
-    // With the debugging flags stripped the browser cannot be asked either.
-    if (!enableCdp && !verifyLoadOnly) heldPredictions.flush()
-
-    if (predictedRefusal && !verifyLoadOnly) {
-      portClaim.release()
-      this.endRefusedRun(compilation, predictedRefusal.extensionPath)
-    }
-
     this.closeHandlerContext = {
       command:
         compilation.options.mode === 'development'
@@ -1337,8 +1325,7 @@ export class ChromiumLaunchPlugin {
     try {
       child = await this.launchWithDirectSpawn(
         browserBinaryLocation,
-        chromiumConfig,
-        usePipe
+        chromiumConfig
       )
     } catch (error) {
       // No browser will bind the port, so the next session may take it.
@@ -1405,7 +1392,7 @@ export class ChromiumLaunchPlugin {
     // Extract pipe streams for CDP transport: child.stdio[3] writes commands to
     // Chrome, child.stdio[4] reads responses.
     const pipeStreams =
-      usePipe && child?.stdio?.[3] && child?.stdio?.[4]
+      child?.stdio?.[3] && child?.stdio?.[4]
         ? {
             input: child.stdio[4] as import('stream').Readable,
             output: child.stdio[3] as import('stream').Writable
@@ -1416,23 +1403,6 @@ export class ChromiumLaunchPlugin {
     // otherwise surface as an uncaught exception instead of the exit below.
     guardCdpPipe(pipeStreams?.input)
     guardCdpPipe(pipeStreams?.output)
-
-    if ((enableCdp || verifyLoadOnly) && !pipeStreams) {
-      let portReady = false
-
-      for (let attempt = 0; attempt < 10; attempt++) {
-        portReady = await this.deps.portIsOpen(selectedPort)
-        if (portReady) break
-
-        await this.deps.sleep(500)
-      }
-
-      if (!portReady && isDebug()) {
-        this.logger.warn?.(
-          `[browser] Debug port ${selectedPort} not bound after spawn. CDP may fail`
-        )
-      }
-    }
 
     // "ready" is a claim about the browser, not about the compile, so it waits
     // until the CDP flow below has confirmed the browser accepted the guest.
@@ -1775,11 +1745,7 @@ export class ChromiumLaunchPlugin {
     logChromiumDryRun(this.options.browser, plan.binary, plan.args, source)
   }
 
-  private async launchWithDirectSpawn(
-    binary: string,
-    chromeFlags: string[],
-    usePipe: boolean = false
-  ) {
+  private async launchWithDirectSpawn(binary: string, chromeFlags: string[]) {
     if (isDebug()) {
       this.logger.info(
         messages.chromeInitializingEnhancedReload(this.options.browser)
@@ -1795,9 +1761,13 @@ export class ChromiumLaunchPlugin {
 
     // --remote-debugging-pipe talks over fds 3 & 4. stderr is PIPED and drained so
     // extension-load rejections reach the user instead of silently wedging dev.
-    const stdio: import('child_process').StdioOptions = usePipe
-      ? ['ignore', 'ignore', 'pipe', 'pipe', 'pipe']
-      : ['ignore', 'ignore', 'pipe']
+    const stdio: import('child_process').StdioOptions = [
+      'ignore',
+      'ignore',
+      'pipe',
+      'pipe',
+      'pipe'
+    ]
 
     const normalizedBinary = normalizeBinaryPathForWsl(binary)
 

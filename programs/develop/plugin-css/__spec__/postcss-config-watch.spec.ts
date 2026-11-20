@@ -85,7 +85,7 @@ async function dev(root: string): Promise<DevSession> {
         ? fs.readFileSync(sheet, 'utf8').replace(/\s+/g, '')
         : '',
       setupWarnings: stats.compilation.warnings
-        .filter((w) => w.name === 'CssSetupWarning')
+        .filter((w) => /^CssSetup(Warning|NotApplied)$/.test(w.name))
         .map((w) => w.message.replace(/^\s*(?:⚠|│)\s?/gm, '').trimEnd()),
       errors: stats.compilation.errors.map((e) => e.message)
     }

@@ -7,9 +7,14 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
-import {createRequire} from 'node:module'
+import {createRequire, register as registerModuleHooks} from 'node:module'
 import * as path from 'node:path'
-import {pathToFileURL} from 'node:url'
+import {fileURLToPath, pathToFileURL} from 'node:url'
+import {
+  MessageChannel,
+  type MessagePort,
+  receiveMessageOnPort
+} from 'node:worker_threads'
 import {hasDependency} from '../../lib/has-dependency'
 import {debugLine, isDebug, prefix} from '../../lib/messaging'
 import type {AnyModule} from '../../lib/optional-deps-resolver'
@@ -212,6 +217,93 @@ export function postCssConfigHelpers(projectPath: string): string[] {
 // saves inside one tick of the clock, or on a disk that keeps whole seconds.
 let freshImports = 0
 
+const FRESH_IMPORT_PARAM = 'extjs_fresh'
+
+// Node keeps an ES module while its address stays the same. This hook gives
+// each project file a freshly read module imports a new one, and reports it.
+const FRESH_IMPORT_HOOK = `
+const READ = /[?&]${FRESH_IMPORT_PARAM}=(\\d+)/
+let port
+
+export function initialize(data) {
+  port = data.port
+}
+
+export async function resolve(specifier, context, nextResolve) {
+  const resolved = await nextResolve(specifier, context)
+  const read = READ.exec(context.parentURL || '')?.[1]
+
+  if (
+    !read ||
+    !resolved.url.startsWith('file:') ||
+    resolved.url.includes('/node_modules/') ||
+    READ.test(resolved.url)
+  ) {
+    return resolved
+  }
+
+  port.postMessage({read: Number(read), url: resolved.url})
+
+  return {
+    ...resolved,
+    url: resolved.url + (resolved.url.includes('?') ? '&' : '?') + '${FRESH_IMPORT_PARAM}=' + read
+  }
+}
+`
+
+let freshImportPort: MessagePort | undefined
+let freshImportHookFailed = false
+const importedByRead = new Map<number, string[]>()
+
+// Registered on the first read. Where the runtime has no module hooks the
+// config still loads, and its own imports stay as first read.
+function freshImportHook(): MessagePort | undefined {
+  if (freshImportPort || freshImportHookFailed) return freshImportPort
+
+  try {
+    const {port1, port2} = new MessageChannel()
+
+    registerModuleHooks(
+      `data:text/javascript,${encodeURIComponent(FRESH_IMPORT_HOOK)}`,
+      {data: {port: port2}, transferList: [port2]}
+    )
+
+    // The channel alone must not keep a finished build's process alive.
+    port1.unref()
+    freshImportPort = port1
+  } catch {
+    freshImportHookFailed = true
+  }
+
+  return freshImportPort
+}
+
+// The project files one read imported, as the hook reported them.
+function takeImportedBy(read: number): string[] {
+  const port = freshImportHook()
+
+  for (;;) {
+    const next = port ? receiveMessageOnPort(port) : undefined
+    if (!next) break
+
+    const {read: of, url} = next.message as {read: number; url: string}
+
+    importedByRead.set(of, [...(importedByRead.get(of) ?? []), url])
+  }
+
+  const urls = importedByRead.get(read) ?? []
+
+  importedByRead.delete(read)
+
+  return urls.flatMap((url) => {
+    try {
+      return [fileURLToPath(url)]
+    } catch {
+      return []
+    }
+  })
+}
+
 // Node keeps every module it imported, so an edited config would come back
 // as the one read first. A new address and a dropped require entry reload it.
 async function importFresh(
@@ -223,24 +315,33 @@ async function importFresh(
 
   dropProjectModules(realPathOf(file), root, registry)
   dropProjectModules(file, root, registry)
+  freshImportHook()
 
+  const read = ++freshImports
   let failed = true
 
   try {
     const loaded = await import(
-      `${pathToFileURL(file).href}?t=${++freshImports}`
+      `${pathToFileURL(file).href}?${FRESH_IMPORT_PARAM}=${read}`
     )
 
     failed = false
 
     return loaded
   } finally {
-    // Node lists a CommonJS config it imported, with what it required.
+    // Node lists a CommonJS config it imported, with what it required. What
+    // an ES module config imported is what the hook saw resolve.
     const children = [realPathOf(file), file].flatMap((own) =>
       (registry[own]?.children ?? []).map((child) => child.filename)
     )
 
-    noteConfigHelpers(projectPath, file, children, registry, failed)
+    noteConfigHelpers(
+      projectPath,
+      file,
+      [...children, ...takeImportedBy(read)],
+      registry,
+      failed
+    )
   }
 }
 
@@ -315,6 +416,22 @@ function isLikelyCjsTailwindConfig(tailwindConfigPath?: string): boolean {
     return /module\.exports|require\(/.test(text)
   } catch {
     return false
+  }
+}
+
+async function importEsmTailwindConfig(
+  configFile: string,
+  projectPath: string
+): Promise<AnyModule | undefined> {
+  if (!/\.m?js$/.test(configFile)) return undefined
+
+  try {
+    const loaded = await importFresh(configFile, projectPath)
+    const config = loaded?.default ?? loaded
+
+    return config && typeof config === 'object' ? config : undefined
+  } catch {
+    return undefined
   }
 }
 
@@ -1091,7 +1208,18 @@ export async function maybeUsePostCss(
                     instance = tailwindMod({config: configFile})
                   }
                 } else {
-                  instance = tailwindMod({config: configFile})
+                  // An ES module config is read here for the same reasons. One
+                  // Node cannot import is left for Tailwind to read itself.
+                  const loaded = await importEsmTailwindConfig(
+                    configFile,
+                    projectPath
+                  )
+
+                  instance = tailwindMod(
+                    loaded
+                      ? normalizeTailwindContentGlobs(loaded, projectPath)
+                      : {config: configFile}
+                  )
                 }
               } else {
                 instance = tailwindMod()

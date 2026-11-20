@@ -9,9 +9,11 @@ permissions:
   contents: read
 
 jobs:
+  # Builds the templates the examples repo hydrates. The CLI and develop suites
+  # run in ci.yml and nightly-node-current, and they ignore author mode.
   nightly-chromium:
     runs-on: ubuntu-22.04
-    timeout-minutes: 60
+    timeout-minutes: 20
     permissions:
       contents: read
       # report-red-lane.sh opens or comments on the red lane issue
@@ -20,12 +22,6 @@ jobs:
       EXTENSION_AUTHOR_MODE: development
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/ms-playwright
-          key: nightly-chromium-${{ runner.os }}-playwright-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            nightly-chromium-${{ runner.os }}-playwright-
       - uses: ./.github/actions/setup
         with:
           node-version: '22'
@@ -33,19 +29,12 @@ jobs:
         run: pnpm compile
       - name: Hydrate templates from examples repo
         run: bash scripts/hydrate-templates-from-examples.sh
-      - name: Install Playwright Chromium
-        timeout-minutes: 10
-        run: npx playwright install --with-deps chromium
-      - name: Run CLI Tests
-        run: pnpm test:cli
       - name: Build examples (chromium)
         run: |
           pnpm extension build templates/typescript --browser chromium --silent true
           pnpm extension build templates/react --browser chromium --silent true
           pnpm extension build templates/svelte --browser chromium --silent true
           pnpm extension build templates/vue --browser chromium --silent true
-      - name: Run Dev Tests
-        run: pnpm test:dev
       - name: Report a red lane
         if: failure()
         env:
@@ -53,9 +42,7 @@ jobs:
           RED_LANE_REPRO: |
             export EXTENSION_AUTHOR_MODE=development
             bash scripts/hydrate-templates-from-examples.sh
-            pnpm test:cli
             pnpm extension build templates/typescript --browser chromium --silent true
-            pnpm test:dev
         run: bash scripts/report-red-lane.sh "Nightly chromium"
 
       - name: Close the red lane

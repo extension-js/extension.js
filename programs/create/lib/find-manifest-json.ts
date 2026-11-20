@@ -9,7 +9,8 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as messages from './messages'
-import {failStep} from './utils'
+import {CODES} from './messaging'
+import {CreateError, failStep} from './utils'
 
 const manifestSearchMaxDepth = 3
 const ignoredManifestDirs = new Set(['node_modules', '.git'])
@@ -70,8 +71,9 @@ export async function findManifestJsonPath(
 
   // A web-only template with no manifest is a legal input, so this refusal
   // travels framed on the error instead of reaching the user as a stack.
-  throw new Error(
-    messages.manifestNotFound(projectPath, manifestSearchMaxDepth)
+  throw new CreateError(
+    messages.manifestNotFound(projectPath, manifestSearchMaxDepth),
+    CODES.E_TEMPLATE_NOT_FOUND
   )
 }
 
@@ -90,7 +92,8 @@ export async function readManifestJson(projectPath: string): Promise<{
   } catch (error) {
     throw failStep(
       messages.manifestNotParseable(manifestJsonPath, error),
-      error
+      error,
+      CODES.E_TEMPLATE_NOT_FOUND
     )
   }
 }
@@ -115,7 +118,8 @@ export function readTemplatePackageJson(
 
     throw failStep(
       messages.templatePackageJsonNotParseable(packageJsonPath, error),
-      error
+      error,
+      CODES.E_TEMPLATE_NOT_FOUND
     )
   }
 }
