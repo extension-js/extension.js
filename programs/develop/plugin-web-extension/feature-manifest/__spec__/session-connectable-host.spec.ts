@@ -136,10 +136,10 @@ describe('the connectable host a dev session compiles into its pages', () => {
     expect(hmrHost(second.popup)).toBe(SECOND_SESSION_HOST)
   }, 60_000)
 
-  it('is the environment when no session names one', async () => {
+  it('is not the environment when no session names one', async () => {
     const output = await compileSession({})
 
-    expect(output.connectSrc).toContain(`ws://${SECOND_SESSION_HOST}:*`)
+    expect(output.connectSrc).not.toContain(SECOND_SESSION_HOST)
     expect(hmrHost(output.popup)).toBe(SECOND_SESSION_HOST)
   }, 60_000)
 })
