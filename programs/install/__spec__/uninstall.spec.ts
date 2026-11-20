@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import {stripVTControlCharacters} from 'node:util'
 import {afterAll, afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import {resolveBrowsersCacheRoot} from '../lib/cache-root'
+import {removeTree, resolveBrowsersCacheRoot} from '../lib/cache-root'
 import {
   BrowserNotInstallableError,
   BrowserUninstallError,
@@ -372,8 +372,8 @@ describe('extensionUninstall on a temp cache root', () => {
       ])
     })
 
-    // The real removal, on a real folder this user may not empty. Only a
-    // posix user who is not root can be denied this way.
+    // The real removal, on a real folder this user may not empty. Windows
+    // ignores the write bit on folders and root ignores it everywhere.
     it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
       'names the folder that refused for permissions, not a folder that is not empty',
       async () => {
@@ -403,9 +403,13 @@ describe('extensionUninstall on a temp cache root', () => {
               'yourself, then run the uninstall again.'
           )
 
-          expect(
-            (error as {cause?: {cause?: unknown}}).cause?.cause
-          ).toMatchObject({code: 'ENOTEMPTY'})
+          // The error the removal raised stays as the cause: macOS reports
+          // ENOTEMPTY on the folder above, Linux EACCES on the file inside.
+          const raised = (error as {cause?: {cause?: {code?: string}}}).cause
+            ?.cause
+          expect(raised?.code).toBe(
+            process.platform === 'darwin' ? 'ENOTEMPTY' : 'EACCES'
+          )
         } finally {
           fs.chmodSync(locked, 0o755)
         }
@@ -482,5 +486,60 @@ describe('extensionUninstall on a temp cache root', () => {
       expect(results[2].systemPath).toBe('/usr/bin/microsoft-edge')
       expect(lookup.mock.calls).toEqual([['which', 'microsoft-edge']])
     })
+  })
+})
+
+// Each OS raises its own code for the same refusal, so the one each raises is
+// fed to the removal here and every host checks all three.
+describe('removeTree names the folder that refused, whatever code the OS raised', () => {
+  let tree: string
+
+  beforeEach(() => {
+    tree = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-remove-tree-'))
+    fs.mkdirSync(path.join(tree, 'build'))
+    fs.writeFileSync(path.join(tree, 'build', 'browser-stub'), 'stub')
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    fs.rmSync(tree, {recursive: true, force: true})
+  })
+
+  it.each([
+    ['macOS', 'ENOTEMPTY', 'rmdir'],
+    ['Linux', 'EACCES', 'unlink'],
+    ['Windows', 'EPERM', 'unlink']
+  ])('as %s raises it (%s)', (_os, code, syscall) => {
+    const blocked = path.join(tree, 'build')
+    const raised = Object.assign(new Error(`${code}: ${syscall}`), {code})
+
+    vi.spyOn(fs, 'rmSync').mockImplementation(() => {
+      throw raised
+    })
+
+    vi.spyOn(fs, 'accessSync').mockImplementation((file) => {
+      if (file === blocked) throw raised
+    })
+
+    expect(() => removeTree(tree)).toThrow(
+      expect.objectContaining({
+        code: 'EACCES',
+        path: blocked,
+        message: `EACCES: permission denied, no write access to '${blocked}'`,
+        cause: raised
+      })
+    )
+  })
+
+  it('keeps any other failure as it was raised', () => {
+    const busy = Object.assign(new Error('EBUSY: resource busy'), {
+      code: 'EBUSY'
+    })
+
+    vi.spyOn(fs, 'rmSync').mockImplementation(() => {
+      throw busy
+    })
+
+    expect(() => removeTree(tree)).toThrow(busy)
   })
 })
