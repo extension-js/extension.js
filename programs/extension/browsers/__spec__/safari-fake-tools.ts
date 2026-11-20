@@ -317,6 +317,8 @@ export function fakeSafariTools(
 
       return started
     },
+    // Real stand-in processes, listed through ps: the quit dates each pid by
+    // its start time, and the match token is unique to the spec's temp folder.
     listAutomationPids: () => {
       const match = options.automationMatch
       if (!match) return Promise.resolve([])

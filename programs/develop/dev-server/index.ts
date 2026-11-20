@@ -268,6 +268,9 @@ async function startDevSession(
     onExitError?: (error: unknown, code?: string) => void
     browsersPlugin?: {
       setReloadBroker?: (broker: unknown) => void
+      setRestartHold?: (
+        isHeld: (compiler: object, compilation?: object) => boolean
+      ) => void
       setLogSink?: (sink: (event: BrowserLogSinkEvent) => void) => void
       setEmulatorViewerUrl?: (url: string) => void
       setInstanceId?: (instanceId: string) => void
@@ -532,6 +535,11 @@ async function startDevSession(
 
   if (launchedPlugin && typeof launchedPlugin.setReloadBroker === 'function') {
     launchedPlugin.setReloadBroker(bridgeBroker)
+  }
+
+  // A build a MAIN world restart replaces reloads once, with the restart.
+  if (launchedPlugin && typeof launchedPlugin.setRestartHold === 'function') {
+    launchedPlugin.setRestartHold(isAwaitingMainWorldRestart)
   }
 
   if (launchedPlugin && typeof launchedPlugin.setInstanceId === 'function') {
