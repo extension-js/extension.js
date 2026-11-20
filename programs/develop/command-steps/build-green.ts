@@ -9,7 +9,6 @@
 import * as fs from 'node:fs'
 import * as nodePath from 'node:path'
 import type {Stats} from '@rspack/core'
-import {humanLine, stripAnsi} from '../dev-server/lifecycle-stream'
 import {
   buildNamesOversizeFiles,
   failedAddonLint,
@@ -30,7 +29,7 @@ import {
 } from '../lib/duplicate-output-files'
 import {findLoopbackOrigins} from '../lib/loopback-origins'
 import * as messages from '../lib/messages'
-import {CODES, isDebug} from '../lib/messaging'
+import {CODES, humanLine, isDebug} from '../lib/messaging'
 import type {listOutputFiles} from '../lib/output-files'
 import {asAskedPath, displayPath, type NormalizedBrowser} from '../lib/paths'
 import {
@@ -38,6 +37,7 @@ import {
   ensureSessionArtifactsIgnoreFile,
   ensureSessionStateInProjectGitignore
 } from '../lib/session-paths'
+import {stripAnsi} from '../lib/strip-ansi'
 import {
   getZipArtifacts,
   getZipFailures

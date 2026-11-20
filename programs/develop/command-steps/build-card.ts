@@ -8,9 +8,8 @@
 
 import * as fs from 'node:fs'
 import * as nodePath from 'node:path'
-import {humanLine} from '../dev-server/lifecycle-stream'
 import {resolveLocalizedManifestName} from '../lib/localized-manifest-name'
-import {browserRowValue, card} from '../lib/messaging'
+import {browserRowValue, card, humanLine} from '../lib/messaging'
 import {parseJsonSafe} from '../lib/parse-json-safe'
 import {collapseHomeDir} from '../lib/paths'
 

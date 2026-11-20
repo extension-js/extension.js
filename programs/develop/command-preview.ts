@@ -17,6 +17,7 @@ import {
 import {controlledBuildParts} from './controlled-build-parts'
 import {CONTROL_WS_PATH} from './dev-server/control-bridge/contracts'
 import * as devServerMessages from './dev-server/messages'
+import {startProductionControl} from './dev-server/production-control'
 import {announceLeftoverOutputFolder} from './lib/build-output-guard'
 import {codedError} from './lib/coded-error'
 import {
@@ -54,7 +55,6 @@ import {
   getDirs,
   getDistPath
 } from './lib/paths'
-import {startProductionControl} from './lib/production-control'
 import {getProjectStructure, type RemoteArchiveTarget} from './lib/project'
 import {linkFreePath} from './lib/real-path'
 import {

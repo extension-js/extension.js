@@ -107,10 +107,10 @@ import {
 } from './emulator-lane'
 // Loaded for what it answers: the MAIN world step asks through lib.
 import './main-world-restart'
+import {humanLine} from '../lib/messaging'
 import {
   attachLifecycleStream,
   createLifecycleStream,
-  humanLine,
   isLifecycleStreamEnabled,
   type LifecycleStream
 } from './lifecycle-stream'

@@ -37,7 +37,6 @@ import {
   refuseManagedDependencyConflicts,
   resolveCommandBrowser
 } from './command-steps/project-setup'
-import {humanLine} from './dev-server/lifecycle-stream'
 import {
   removeStagingDir,
   removeStaleStagingDirs,
@@ -74,6 +73,7 @@ import {
   debugLine,
   holdCardKey,
   holdHumanLines,
+  humanLine,
   isDebug,
   isMachineOutput
 } from './lib/messaging'

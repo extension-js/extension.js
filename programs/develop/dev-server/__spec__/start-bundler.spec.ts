@@ -5,9 +5,10 @@ import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {codedError} from '../../lib/coded-error'
 import {CODES} from '../../lib/messaging'
+import {stripAnsi} from '../../lib/strip-ansi'
 import {setupCleanupHandlers} from '../cleanup'
 import {LogsFileWriter} from '../control-bridge/logs-file'
-import {createLifecycleStream, stripAnsi} from '../lifecycle-stream'
+import {createLifecycleStream} from '../lifecycle-stream'
 import {createSessionHoldings} from '../session-holdings'
 import {
   bindDevSessionRestart,

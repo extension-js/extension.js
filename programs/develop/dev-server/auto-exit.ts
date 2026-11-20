@@ -6,7 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {humanLine} from './lifecycle-stream'
+import {humanLine} from '../lib/messaging'
 import * as messages from './messages'
 import {MAX_TIMER_MS, readTimerMs} from './start-bundler'
 

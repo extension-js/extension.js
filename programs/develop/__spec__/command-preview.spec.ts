@@ -9,7 +9,7 @@ import type {
 import type {
   ProductionControlOptions,
   ProductionControlSession
-} from '../lib/production-control'
+} from '../dev-server/production-control'
 import type {PreviewOptions} from '../types'
 import {
   type ExtensionProject,
@@ -31,9 +31,9 @@ const control = vi.hoisted(() => ({
 
 // Opens a loopback control server. It runs for real unless a test arms a
 // session whose extension dials in on the test's own clock.
-vi.mock('../lib/production-control', async (importOriginal) => {
+vi.mock('../dev-server/production-control', async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import('../lib/production-control')>()
+    await importOriginal<typeof import('../dev-server/production-control')>()
 
   return {
     ...actual,

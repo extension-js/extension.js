@@ -1,7 +1,8 @@
 import {afterEach, describe, expect, it, type Mock, vi} from 'vitest'
 import {codedError} from '../../lib/coded-error'
 import {CODES} from '../../lib/messaging'
-import {createLifecycleStream, stripAnsi} from '../lifecycle-stream'
+import {stripAnsi} from '../../lib/strip-ansi'
+import {createLifecycleStream} from '../lifecycle-stream'
 import * as messages from '../messages'
 import {
   assignCompilerToDevSession,
