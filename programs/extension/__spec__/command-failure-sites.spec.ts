@@ -233,7 +233,12 @@ describe('preview when the launch rejects with a declared code', () => {
         command: 'preview',
         status,
         value: null,
-        error: {code, message: `it broke with ${code}`, name: 'Error'},
+        // A failed run names the thrown error. A usage refusal does not.
+        error: {
+          code,
+          message: `it broke with ${code}`,
+          ...(status === 'failed' ? {name: 'Error'} : {})
+        },
         warnings: []
       }
     ])
