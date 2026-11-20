@@ -78,59 +78,70 @@ describe('ApplyDevDefaults patch helpers', () => {
         }
       }) as any
 
-    const withHost = (host: string | undefined, fn: () => void) => {
+    it('ignores a host another session left in the environment', () => {
       const prev = process.env[HOST_ENV]
-      if (host === undefined) delete process.env[HOST_ENV]
-      else process.env[HOST_ENV] = host
+      process.env[HOST_ENV] = '192.168.0.7'
 
       try {
-        fn()
+        expect(patchV3CSP(restrictive()).extension_pages).not.toContain(
+          '192.168.'
+        )
       } finally {
         if (prev === undefined) delete process.env[HOST_ENV]
         else process.env[HOST_ENV] = prev
       }
-    }
+    })
 
-    it('loopback-only when no connectable host is exported', () => {
-      withHost(undefined, () => {
-        const csp = patchV3CSP(restrictive()).extension_pages
-        expect(csp).toContain('ws://127.0.0.1:*')
-        expect(csp).not.toContain('192.168.')
-      })
+    it('loopback-only when the session names no connectable host', () => {
+      const csp = patchV3CSP(
+        restrictive(),
+        undefined,
+        undefined
+      ).extension_pages
+      expect(csp).toContain('ws://127.0.0.1:*')
+      expect(csp).not.toContain('192.168.')
     })
 
     it('whitelists a non-loopback connectable host (HMR ws + control bridge dial it)', () => {
-      withHost('192.168.0.7', () => {
-        const csp = patchV3CSP(restrictive()).extension_pages
-        expect(csp).toContain('ws://192.168.0.7:*')
-        expect(csp).toContain('http://192.168.0.7:*')
-        expect(csp).toContain('ws://127.0.0.1:*')
-      })
+      const csp = patchV3CSP(
+        restrictive(),
+        undefined,
+        '192.168.0.7'
+      ).extension_pages
+      expect(csp).toContain('ws://192.168.0.7:*')
+      expect(csp).toContain('http://192.168.0.7:*')
+      expect(csp).toContain('ws://127.0.0.1:*')
     })
 
     it('adds no duplicate entries for a loopback connectable host', () => {
-      withHost('127.0.0.1', () => {
-        const csp = patchV3CSP(restrictive()).extension_pages
-        expect(csp.match(/ws:\/\/127\.0\.0\.1:\*/g)).toHaveLength(1)
-      })
+      const csp = patchV3CSP(
+        restrictive(),
+        undefined,
+        '127.0.0.1'
+      ).extension_pages
+      expect(csp.match(/ws:\/\/127\.0\.0\.1:\*/g)).toHaveLength(1)
     })
 
     it('brackets IPv6 literals (CSP host-source grammar)', () => {
-      withHost('fd00::42', () => {
-        const csp = patchV3CSP(restrictive()).extension_pages
-        expect(csp).toContain('ws://[fd00::42]:*')
-      })
+      const csp = patchV3CSP(
+        restrictive(),
+        undefined,
+        'fd00::42'
+      ).extension_pages
+      expect(csp).toContain('ws://[fd00::42]:*')
     })
 
     it('extends default-src fallback with the connectable host too (v2 path)', () => {
-      withHost('10.0.0.5', () => {
-        const csp = patchV2CSP({
+      const csp = patchV2CSP(
+        {
           manifest_version: 2,
           content_security_policy: "default-src 'self'"
-        } as any)
-        expect(csp).toContain('ws://10.0.0.5:*')
-        expect(csp).toMatch(/default-src 'self';/)
-      })
+        } as any,
+        undefined,
+        '10.0.0.5'
+      )
+      expect(csp).toContain('ws://10.0.0.5:*')
+      expect(csp).toMatch(/default-src 'self';/)
     })
   })
 

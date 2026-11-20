@@ -13,6 +13,7 @@ import {
   refuseUnknownSessionBrowser,
   refuseUnlistedChoices
 } from '../helpers/choice-flags'
+import {claimInterruptFrame} from '../helpers/early-interrupt'
 import {emulatorSessionRefusal} from '../helpers/emulator-session'
 import {exitAfterDrain, exitWithFailure} from '../helpers/exit-after-drain'
 import {
@@ -731,6 +732,9 @@ async function followLogs(
 
     void exitAfterDrain(0)
   }
+
+  // The stream ends on its own terms, with no stopped frame after it.
+  claimInterruptFrame()
 
   const onSigint = () => shutdown('SIGINT')
   const onSigterm = () => shutdown('SIGTERM')

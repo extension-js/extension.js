@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {extensionPreview} from '../command-preview'
+import {loadProjectConfigDefaults} from '../lib/config-loader'
 import {trackTempFolders} from './helpers/temp-folders'
 
 // The config of a previewed project reads the env files of the run: the
@@ -78,6 +79,41 @@ describe('the env files a previewed config reads', () => {
       '.env.production': 'from-production'
     })
     const result = await extensionPreview(root, {noBrowser: true} as never)
+
+    expect(result?.warnings).toHaveLength(1)
+    expect(result?.warnings[0]).toContain('DIR ./extensions/from-production')
+  })
+
+  // A host can run a dev session of the same project while it previews, and
+  // that session reads the config under the development files.
+  it('reads the browser layer under production files beside a dev session of the project', async () => {
+    const root = builtProject('firefox', {
+      '.env.development': 'from-development',
+      '.env.production': 'from-production'
+    })
+
+    fs.writeFileSync(
+      path.join(root, 'extension.config.js'),
+      `module.exports = {browser: {firefox: {extensions: {dir: './extensions/' + process.env.${KEY}}}}}\n`
+    )
+
+    let previewing = true
+    const devSession = (async () => {
+      while (previewing) {
+        await loadProjectConfigDefaults(root, {
+          mode: 'development',
+          browser: 'firefox'
+        })
+      }
+    })()
+    const result = await extensionPreview(root, {
+      browser: 'firefox',
+      noBrowser: true
+    } as never).finally(() => {
+      previewing = false
+    })
+
+    await devSession
 
     expect(result?.warnings).toHaveLength(1)
     expect(result?.warnings[0]).toContain('DIR ./extensions/from-production')

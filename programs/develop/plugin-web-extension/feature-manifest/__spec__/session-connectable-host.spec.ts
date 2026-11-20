@@ -124,8 +124,14 @@ function hmrPort(source: string) {
 
 describe('the connectable host a dev session compiles into its pages', () => {
   it('is the one each of two sessions was given, not the environment', async () => {
-    const first = await compileSession({connectableHost: 'session-a.example'})
-    const second = await compileSession({connectableHost: SECOND_SESSION_HOST})
+    const first = await compileSession({
+      connectableHost: 'session-a.example',
+      port: 50111
+    })
+    const second = await compileSession({
+      connectableHost: SECOND_SESSION_HOST,
+      port: SECOND_SESSION_PORT
+    })
 
     expect(first.connectSrc).toContain('ws://session-a.example:*')
     expect(first.connectSrc).toContain('http://session-a.example:*')
@@ -136,11 +142,11 @@ describe('the connectable host a dev session compiles into its pages', () => {
     expect(hmrHost(second.popup)).toBe(SECOND_SESSION_HOST)
   }, 60_000)
 
-  it('is the environment when no session names one', async () => {
+  it('is not the environment when no session names one', async () => {
     const output = await compileSession({})
 
-    expect(output.connectSrc).toContain(`ws://${SECOND_SESSION_HOST}:*`)
-    expect(hmrHost(output.popup)).toBe(SECOND_SESSION_HOST)
+    expect(output.connectSrc).not.toContain(SECOND_SESSION_HOST)
+    expect(hmrHost(output.popup)).toBeNull()
   }, 60_000)
 })
 
@@ -154,9 +160,9 @@ describe('the port a dev session compiles into its page HMR client', () => {
     expect(hmrPort(newer.popup)).toBe(String(SECOND_SESSION_PORT))
   }, 60_000)
 
-  it('is the environment when no session names one', async () => {
+  it('is not the environment when no session names one', async () => {
     const output = await compileSession({})
 
-    expect(hmrPort(output.popup)).toBe(String(SECOND_SESSION_PORT))
+    expect(hmrPort(output.popup)).toBeNull()
   }, 60_000)
 })

@@ -31,6 +31,7 @@ import {
   isWebkitBasedBrowser,
   STOCK_COMPANION_EXTENSIONS
 } from '../lib/constants'
+import {devSessionCoordinates} from '../lib/dev-session-coordinates'
 import {
   companionsDeclaredIn,
   isFirstCompanionWarning,
@@ -107,20 +108,19 @@ import {
 } from './emulator-lane'
 // Loaded for what it answers: the MAIN world step asks through lib.
 import './main-world-restart'
+import {humanLine} from '../lib/messaging'
 import {
   attachLifecycleStream,
   createLifecycleStream,
-  humanLine,
   isLifecycleStreamEnabled,
   type LifecycleStream
 } from './lifecycle-stream'
 import * as messages from './messages'
-import {exportInstanceId, PortManager} from './port-manager'
+import {PortManager} from './port-manager'
 import {reservedHttpServer} from './reserved-listen'
 import {buildServerConfig, sessionSocketPath} from './server-config'
 import {claimDevSession} from './session-claim'
 import {endAfterFrame, registerLiveSession} from './session-end'
-import {exportSessionEnv} from './session-env'
 import {withGoneEntryOutputsPruned} from './session-gone-outputs'
 import {createSessionHoldings} from './session-holdings'
 import {
@@ -307,10 +307,6 @@ async function startDevSession(
     })
   }
 
-  // What the session writes for its compilers leaves the host with it.
-  const exportEnv = (name: string, value: string) =>
-    holdings.add(exportSessionEnv(name, value))
-
   const {manifestPath} = projectStructure
   const packageJsonDir = resolveDevProjectRoot(projectStructure)
   const sessionBrowser = String(devOptions.browser || 'chromium')
@@ -402,13 +398,8 @@ async function startDevSession(
     hostname: connectableHost,
     port
   }
-  exportEnv('EXTENSION_DEV_SERVER_PROTOCOL', devServerWebSocketURL.protocol)
-  exportEnv('EXTENSION_DEV_SERVER_HOST', devServerHost)
-  exportEnv('EXTENSION_DEV_SERVER_CONNECTABLE_HOST', connectableHost)
-  exportEnv('EXTENSION_DEV_SERVER_PORT', String(port))
   // Each session's extension dials a socket path that names the session.
   const socketPath = sessionSocketPath(currentInstance.instanceId)
-  exportEnv('EXTENSION_DEV_SERVER_PATH', socketPath)
 
   const browserName = String(devOptions.browser || 'chromium')
   const emulatorLane = isEmulatorBrowser(browserName)
@@ -589,24 +580,20 @@ async function startDevSession(
   closeControlBridge = controlBridge.close
   const bridgeControlPort = controlBridge.controlPort
   const controlCoordinates = controlCoordinatesOf(controlBridge)
+  // Everything this session's own build needs to reach it, in one record.
+  const session = devSessionCoordinates({
+    protocol: devServerWebSocketURL.protocol,
+    host: devServerHost,
+    connectableHost,
+    port,
+    path: socketPath,
+    instanceId: currentInstance.instanceId,
+    controlPort: bridgeControlPort ?? null,
+    launchEnabled: !devOptions.noBrowser
+  })
 
   // Only --port bounds a port, so a debug run names the others it listens on.
   if (isDebug()) debugLine(messages.debugSessionPorts(port, bridgeControlPort))
-
-  // Expose control-channel coordinates to the compiler (same process) so the
-  // bridge-producer injector can bake them into the background SW
-  // An id the session drew leaves the environment with it, so the next
-  // session of this host does not read it as a pin.
-  if (currentInstance.instanceExplicit) {
-    exportEnv('EXTENSION_INSTANCE_ID', currentInstance.instanceId)
-  } else {
-    holdings.add(exportInstanceId(currentInstance.instanceId))
-  }
-
-  exportEnv(
-    'EXTENSION_CONTROL_PORT',
-    bridgeControlPort != null ? String(bridgeControlPort) : ''
-  )
 
   const emulatorFiles = emulatorLane
     ? createEmulatorFileIndexHolder(currentInstance.instanceId)
@@ -719,6 +706,7 @@ async function startDevSession(
     ...controlCoordinates,
     logsPath: bridgeLogsRelPath,
     connectableHost,
+    session,
     readyAwaitsExecutor,
     port: portAllocation.port,
     output: {

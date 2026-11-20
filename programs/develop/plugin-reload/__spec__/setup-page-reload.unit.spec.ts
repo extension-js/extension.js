@@ -273,7 +273,7 @@ describe('the hot update client of a page entry', () => {
     ])
   })
 
-  it('reads the session from the environment when the config names no dev server', () => {
+  it('adds no client for a session only the environment names', () => {
     withoutSessionEnv()
     vi.stubEnv('EXTENSION_DEV_SERVER_HOST', '127.0.0.1')
     vi.stubEnv('EXTENSION_DEV_SERVER_PORT', '9090')
@@ -288,7 +288,7 @@ describe('the hot update client of a page entry', () => {
       file.includes('@rspack/dev-server/client/index.js?')
     )
 
-    expect(new URLSearchParams(client?.split('?')[1]).get('port')).toBe('9090')
+    expect(client).toBeUndefined()
   })
 
   it('names the port and host of its own session over the environment', () => {

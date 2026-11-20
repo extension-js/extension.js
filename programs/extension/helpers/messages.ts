@@ -1443,6 +1443,16 @@ export function controlNeedsBrowser(command: string) {
   )
 }
 
+// What a json caller reads when it names no command, and the same line as
+// the terminal prints it. A person with no command gets the help.
+export function noCommandGivenText() {
+  return 'No command was given. Run extension --help to see the commands.'
+}
+
+export function noCommandGiven() {
+  return usageRefusal(noCommandGivenText())
+}
+
 // --wait only reads the ready contract, it never starts a server, so pairing
 // it with --no-browser waits on a file nothing in that run writes.
 export function noBrowserWithWait(command: string) {

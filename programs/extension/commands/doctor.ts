@@ -35,6 +35,10 @@ import {
 } from '../helpers/messages'
 import {CODES, ENVELOPE, type ErrorCode} from '../helpers/messaging'
 import {isJsonOutput, refuseUnreadableOutput} from '../helpers/output-flag'
+import {
+  missingProjectFolder,
+  missingProjectRefusal
+} from '../helpers/project-folder'
 import {recordedLoadRefusal} from '../helpers/ready-contract-codes'
 import {
   describeRspackPeerConflicts,
@@ -371,8 +375,18 @@ export function resolveDoctorBrowser(
 function peerRspackCheck(
   projectPath: string,
   engineVersion: typeof engineRspackVersion,
-  scanPeers: typeof scanRspackPeers
+  scanPeers: typeof scanRspackPeers,
+  onDisk: (file: string) => boolean
 ): DoctorCheckResult {
+  // With no package.json nothing was read, and a pass would claim otherwise.
+  if (!onDisk(path.join(projectPath, 'package.json'))) {
+    return {
+      check: 'peer-rspack',
+      status: 'skip',
+      detail: `skipped: no package.json at ${projectPath}, so there are no dependencies to read`
+    }
+  }
+
   const engine = engineVersion(projectPath)
 
   if (!engine) {
@@ -502,6 +516,8 @@ export interface DoctorDeps {
   engineVersion?: typeof engineRspackVersion
   scanPeers?: typeof scanRspackPeers
   pidStartedAt?: typeof pidStartedAtMs
+  // Whether the project folder, or a file in it, is on disk.
+  onDisk?: (file: string) => boolean
 }
 
 export async function runDoctor(
@@ -511,7 +527,8 @@ export async function runDoctor(
     loadBridge = loadExtensionDevelopBridgeModule,
     engineVersion = engineRspackVersion,
     scanPeers = scanRspackPeers,
-    pidStartedAt = pidStartedAtMs
+    pidStartedAt = pidStartedAtMs,
+    onDisk = fs.existsSync
   }: DoctorDeps = {}
 ): Promise<DoctorReport> {
   const bridge = await loadBridge()
@@ -547,7 +564,7 @@ export async function runDoctor(
   // 0. peer-rspack needs only the project, so it runs before the session legs.
   // A dependency whose @rspack/core peer range misses the engine is why
   // `npm install` fails with ERESOLVE next to Extension.js.
-  results.push(peerRspackCheck(projectPath, engineVersion, scanPeers))
+  results.push(peerRspackCheck(projectPath, engineVersion, scanPeers, onDisk))
 
   const skip = (check: DoctorCheck, blockedBy: string) => {
     results.push({
@@ -1094,6 +1111,36 @@ export function registerDoctorCommand(
     .action(async (projectPathArg: string | undefined, opts: DoctorOptions) => {
       const asJson = isJsonOutput(opts)
       let report: DoctorReport
+
+      // No check can speak for a folder that is not there, so the run is
+      // refused as build, dev, start and preview refuse it.
+      const named = missingProjectFolder(projectPathArg)
+      const missingFolder =
+        named && !(deps.onDisk ?? fs.existsSync)(named) ? named : undefined
+
+      if (missingFolder) {
+        const refusal = missingProjectRefusal('doctor', missingFolder)
+        const error = {
+          code: CODES.E_PROJECT_NOT_FOUND,
+          message: refusal.message
+        }
+
+        if (asJson) {
+          // eslint-disable-next-line no-console
+          console.log(
+            JSON.stringify(
+              ENVELOPE.fail('doctor', 'usage', error, {hint: refusal.hint})
+            )
+          )
+        } else {
+          // eslint-disable-next-line no-console
+          console.error(refusal.stderr)
+        }
+
+        await exitFailedAfterDrain({code: error.code, exitCode: 1})
+
+        return
+      }
 
       try {
         report = await runDoctor(projectPathArg, opts, deps)

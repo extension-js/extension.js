@@ -8,6 +8,7 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import './helpers/early-interrupt-arm'
 import './helpers/node-version-guard'
 import {processRunDeps, run} from './run'
 

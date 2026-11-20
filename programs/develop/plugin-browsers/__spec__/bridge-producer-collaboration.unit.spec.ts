@@ -6,6 +6,10 @@ import {fakeCompiler} from '../../__spec__/helpers/fake-compiler'
 import {quietBroker} from '../../__spec__/helpers/quiet-broker'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import type {ReloadBroker} from '../../plugin-reload'
+import {
+  sessionBridge,
+  setSessionBridge
+} from '../../plugin-reload/__spec__/helpers/session-bridge'
 import {InjectBridgeProducer} from '../../plugin-reload/steps/inject-bridge-producer'
 import {type BrowserLaunchOptions, BrowsersPlugin} from '../index'
 
@@ -20,8 +24,8 @@ type Wait = (timeoutMs: number) => Promise<'settled' | 'timeout'>
 
 beforeEach(() => {
   expect.hasAssertions()
-  vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
-  vi.stubEnv('EXTENSION_INSTANCE_ID', 'abc123')
+  setSessionBridge({controlPort: 8123})
+  setSessionBridge({instanceId: 'abc123'})
   vi.spyOn(console, 'log').mockImplementation(() => {})
 })
 
@@ -61,7 +65,7 @@ function session(background: string, broker?: Partial<ReloadBroker>) {
 
   const fake = fakeCompiler({owner: BrowsersPlugin.name, context: root})
 
-  new InjectBridgeProducer().apply(fake.compiler)
+  new InjectBridgeProducer(sessionBridge()).apply(fake.compiler)
   plugin.apply(fake.compiler)
 
   // One compile whose background bundle holds the given bytes, through the

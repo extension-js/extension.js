@@ -6,6 +6,7 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {claimInterruptFrame} from './early-interrupt'
 import {
   type CommandFailureDetails,
   reportCommandFailureNow,
@@ -127,6 +128,9 @@ export async function exitAfterDrain(
     exit = (exitCode) => process.exit(exitCode)
   }: Partial<ExitAfterDrainDeps> = {}
 ): Promise<void> {
+  // The run chose its ending, so a signal during the flush adds no frame.
+  claimInterruptFrame()
+
   // Before the flush, or the flush has nothing to send.
   markOutcomeForExit(cli, code)
 

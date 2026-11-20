@@ -8,6 +8,7 @@ import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {type ReloadBroker, readDevBuild} from '../index'
 import {InjectBridgeProducer} from '../steps/inject-bridge-producer'
 import {LAUNCHED_SESSION, launchedSession} from './helpers/launched-session'
+import {sessionBridge, setSessionBridge} from './helpers/session-bridge'
 
 const BACKGROUND = 'background/service_worker.js'
 const IDLE = 'console.log("nothing registered")\n'
@@ -16,8 +17,8 @@ const makeTempFolder = trackTempFolders()
 
 beforeEach(() => {
   expect.hasAssertions()
-  vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
-  vi.stubEnv('EXTENSION_INSTANCE_ID', 'abc123')
+  setSessionBridge({controlPort: 8123})
+  setSessionBridge({instanceId: 'abc123'})
   vi.spyOn(console, 'log').mockImplementation(() => {})
 })
 
@@ -50,7 +51,7 @@ function session(background: string, broker?: Partial<ReloadBroker>) {
 
   const fake = fakeCompiler({owner: LAUNCHED_SESSION, context: root})
 
-  new InjectBridgeProducer().apply(fake.compiler)
+  new InjectBridgeProducer(sessionBridge()).apply(fake.compiler)
   launched.apply(fake.compiler)
 
   // One compile whose background bundle holds the given bytes, through the

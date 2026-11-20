@@ -37,7 +37,6 @@ import {
   refuseManagedDependencyConflicts,
   resolveCommandBrowser
 } from './command-steps/project-setup'
-import {humanLine} from './dev-server/lifecycle-stream'
 import {
   removeStagingDir,
   removeStaleStagingDirs,
@@ -74,6 +73,7 @@ import {
   debugLine,
   holdCardKey,
   holdHumanLines,
+  humanLine,
   isDebug,
   isMachineOutput
 } from './lib/messaging'
@@ -133,6 +133,14 @@ async function runBuild(
   // a throwing config reports like every other build failure.
   let distPath = ''
   let stagingDistPath = ''
+
+  // A run ended by a signal reaches no catch below, and its staging folder
+  // would wait for the next build to sweep it. A published one is gone by then.
+  const dropStagingOnExit = () => {
+    if (stagingDistPath) removeStagingDir(stagingDistPath)
+  }
+
+  process.once('exit', dropStagingOnExit)
   let failureCount = 1
   let compilerToClose: {close?: (done: () => void) => void} | undefined
   let recordBuildFailure: ((error: unknown) => void) | undefined
@@ -609,6 +617,8 @@ async function runBuild(
     // running.
     throw error
   } finally {
+    process.removeListener('exit', dropStagingOnExit)
+
     if (nodeEnvChanged) {
       if (nodeEnvBefore === undefined) delete process.env.NODE_ENV
       else process.env.NODE_ENV = nodeEnvBefore

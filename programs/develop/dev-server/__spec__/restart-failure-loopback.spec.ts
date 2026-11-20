@@ -2,7 +2,8 @@ import fs from 'node:fs'
 import * as path from 'node:path'
 import type {RspackDevServer} from '@rspack/dev-server'
 import {afterEach, describe, expect, it} from 'vitest'
-import {createLifecycleStream, stripAnsi} from '../lifecycle-stream'
+import {stripAnsi} from '../../lib/strip-ansi'
+import {createLifecycleStream} from '../lifecycle-stream'
 import {
   bindDevSessionRestart,
   DevSessionRestartScheduler,

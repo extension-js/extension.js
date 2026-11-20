@@ -32,7 +32,9 @@ const doctorDeps: DoctorDeps = {
   engineVersion: () => peer.engine,
   scanPeers: () =>
     ({conflicts: peer.conflicts, unreadable: peer.unreadable}) as never,
-  pidStartedAt: () => pidStart.value
+  pidStartedAt: () => pidStart.value,
+  // The projects here are names, not folders.
+  onDisk: () => true
 }
 
 const runDoctor = (

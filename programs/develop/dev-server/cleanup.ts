@@ -7,9 +7,9 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {RspackDevServer} from '@rspack/dev-server'
+import {humanLine} from '../lib/messaging'
 import {setupAutoExit} from './auto-exit'
 import {leaveWatchHandlesToExit} from './leave-watch-handles-to-exit'
-import {humanLine} from './lifecycle-stream'
 import * as messages from './messages'
 import type {PortManager} from './port-manager'
 
@@ -236,6 +236,14 @@ export function setupCleanupHandlers(
     onSignal?.(signal)
 
     await cleanup()
+  }
+
+  // The CLI arms a fallback frame for a signal no command answers yet. This
+  // session frames its own stop from here on, and says so where both can read.
+  if (onSignal) {
+    ;(globalThis as unknown as Record<symbol, boolean>)[
+      Symbol.for('extension.js.interrupt-frame-claimed')
+    ] = true
   }
 
   // Do not remove other listeners; let browser plugins receive signals too.

@@ -86,6 +86,9 @@ export default function webpackConfig(
   const devSession = devOptions.metadataCommand
     ? devOptions.metadataCommand === 'dev'
     : (devOptions.mode || 'development') === 'development'
+  // The record of the session that builds this config, when one does.
+  const session = devOptions.session
+  const connectableHost = session?.connectableHost || devOptions.connectableHost
 
   let rawManifest: unknown
 
@@ -233,7 +236,9 @@ export default function webpackConfig(
           ? parseInt(devOptions.port, 10)
           : devOptions.port,
       command: devOptions.metadataCommand,
-      browserLaunchEnabled: !devOptions.noBrowser
+      browserLaunchEnabled: session
+        ? session.launchEnabled
+        : !devOptions.noBrowser
     }),
     new StaticAssetsPlugin(),
     new CssPlugin({
@@ -265,15 +270,16 @@ export default function webpackConfig(
       manifestPath,
       browser: devOptions.browser,
       devSession,
-      connectableHost: devOptions.connectableHost,
-      port: devOptions.port
+      connectableHost,
+      port: session?.port ?? devOptions.port,
+      session
     }),
     new WebExtensionPlugin({
       manifestPath,
       browser: devOptions.browser,
       define: devOptions.define,
       devSession,
-      connectableHost: devOptions.connectableHost
+      connectableHost
     }),
     // Dev-session reload/HMR strategy. Must register AFTER WebExtensionPlugin,
     // whose declared entries it decorates. No-ops outside `extension dev`.
@@ -284,9 +290,9 @@ export default function webpackConfig(
       manifestPath,
       browser: devOptions.browser,
       devSession,
-      instanceId: devOptions.instanceId,
-      controlPort: devOptions.controlPort,
-      connectableHost: devOptions.connectableHost
+      instanceId: session?.instanceId ?? devOptions.instanceId,
+      controlPort: session ? session.controlPort : devOptions.controlPort,
+      connectableHost
     }),
     // rspack's own loader appends a <script> to the host page, which never
     // reaches an isolated world. Every build installs this target, and a dev
@@ -339,10 +345,7 @@ export default function webpackConfig(
       port: devOptions.port,
       // Connectable host clients dial (HMR + control bridge), resolved by
       // dev-server/index.ts for each session. The bind host is the fallback.
-      host:
-        devOptions.connectableHost ||
-        process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST ||
-        (devOptions as {host?: string}).host,
+      host: connectableHost || (devOptions as {host?: string}).host,
       instanceId: devOptions.instanceId,
       instanceExplicit: devOptions.instanceExplicit,
       controlPort: devOptions.controlPort,

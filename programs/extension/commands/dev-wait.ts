@@ -20,6 +20,7 @@ import {
   markErrorFramed,
   writeStdoutFrame
 } from '../helpers/cli-failure'
+import {claimInterruptFrame} from '../helpers/early-interrupt'
 import {exitFailedAfterDrain} from '../helpers/exit-after-drain'
 import {
   type DevelopBridge,
@@ -550,6 +551,8 @@ export async function runWaitMode(
   const timeoutMs = parseWaitTimeoutMs(options.waitTimeout)
   const format = parseWaitFormat(options.waitFormat)
   let interrupted = false
+
+  claimInterruptFrame()
 
   // No session is ours to stop, so nothing else answers a signal here and the
   // run would die of it with nothing on stdout when telemetry is off.
