@@ -1,4 +1,8 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {
+  fakeCompilation,
+  fakeCompiler
+} from '../../__spec__/helpers/fake-compiler'
 import type {ReloadBroker} from '../../plugin-reload'
 import type {BrowserType} from '../../types'
 import {
@@ -7,7 +11,6 @@ import {
   BrowsersPlugin,
   type CompiledEvent
 } from '../index'
-import {fakeCompilation, fakeCompiler} from './fake-compiler'
 
 const CONTEXT = '/tmp/ext'
 const OUTPUT = '/tmp/ext/dist/firefox'

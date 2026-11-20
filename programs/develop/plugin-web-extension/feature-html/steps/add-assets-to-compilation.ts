@@ -18,6 +18,7 @@ import {isFolder, resolveRootAbsoluteRef} from '../../shared/paths'
 import {findCompiledRootRefSource} from '../html-lib/compiled-root-ref'
 import * as messages from '../html-lib/messages'
 import {patchHtmlNested} from '../html-lib/patch-html'
+import {readHtmlText} from '../html-lib/read-html'
 import {sourceMayShip} from '../html-lib/source-may-ship'
 import {
   importTarget,
@@ -516,7 +517,7 @@ export class AddAssetsToCompilation {
 
             const htmlSource = compilationAsset
               ? compilationAsset.source.source().toString()
-              : fs.readFileSync(resource as string, 'utf8')
+              : readHtmlText(resource as string)
 
             const parsedAssets = getAssetsFromHtml(
               resource as string,

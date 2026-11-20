@@ -17,28 +17,18 @@ export interface BuildReads {
   missing: Set<string>
 }
 
-export function readsOfCompilation(
-  compilation: unknown
-): BuildReads | undefined {
-  const {fileDependencies, missingDependencies} = (compilation || {}) as {
-    fileDependencies?: Iterable<string>
-    missingDependencies?: Iterable<string>
-  }
-
-  // A compile that does not say what it read keeps every reported file.
-  if (
-    !fileDependencies ||
-    typeof fileDependencies[Symbol.iterator] !== 'function'
-  ) {
-    return undefined
-  }
-
+export function readsOfCompilation(compilation: {
+  fileDependencies: Iterable<string>
+  missingDependencies: Iterable<string>
+}): BuildReads {
   // Resolved so each entry compares with path.resolve(root, rel) whatever
   // slashes the bundler or a loader reported it with.
   return {
-    files: new Set(Array.from(fileDependencies, (f) => path.resolve(f))),
+    files: new Set(
+      Array.from(compilation.fileDependencies, (f) => path.resolve(f))
+    ),
     missing: new Set(
-      Array.from(missingDependencies || [], (f) => path.resolve(f))
+      Array.from(compilation.missingDependencies, (f) => path.resolve(f))
     )
   }
 }

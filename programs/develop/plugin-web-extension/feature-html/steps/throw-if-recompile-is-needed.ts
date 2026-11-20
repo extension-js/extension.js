@@ -12,6 +12,7 @@ import {type Compiler, WebpackError} from '@rspack/core'
 import {requestDevSessionRestart} from '../../../dev-server/session-restart'
 import type {FilepathList, PluginInterface} from '../../../types'
 import * as messages from '../html-lib/messages'
+import {readHtmlText} from '../html-lib/read-html'
 import {getAssetsFromHtml, missingPageEntryFiles} from '../html-lib/utils'
 
 const isRemoteUrl = (ref: string) => /^(https?:)?\/\//i.test(ref)
@@ -125,7 +126,7 @@ export class ThrowIfRecompileIsNeeded {
           try {
             updatedAssets = getAssetsFromHtml(
               changedFile,
-              fs.readFileSync(changedFile, 'utf8')
+              readHtmlText(changedFile)
             )
           } catch {
             // A deleted HTML entry compares as no assets at all, which keeps
@@ -143,7 +144,7 @@ export class ThrowIfRecompileIsNeeded {
             this.missingEntryFiles[changedFile] = missingPageEntryFiles(
               changedFile,
               entryRoot,
-              fs.readFileSync(changedFile, 'utf8')
+              readHtmlText(changedFile)
             )
           } catch {
             this.missingEntryFiles[changedFile] = []

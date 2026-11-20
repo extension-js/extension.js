@@ -3,10 +3,10 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {
   fakeCompilation,
   fakeCompiler
-} from '../../plugin-browsers/__spec__/fake-compiler'
-import {BrowsersPlugin} from '../../plugin-browsers/index'
+} from '../../__spec__/helpers/fake-compiler'
 import type {BrowserType} from '../../types'
 import type {ReloadBroker, ReloadInstruction} from '../index'
+import {LAUNCHED_SESSION, launchedSession} from './helpers/launched-session'
 
 const CONTEXT = '/tmp/ext'
 const OUTPUT = '/tmp/ext/dist/firefox'
@@ -31,26 +31,17 @@ function createHarness(
   broker?: ReloadBroker
 ) {
   const reload = vi.fn<(instruction: ReloadInstruction) => void>()
-  const plugin = new BrowsersPlugin({
-    launcher: vi.fn().mockResolvedValue({
-      enableUnifiedLogging: vi.fn().mockResolvedValue(undefined)
-    }),
-    browserOptions: {browser}
-  })
-  plugin.extensionsToLoad = [OUTPUT]
-  if (broker) plugin.setReloadBroker(broker)
+  const session = launchedSession({browser, broker})
+  const fake = fakeCompiler({owner: LAUNCHED_SESSION, context: CONTEXT})
 
-  plugin.emitter.on('compiled', (ev) => {
-    if (ev.reloadInstruction) reload(ev.reloadInstruction)
-  })
-
-  const fake = fakeCompiler({owner: BrowsersPlugin.name, context: CONTEXT})
-  plugin.apply(fake.compiler)
+  session.apply(fake.compiler)
 
   return {
     reload,
     async compile(emitted: Emitted, modifiedFiles: string[] = []) {
       fake.watchRun(modifiedFiles)
+
+      const before = session.compiled.length
 
       await fake.done(
         fakeCompilation({
@@ -79,6 +70,10 @@ function createHarness(
           }
         })
       )
+
+      for (const build of session.compiled.slice(before)) {
+        if (build.reloadInstruction) reload(build.reloadInstruction)
+      }
     }
   }
 }
