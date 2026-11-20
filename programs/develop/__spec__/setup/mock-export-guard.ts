@@ -1,11 +1,3 @@
-// ██████╗ ███████╗██╗   ██╗███████╗██╗      ██████╗ ██████╗
-// ██╔══██╗██╔════╝██║   ██║██╔════╝██║     ██╔═══██╗██╔══██╗
-// ██║  ██║█████╗  ██║   ██║█████╗  ██║     ██║   ██║██████╔╝
-// ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║     ██║   ██║██╔═══╝
-// ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
-// ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
-// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
-
 import {afterAll, afterEach} from 'vitest'
 
 // A module mock that leaves out an export throws when code reads it. Code
