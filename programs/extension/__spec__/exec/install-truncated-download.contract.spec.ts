@@ -129,14 +129,22 @@ describe('install verifies the destination before claiming success', () => {
     expect(fs.existsSync(path.join(cacheRoot, 'chrome'))).toBe(false)
   })
 
-  // PATH is the empty bin folder alone, so no package runner can start:
-  // the stand-in is not written and the machine's own npx is out of reach.
+  // PATH is the empty bin folder alone and the stand-in is not written. On
+  // Windows npx ships beside node.exe, which the runner keeps on PATH, so
+  // the missing runner there is bunx, named by a Bun user agent.
   it('frames a package runner that is not there as its own failure, not a retry', async () => {
     expect(fs.readdirSync(binDir)).toEqual([])
 
+    const onWindows = process.platform === 'win32'
     const result = await runInstall(
       ['install', 'chrome', '--output', 'json'],
-      {EXT_BROWSERS_CACHE_DIR: cacheRoot, PATH: binDir},
+      {
+        EXT_BROWSERS_CACHE_DIR: cacheRoot,
+        PATH: binDir,
+        ...(onWindows
+          ? {npm_config_user_agent: 'bun/1.3.0 npm/? node/v22.12.0 win32 x64'}
+          : {})
+      },
       binDir
     )
 
@@ -154,9 +162,13 @@ describe('install verifies the destination before claiming success', () => {
     const error = frame.error as {code: string; message: string}
     expect(error.code).toBe('E_BROWSER_INSTALLER_NOT_FOUND')
     expect(error.message).toBe(
-      "Couldn't install Chrome. The package runner npx wasn't found on " +
-        'this machine. Install npm, or run this command through a package ' +
-        'manager that is installed.'
+      onWindows
+        ? "Couldn't install Chrome. The package runner bunx wasn't found on " +
+            'this machine. Install Bun, or run this command through a ' +
+            'package manager that is installed.'
+        : "Couldn't install Chrome. The package runner npx wasn't found on " +
+            'this machine. Install npm, or run this command through a ' +
+            'package manager that is installed.'
     )
 
     expect(String(frame.hint)).toMatch(/^Install the package runner/)
