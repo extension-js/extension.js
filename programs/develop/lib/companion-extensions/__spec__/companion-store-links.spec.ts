@@ -1,9 +1,6 @@
 import {describe, expect, it} from 'vitest'
-import {companionLinkNotAStoreLink} from '../../lib/messages'
-import {
-  isCompanionStoreLink,
-  isCompanionWebLink
-} from '../folder-extensions/resolve-config'
+import {companionLinkNotAStoreLink} from '../../messages'
+import {isCompanionStoreLink, isCompanionWebLink} from '../resolve-config'
 
 const ID = 'fmkadmapgofadopljbjfkapdkoienihi'
 

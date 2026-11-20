@@ -21,6 +21,12 @@ import {startProductionControl} from './dev-server/production-control'
 import {announceLeftoverOutputFolder} from './lib/build-output-guard'
 import {codedError} from './lib/coded-error'
 import {
+  refuseCompanionLinksNoStoreReads,
+  resolveCompanionExtensionsConfig
+} from './lib/companion-extensions/resolve-config'
+import {resolveCompanionExtensionDirs as resolveCompanionExtensionDirsFromSpecialFolders} from './lib/companion-extensions/resolve-dirs'
+import type {CompanionExtensionsConfig} from './lib/companion-extensions/types'
+import {
   holdPreloadedEnvOf,
   loadBrowserConfig,
   loadCommandConfig
@@ -72,12 +78,6 @@ import {
   createPlaywrightMetadataWriter,
   getSessionRunId
 } from './plugin-playwright'
-import {
-  refuseCompanionLinksNoStoreReads,
-  resolveCompanionExtensionsConfig
-} from './plugin-special-folders/folder-extensions/resolve-config'
-import {resolveCompanionExtensionDirs as resolveCompanionExtensionDirsFromSpecialFolders} from './plugin-special-folders/folder-extensions/resolve-dirs'
-import type {CompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/types'
 import type {
   BrowserConfig,
   BrowserType,

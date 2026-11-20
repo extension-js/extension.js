@@ -2,8 +2,8 @@ import * as fs from 'node:fs'
 import os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
-import {takeCodedWarnings} from '../../lib/coded-warnings'
-import {resolveCompanionExtensionDirs} from '../folder-extensions/resolve-dirs'
+import {takeCodedWarnings} from '../../coded-warnings'
+import {resolveCompanionExtensionDirs} from '../resolve-dirs'
 
 // The scanned companion folder, entry by entry, where an entry is a link.
 

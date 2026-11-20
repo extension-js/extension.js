@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import {resolveCompanionExtensionDirs} from '../lib/companion-extensions/resolve-dirs'
 import {
   companionsDeclaredIn,
   computeExtensionsToLoad,
@@ -9,7 +10,6 @@ import {
   namedCompanionFoldersInsideProject,
   unresolvedNamedCompanions
 } from '../lib/extensions-to-load'
-import {resolveCompanionExtensionDirs} from '../plugin-special-folders/folder-extensions/resolve-dirs'
 
 const created: string[] = []
 const toPosix = (value: string) => value.replace(/\\/g, '/')

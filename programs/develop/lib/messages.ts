@@ -1864,6 +1864,19 @@ export function scannedCompanionOutsideProject(entry: string, leadsTo: string) {
   )
 }
 
+// Plain on purpose: the same four lines are printed where no browser runs.
+export function scannedCompanionOutsideProjectText(
+  entry: string,
+  target: string
+) {
+  return [
+    'A companion extension entry leads outside the project, so it is not loaded.',
+    `ENTRY ${entry}`,
+    `LEADS TO ${target}`,
+    'Companion extensions must be inside the project. Copy the folder into the project, or remove the link.'
+  ].join('\n')
+}
+
 // The launch path and preview refuse a companion entry in the same words,
 // so the same entry reads the same with or without a browser.
 export function companionLinkNotAStoreLink(entry: string) {
