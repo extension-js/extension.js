@@ -6,7 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import type {ControlledBuildParts} from './lib/production-control'
+import type {ControlledBuildParts} from './dev-server/production-control'
 import {buildDevProducerSource} from './plugin-reload/reload-lib/producer-reload'
 import {RELAY_TARGETS} from './plugin-reload/steps/inject-bridge-relay'
 import {withAddedSources} from './plugin-web-extension/feature-manifest/steps/apply-dev-defaults-lib/patch-csp'

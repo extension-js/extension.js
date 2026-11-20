@@ -6,6 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {humanLine} from '../lib/messaging'
 import {ensureSessionStateIgnoreFile} from '../lib/session-paths'
 import type {BridgeBroker} from './control-bridge/broker'
 import {CONTROL_WS_PATH} from './control-bridge/contracts'
@@ -16,7 +17,6 @@ import {
   writePersistedControlPort
 } from './control-bridge/control-port-store'
 import {startControlServer} from './control-bridge/ws-control-server'
-import {humanLine} from './lifecycle-stream'
 import * as messages from './messages'
 
 export interface OpenControlBridgeOptions {

@@ -7,7 +7,7 @@
 
 # @/plugin-special-folders
 
-> Handle extension "special folders" (public, pages, scripts, extensions) during builds and development.
+> Handle extension "special folders" (public, pages, scripts) during builds and development.
 
 This module adds support for special folders in a browser extension project and is part of the [Extension.js](https://extension.js.org) project. It uses Rspack's `CopyRspackPlugin` to emit static assets under `public/` (for proper watch/incremental behavior). In development watch mode, adding or removing an HTML file in `pages/` or a script in `scripts/` changes the entrypoints, so a live dev session restarts itself to pick the change up. It also defines a conventional `extensions/` folder for load-only companion extensions.
 
@@ -25,7 +25,6 @@ Output mapping overview:
 | `scripts/**`    | Surfaced via Scripts feature; not copied by this plugin.                          |
 | `*.dev.*`       | A page or script named `.dev.` is a development-only entry: compiled in development, left out of production. |
 | `include`       | Files the config declares are copied to their output path (`{'models/x.onnx': './models/x.onnx'}`), a folder source copies its tree. |
-| `extensions/**` | Load-only companion extensions; scanned when no CLI/config `extensions` provided. |
 
 ## Usage
 
@@ -45,7 +44,7 @@ export default {
 
 ## Include semantics
 
-- This plugin takes no glob lists. It always emits from `public/` and watches `pages/` and `scripts` (dev-only) based on the `manifestPath` project root. The default `extensions/` scan is resolved in `lib/companion-extensions`, which the commands call.
+- This plugin takes no glob lists. It always emits from `public/` and watches `pages/` and `scripts` (dev-only) based on the `manifestPath` project root.
 - The scan reads `pages/` and `scripts/` only, never `public/`, which is the copier's to walk. One walk in `entry-folders.ts` answers both the scan and the dev watcher: every file at any depth but a `node_modules` folder, a page ending in `.html` and a script ending in exactly `.js`, `.mjs`, `.jsx`, `.mjsx`, `.ts`, `.mts`, `.tsx` or `.mtsx`. An upper-case extension is no entry. A link inside either folder is followed while it stays inside the project, as `walked-entries.ts` asks, and the dev watcher lists the same links, so one added mid-session asks for a restart like a plain file.
 - `include` (from `extension.config.js`, layered top-level, per browser and per command) names extra files by output path. A missing source or an output path outside the extension root fails the compilation with a message naming the key. A source missing at start is still watched, and it ships on the compile after it appears.
 - A `.js`, `.mjs` or `.cjs` file `include` copies is minified in a production build (a `.min.js` is left alone): names are shortened and comments dropped, no statement is rewritten, so the value `executeScript` reads off the file stays and a `/*!` banner stays in the file. `{from: 'vendor/lib.js', minify: false}` in place of the path ships that file as authored, and so does `--no-minify` for every file. Files under `public/` always ship as authored.
@@ -57,18 +56,6 @@ export default {
 - A folder inside `pages/` or `scripts/` the build cannot read stops the scan with `E_FOLDER_UNREADABLE` (`SpecialFolderUnreadable`), naming the folder from the project root.
 - `exclude` names files relative to the project root that a build leaves out: a page or script there gets no entry, and a file under `public/` is not copied. An entry with no file behind it is a warning that names the browser.
 - For handling specific assets referenced in `manifest.json`, use the respective plugins (HTML, Icons, Scripts) with their `includeList` options.
-
-## Companion extensions
-
-With no `extensions` setting, every unpacked extension one level inside `./extensions` loads beside the project's own, and a subfolder named for a browser (`extensions/chrome/`) is that browser's set.
-
-An entry the config or the CLI names is a store link or a folder. A named folder may sit anywhere inside the project (`my-ext`, `tools/my-ext`, `extensions/my-ext`), by a relative or an absolute path. A path that resolves outside the project is refused with `Companion extensions must be inside the project.`, and so is a link inside the project that leads out of it, since real paths are compared.
-
-`extensions.dir`, the folder that is scanned, follows the same rule: any folder inside the project (`./vendor`, `tools/companions`, a folder under `node_modules`), by a relative or an absolute path, compared by real path. The project itself (`.`), a path outside it and a link that leads out are refused with `extensions.dir must be inside the project.`. A `dir` that does not exist scans nothing and is not reported. The scan follows links: an entry that is a link to a folder inside the project loads like any folder, and one that leads outside the project is not loaded while the other entries go on. A caller that launches a browser with the result passes `launchesBrowser`, and the entry left out is then said once under the warning code `W_COMPANION_EXTENSION_PATH`. A link to nothing, to a file or back to itself is skipped, and a folder reached under two names loads once.
-
-Both refusals carry the code `E_COMPANION_EXTENSION_PATH`. So do the refusals of an entry that is neither a store link nor a folder: a web link that is no store link (`CompanionLinkNotAStoreLink`), a bare store id (`CompanionEntryLooksLikeStoreId`) and any other name (`CompanionEntryNotLinkOrFolder`). `isCompanionStoreLink` in `lib/companion-extensions/resolve-config.ts` is the one answer to which links are store links. A store download that leaves no unpacked extension behind stops with `E_PROJECT_DOWNLOAD_EMPTY` (`CompanionStoreDownloadEmpty`), naming the folder from the project root.
-
-A named folder with no `manifest.json` loads nothing and is not reported.
 
 ## Files public/ never ships
 

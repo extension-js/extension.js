@@ -19,6 +19,7 @@ import {
   type ErrorCode,
   isMachineOutput
 } from '../lib/messaging'
+import {stripAnsi} from '../lib/strip-ansi'
 import {shouldWarnPortConflict} from './messages'
 import {readyContractErrorCode} from './ready-contract-codes'
 
@@ -52,21 +53,12 @@ const TERMINAL_STATUSES: ReadonlySet<string> = new Set([
 
 const MAX_OUTPUT_CHARS = 2000
 
-// eslint-disable-next-line no-control-regex
-const ANSI_PATTERN = /\u001b\[[0-9;]*m/g
-
 // Machine-mode detection lives in lib/messaging.ts so every sink reads one
 // signal; re-exported here for the consumers that always imported it here.
 export {isMachineOutput}
 
 export function isLifecycleStreamEnabled(): boolean {
   return isMachineOutput()
-}
-
-export {humanLine} from '../lib/messaging'
-
-export function stripAnsi(input: string): string {
-  return String(input || '').replace(ANSI_PATTERN, '')
 }
 
 function readReadyContract(readyPath?: string): Record<string, unknown> | null {

@@ -8,8 +8,12 @@
 
 import type {Compiler, Stats} from '@rspack/core'
 import {type CodedError, codedError} from '../lib/coded-error'
-import {CODES, type ErrorCode, stripChannelPrefix} from '../lib/messaging'
-import {humanLine} from './lifecycle-stream'
+import {
+  CODES,
+  type ErrorCode,
+  humanLine,
+  stripChannelPrefix
+} from '../lib/messaging'
 import * as messages from './messages'
 import type {DevSessionRestartRequest} from './session-restart'
 

@@ -11,28 +11,32 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import parse from 'content-security-policy-parser'
-import {ActionsFileWriter} from '../../dev-server/control-bridge/actions-file'
-import {BridgeBroker} from '../../dev-server/control-bridge/broker'
-import {readExtensionLoadRefusal} from '../../dev-server/control-bridge/consumer-client'
-import type {LogContext} from '../../dev-server/control-bridge/contracts'
-import {LogsFileWriter} from '../../dev-server/control-bridge/logs-file'
+import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../../lib/constants'
+import {prependBehindTakeBlock} from '../../lib/extension-base-from-stack'
+import {isSameOrInsidePath} from '../../lib/real-path'
+import {
+  actionsPath,
+  browserArtifactsDir,
+  logsPath
+} from '../../lib/session-paths'
+import {ActionsFileWriter} from '../control-bridge/actions-file'
+import {BridgeBroker} from '../control-bridge/broker'
+import {readExtensionLoadRefusal} from '../control-bridge/consumer-client'
+import type {LogContext} from '../control-bridge/contracts'
+import {LogsFileWriter} from '../control-bridge/logs-file'
 import {
   buildBridgeRelaySource,
   CONTROL_PORT_ASSET_NAME
-} from '../../dev-server/control-bridge/producer-runtime'
-import {LogRingBuffer} from '../../dev-server/control-bridge/ring-buffer'
+} from '../control-bridge/producer-runtime'
+import {LogRingBuffer} from '../control-bridge/ring-buffer'
 import {
   clearControlToken,
   writeControlToken
-} from '../../dev-server/control-bridge/session-token'
+} from '../control-bridge/session-token'
 import {
   type ControlServer,
   startControlServer
-} from '../../dev-server/control-bridge/ws-control-server'
-import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../constants'
-import {prependBehindTakeBlock} from '../extension-base-from-stack'
-import {isSameOrInsidePath} from '../real-path'
-import {actionsPath, browserArtifactsDir, logsPath} from '../session-paths'
+} from '../control-bridge/ws-control-server'
 
 // What a controlled build borrows from a dev session: the producer a dev
 // background runs, the files it and its relay ride and the policy merge.

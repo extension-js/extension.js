@@ -3,11 +3,10 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {recordCodedWarning, takeCodedWarnings} from '../../lib/coded-warnings'
-import {CODES} from '../../lib/messaging'
+import {CODES, humanLine} from '../../lib/messaging'
 import {
   attachLifecycleStream,
   createLifecycleStream,
-  humanLine,
   isLifecycleStreamEnabled,
   isMachineOutput
 } from '../lifecycle-stream'

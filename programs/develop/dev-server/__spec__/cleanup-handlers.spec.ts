@@ -1,6 +1,7 @@
 import {EventEmitter} from 'node:events'
 import * as net from 'node:net'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {stripAnsi} from '../../lib/strip-ansi'
 import {
   EXIT_DELAY_MS,
   FORCED_SHUTDOWN_EXIT_CODE,
@@ -10,7 +11,6 @@ import {
 } from '../cleanup'
 import type {BridgeBroker} from '../control-bridge/broker'
 import {startControlServer} from '../control-bridge/ws-control-server'
-import {stripAnsi} from '../lifecycle-stream'
 import type {PortManager} from '../port-manager'
 
 const LISTENED = [
