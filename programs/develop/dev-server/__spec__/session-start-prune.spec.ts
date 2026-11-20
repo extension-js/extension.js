@@ -1,8 +1,7 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {type Compiler, rspack} from '@rspack/core'
-import {afterAll, beforeEach, describe, expect, it} from 'vitest'
+import {beforeEach, describe, expect, it} from 'vitest'
 import {devWatchOptions} from '../../__spec__/helpers/dev-watch-options'
 import {getProjectStructure} from '../../lib/project'
 import {
@@ -13,12 +12,12 @@ import {
 import webpackConfig from '../../rspack-config'
 import {withSessionStartPrune} from '../session-start-prune'
 import {skipWithoutDevelopDist} from './helpers/develop-dist'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
-const roots: string[] = []
+const tempFolder = trackTempFolders()
 
 function scaffold() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-start-prune-'))
-  roots.push(root)
+  const root = tempFolder('extjs-start-prune-')
 
   fs.writeFileSync(
     path.join(root, 'package.json'),
@@ -136,10 +135,6 @@ function watchSession(compiler: Compiler) {
 
 const passed = (outcome: Outcome) => !outcome.hasErrors
 const failed = (outcome: Outcome) => outcome.hasErrors
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
 
 beforeEach(skipWithoutDevelopDist)
 
