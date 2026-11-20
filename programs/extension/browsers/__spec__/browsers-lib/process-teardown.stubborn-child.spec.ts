@@ -2,7 +2,9 @@ import {type ChildProcess, spawn} from 'node:child_process'
 import {once} from 'node:events'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {
+  EXIT_PROBE_TIMEOUT_MS,
   FORCE_KILL_GRACE_MS,
+  forceKillChildOnExit,
   forceKillPidOnExit,
   gracefulTerminateChild,
   gracefulTerminatePid,
@@ -56,10 +58,12 @@ function scriptedTeardown(over: Partial<TeardownDependencies> = {}) {
     now: () => ASKED_AT,
     isAlive: vi.fn(() => true),
     startedAt: vi.fn(() => ASKED_AT - 60_000),
+    startedAtOnExit: vi.fn(() => ASKED_AT - 60_000),
     mark: vi.fn(() => []),
     sweep: vi.fn(() => []),
     kill: vi.fn(() => true),
     killTree: vi.fn(),
+    killTreeOnExit: vi.fn(),
     askTree: vi.fn(),
     print: (line) => printed.push(line),
     ...over
@@ -415,35 +419,168 @@ describe('gracefulTerminatePid', () => {
 
 describe('forceKillPidOnExit', () => {
   const ADOPTED_AT = Date.parse('2026-11-17T10:00:05.400Z')
+  const BEFORE = Date.parse('2026-11-17T10:00:04.000Z')
+  const AFTER = Date.parse('2026-11-17T10:00:07.000Z')
+  // No process is signaled in the scripted rows, so any number will do.
+  const ADOPTED_PID = 2 ** 30
 
   it('SIGKILLs an adopted pid that started before it was adopted', async () => {
     const pid = (await startChild(POLITE)).pid as number
-    const {deps} = scriptedTeardown({
-      startedAt: vi.fn(() => Date.parse('2026-11-17T10:00:04.000Z'))
+    const {deps, printed} = scriptedTeardown({
+      startedAtOnExit: vi.fn(() => BEFORE)
     })
 
     forceKillPidOnExit(pid, 'firefox', ADOPTED_AT, deps)
 
-    expect(deps.startedAt).toHaveBeenCalledExactlyOnceWith(pid)
+    expect(deps.startedAtOnExit).toHaveBeenCalledExactlyOnceWith(pid)
     expect(vi.mocked(deps.kill).mock.calls).toEqual([[pid, 'SIGKILL']])
+    expect(deps.killTreeOnExit).not.toHaveBeenCalled()
+    expect(printed).toEqual([])
   })
 
   it.each([
     ['the process table cannot date', null],
-    [
-      'that started after it was adopted',
-      Date.parse('2026-11-17T10:00:07.000Z')
-    ]
-  ] as const)('sends nothing to a pid %s', async (_title, startedAt) => {
+    ['that started after it was adopted', AFTER]
+  ] as const)('sends nothing to a pid %s, and says it was left', async (_title, startedAt) => {
     const child = await startChild(POLITE)
-    const {deps} = scriptedTeardown({startedAt: vi.fn(() => startedAt)})
+    const {deps, printed} = scriptedTeardown({
+      startedAtOnExit: vi.fn(() => startedAt)
+    })
 
     forceKillPidOnExit(child.pid, 'firefox', ADOPTED_AT, deps)
     await new Promise((resolve) => setTimeout(resolve, 200))
 
     expect(deps.kill).not.toHaveBeenCalled()
     expect(deps.killTree).not.toHaveBeenCalled()
+    expect(deps.killTreeOnExit).not.toHaveBeenCalled()
     expect(isRunning(child)).toBe(true)
+    expect(printed).toHaveLength(1)
+    expect(printed[0]).toContain(
+      `Firefox (pid ${child.pid}) did not stop and could not be confirmed as the browser this run started, so it was left running.`
+    )
+
+    expect(printed[0]).toContain(`kill -9 ${child.pid}`)
+  })
+
+  it('says nothing about a pid that is gone', () => {
+    const {deps, printed} = scriptedTeardown({
+      startedAtOnExit: vi.fn(() => null),
+      isAlive: vi.fn(() => false)
+    })
+
+    forceKillPidOnExit(ADOPTED_PID, 'firefox', ADOPTED_AT, deps)
+
+    expect(deps.kill).not.toHaveBeenCalled()
+    expect(printed).toEqual([])
+  })
+
+  // The exit handler never waits on the long probe the grace timer may use.
+  it('dates the pid with the exit probe alone', () => {
+    const {deps} = scriptedTeardown({startedAtOnExit: vi.fn(() => BEFORE)})
+
+    forceKillPidOnExit(ADOPTED_PID, 'firefox', ADOPTED_AT, deps)
+
+    expect(deps.startedAtOnExit).toHaveBeenCalledExactlyOnceWith(ADOPTED_PID)
+    expect(deps.startedAt).not.toHaveBeenCalled()
+  })
+
+  describe('on Windows', () => {
+    it('ends the tree of a pid dated before its adoption, then the pid', () => {
+      const order: string[] = []
+      const {deps, printed} = scriptedTeardown({
+        platform: 'win32',
+        startedAtOnExit: vi.fn(() => BEFORE),
+        killTreeOnExit: vi.fn(() => void order.push('tree')),
+        kill: vi.fn(() => {
+          order.push('kill')
+
+          return true
+        })
+      })
+
+      forceKillPidOnExit(ADOPTED_PID, 'firefox', ADOPTED_AT, deps)
+
+      expect(order).toEqual(['tree', 'kill'])
+      expect(deps.killTreeOnExit).toHaveBeenCalledExactlyOnceWith(ADOPTED_PID)
+      expect(vi.mocked(deps.kill).mock.calls).toEqual([
+        [ADOPTED_PID, 'SIGKILL']
+      ])
+
+      expect(deps.killTree).not.toHaveBeenCalled()
+      expect(printed).toEqual([])
+    })
+
+    it.each([
+      ['whose date did not come back in time', null],
+      ['dated after its adoption', AFTER]
+    ] as const)('leaves a pid %s and names the taskkill that stops it', (_title, startedAt) => {
+      const {deps, printed} = scriptedTeardown({
+        platform: 'win32',
+        startedAtOnExit: vi.fn(() => startedAt)
+      })
+
+      forceKillPidOnExit(ADOPTED_PID, 'firefox', ADOPTED_AT, deps)
+
+      expect(deps.killTreeOnExit).not.toHaveBeenCalled()
+      expect(deps.kill).not.toHaveBeenCalled()
+      expect(printed).toHaveLength(1)
+      expect(printed[0]).toContain('so it was left running')
+      expect(printed[0]).toContain(`taskkill /PID ${ADOPTED_PID} /T /F`)
+    })
+  })
+})
+
+describe('forceKillChildOnExit', () => {
+  const standIn = (pid: number | undefined) => {
+    const order: string[] = []
+    const child = {
+      pid,
+      kill: vi.fn(() => {
+        order.push('kill')
+
+        return true
+      })
+    }
+
+    return {child: child as unknown as ChildProcess, kill: child.kill, order}
+  }
+
+  it('ends the tree first on Windows, then the child', () => {
+    const {child, kill, order} = standIn(2 ** 30)
+    const {deps} = scriptedTeardown({
+      platform: 'win32',
+      killTreeOnExit: vi.fn(() => void order.push('tree'))
+    })
+
+    forceKillChildOnExit(child, 'chrome', deps)
+
+    expect(order).toEqual(['tree', 'kill'])
+    expect(deps.killTreeOnExit).toHaveBeenCalledExactlyOnceWith(2 ** 30)
+    expect(kill).toHaveBeenCalledExactlyOnceWith('SIGKILL')
+    expect(deps.startedAtOnExit).not.toHaveBeenCalled()
+  })
+
+  it('asks for no tree on Windows when the child never got a pid', () => {
+    const {child, kill} = standIn(undefined)
+    const {deps} = scriptedTeardown({platform: 'win32'})
+
+    forceKillChildOnExit(child, 'chrome', deps)
+
+    expect(deps.killTreeOnExit).not.toHaveBeenCalled()
+    expect(kill).toHaveBeenCalledExactlyOnceWith('SIGKILL')
+  })
+
+  it.each([
+    'darwin',
+    'linux'
+  ] as const)('signals the child alone on %s', (platform) => {
+    const {child, kill} = standIn(2 ** 30)
+    const {deps} = scriptedTeardown({platform})
+
+    forceKillChildOnExit(child, 'chrome', deps)
+
+    expect(deps.killTreeOnExit).not.toHaveBeenCalled()
+    expect(kill).toHaveBeenCalledExactlyOnceWith('SIGKILL')
   })
 })
 
@@ -453,5 +590,6 @@ describe('the teardown defaults', () => {
     expect(teardownDefaults.isAlive(process.pid)).toBe(true)
     expect(teardownDefaults.mark(undefined)).toEqual([])
     expect(teardownDefaults.sweep([])).toEqual([])
+    expect(EXIT_PROBE_TIMEOUT_MS).toBeLessThanOrEqual(1500)
   })
 })
