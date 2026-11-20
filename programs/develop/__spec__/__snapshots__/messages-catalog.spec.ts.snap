@@ -53,7 +53,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "buildAssetsTree: function(2)",
     "buildCommandFailed: function(1)",
     "buildComplete: function(5)",
-    "buildFailed: function(1)",
+    "buildFailed: function(2)",
     "buildFailedOutputInPlace: function(2)",
     "buildOutDirInvalid: function(3)",
     "buildOutputFolderForeign: function(1)",

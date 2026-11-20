@@ -1369,7 +1369,14 @@ async function runBuild(
         console.error(isDebug() ? error : messages.buildCommandFailed(error))
       }
 
-      console.error(messages.buildFailed(failureCount))
+      console.error(
+        messages.buildFailed(
+          failureCount,
+          (error as {code?: unknown}).code === CODES.E_ZIP_SKIPPED
+            ? displayPath(distPath)
+            : undefined
+        )
+      )
     }
 
     // A failed build carried on past the same warnings a green one lists,
