@@ -219,7 +219,7 @@ describe('generate-extension-types', () => {
       JSON.stringify({name: 'x'})
     )
 
-    await generateExtensionTypes(manifestDir, pkgDir)
+    await generateExtensionTypes(manifestDir, pkgDir, {mode: 'production'})
     const target = path.join(pkgDir, 'extension-env.d.ts')
     expect(fs.existsSync(target)).toBe(true)
     const content = fs.readFileSync(target, 'utf8')
@@ -243,19 +243,19 @@ describe('generate-extension-types', () => {
       })
 
     try {
-      await generateExtensionTypes(root, root)
+      await generateExtensionTypes(root, root, {mode: 'production'})
       expect(printed.filter((line) => line.includes('Writing'))).toHaveLength(1)
 
       const written = fs.statSync(target).mtimeMs
       await new Promise((resolve) => setTimeout(resolve, 20))
       printed.length = 0
-      await generateExtensionTypes(root, root)
+      await generateExtensionTypes(root, root, {mode: 'production'})
       expect(fs.statSync(target).mtimeMs).toBe(written)
       expect(printed).toEqual([])
 
       fs.writeFileSync(target, '// stale\n')
       printed.length = 0
-      await generateExtensionTypes(root, root)
+      await generateExtensionTypes(root, root, {mode: 'production'})
       expect(fs.readFileSync(target, 'utf8')).not.toContain('stale')
       expect(printed).toHaveLength(1)
       expect(printed[0]).toContain('Updating the type definitions')
@@ -275,7 +275,7 @@ describe('generate-extension-types', () => {
     writeExtensionPackage(root)
     expect(resolvesExtensionPackage(root)).toBe(true)
 
-    await generateExtensionTypes(root, root)
+    await generateExtensionTypes(root, root, {mode: 'production'})
     const content = fs.readFileSync(
       path.join(root, 'extension-env.d.ts'),
       'utf8'
@@ -298,7 +298,7 @@ describe('generate-extension-types', () => {
 
     expect(resolvesExtensionPackage(root)).toBe(false)
 
-    await generateExtensionTypes(root, root)
+    await generateExtensionTypes(root, root, {mode: 'production'})
     const content = fs.readFileSync(
       path.join(root, 'extension-env.d.ts'),
       'utf8'
@@ -344,7 +344,7 @@ describe('generate-extension-types', () => {
       ].join('\n')
     )
 
-    await generateExtensionTypes(root, root)
+    await generateExtensionTypes(root, root, {mode: 'production'})
     const content = fs.readFileSync(
       path.join(root, 'extension-env.d.ts'),
       'utf8'
@@ -411,7 +411,7 @@ describe('generate-extension-types', () => {
 
     writeTypescriptProject(root)
 
-    await generateExtensionTypes(root, root)
+    await generateExtensionTypes(root, root, {mode: 'production'})
     const result = runTsc(root)
 
     expect(result.stdout + result.stderr).toBe('')
@@ -428,7 +428,7 @@ describe('generate-extension-types', () => {
     writeTypescriptProject(root)
     expect(projectBringsOwnChromeTypes(root)).toBe(false)
 
-    await generateExtensionTypes(root, root)
+    await generateExtensionTypes(root, root, {mode: 'production'})
     const content = fs.readFileSync(
       path.join(root, 'extension-env.d.ts'),
       'utf8'
@@ -476,7 +476,7 @@ describe('generate-extension-types', () => {
     writeTypescriptProject(root, {ownChromeTypes: true})
     expect(projectBringsOwnChromeTypes(root)).toBe(true)
 
-    await generateExtensionTypes(root, root)
+    await generateExtensionTypes(root, root, {mode: 'production'})
     const content = fs.readFileSync(
       path.join(root, 'extension-env.d.ts'),
       'utf8'
@@ -609,7 +609,7 @@ describe('generate-extension-types', () => {
       path.join(root, 'node_modules', '@types', 'chrome')
     )
 
-    await generateExtensionTypes(nested, nested)
+    await generateExtensionTypes(nested, nested, {mode: 'production'})
     const content = fs.readFileSync(
       path.join(nested, 'extension-env.d.ts'),
       'utf8'
@@ -633,7 +633,7 @@ describe('generate-extension-types', () => {
 
     writeTypescriptProject(root, {withExtensionPackage: false})
 
-    await generateExtensionTypes(root, root)
+    await generateExtensionTypes(root, root, {mode: 'production'})
     const result = runTsc(root)
     const diagnostics = (result.stdout + result.stderr)
       .split('\n')
@@ -663,7 +663,7 @@ describe('generate-extension-types', () => {
     takeCodedWarnings()
 
     try {
-      await generateExtensionTypes(root, root)
+      await generateExtensionTypes(root, root, {mode: 'production'})
     } finally {
       logSpy.mockRestore()
     }
@@ -697,13 +697,19 @@ describe('generate-extension-types', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     try {
-      await generateExtensionTypes(path.join(root, 'src'), root)
+      await generateExtensionTypes(path.join(root, 'src'), root, {
+        mode: 'production'
+      })
+
       expect(fs.existsSync(target)).toBe(false)
       expect(logSpy).not.toHaveBeenCalled()
 
       // A copy the project keeps anyway is still brought up to date.
       fs.writeFileSync(target, '// stale\n')
-      await generateExtensionTypes(path.join(root, 'src'), root)
+      await generateExtensionTypes(path.join(root, 'src'), root, {
+        mode: 'production'
+      })
+
       expect(fs.readFileSync(target, 'utf8')).not.toContain('stale')
     } finally {
       logSpy.mockRestore()
@@ -721,7 +727,9 @@ describe('generate-extension-types', () => {
       const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
       try {
-        await generateExtensionTypes(path.join(root, 'src'), root)
+        await generateExtensionTypes(path.join(root, 'src'), root, {
+          mode: 'production'
+        })
       } finally {
         logSpy.mockRestore()
       }
@@ -749,7 +757,7 @@ describe('generate-extension-types', () => {
       })
 
     try {
-      await generateExtensionTypes(root, root)
+      await generateExtensionTypes(root, root, {mode: 'production'})
 
       const formatted = fs
         .readFileSync(target, 'utf8')
@@ -760,7 +768,7 @@ describe('generate-extension-types', () => {
       fs.writeFileSync(target, formatted)
       printed.length = 0
 
-      await generateExtensionTypes(root, root)
+      await generateExtensionTypes(root, root, {mode: 'production'})
       expect(fs.readFileSync(target, 'utf8')).toBe(formatted)
       expect(printed).toEqual([])
     } finally {
