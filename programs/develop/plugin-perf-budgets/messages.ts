@@ -8,7 +8,7 @@
 
 import colors from 'pintor'
 import {fmt, prefix} from '../lib/messaging'
-import type {AssetCategory} from './categorize'
+import type {BudgetCategory} from './categorize'
 
 function fmtKiB(bytes: number): string {
   const kib = bytes / 1024
@@ -21,20 +21,20 @@ export interface OversizedAsset {
   name: string
   size: number
   budget: number
-  category: AssetCategory
+  category: BudgetCategory
 }
 
 // A build that vendors thousands of files would otherwise print them all.
 export const MAX_LISTED_ASSETS = 20
 
 // Which budget a wasm file fell under, in the words its role line uses.
-const WASM_BUDGET_REASON: Partial<Record<AssetCategory, string>> = {
+const WASM_BUDGET_REASON: Partial<Record<BudgetCategory, string>> = {
   runtime: 'a file a content script or the service worker reaches',
   wasm: 'a file only pages and workers reach',
   public: 'a file copied from public/'
 }
 
-function wasmBudgetRemedy(categories: AssetCategory[]): string {
+function wasmBudgetRemedy(categories: BudgetCategory[]): string {
   if (categories.length === 1) {
     return `raise perfBudgets.${categories[0]} in extension.config.js when this size is intended`
   }
@@ -198,23 +198,17 @@ export function perfBudgetsReferrersUnreadable(files: string[]) {
   return `${prefix('debug')} budgets  wasm=runtime reason=chunk-graph-unreadable files=${files.join(',')}`
 }
 
-function categoryRole(c: AssetCategory): string {
-  switch (c) {
-    case 'content-script':
-      return 'content script, injected on every page navigation'
-    case 'service-worker':
-      return 'service worker / background, wakes from cold each session'
-    case 'page':
-      return 'UI page, opened on demand'
-    case 'shared':
-      return 'shared chunk, loaded by every page that imports it'
-    case 'public':
-      return 'copied public file, shipped as authored'
-    case 'runtime':
-      return 'runtime payload, reached by a content script or the service worker, or shipped at the output root'
-    case 'wasm':
-      return 'WebAssembly runtime, fetched when its feature runs'
-    default:
-      return 'asset'
-  }
+const CATEGORY_ROLES: Record<BudgetCategory, string> = {
+  'content-script': 'content script, injected on every page navigation',
+  'service-worker': 'service worker / background, wakes from cold each session',
+  page: 'UI page, opened on demand',
+  shared: 'shared chunk, loaded by every page that imports it',
+  public: 'copied public file, shipped as authored',
+  runtime:
+    'runtime payload, reached by a content script or the service worker, or shipped at the output root',
+  wasm: 'WebAssembly runtime, fetched when its feature runs'
+}
+
+function categoryRole(category: BudgetCategory): string {
+  return CATEGORY_ROLES[category]
 }

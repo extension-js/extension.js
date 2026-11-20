@@ -121,7 +121,18 @@ describe('the generated process module', () => {
 
   it('parses, and needs only what every browser context has', () => {
     for (const source of [processModuleSource({}), processModuleSource(env)]) {
-      expect(freeNames(source)).toEqual(['Promise', 'module', 'queueMicrotask'])
+      expect(freeNames(source)).toEqual([
+        'BigInt',
+        'Date',
+        'Math',
+        'Promise',
+        'String',
+        'console',
+        'globalThis',
+        'module',
+        'queueMicrotask'
+      ])
+
       expect(source).not.toMatch(/\b(require|import|eval|Function)\b/)
     }
   })
