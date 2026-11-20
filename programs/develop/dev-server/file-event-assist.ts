@@ -20,6 +20,7 @@ interface DirectoryWatcherLike {
   onWatchEvent?: (eventType: string, filename: string) => void
   doScan?: (initial: boolean) => void
   scanning?: boolean
+  closed?: boolean
   files?: Map<string, unknown>
 }
 
@@ -44,6 +45,41 @@ export interface FileEventAssistOptions {
   // Returns the function that stops the poll.
   pollFolder?: (folder: string, onChange: () => void) => () => void
   maxWatches?: number
+}
+
+const guarded = new WeakSet<object>()
+
+// The watcher queues a scan asked for mid-scan and then never runs it, which
+// leaves the folder scanning for good. Such a scan is held here instead and
+// run once the one in flight ends, whoever asked: a poll or the watcher.
+function guardScans(owner: DirectoryWatcherLike | undefined) {
+  if (!owner?.doScan || guarded.has(owner)) return
+
+  guarded.add(owner)
+
+  const scan = owner.doScan.bind(owner)
+  let held = false
+
+  const runHeld = () => {
+    if (owner.closed) return
+
+    if (owner.scanning) {
+      setTimeout(runHeld, FOLDER_POLL_MS).unref()
+
+      return
+    }
+
+    held = false
+    scan(false)
+  }
+
+  owner.doScan = (initial: boolean) => {
+    if (!owner.scanning) return scan(initial)
+    if (held) return
+
+    held = true
+    setTimeout(runHeld, FOLDER_POLL_MS).unref()
+  }
 }
 
 function pollFolderMtime(folder: string, onChange: () => void) {
@@ -189,8 +225,12 @@ export class FileEventAssistPlugin {
     const folders = watchFileSystem.watcher?.watcherManager?.directoryWatchers
     const wanted = new Set<string>()
 
-    for (const folder of folders?.keys() ?? []) {
-      if (inProject(folder, roots)) wanted.add(folder)
+    for (const [folder, owner] of folders ?? []) {
+      if (!inProject(folder, roots)) continue
+
+      wanted.add(folder)
+      // Past the poll cap too: the watcher's own scans can still collide.
+      guardScans(owner as DirectoryWatcherLike)
     }
 
     for (const [folder, stop] of [...this.polls]) {
@@ -213,14 +253,7 @@ export class FileEventAssistPlugin {
             folder
           ) as DirectoryWatcherLike | undefined
 
-        // A rescan asked for during a scan leaves watchpack scanning for good,
-        // so wait for the scan in flight to end.
-        if (owner?.scanning) {
-          setTimeout(rescan, FOLDER_POLL_MS).unref()
-
-          return
-        }
-
+        guardScans(owner)
         owner?.doScan?.(false)
       }
 
