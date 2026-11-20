@@ -1104,7 +1104,12 @@ async function runSafariPipeline(
   // out. A build run exits at once and the app it opened is the deliverable.
   // Opening the Xcode project raises no app, so there is none to wait for.
   if (host.announceDevReady && target === appPath) {
-    await rememberRaisedContainerApp(tools, appPath, appsBefore)
+    await rememberRaisedContainerApp(
+      tools,
+      appPath,
+      appsBefore,
+      host.raiseWaitMs
+    )
   }
 
   if (config.safariBinary) {

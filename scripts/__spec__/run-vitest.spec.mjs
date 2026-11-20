@@ -105,38 +105,40 @@ test('names every filter vitest would drop and the call that keeps them', () => 
   )
 })
 
-// The real vitest with the develop config: a direct call that would lose its
-// filter stops while the config loads. The empty folder keeps a lost guard cheap.
-for (const flags of [['-u'], ['--update'], ['--']]) {
-  test(`a direct vitest run ${flags[0]} <file> in develop refuses to run the suite`, () => {
-    const develop = path.join(root, 'programs', 'develop')
-    const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'run-vitest-empty-'))
-    const vitest = path.join(
-      path.dirname(
-        createRequire(path.join(develop, 'package.json')).resolve(
-          'vitest/package.json'
+// The real vitest with each package's config: a direct call that would lose
+// its filter stops while the config loads. The empty folder keeps a lost guard cheap.
+for (const name of ['develop', 'extension', 'create', 'install']) {
+  for (const flags of [['-u'], ['--update'], ['--']]) {
+    test(`a direct vitest run ${flags[0]} <file> in ${name} refuses to run the suite`, () => {
+      const pkg = path.join(root, 'programs', name)
+      const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'run-vitest-empty-'))
+      const vitest = path.join(
+        path.dirname(
+          createRequire(path.join(pkg, 'package.json')).resolve(
+            'vitest/package.json'
+          )
+        ),
+        'vitest.mjs'
+      )
+
+      try {
+        const result = spawnSync(
+          process.execPath,
+          [vitest, 'run', '--dir', empty, ...flags, 'no-such-file.spec.ts'],
+          {cwd: pkg, encoding: 'utf8'}
         )
-      ),
-      'vitest.mjs'
-    )
+        const output = `${result.stdout}${result.stderr}`
 
-    try {
-      const result = spawnSync(
-        process.execPath,
-        [vitest, 'run', '--dir', empty, ...flags, 'no-such-file.spec.ts'],
-        {cwd: develop, encoding: 'utf8'}
-      )
-      const output = `${result.stdout}${result.stderr}`
-
-      assert.notEqual(result.status, 0, output)
-      assert.match(
-        output,
-        /vitest would drop no-such-file\.spec\.ts as a file filter and run the whole suite\. Run it as: vitest run --dir \S+ no-such-file\.spec\.ts/
-      )
-    } finally {
-      fs.rmSync(empty, {recursive: true, force: true})
-    }
-  })
+        assert.notEqual(result.status, 0, output)
+        assert.match(
+          output,
+          /vitest would drop no-such-file\.spec\.ts as a file filter and run the whole suite\. Run it as: vitest run --dir \S+ no-such-file\.spec\.ts/
+        )
+      } finally {
+        fs.rmSync(empty, {recursive: true, force: true})
+      }
+    })
+  }
 }
 
 test('runs the package vitest with the filter and passes its exit code', () => {

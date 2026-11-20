@@ -9,7 +9,8 @@
 import * as net from 'node:net'
 import {
   isPidAlive,
-  pidStartedAtMs
+  pidStartedAtMs,
+  pidStartId
 } from '../browsers/browsers-lib/resolve-live-pid'
 import type {DevelopBridge} from './extension-develop-runtime'
 import {otherSessionBrowsers} from './session-project-path'
@@ -20,6 +21,8 @@ export interface SessionContract {
   command?: string
   pid?: number
   pidStartedAt?: string
+  // Linux only: the boot id and start tick of the writer's process.
+  pidStartId?: string
   startedAt?: string
   controlPort?: number
 }
@@ -50,8 +53,21 @@ export function sessionNounOf(command: BrowserSessionCommand): string {
 // when it can. A pid is handed to another process once its owner exits.
 export function reusedPidEvidence(
   ready: SessionContract,
-  pidStartedAt = pidStartedAtMs
+  pidStartedAt = pidStartedAtMs,
+  startIdOf: (pid: number) => string | undefined = pidStartId
 ): string | null {
+  // Where the writer stamped the kernel's name for its process and this
+  // machine can read one, that decides. A clock step moves the dates below.
+  if (typeof ready.pidStartId === 'string' && ready.pidStartId && ready.pid) {
+    const startId = startIdOf(ready.pid)
+
+    if (startId) {
+      return startId === ready.pidStartId
+        ? null
+        : `its start id is ${startId}, not the contract's ${ready.pidStartId}`
+    }
+  }
+
   const stampedAt = Date.parse(String(ready.pidStartedAt ?? ''))
   const writtenAt = Date.parse(String(ready.startedAt ?? ''))
   if (Number.isNaN(stampedAt) && Number.isNaN(writtenAt)) return null
@@ -104,7 +120,8 @@ export async function endedSessionReason(
   ready: SessionContract,
   readyPath: string,
   options?: {dialFailed?: boolean},
-  pidStartedAt = pidStartedAtMs
+  pidStartedAt = pidStartedAtMs,
+  startIdOf: (pid: number) => string | undefined = pidStartId
 ): Promise<string | null> {
   if (ready.status === 'stopped') {
     return `${readyPath} reads status 'stopped'`
@@ -123,7 +140,7 @@ export async function endedSessionReason(
   // has already failed.
   if (!options?.dialFailed) return null
 
-  const reused = reusedPidEvidence(ready, pidStartedAt)
+  const reused = reusedPidEvidence(ready, pidStartedAt, startIdOf)
   if (!reused || (await controlPortAnswers(ready))) return null
 
   return (

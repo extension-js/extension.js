@@ -470,7 +470,9 @@ async function runBuild(
               browser,
               displayDistPath,
               packageJsonDir,
-              useStagingSwap ? stagingDistPath : displayDistPath
+              useStagingSwap ? stagingDistPath : displayDistPath,
+              buildOptions?.metadataCommand === 'start' &&
+                buildOptions?.launchFollows !== true
             )
           }
 

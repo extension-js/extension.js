@@ -54,12 +54,15 @@ function installHandlersOnce(): void {
 export async function rememberRaisedContainerApp(
   tools: SafariPipelineTools,
   appPath: string,
-  before: Set<number>
+  before: Set<number>,
+  waitMs = RAISE_WAIT_MS
 ): Promise<number[]> {
-  const deadline = Date.now() + RAISE_WAIT_MS
+  const deadline = Date.now() + waitMs
   let raised: number[] = []
 
-  while (Date.now() < deadline) {
+  // Read once whatever the wait, so a caller that waits no time still finds
+  // an app that is already up.
+  for (let read = 0; read === 0 || Date.now() < deadline; read += 1) {
     raised = (await tools.listAppPids(appPath)).filter(
       (pid) => !before.has(pid)
     )

@@ -27,6 +27,7 @@ import {
   isPidAlive,
   listProcesses,
   type ProcessRow,
+  pidStartId,
   resolveLiveBrowserPid
 } from '../../browsers-lib/resolve-live-pid'
 import {probeGeckoBinaryVersion} from '../../browsers-lib/version-probe'
@@ -64,6 +65,7 @@ export interface FirefoxLaunchDependencies {
   terminatedByUs: (child: ChildProcess | null) => boolean
   pidTerminatedByUs: (pid: number | null | undefined) => boolean
   isPidAlive: (pid: number | null | undefined) => boolean
+  pidStartId: (pid: number) => string | undefined
   listProcesses: () => ProcessRow[]
   resolveLivePid: typeof resolveLiveBrowserPid
   exit: (code: number) => void
@@ -91,6 +93,7 @@ export const firefoxLaunchDefaults: FirefoxLaunchDependencies = {
   terminatedByUs: wasTerminatedByUs,
   pidTerminatedByUs: wasPidTerminatedByUs,
   isPidAlive,
+  pidStartId: (pid) => pidStartId(pid),
   listProcesses: () => listProcesses(),
   resolveLivePid: resolveLiveBrowserPid,
   exit: (code) => process.exit(code)

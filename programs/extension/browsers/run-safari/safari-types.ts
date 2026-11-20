@@ -37,6 +37,8 @@ export type SafariPluginLike = Pick<
   promptWaitMs?: number
   // How often a dev session checks that Safari still lists an ad-hoc row.
   rowWatchMs?: number
+  // How long a dev run waits for the container app it opened to show up.
+  raiseWaitMs?: number
 }
 
 export interface SafariBuildConfig {
