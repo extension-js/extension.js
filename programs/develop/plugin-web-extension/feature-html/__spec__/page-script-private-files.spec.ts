@@ -132,7 +132,7 @@ describe.each([
   ['a page another page embeds', true]
 ] as const)('%s that loads a file the build never copies', (_where, nested) => {
   it.each(WITHHELD.map(label))(
-    'leaves the %s %s out of every bundle and calls it missing',
+    'leaves the %s %s out of every bundle and says it is not bundled',
     async (_kind, ref, loaded) => {
       const root = projectLoading(loaded, WITHHELD_MARK, nested)
       const result = await build(root)
@@ -140,18 +140,14 @@ describe.each([
       expect(outputHolding(root, WITHHELD_MARK)).toEqual([])
       expectNothingPrivate(result)
       expect(result.errors).toBe(0)
-      // The wording follows the tag, as it does for a missing file.
+      // The wording follows the tag, and a file that is there is not missing.
       expect(result.printed).toContain(
         loaded.kind === 'script'
-          ? "The page references a script file that doesn't exist."
-          : "The page references a stylesheet that doesn't exist."
+          ? 'is not bundled. Check the <script> that names it in this page.'
+          : 'is not bundled. Check the <link> that names it in this page.'
       )
 
-      expect(result.printed).toContain(
-        loaded.kind === 'script'
-          ? 'Update the <script> src to point to a file that exists.'
-          : 'Update the <link> href to point to a file that exists.'
-      )
+      expect(result.printed).not.toContain("doesn't exist")
 
       // A ref with a leading slash is read from the extension root.
       const shown = ref.startsWith('/')
