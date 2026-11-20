@@ -14,6 +14,7 @@ import {RspackDevServer} from '@rspack/dev-server'
 import {merge} from 'webpack-merge'
 import {codedError} from '../lib/coded-error'
 import {recordCodedWarning} from '../lib/coded-warnings'
+import {resolveCompanionExtensionsConfig} from '../lib/companion-extensions/resolve-config'
 import {
   holdPreloadedEnvOf,
   loadBrowserConfig,
@@ -71,7 +72,6 @@ import {
   readDevBuild,
   reloadEachBuild
 } from '../plugin-reload'
-import {resolveCompanionExtensionsConfig} from '../plugin-special-folders/folder-extensions/resolve-config'
 import {rememberExcludedFiles} from '../plugin-special-folders/folders-config'
 import {rememberSpecialFoldersConfig} from '../plugin-special-folders/get-data'
 import {publicFolderOrDefault} from '../plugin-special-folders/resolve-public-folder'

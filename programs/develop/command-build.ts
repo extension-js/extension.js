@@ -40,6 +40,8 @@ import {
   takeCodedWarnings,
   withCodedWarnings
 } from './lib/coded-warnings'
+import {resolveCompanionExtensionsConfig} from './lib/companion-extensions/resolve-config'
+import type {CompanionExtensionsConfig} from './lib/companion-extensions/types'
 import {
   compilationDiagnostics,
   warningCodes
@@ -129,8 +131,6 @@ import {
   stampReadyKnownExtensionId
 } from './plugin-playwright'
 import {removeDevelopmentArtifacts} from './plugin-reload/reload-lib/development-artifacts'
-import {resolveCompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/resolve-config'
-import type {CompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/types'
 import {rememberExcludedFiles} from './plugin-special-folders/folders-config'
 import {rememberSpecialFoldersConfig} from './plugin-special-folders/get-data'
 import type {

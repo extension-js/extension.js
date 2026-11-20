@@ -9,6 +9,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type {Compiler} from '@rspack/core'
+import type {CompanionExtensionsConfig} from '../lib/companion-extensions/types'
 import {STOCK_COMPANION_DIR} from '../lib/constants'
 import {debugLine, isDebug} from '../lib/messaging'
 import {isInsidePath} from '../lib/real-path'
@@ -18,7 +19,6 @@ import {
   type ScanEntryFolder,
   scanEntryFolder
 } from './entry-folders'
-import type {CompanionExtensionsConfig} from './folder-extensions/types'
 import {
   excludedFiles,
   foldersRoots,
