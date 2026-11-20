@@ -6,7 +6,7 @@
 // ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import {log} from '@rspack/dev-server/client/utils/log.js'
+import {log} from '../../../lib/dev-server-client-log'
 
 export function pageSocketUrl(url: string, pathname: string | undefined) {
   if (!pathname) return url

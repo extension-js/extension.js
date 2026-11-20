@@ -5,7 +5,8 @@ import {rspack} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {resolveStockSocketClientPath} from '../../lib/dev-server-client-import'
-import {AddScriptsAndStylesToCompilation} from '../../plugin-web-extension/feature-html/steps/add-scripts-and-styles-to-compilation'
+import {SetupPageReload} from '../../plugin-reload/steps/setup-page-reload'
+import {htmlPagesExtensionsFor} from '../../plugin-web-extension/shared/html-page-extensions'
 import {pageOfSocketRequest} from '../html-refresh'
 
 // The dev server hands its client a socket class through ProvidePlugin, and
@@ -31,10 +32,15 @@ function aliasOfADevBuild(root: string): Record<string, string> {
     }
   }
 
-  new AddScriptsAndStylesToCompilation({
+  new SetupPageReload({
     manifestPath: path.join(root, 'manifest.json'),
-    includeList: {'feature/index': path.join(root, 'index.html')}
+    browser: 'chrome'
   }).apply(compiler as never)
+
+  // The pages plugin tells every extension once it declared its pages.
+  for (const extension of htmlPagesExtensionsFor(compiler as never)) {
+    extension.pagesDeclared(compiler as never, [])
+  }
 
   const alias = compiler.options.resolve.alias as Record<string, string>
 

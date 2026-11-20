@@ -41,6 +41,8 @@ function watchingCompiler() {
 
       const compilation = {
         errors,
+        fileDependencies: new Set(compiler.modifiedFiles),
+        missingDependencies: new Set<string>(),
         options: {context: ROOT, output: {path: path.join(ROOT, 'dist')}},
         getAsset: () => undefined
       }
