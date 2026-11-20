@@ -114,7 +114,7 @@ describe('dev source maps', () => {
     expect(
       sources.filter(
         (source) =>
-          source.includes('/../') && !source.includes('/node_modules/')
+          source.includes('/../') && !/[\\/]node_modules[\\/]/.test(source)
       )
     ).toEqual([])
 
