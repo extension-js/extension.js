@@ -8,6 +8,7 @@
 
 import colors from 'pintor'
 import {type Channel, CODES, fmt, hasChannelPrefix, prefix} from './messaging'
+import {READY_EVENT_TYPES} from './ready-contract-codes'
 import {TELEMETRY_DOCS_URL} from './telemetry'
 import {
   BUNDLED_TEMPLATES,
@@ -1127,12 +1128,7 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
           'compiledAt',
           'errors'
         ],
-        eventTypes: [
-          'compile_start',
-          'compile_success',
-          'compile_error',
-          'shutdown'
-        ],
+        eventTypes: [...READY_EVENT_TYPES],
         notes: [
           'ready.json is written atomically by the build (dev/start) on each compile',
           'start with a browser to launch stays on starting, with compiledAt set, until the launch passed its binary checks, so --wait keeps waiting and reports a refused pin as that refusal',
