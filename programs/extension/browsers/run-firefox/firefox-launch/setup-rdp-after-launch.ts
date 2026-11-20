@@ -42,6 +42,7 @@ export async function setupRdpAfterLaunch(
         if (controller.getAddonInstallRefusalReason()) break
         // A browser that has left will not come back for another attempt.
         if (plugin.isBrowserGone?.()) break
+        if (i === attempts - 1) break
 
         if (isDebug()) {
           try {

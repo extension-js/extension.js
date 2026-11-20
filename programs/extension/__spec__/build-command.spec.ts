@@ -494,6 +494,17 @@ const REJECTIONS: RejectionRow[] = [
   }
 ]
 
+const MANIFEST_SHAPE_ROWS = [
+  [
+    'E_MANIFEST_NOT_FOUND',
+    'Add a manifest.json at the project root or in src/, or pass the folder that holds it.'
+  ],
+  [
+    'E_MANIFEST_IN_PUBLIC',
+    'Move manifest.json out of public/ to the project root or src/. Files in public/ are copied to the output as they are.'
+  ]
+] as const
+
 describe.each(
   REJECTIONS
 )('extension build when the engine rejects with $name', ({error, code}) => {
@@ -527,6 +538,21 @@ describe.each(
     expect(await run(['build', '.', '--browser', 'chrome,firefox'])).toBe(1)
     expect(builds.map(([, options]) => options.browser)).toEqual(['chrome'])
     expect(reportFailure).toHaveBeenCalledTimes(1)
+  })
+})
+
+// A project with no usable manifest is a usage mistake, and under json the
+// frame carries the way out because nothing else is printed.
+describe.each(
+  MANIFEST_SHAPE_ROWS
+)('extension build when the engine rejects with %s', (code, hint) => {
+  it('frames it as usage with the way out', async () => {
+    build = async () => {
+      throw Object.assign(new Error('Manifest file not found.'), {code})
+    }
+
+    expect(await run(['build', '.', '--output', 'json'])).toBe(1)
+    expect(frames()).toMatchObject([{status: 'usage', error: {code}, hint}])
   })
 })
 
@@ -658,6 +684,59 @@ describe('extension build', () => {
       ])
     ).toBe(1)
 
+    // A list that stops partway names the browsers already built and the one
+    // that failed, so a caller knows what dist holds without a second run.
+    expect(frames()).toEqual([
+      {
+        schema: 1,
+        ok: false,
+        command: 'build',
+        status: 'build-failed',
+        value: {
+          projectPath: '.',
+          browsers: ['chrome'],
+          mode: 'production',
+          summaries: [{browser: 'chrome', warnings: [coded]}]
+        },
+        browser: 'firefox',
+        error: {code: 'E_COMPILE', message: 'Build failed with errors'},
+        hint: 'Fix the error above and run build again.',
+        warnings: [coded, perf]
+      }
+    ])
+  })
+
+  it('names the failing browser and an empty built list when the first of a list fails', async () => {
+    build = async () => {
+      throw new Error('Build failed with errors')
+    }
+
+    expect(
+      await run([
+        'build',
+        '.',
+        '--browser',
+        'chrome,firefox',
+        '--output',
+        'json'
+      ])
+    ).toBe(1)
+
+    expect(frames()).toMatchObject([
+      {
+        ok: false,
+        value: {browsers: [], summaries: []},
+        browser: 'chrome'
+      }
+    ])
+  })
+
+  it('keeps a one-browser failure frame as it was, with no value', async () => {
+    build = async () => {
+      throw new Error('Build failed with errors')
+    }
+
+    expect(await run(['build', '.', '--output', 'json'])).toBe(1)
     expect(frames()).toEqual([
       {
         schema: 1,
@@ -667,7 +746,7 @@ describe('extension build', () => {
         value: null,
         error: {code: 'E_COMPILE', message: 'Build failed with errors'},
         hint: 'Fix the error above and run build again.',
-        warnings: [coded, perf]
+        warnings: []
       }
     ])
   })

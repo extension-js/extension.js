@@ -10,21 +10,17 @@ import {spawnSync} from 'node:child_process'
 
 const PROCESS_START_PROBE_TIMEOUT_MS = 5000
 
-// When this process started, as ps reports it. ps prints the day and month in
+// When a process started, as ps reports it. ps prints the day and month in
 // the shell's language, so it is asked in C, the one spelling Date.parse
 // reads. A machine without ps, or a probe past its bound, answers undefined.
-function startedAtFromProcessTable(): string | undefined {
+function startedAtFromProcessTable(pid = process.pid): string | undefined {
   try {
-    const result = spawnSync(
-      'ps',
-      ['-o', 'lstart=', '-p', String(process.pid)],
-      {
-        encoding: 'utf-8',
-        stdio: ['ignore', 'pipe', 'ignore'],
-        timeout: PROCESS_START_PROBE_TIMEOUT_MS,
-        env: {...process.env, LC_ALL: 'C'}
-      }
-    )
+    const result = spawnSync('ps', ['-o', 'lstart=', '-p', String(pid)], {
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: PROCESS_START_PROBE_TIMEOUT_MS,
+      env: {...process.env, LC_ALL: 'C'}
+    })
 
     if (result.error || result.status !== 0) return undefined
 
@@ -61,4 +57,16 @@ export function ownProcessStartedAt(): string {
   }
 
   return ownStartedAt
+}
+
+// When another pid started, in epoch ms, or null when it cannot be dated.
+// Windows is not asked: a PowerShell start runs past the bound on a loaded
+// machine, so a reader there trusts liveness alone.
+export function processStartedAtMs(pid: number): number | null {
+  if (process.platform === 'win32') return null
+  if (!Number.isInteger(pid) || pid <= 0) return null
+
+  const startedAt = startedAtFromProcessTable(pid)
+
+  return startedAt ? Date.parse(startedAt) : null
 }

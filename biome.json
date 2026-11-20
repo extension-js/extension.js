@@ -85,9 +85,6 @@
         "noAssignInExpressions": "off",
         "noAsyncPromiseExecutor": "error",
         "noImplicitAnyLet": "error"
-      },
-      "a11y": {
-        "recommended": false
       }
     }
   }

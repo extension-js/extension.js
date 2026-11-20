@@ -9,6 +9,7 @@ import {
   stampReadyBrowserExited,
   stampReadyBrowserLaunch,
   stampReadyCdpPort,
+  stampReadyProfileLocked,
   stampReadyStartingUrl,
   writeManifest
 } from './helpers/contract'
@@ -98,17 +99,18 @@ describe('launch facts are scoped to the run that produced them', () => {
     expect(next.binaryProvenance).toBe('pinned')
   })
 
-  // Pins current behavior: a recompile keeps the binary and drops the other
-  // fields the launcher stamped.
+  // Every fact the launcher stamped on this run outlives a recompile, the
+  // ones the writer knows by name and the ones it has never heard of.
   it.each([
     ['binary', '/browsers/chrome-pinned'],
     ['binaryProvenance', 'pinned'],
-    ['binaryPinnedBy', undefined],
-    ['profileReused', undefined],
-    ['startingUrl', undefined],
-    ['startingUrlOpened', undefined],
-    ['startingUrlUnopenedReason', undefined]
-  ] as const)('a recompile of the same run leaves %s as %s', (field, after) => {
+    ['binaryPinnedBy', '--chromium-binary'],
+    ['profileReused', true],
+    ['startingUrl', 'https://example.com/'],
+    ['startingUrlOpened', false],
+    ['startingUrlUnopenedReason', 'no WebDriver session to open it in'],
+    ['aLauncherFactNoWriterKnows', 'kept']
+  ] as const)('a recompile of the same run keeps %s as %s', (field, kept) => {
     const writer = makeWriter()
     writer.writeReady()
 
@@ -125,10 +127,95 @@ describe('launch facts are scoped to the run that produced them', () => {
       startingUrlUnopenedReason: 'no WebDriver session to open it in'
     })
 
-    expect(readContract(writer.readyPath)[field]).toBeDefined()
+    patchContract(writer.readyPath, {aLauncherFactNoWriterKnows: 'kept'})
 
     writer.writeReady()
 
-    expect(readContract(writer.readyPath)[field]).toBe(after)
+    expect(readContract(writer.readyPath)[field]).toBe(kept)
+  })
+
+  it('a recompile never carries the fields the writer computes itself', () => {
+    const writer = makeWriter()
+    writer.writeError('compile_error', 'Compilation failed', ['boom'])
+    patchContract(writer.readyPath, {awaitingExecutorSince: 'stale'})
+
+    writer.writeReady()
+    const next = readContract(writer.readyPath)
+
+    expect(next.status).toBe('ready')
+    expect(next.errors).toEqual([])
+    expect('code' in next).toBe(false)
+    expect('message' in next).toBe(false)
+    expect('awaitingExecutorSince' in next).toBe(false)
+  })
+})
+
+// A browser verdict is the launcher's word that nothing is running. A compile
+// that succeeds after it says nothing about the browser, so the verdict stands.
+describe('a terminal browser verdict outlives a recompile', () => {
+  let tmp: string
+
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'verdicts-'))
+  })
+
+  afterEach(() => {
+    fs.rmSync(tmp, {recursive: true, force: true})
+  })
+
+  it('keeps profile_locked with its evidence', () => {
+    const writer = makeProjectWriter(tmp)
+    writer.writeReady()
+
+    stampReadyProfileLocked(writer.readyPath, {
+      status: 'error',
+      code: 'profile_locked',
+      message: 'the browser profile is already in use by another session',
+      profileLockedAt: '2026-11-01T00:00:00.000Z',
+      profileLockOwner: {host: 'devbox', pid: 4242}
+    })
+
+    writer.writeReady()
+    const next = readContract(writer.readyPath)
+
+    expect(next.status).toBe('error')
+    expect(next.code).toBe('profile_locked')
+    expect(next.message).toBe(
+      'the browser profile is already in use by another session'
+    )
+
+    expect(next.profileLockedAt).toBe('2026-11-01T00:00:00.000Z')
+    expect(next.profileLockOwner).toEqual({host: 'devbox', pid: 4242})
+  })
+
+  it('keeps a verdict code the writer has never heard of', () => {
+    const writer = makeProjectWriter(tmp)
+    writer.writeReady()
+
+    patchContract(writer.readyPath, {
+      status: 'error',
+      code: 'a_future_browser_verdict',
+      message: 'nothing is running'
+    })
+
+    writer.writeReady()
+    const next = readContract(writer.readyPath)
+
+    expect(next.status).toBe('error')
+    expect(next.code).toBe('a_future_browser_verdict')
+  })
+
+  it.each([
+    'compile_error',
+    'compile_failed'
+  ])('clears its own %s verdict once a compile succeeds', (code) => {
+    const writer = makeProjectWriter(tmp)
+    writer.writeError(code, 'Compilation failed', ['boom'])
+
+    writer.writeReady()
+    const next = readContract(writer.readyPath)
+
+    expect(next.status).toBe('ready')
+    expect('code' in next).toBe(false)
   })
 })

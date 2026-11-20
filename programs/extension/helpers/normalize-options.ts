@@ -9,7 +9,8 @@
 import {isValidBundleId} from '../browsers/run-safari/safari-launch/safari-config'
 import {LOG_CONTEXTS, type LogContext} from './log-contexts'
 
-// Unknown names are dropped rather than refused, as this flag always did.
+// The commands refuse an unknown name before this runs, so the filter here
+// only folds case and keeps a programmatic caller from passing one through.
 export function parseLogContexts(
   raw: string | undefined
 ): LogContext[] | undefined {
@@ -18,7 +19,7 @@ export function parseLogContexts(
 
   const values = String(raw)
     .split(',')
-    .map((s: string) => s.trim())
+    .map((s: string) => s.trim().toLowerCase())
     .filter((s: string) => s.length > 0)
     .filter((c: string): c is LogContext =>
       (LOG_CONTEXTS as readonly string[]).includes(c)

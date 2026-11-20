@@ -900,7 +900,7 @@ export function resolveProjectStructureSync(
       } else {
         throw codedError(
           CODES.E_MANIFEST_IN_PUBLIC,
-          messages.manifestNotFoundError(fallbackRoot)
+          messages.manifestInPublicError(manifestPath)
         )
       }
     }

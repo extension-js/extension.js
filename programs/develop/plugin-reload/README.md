@@ -116,6 +116,24 @@ names one, otherwise any mode but production), so it also runs under
   extension's own page tabs first, and the next generation reloads the ones
   the browser kept and opens again the ones it closed.
 
+- `build-reads.ts`
+  Which saved files count. The tracker in `reload-dispatch.ts` keeps a
+  changed file only when the build read it: a file dependency of this
+  compile or the one before it (modules, a loader's `addDependency` input,
+  the icons, pages and web resources the manifest names, the config and env
+  files), a path the compile looked for and did not find, anything under
+  `public/`, and the manifest and `_locales`. A note nothing reads still
+  rebuilds when its folder is watched, and reloads nothing. The watcher names
+  only the folder when a file appears in or leaves one a glob reads
+  (a `require.context` folder, `public/`), so
+  the tracker names the files the build started or stopped reading there,
+  and an added or deleted file reloads like an edited one. A compile that
+  does not list its dependencies keeps every reported file.
+
+  The decision sits after the compile, not in the watcher: only the compile
+  knows whether a glob or a loader picked a new file up, and an unread file
+  changes nothing rspack emits, so its rebuild is cheap.
+
 - `reload-dispatch.ts`
   Routes a `ReloadInstruction` to the control-bridge broker (SW producer).
   Honors `EXTENSION_NO_RELOAD`. A broadcast that reaches no producer is
@@ -233,6 +251,9 @@ consumes that contract. It does not define it, and nothing in
 - `build-reload.unit.spec.ts`, the per-build call and the browser mapping
 - `reload-dispatch.unit.spec.ts`, dispatch seam and the changed-sources
   tracker
+- `files-the-build-never-read.spec.ts`, a real watch session: a note
+  nothing reads reloads nothing, and a glob add or delete, a loader input,
+  an icon, a web resource, `public/` and the manifest still reload
 - `reload-stamp.unit.spec.ts`, the reload kind a dispatch stamps into
   `ready.json`, through the broker and the Playwright metadata writer
 - `loaded-content-scripts.spec.ts`, `web-resources.unit.spec.ts`, what the

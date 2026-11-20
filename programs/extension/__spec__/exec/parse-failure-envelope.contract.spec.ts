@@ -104,7 +104,10 @@ describe('pre-command failures under --output json', () => {
       '--tab expects a positive integer, got: abc'
     )
 
-    expect(result.stderr).toBe('--tab expects a positive integer, got: abc\n')
+    expect(frame.error.refs).toEqual({flag: '--tab'})
+    expect(result.stderr).toBe(
+      '⏵⏵⏵ Error: --tab expects a positive integer, got: abc\n'
+    )
   })
 
   it('frames a pre-parse removed-flag refusal', async () => {
@@ -123,80 +126,80 @@ describe('pre-command failures under --output json', () => {
     )
   })
 
-  // Pins current behavior: the frame and stderr word the error differently.
-  // The frame carries the parser's raw text while stderr prints the house copy.
+  // The frame carries the copy stderr prints and its remedy as the hint.
   it.each([
     [
       ['nonexistent-cmd', '--output', 'json'],
-      "unknown command 'nonexistent-cmd'"
+      'Unknown command nonexistent-cmd.',
+      'Run extension --help to see the commands.'
     ],
     [
       ['dev', '--nope', '--output', 'json'],
-      "unknown option '--nope'\n(Did you mean --no-open?)"
+      'Unknown option --nope.',
+      'Did you mean --no-open?'
     ],
-    [['eval', '--output', 'json'], "missing required argument 'expression'"]
-  ])('%j carries the parser text as error.message', async (args, message) => {
+    [
+      ['eval', '--output', 'json'],
+      "Missing required argument 'expression'.",
+      'Run extension eval --help to see the options.'
+    ]
+  ])('%j carries the stderr copy as error.message', async (args, message, hint) => {
     const {frame} = await failed(args)
 
     expect(frame.error.message).toBe(message)
     expect(frame.error.name).toBe('CliError')
+    expect((frame as {hint?: string}).hint).toBe(hint)
   })
 
-  // Pins current behavior: the remedy names the wrong command.
-  // A root option's value is read as the command, so both name a command json.
-  it('-o json build names extension json --help', async () => {
+  // A root option's value is read as the command, so the remedy is root help.
+  it('-o json build names extension --help', async () => {
     const plain = await runCli(['-o', 'json', 'build'])
 
     expect(plain.status).toBe(1)
     expect(plain.stdout).toBe('')
     expect(plain.stderr).toBe(
       '⏵⏵⏵ Error: Unknown option -o.\n' +
-        'Run extension json --help to see the options.\n'
+        'Run extension --help to see the options.\n'
     )
 
     const {frame} = await failed(['-o', 'json', 'build', '--output', 'json'])
 
-    expect(frame).toMatchObject({command: 'json', status: 'usage'})
+    expect(frame).toMatchObject({command: 'extension', status: 'usage'})
     expect(frame.error.code).toBe('E_FLAG_NOT_SUPPORTED_HERE')
     expect(frame.error.refs).toEqual({flag: '-o'})
   })
 
-  // Pins current behavior: no envelope, unlike the other flag order.
-  it('build --browser --output json takes --output as the browser', async () => {
-    const run = await runCli(['build', '--browser', '--output', 'json'])
-
-    expect({status: run.status, stdout: run.stdout}).toEqual({
-      status: 1,
-      stdout: ''
-    })
-
-    expect(run.stderr).toBe(
-      '⏵⏵⏵ Error: Unsupported --browser value: --output.\n' +
-        'Choose one of: chrome, chromium, edge, firefox, brave, opera, ' +
-        'vivaldi, yandex, waterfox, librewolf, zen, floorp, chromium-based, ' +
-        'gecko-based, firefox-based, safari, webkit-based, chromium-emulator.\n'
-    )
-  })
-
-  // Pins current behavior: unknown option although dev takes --browser.
-  it('--browser chrome before dev sends the reader to dev --help', async () => {
-    const remedy =
-      '⏵⏵⏵ Error: Unknown option --browser.\n' +
-      'Run extension dev --help to see the options.\n'
-    const plain = await runCli(['--browser', 'chrome', 'dev'])
-
-    expect(plain).toMatchObject({status: 1, stdout: '', stderr: remedy})
-
+  it('build --browser --output json answers the missing --browser value', async () => {
     const {result, frame} = await failed([
+      'build',
       '--browser',
-      'chrome',
-      'dev',
       '--output',
       'json'
     ])
 
     expect(result.status).toBe(1)
-    expect(result.stderr).toBe(remedy)
+    expect(result.stderr).toBe(
+      '⏵⏵⏵ Error: Missing value for --browser.\n' +
+        'Run extension build --help to see the options.\n'
+    )
+
+    expect(frame).toMatchObject({command: 'build', status: 'usage'})
+    expect(frame.error.code).toBe('E_FLAG_VALUE_INVALID')
+    expect(frame.error.refs).toEqual({flag: '--browser'})
+  })
+
+  // The trailing unknown flag ends the run inside dev's own parse.
+  it('--browser chrome before dev is read as a dev flag', async () => {
+    const {result, frame} = await failed([
+      '--browser',
+      'chrome',
+      'dev',
+      '--nope',
+      '--output',
+      'json'
+    ])
+
+    expect(result.status).toBe(1)
     expect(frame).toEqual({
       schema: 1,
       ok: false,
@@ -205,25 +208,29 @@ describe('pre-command failures under --output json', () => {
       value: null,
       error: {
         code: 'E_FLAG_NOT_SUPPORTED_HERE',
-        message: "unknown option '--browser'",
+        message: 'Unknown option --nope.',
         name: 'CliError',
-        refs: {flag: '--browser'}
+        refs: {flag: '--nope'}
       },
-      warnings: []
+      warnings: [],
+      hint: 'Did you mean --no-open?'
     })
   })
 
-  // Pins current behavior: two error codes for one kind of mistake.
+  // A malformed value is E_FLAG_VALUE_INVALID, one outside a listed set is
+  // E_INVALID_OPTION, as the code table words them.
   it.each([
     [
       ['--since', 'nope'],
+      'E_FLAG_VALUE_INVALID',
       'extension logs --since expects a sequence number or an ISO timestamp, got: nope'
     ],
     [
       ['--level', 'loud'],
+      'E_INVALID_OPTION',
       'extension logs --level expects one of off, error, warn, info, debug, trace, all, got: loud'
     ]
-  ])('logs %j answers E_INVALID_OPTION where --tab answers E_FLAG_VALUE_INVALID', async (flag, message) => {
+  ])('logs %j answers %s with the flag as a ref', async (flag, code, message) => {
     const {result, frame} = await failed([
       'logs',
       '.',
@@ -233,14 +240,14 @@ describe('pre-command failures under --output json', () => {
     ])
 
     expect(result.status).toBe(1)
-    expect(result.stderr).toBe(`${message}\n`)
+    expect(result.stderr).toBe(`⏵⏵⏵ Error: ${message}\n`)
     expect(frame).toEqual({
       schema: 1,
       ok: false,
       command: 'logs',
       status: 'usage',
       value: null,
-      error: {code: 'E_INVALID_OPTION', message, name: 'CliError'},
+      error: {code, message, name: 'CliError', refs: {flag: flag[0]}},
       warnings: []
     })
   })

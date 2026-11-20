@@ -290,6 +290,36 @@ export function edgeInstallNeedsAdministratorPassword(): string {
   )
 }
 
+// The person was at a terminal sudo could ask on and did not answer, so the
+// remedy is to answer next time, not to find another terminal.
+export function edgePasswordPromptTimedOut(
+  platform: NodeJS.Platform,
+  waitMs: number
+): string {
+  const waited = readableDuration(waitMs)
+
+  if (platform === 'darwin') {
+    return (
+      `Edge needs an administrator password on macOS, and none was entered ` +
+      `within ${waited}, so the install was stopped. ` +
+      `Run the install again and enter the password, ` +
+      `then run Extension.js with --browser=edge. ` +
+      `Use --browser=chromium when an administrator password is unavailable.`
+    )
+  }
+
+  return (
+    `Edge needs your password for sudo on Linux, and none was entered ` +
+    `within ${waited}, so the install was stopped. ` +
+    `Run the install again and enter the password, ` +
+    `or install Edge system-wide with your package manager ` +
+    `(sudo apt install microsoft-edge-stable on Ubuntu and Debian, ` +
+    `sudo dnf install microsoft-edge-stable on Fedora) ` +
+    `and run Extension.js with --browser=edge. ` +
+    `Use --browser=chromium when a privileged install is unavailable.`
+  )
+}
+
 export function edgeInstallUsingSystemBinary(
   path: string,
   launcherFinds = true

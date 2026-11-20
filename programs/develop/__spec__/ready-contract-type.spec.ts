@@ -57,6 +57,40 @@ function fieldsTheWriterReadsBack(): string[] {
   ].sort()
 }
 
+// Every field the launchers stamp, read off their stamp code. The writer
+// carries any field it does not own across a recompile of the same run, so
+// it no longer names these one by one, and the stand-in must learn them here.
+const launcherStampSources = [
+  path.join(developRoot, 'plugin-browsers', 'launch-timeout-stamp.ts'),
+  path.join(
+    developRoot,
+    '..',
+    'extension',
+    'browsers',
+    'browsers-lib',
+    'ready-stamp.ts'
+  )
+]
+
+function fieldsTheLaunchersStamp(): string[] {
+  const fields = new Set<string>()
+
+  for (const file of launcherStampSources) {
+    const source = fs.readFileSync(file, 'utf8')
+
+    for (const m of source.matchAll(/\bready\.([A-Za-z]+) =/g)) {
+      fields.add(m[1])
+    }
+
+    // The pid stamps write through a key typed as a union of literal names.
+    for (const m of source.matchAll(/Key: ((?:'[A-Za-z]+'(?: \| )?)+)/g)) {
+      for (const name of m[1].matchAll(/'([A-Za-z]+)'/g)) fields.add(name[1])
+    }
+  }
+
+  return [...fields].sort()
+}
+
 function makeProject(): string {
   const root = tempFolder('extjs-ready-contract-')
 
@@ -139,9 +173,16 @@ function launcherStamps(
   value: (field: string) => unknown,
   leaveOut: string[] = []
 ): Document {
-  const stamps: Document = {notAContractField: 'dropped'}
+  // Only real stamps: the writer keeps any field the launcher stamps within a
+  // run, so a made-up one here would land in the list this spec checks.
+  const stamps: Document = {}
 
-  for (const field of fieldsTheWriterReadsBack()) {
+  const fields = new Set([
+    ...fieldsTheWriterReadsBack(),
+    ...fieldsTheLaunchersStamp()
+  ])
+
+  for (const field of fields) {
     if (WRITER_OWNED.has(field) || leaveOut.includes(field)) continue
 
     stamps[field] = value(field)
@@ -167,7 +208,10 @@ function fieldsTheWriterWrites(): string[] {
 
   dev.writer.writeReady('2026-11-01T00:00:00.000Z')
   dev.record()
-  dev.writer.stampExecutorAttached({origin: 'safari-web-extension://ABC-123'})
+  dev.writer.stampExecutorAttached({
+    origin: 'safari-web-extension://ABC-123'
+  })
+
   dev.record()
   dev.writer.stampReload('full', 'manifest.json')
   dev.record()
@@ -242,7 +286,6 @@ describe('the ReadyContract type in types.ts', () => {
   it('lists every field the engine writes to ready.json, and no other', () => {
     const written = fieldsTheWriterWrites()
 
-    expect(written).not.toContain('notAContractField')
     expect(written.length).toBeGreaterThan(40)
     expect(fieldsOfReadyContract()).toEqual(written)
   })

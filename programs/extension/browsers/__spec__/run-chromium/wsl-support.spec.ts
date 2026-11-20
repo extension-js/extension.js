@@ -123,6 +123,29 @@ describe('chromium wsl-support', () => {
     expect(logger.warn).toHaveBeenCalled()
   })
 
+  // Node has no `group` spawn option, so passing one only reads as a setting.
+  it('passes spawn only options Node knows on Linux', async () => {
+    const mod = await loadModule()
+    const spawnMock = await getSpawnMock()
+    const child = createChild()
+    spawnMock.mockReturnValueOnce(child)
+
+    const promise = mod.spawnChromiumProcess({
+      binary: '/usr/bin/google-chrome',
+      launchArgs: [],
+      stdio: 'ignore',
+      browser: 'chrome'
+    })
+
+    setImmediate(() => child.emit('spawn'))
+    await promise
+
+    expect(Object.keys(spawnMock.mock.calls[0]?.[2] ?? {}).sort()).toEqual([
+      'detached',
+      'stdio'
+    ])
+  })
+
   it('spawns without shell mode on native Windows', async () => {
     const mod = await loadModule()
     setPlatform('win32')

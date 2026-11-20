@@ -73,6 +73,10 @@ export function jsFrameworksConfigsDetected(
   )
 }
 
+export function jsFrameworksBabelConfig(configPath: string) {
+  return `${prefix('debug')} js       babel config=${configPath}`
+}
+
 export function jsFrameworksHmrSummary(enabled: boolean, frameworks: string[]) {
   const names = frameworks.length > 0 ? frameworks.join(',') : 'none'
 

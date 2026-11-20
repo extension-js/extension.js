@@ -45,13 +45,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Static gates run against source, no `pnpm compile` needed. Both were
-      # previously unenforced in CI: biome lint had no workflow, and there was
-      # no `typecheck` script at all. Adding the typecheck gate immediately
-      # caught two `import type {DevOptions} from './types'` paths in
-      # plugin-css that resolved to a nonexistent module (the bundler erases
-      # type-only imports, so the build survived while the type silently
-      # degraded to `any`).
+      # Static gates read source, so no `pnpm compile` is needed. The bundler
+      # erases type-only imports, so only the typecheck sees a broken one.
       - name: Lint
         run: pnpm lint
 
@@ -106,17 +101,8 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install xvfb (cli suite)
-        # ci:test:cli is a vitest unit-test suite; it does not need real
-        # browser binaries. Previously this step also `apt-get install`ed
-        # firefox + chromium and exported their paths into env vars,
-        # but nothing in the repo reads those env vars (`grep -rn
-        # EXTENSION_TEST_GECKO_BINARY`/EXTENSION_TEST_CHROMIUM_BINARY
-        # finds zero consumers). On Ubuntu 24.04 (noble), `apt-get
-        # install firefox` triggers a snap transitional shim that hangs
-        # 30+20 minutes on snap-store contact and aborts the job. We
-        # only need xvfb for any headed display the tests touch.
-        # The runner image already carries Xvfb, so the archive is only
-        # reached when it is missing: an apt outage must not redden a PR.
+        # The suite needs only a display, no browser. The image carries Xvfb,
+        # so apt is reached only when it is missing and an outage stays green.
         if: matrix.suite == 'ci:test:cli'
         timeout-minutes: 5
         run: |
