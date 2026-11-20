@@ -61,6 +61,7 @@ import {
   missingProjectFolder,
   missingProjectRefusal
 } from '../helpers/project-folder'
+import {writeFrameWhenInterrupted} from '../helpers/session-interrupt-frame'
 import {
   markCommandSessionStart,
   noteRunBrowsers
@@ -396,6 +397,16 @@ export function registerPreviewCommand(
         const {extensionPreview}: DevelopPreviewModule = await loadPreview()
         const previewed: string[] = []
         const previewWarnings: string[] = []
+
+        // Armed before the first launch: a signal can arrive while the
+        // browser is still coming up, before any frame was written.
+        if (asJson) {
+          writeFrameWhenInterrupted(
+            'preview',
+            () => ({projectPath: pathOrRemoteUrl, browsers: list}),
+            emit
+          )
+        }
 
         for (const vendor of list) {
           const logsOption = previewOptions.logs

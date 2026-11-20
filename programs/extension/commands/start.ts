@@ -65,6 +65,7 @@ import {
   missingProjectFolder,
   missingProjectRefusal
 } from '../helpers/project-folder'
+import {writeFrameWhenInterrupted} from '../helpers/session-interrupt-frame'
 import {
   markCommandSessionStart,
   noteRunBrowsers,
@@ -515,6 +516,8 @@ export function registerStartCommand(
           failAndExit(asJson, 'usage', {code: CODES.E_INVALID_OPTION, message})
         }
 
+        let interruptArmed = false
+
         for (const vendor of list) {
           const logsOption = startOptions.logs
           const logContextOption = startOptions.logContext
@@ -577,6 +580,21 @@ export function registerStartCommand(
           // Launch the browser through the preview module, which resolves the
           // project structure and extensions-to-load.
           const {extensionPreview}: DevelopPreviewModule = await loadPreview()
+
+          // Armed before the first launch: a signal can arrive while the
+          // browser is still coming up, before the startup frame.
+          if (asJson && !interruptArmed) {
+            interruptArmed = true
+            writeFrameWhenInterrupted(
+              'start',
+              () => ({
+                projectPath: pathOrRemoteUrl || process.cwd(),
+                browser: list[0],
+                browsers: list
+              }),
+              printFrame
+            )
+          }
 
           await extensionPreview(
             pathOrRemoteUrl,
