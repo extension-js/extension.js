@@ -106,4 +106,28 @@ describe('a run with --no-browser says in its json frame that nothing was launch
     expect(result.output).toContain('Browser        Chromium (no-browser mode)')
     expect(result.output).toContain('Previewing on Chromium (no-browser mode).')
   }, 90_000)
+
+  // One way to say it across commands: the card of each run names the mode.
+  it.each([
+    'start',
+    'preview'
+  ] as const)('%s marks no-browser mode on the Browser row of its card', async (command) => {
+    const result = await runCli(
+      [command, createProject(), '--browser', 'chromium', '--no-browser'],
+      {timeoutMs: 60_000, env: {NO_COLOR: '1'}}
+    )
+
+    expect(result.status, result.stderr).toBe(0)
+    expect(result.output).toContain('Browser        Chromium (no-browser mode)')
+  }, 90_000)
+
+  it('build names its target on the card with no mode mark', async () => {
+    const result = await runCli(
+      ['build', createProject(), '--browser', 'chromium'],
+      {timeoutMs: 60_000, env: {NO_COLOR: '1'}}
+    )
+
+    expect(result.status, result.stderr).toBe(0)
+    expect(result.output).toMatch(/Browser {8}Chromium\n/)
+  }, 90_000)
 })

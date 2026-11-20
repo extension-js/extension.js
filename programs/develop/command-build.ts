@@ -160,7 +160,8 @@ function printBuildCard(
   browser: string,
   distPath: string,
   projectRoot: string,
-  writtenDir: string
+  writtenDir: string,
+  noBrowser = false
 ): void {
   let extensionLabel = ''
 
@@ -182,7 +183,10 @@ function printBuildCard(
     // Ignore
   }
 
-  const browserLabel = browserRowValue(String(browser || ''))
+  // A start that launches nothing says so on the row, as dev and preview do.
+  const browserLabel = `${browserRowValue(String(browser || ''))}${
+    noBrowser ? ' (no-browser mode)' : ''
+  }`
   const suffix = process.env.EXTENSION_CLI_UPDATE_SUFFIX || ''
   if (suffix) delete process.env.EXTENSION_CLI_UPDATE_SUFFIX
 
@@ -893,7 +897,9 @@ async function runBuild(
               browser,
               displayDistPath,
               packageJsonDir,
-              useStagingSwap ? stagingDistPath : displayDistPath
+              useStagingSwap ? stagingDistPath : displayDistPath,
+              buildOptions?.metadataCommand === 'start' &&
+                buildOptions?.launchFollows !== true
             )
           }
 
