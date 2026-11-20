@@ -1,9 +1,13 @@
 import * as path from 'node:path'
 import {describe, expect, it, vi} from 'vitest'
+import {pageSocketUrl} from '../../plugin-web-extension/feature-html/steps/page-socket-client'
 import {
   attachHtmlRefresh,
+  clientsShowing,
+  emittedPages,
   htmlSourcesToRefresh,
-  pageOfSocketRequest
+  pageOfSocketRequest,
+  pagesBuiltFrom
 } from '../html-refresh'
 
 const root = path.resolve('/proj')
@@ -164,6 +168,21 @@ describe('attachHtmlRefresh', () => {
     )
   })
 
+  it('reloads a client whose path is no emitted page, a route it pushed', () => {
+    const {open, save, fire, sendMessage} = harness()
+    open('popup', '/ws?page=%2Faction%2Findex.html')
+    const routed = open('routed', '/ws?page=%2Fsettings%2Fprofile')
+    save(at('options', 'index.html'))
+    fire()
+
+    expect(sendMessage).toHaveBeenCalledTimes(1)
+    expect(sendMessage).toHaveBeenCalledWith(
+      [routed],
+      'static-changed',
+      at('options', 'index.html')
+    )
+  })
+
   it('keeps a page saved before a second watchRun inside one compile', () => {
     const {open, save, fire, sendMessage} = harness()
     const page = open('page')
@@ -205,5 +224,46 @@ describe('attachHtmlRefresh', () => {
     fire()
 
     expect(sendMessage).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('a page as the browser names it and the build emitted it', () => {
+  const assets = [
+    {name: 'pages/x.html', info: {sourceFilename: 'pages/x.html'}},
+    {name: 'pages/my page.html', info: {sourceFilename: 'pages/my page.html'}},
+    {name: 'pages/página.html', info: {sourceFilename: 'pages/página.html'}},
+    {name: 'options/index.html', info: {sourceFilename: 'options.html'}}
+  ]
+
+  // What the page client hands over: the decoded path of the tab.
+  function reloaded(pathnameInBrowser: string, source: string) {
+    const url = pageSocketUrl(
+      'ws://127.0.0.1:8080/ws',
+      decodeURIComponent(pathnameInBrowser)
+    )
+    const page = pageOfSocketRequest(url.replace('ws://127.0.0.1:8080', ''))
+    const pages = pagesBuiltFrom(at(...source.split('/')), assets, root)
+
+    return clientsShowing([{}], pages, () => page, emittedPages(assets)).length
+  }
+
+  it.each([
+    ['a plain name', '/pages/x.html', 'pages/x.html', 1],
+    [
+      'a space in the name',
+      new URL('chrome-extension://abc/pages/my page.html').pathname,
+      'pages/my page.html',
+      1
+    ],
+    [
+      'a non-ASCII name',
+      new URL('chrome-extension://abc/pages/página.html').pathname,
+      'pages/página.html',
+      1
+    ],
+    ['a route the page pushed', '/settings/profile', 'options.html', 1],
+    ['another emitted page', '/pages/x.html', 'options.html', 0]
+  ])('%s', (_name, pathname, source, count) => {
+    expect(reloaded(pathname, source)).toBe(count)
   })
 })

@@ -6,6 +6,8 @@
 // ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import {log} from '@rspack/dev-server/client/utils/log.js'
+
 export function pageSocketUrl(url: string, pathname: string | undefined) {
   if (!pathname) return url
 
@@ -34,6 +36,11 @@ export default class PageSocketClient {
 
   constructor(url: string) {
     this.client = new WebSocket(pageSocketUrl(url, currentPathname()))
+
+    // The stock client's own logger, so `client.logging` still decides.
+    this.client.onerror = (error) => {
+      log.error(error)
+    }
   }
 
   onOpen(fn: (event: Event) => void) {

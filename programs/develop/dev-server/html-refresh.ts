@@ -75,19 +75,32 @@ export function pagesBuiltFrom(
   return pages
 }
 
-// A client that names no page, or a source no emitted page claims, still
-// reloads: an extra reload costs less than a page left showing old markup.
+// Every page the build emitted, which is every path a tab can truly show.
+export function emittedPages(assets: Iterable<PageAsset>): string[] {
+  const pages: string[] = []
+
+  for (const asset of assets) {
+    if (/\.html?$/i.test(asset.name)) pages.push(toPageName(asset.name))
+  }
+
+  return pages
+}
+
+// A client that names no page, a path no emitted page has (a route the page
+// pushed), or a source no page claims, still reloads: an extra reload costs
+// less than a page left showing old markup.
 export function clientsShowing<Client>(
   clients: Client[],
   pages: string[],
-  pageOf: (client: Client) => string | undefined
+  pageOf: (client: Client) => string | undefined,
+  emitted: string[] = pages
 ): Client[] {
   if (pages.length === 0) return clients
 
   return clients.filter((client) => {
     const page = pageOf(client)
 
-    return !page || pages.includes(page)
+    return !page || pages.includes(page) || !emitted.includes(page)
   })
 }
 
@@ -181,12 +194,14 @@ export function attachHtmlRefresh<Client extends object>(
       outputPath
     )
     const assets = changed.length > 0 ? compilation.getAssets?.() || [] : []
+    const emitted = emittedPages(assets)
 
     for (const file of changed) {
       const showing = clientsShowing(
         clients,
         pagesBuiltFrom(file, assets, context),
-        (client) => pageOfClient.get(client)
+        (client) => pageOfClient.get(client),
+        emitted
       )
 
       if (showing.length > 0) {
