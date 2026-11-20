@@ -825,6 +825,19 @@ async function runBuild(
       writeFailedReceipt(openReceipt(), error)
     }
 
+    // The Safari app is part of what a Safari build answers for, so ready
+    // waits for the packager and a failure there is the receipt's too.
+    const packagingFollows = Boolean(safariPackager && safariIdentity)
+
+    const writeReadyWhenHeld = () => {
+      if (
+        mergedBuildOptions.launchFollows !== true &&
+        typeof heldReceipt()?.compiledAt === 'string'
+      ) {
+        openReceipt().writeReady()
+      }
+    }
+
     let summary: BuildSummary = {
       browser,
       buildType,
@@ -900,6 +913,16 @@ async function runBuild(
         }
 
         if (!stats.hasErrors()) {
+          // Read before the output is published: a throw here fails the
+          // build, and a failed build leaves the folder as it found it.
+          // Anonymized aggregates (no filenames or paths)
+          const info = stats?.toJson({
+            all: false,
+            assets: true,
+            warnings: true,
+            errors: true
+          })
+
           // Publish the finished staging dir before any success receipt so a
           // green line is never printed over a half-populated dist.
           if (useStagingSwap && fs.existsSync(stagingDistPath)) {
@@ -941,14 +964,6 @@ async function runBuild(
 
             warnProductionLoopbackOrigins(displayDistPath, quiet)
           }
-
-          // Anonymized aggregates (no filenames or paths)
-          const info = stats?.toJson({
-            all: false,
-            assets: true,
-            warnings: true,
-            errors: true
-          })
 
           // The summary names the folder the artifacts landed in, which under
           // a re-pointed output.path is not dist/<browser>.
@@ -1158,11 +1173,8 @@ async function runBuild(
                 summary.errors
               )
             }
-          } else if (
-            mergedBuildOptions.launchFollows !== true &&
-            typeof heldReceipt()?.compiledAt === 'string'
-          ) {
-            openReceipt().writeReady()
+          } else if (!packagingFollows) {
+            writeReadyWhenHeld()
           }
 
           if (zipFailures.length > 0) {
@@ -1348,6 +1360,8 @@ async function runBuild(
         }
       }
     }
+
+    if (packagingFollows) writeReadyWhenHeld()
 
     succeeded = true
 
