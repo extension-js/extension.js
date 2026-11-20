@@ -590,8 +590,6 @@ export function resolveUserDeclaredWAR(
   // The emitted manifest names a public/ or root entry by its output path,
   // so the author's spelling comes from the source, in the order written.
   const spellings = authoredSpellings(manifestPath, browser)
-  const isDevMode =
-    (compilation.options?.mode || 'development') !== 'production'
 
   let runtimeNamedPaths: Set<string> | undefined
 
@@ -843,14 +841,12 @@ export function resolveUserDeclaredWAR(
         return
       }
 
-      // Written as a public/ or root path, the file belongs in public/. The
-      // dev server watches that folder and answers a miss at runtime.
+      // Written as a public/ or root path, the file belongs in public/, and
+      // a dev session says so the way a build does.
       if (
         isPublicRootLike(written) &&
         !unixify(res).split('/').includes('..')
       ) {
-        if (isDevMode) return
-
         const warn = new WebpackError(
           warMessages.warFieldError(
             unixify(path.relative(projectPath, publicAbsMaybe)),

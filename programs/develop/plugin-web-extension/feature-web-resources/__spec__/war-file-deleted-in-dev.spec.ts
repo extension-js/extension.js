@@ -15,7 +15,7 @@ afterEach(async () => {
   for (const session of sessions.splice(0)) await session.close()
 })
 
-function project() {
+function project(resources = ['war/file.txt', 'war/kept.txt']) {
   const root = fs.realpathSync(tempFolder('extjs-war-deleted-'))
   const files: Record<string, string> = {
     'package.json': JSON.stringify({
@@ -30,7 +30,7 @@ function project() {
       background: {service_worker: 'bg.js'},
       web_accessible_resources: [
         {
-          resources: ['war/file.txt', 'war/kept.txt'],
+          resources,
           matches: ['https://a.example/*']
         }
       ]
@@ -98,5 +98,24 @@ describe('a web_accessible_resources file deleted in a dev session', () => {
     expect(
       fs.readFileSync(path.join(session.distPath, 'war', 'kept.txt'), 'utf8')
     ).toBe('kept')
+  }, 120000)
+
+  // A path written from the root or under public/ belongs in public/. With
+  // no file there it warns in a dev session as it does in a build.
+  it.each([
+    '/missing.png',
+    'public/missing.png'
+  ])('warns in a dev session for %s with no file in public/', async (listedAs) => {
+    const root = project([listedAs, 'war/kept.txt'])
+    const session = await openDevWatchSession(root)
+    sessions.push(session)
+
+    const seen = await session.settle()
+    const warnings = missingOf(await session.doneAfter(seen - 1))
+
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toContain('missing.png')
+    expect(warnings[0]).toContain('listed in web_accessible_resources')
+    expect(listed(session)).toEqual(['war/kept.txt'])
   }, 120000)
 })

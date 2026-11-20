@@ -804,7 +804,7 @@ describe('generateManifestPatches', () => {
       expect(groups[0].resources).toEqual(['img/logo.png'])
     })
 
-    it('leaves out a public-root path public/ lacks, warning in production only', () => {
+    it('leaves out a public-root path public/ lacks, warning in every mode', () => {
       const declared = {
         manifest_version: 3,
         web_accessible_resources: [
@@ -834,12 +834,7 @@ describe('generateManifestPatches', () => {
         expect(resolved.v3, mode).toEqual([])
         expect(compilation.errors, mode).toEqual([])
 
-        if (mode === 'development') {
-          expect(compilation.warnings).toEqual([])
-          continue
-        }
-
-        expect(compilation.warnings).toHaveLength(1)
+        expect(compilation.warnings, mode).toHaveLength(1)
         const message = String(compilation.warnings[0].message)
         expect(message).toContain('/img/logo.png')
         expect(message).toContain('public/img/logo.png')

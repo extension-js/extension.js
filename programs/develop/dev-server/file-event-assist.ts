@@ -9,6 +9,8 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
+import {debugLine, isDebug} from '../lib/messaging'
+import * as messages from './messages'
 
 // Past this many open files the rest wait for the folder events alone.
 const MAX_FILE_WATCHES = 2000
@@ -48,14 +50,29 @@ export interface FileEventAssistOptions {
 }
 
 const guarded = new WeakSet<object>()
+let saidGuardOff = false
 
 // The watcher queues a scan asked for mid-scan and then never runs it, which
 // leaves the folder scanning for good. Such a scan is held here instead and
 // run once the one in flight ends, whoever asked: a poll or the watcher.
 function guardScans(owner: DirectoryWatcherLike | undefined) {
-  if (!owner?.doScan || guarded.has(owner)) return
+  if (!owner || guarded.has(owner)) return
 
   guarded.add(owner)
+
+  const missing = [
+    typeof owner.doScan === 'function' ? '' : 'doScan',
+    typeof owner.scanning === 'boolean' ? '' : 'scanning'
+  ].filter(Boolean)
+
+  if (missing.length > 0 || !owner.doScan) {
+    if (!saidGuardOff && isDebug()) {
+      saidGuardOff = true
+      debugLine(messages.debugFolderScanGuardOff(missing))
+    }
+
+    return
+  }
 
   const scan = owner.doScan.bind(owner)
   let held = false
