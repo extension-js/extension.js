@@ -46,23 +46,34 @@ export function endAfterFrame(
   return true
 }
 
-// For a host that learns a session cannot go on: the named one, or the newest.
-// False when it is not live, and the host then reports the failure itself.
+// For a host that learns a session cannot go on: the named one, or each live
+// one from the newest. True once one wrote its failed frame. 'ending' when
+// the only sessions found are already stopping, with a frame of their own.
+// False when none is live, and the host then reports the failure itself.
 export function endSessionAsFailed(
   code: ErrorCode,
   message: string,
   instanceId?: string
-): boolean {
-  const end =
+): boolean | 'ending' {
+  const named =
+    instanceId === undefined ? undefined : liveSessions.get(instanceId)
+  const asked =
     instanceId === undefined
-      ? [...liveSessions.values()].pop()
-      : liveSessions.get(instanceId)
+      ? [...liveSessions.values()].reverse()
+      : named
+        ? [named]
+        : []
+  let ending = false
 
-  if (!end) return false
+  for (const end of asked) {
+    try {
+      if (end(code, message)) return true
 
-  try {
-    return end(code, message)
-  } catch {
-    return false
+      ending = true
+    } catch {
+      // A session that cannot end is passed over for the next one.
+    }
   }
+
+  return ending ? 'ending' : false
 }

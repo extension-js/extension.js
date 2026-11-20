@@ -109,11 +109,35 @@ describe('a host naming the dev session it ends as failed', () => {
 
       // A session that is already ending says so and nothing else ends.
       expect(endSessionAsFailed(CODES.E_PARENT_GONE, 'gone', 'older')).toBe(
-        false
+        'ending'
       )
 
       expect(endSessionAsFailed(CODES.E_PARENT_GONE, 'gone')).toBe(true)
       expect(ended).toEqual(['older', 'newer'])
+
+      // Every session is stopping, which is not the same as none being live.
+      expect(endSessionAsFailed(CODES.E_PARENT_GONE, 'gone')).toBe('ending')
+    } finally {
+      for (const off of unregister) off()
+    }
+  })
+})
+
+describe('a host ending sessions while the newest is already stopping', () => {
+  it('reaches the older session behind it', () => {
+    const ended: string[] = []
+    const unregister = [
+      registerLiveSession('older', () => {
+        ended.push('older')
+
+        return true
+      }),
+      registerLiveSession('stopping', () => false)
+    ]
+
+    try {
+      expect(endSessionAsFailed(CODES.E_PARENT_GONE, 'gone')).toBe(true)
+      expect(ended).toEqual(['older'])
     } finally {
       for (const off of unregister) off()
     }
