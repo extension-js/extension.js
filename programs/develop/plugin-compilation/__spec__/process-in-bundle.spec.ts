@@ -45,6 +45,13 @@ const ENTRIES: Record<string, string> = {
     '  console.log(JSON.stringify([typeof s, typeof ns, elapsed.length, typeof process.hrtime.bigint()]))\n' +
     '}\n',
   cwd: 'console.log(process.cwd())\n',
+  // A logger or a color check that takes its Node branch reads the streams.
+  streams:
+    'const {stdout, stderr} = process\n' +
+    'console.log(JSON.stringify([stdout.isTTY, stderr.isTTY, stdout.fd, stderr.fd, typeof stdout.columns, stdout.writable]))\n' +
+    "let flushed = ''\n" +
+    "console.log(stdout.write('out line\\n'), stderr.write('err line\\n', () => { flushed += 'a' }), stdout.write('partial', 'utf8', () => { flushed += 'b' }))\n" +
+    'console.log(flushed, String(stdout.on("drain", () => {})), String(stderr.once("error", () => {})), String(stdout.end()))\n',
   members:
     'console.log(JSON.stringify([process.argv, process.version, process.versions, process.arch, process.browser, process.title, process.pid, process.umask(), process.chdir("/x"), process.listeners("exit")]))\n' +
     'console.log(["on", "once", "off", "addListener", "removeListener", "removeAllListeners", "prependListener", "prependOnceListener", "emit"].map((name) => String(process[name]("exit", () => {}))).join())\n'
@@ -200,6 +207,15 @@ describe.each(MODES)('process in a %s bundle', (mode) => {
       JSON.stringify(['number', 'number', 2, 'bigint'])
     ])
 
+    expect(logs('streams')).toEqual([
+      JSON.stringify([false, false, 1, 2, 'number', true]),
+      'out line',
+      'err line',
+      'partial',
+      'true true true',
+      'ab undefined undefined undefined'
+    ])
+
     expect(logs('members')).toEqual([
       JSON.stringify([[], '', {}, 'browser', true, 'browser', 0, 0, null, []]),
       Array.from({length: 9}, () => 'undefined').join()
@@ -243,7 +259,7 @@ describe.each(MODES)('process in a %s bundle', (mode) => {
     ).toHaveLength(2)
 
     expect(cost).toBeGreaterThan(0)
-    expect(cost).toBeLessThan(mode === 'production' ? 1024 : 2048)
+    expect(cost).toBeLessThan(mode === 'production' ? 1536 : 2560)
   })
 })
 

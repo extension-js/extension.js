@@ -22,7 +22,6 @@ import {
   ensureOptionalContractPackageResolved
 } from '../../lib/optional-deps-resolver'
 import type {JsFramework} from '../../types'
-import {hasDependency} from '../frameworks-lib/integrations'
 import {
   loadLoaderOptions,
   mergeLoaderOptions

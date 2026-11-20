@@ -12,7 +12,7 @@ import {debugLine, isDebug} from '../lib/messaging'
 import type {DevOptions, PluginInterface} from '../types'
 import * as messages from './compatibility-lib/messages'
 import {WarnBrowserGlobalWithoutPolyfill} from './feature-browser-global'
-import {PolyfillPlugin} from './feature-polyfill'
+import {PolyfillPlugin, resolvePolyfillPath} from './feature-polyfill'
 
 function polyfillSkipReason(browser: DevOptions['browser']): string | null {
   if (isGeckoBasedBrowser(String(browser))) {
@@ -24,6 +24,23 @@ function polyfillSkipReason(browser: DevOptions['browser']): string | null {
   }
 
   return null
+}
+
+// The alias an import of the package resolves through, for the static
+// config, so a project's config hook sees it and its own alias wins.
+export function polyfillAlias(options: {
+  polyfill: DevOptions['polyfill']
+  browser: DevOptions['browser']
+  context?: string
+}): Record<string, string> {
+  if (!options.polyfill || polyfillSkipReason(options.browser || 'chrome')) {
+    return {}
+  }
+
+  const polyfillPath = resolvePolyfillPath(options.context)
+
+  // Use `$` to exactly match the package name
+  return polyfillPath ? {'webextension-polyfill$': polyfillPath} : {}
 }
 
 export class CompatibilityPlugin {

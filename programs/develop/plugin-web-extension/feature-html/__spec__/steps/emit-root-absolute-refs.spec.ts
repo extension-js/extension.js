@@ -2,17 +2,17 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
-import {noteWithheldCssRef} from '../../lib/withheld-file'
+import {noteWithheldCssRef} from '../../../../lib/withheld-file'
 import {
   emitRootAbsoluteRefs,
   planRootAbsoluteRef
-} from '../emit-root-absolute-refs'
+} from '../../steps/emit-root-absolute-refs'
 
 // The bundler is not reachable from a unit fixture, so the compile step is
 // observed through the requests it receives.
 const compileRuntimeLoadedFiles = vi.fn(async () => [] as string[])
 vi.mock(
-  '../../plugin-web-extension/feature-scripts/steps/trace-runtime-loaded-files',
+  '../../../feature-scripts/steps/trace-runtime-loaded-files',
   async (importOriginal) => ({
     ...(await importOriginal<Record<string, unknown>>()),
     compileRuntimeLoadedFiles: (...args: unknown[]) =>

@@ -31,7 +31,8 @@ vi.mock('node:module', async (importOriginal) => {
   return {...actual, createRequire, default: {...actual, createRequire}}
 })
 
-import {PolyfillPlugin} from '../feature-polyfill'
+import {polyfillAlias} from '..'
+import {PolyfillPlugin, resolvePolyfillPath} from '../feature-polyfill'
 
 const makeTempFolder = trackTempFolders()
 const POLYFILL_FILE = path.join(
@@ -64,7 +65,7 @@ describe('PolyfillPlugin', () => {
     takeCodedWarnings()
   })
 
-  it("aliases the package to the project's own copy and keeps other aliases", () => {
+  it("resolves the project's own copy and leaves the aliases to the config", () => {
     const project = makeTempFolder('extjs-polyfill-own-')
     const own = path.join(project, 'node_modules', POLYFILL_FILE)
     fs.mkdirSync(path.dirname(own), {recursive: true})
@@ -73,22 +74,21 @@ describe('PolyfillPlugin', () => {
     const compiler = compilerAt(project, {keepMe: '/x/y/z'})
     new PolyfillPlugin({browser: 'chrome'}).apply(compiler)
 
-    expect(aliasOf(compiler)).toEqual({
-      keepMe: '/x/y/z',
-      'webextension-polyfill$': fs.realpathSync(own)
-    })
+    expect(resolvePolyfillPath(project)).toBe(fs.realpathSync(own))
+    expect(
+      polyfillAlias({polyfill: true, browser: 'chrome', context: project})
+    ).toEqual({'webextension-polyfill$': fs.realpathSync(own)})
+
+    expect(aliasOf(compiler)).toEqual({keepMe: '/x/y/z'})
   })
 
   it('falls back to the copy installed beside the plugin', () => {
     const project = makeTempFolder('extjs-polyfill-none-')
-    const compiler = compilerAt(project)
-    new PolyfillPlugin().apply(compiler)
+    const resolved = String(resolvePolyfillPath(project))
 
-    const aliased = String(aliasOf(compiler)['webextension-polyfill$'])
-
-    expect(aliased.endsWith(POLYFILL_FILE)).toBe(true)
-    expect(aliased.startsWith(project)).toBe(false)
-    expect(fs.existsSync(aliased)).toBe(true)
+    expect(resolved.endsWith(POLYFILL_FILE)).toBe(true)
+    expect(resolved.startsWith(project)).toBe(false)
+    expect(fs.existsSync(resolved)).toBe(true)
   })
 
   it('warns among the build warnings, once, when the package is not installed', async () => {

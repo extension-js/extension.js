@@ -1,5 +1,7 @@
+import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
+import {type RspackPluginInstance, rspack, type Stats} from '@rspack/core'
 import {describe, expect, it, vi} from 'vitest'
 import {maybeUseSvelte} from '../../js-tools/svelte'
 import {fakePackage, makeProject} from '../project-fixture'
@@ -171,7 +173,7 @@ describe('maybeUseSvelte', () => {
         url: {preferRelative: true}
       },
       extensions: ['.svelte', '.js'],
-      modules: [path.join(root, 'node_modules'), 'node_modules']
+      modules: ['node_modules', path.join(root, 'node_modules')]
     })
 
     // The shared list the config hands several dependency types stays as is.
@@ -235,5 +237,54 @@ describe('maybeUseSvelte', () => {
     expect(
       await maybeUseSvelte(makeProject({'package.json': {}}), 'development')
     ).toBeUndefined()
+  })
+})
+
+// The project folder is a place to look after the walk up from the importer,
+// so a package keeps the version installed inside it.
+describe('the Svelte resolver setup and a nested dependency', () => {
+  it('lets a package resolve its own nested copy before the top-level one', async () => {
+    const {root} = svelteProject({
+      'index.js': 'import "a"\n',
+      'node_modules/a/package.json': '{"name":"a","version":"1.0.0"}',
+      'node_modules/a/index.js': 'import "b"\n',
+      'node_modules/a/node_modules/b/package.json':
+        '{"name":"b","version":"1.0.0"}',
+      'node_modules/a/node_modules/b/index.js': 'console.log("NESTED B")\n',
+      'node_modules/b/package.json': '{"name":"b","version":"2.0.0"}',
+      'node_modules/b/index.js': 'console.log("TOP LEVEL B")\n'
+    })
+    const setup = await maybeUseSvelte(root, 'production')
+    const compiler = rspack({
+      context: root,
+      mode: 'none',
+      entry: './index.js',
+      output: {path: path.join(root, 'out'), filename: 'bundle.js'},
+      resolve: {
+        extensions: ['.js'],
+        modules: ['node_modules', path.join(root, 'node_modules')]
+      },
+      plugins: setup?.plugins as RspackPluginInstance[]
+    })
+
+    const stats = await new Promise<Stats>((resolve, reject) => {
+      compiler.run((error, result) =>
+        error || !result ? reject(error) : resolve(result)
+      )
+    })
+    await new Promise((done) => compiler.close(done))
+
+    const bundle = fs.readFileSync(path.join(root, 'out', 'bundle.js'), 'utf8')
+
+    expect(stats.hasErrors()).toBe(false)
+    expect({
+      nested: bundle.includes('NESTED B'),
+      topLevel: bundle.includes('TOP LEVEL B')
+    }).toEqual({nested: true, topLevel: false})
+
+    expect(compiler.options.resolve.modules).toEqual([
+      'node_modules',
+      path.join(root, 'node_modules')
+    ])
   })
 })

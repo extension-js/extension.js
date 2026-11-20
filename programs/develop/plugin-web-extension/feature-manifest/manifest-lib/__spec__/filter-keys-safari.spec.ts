@@ -114,6 +114,42 @@ describe('dropWebkitUnsupportedKeys', () => {
   const drop = (manifest: any, browser = 'safari') =>
     dropWebkitUnsupportedKeys(manifest, browser as any)
 
+  // The floor of another browser means nothing to Safari, so it goes with no
+  // word: nothing the author asked Safari for was taken away.
+  it("leaves Chrome's version floor out of a Safari manifest, quietly", () => {
+    for (const source of [
+      {name: 'x', manifest_version: 3, minimum_chrome_version: '120'},
+      {name: 'x', manifest_version: 3, 'chromium:minimum_chrome_version': '120'}
+    ]) {
+      for (const browser of ['safari', 'webkit-based'] as const) {
+        const built = buildCanonicalManifestWithOverrides(
+          '/p/manifest.json',
+          source as never,
+          browser
+        ).manifest as Record<string, unknown>
+        const {dropped} = dropWebkitUnsupportedKeys(
+          filterKeysForThisBrowser(source as never, browser),
+          browser
+        )
+
+        expect(Object.keys(built)).not.toContain('minimum_chrome_version')
+        expect(dropped).toEqual([])
+      }
+
+      for (const browser of ['chrome', 'edge', 'chromium-based'] as const) {
+        expect(
+          (
+            buildCanonicalManifestWithOverrides(
+              '/p/manifest.json',
+              source as never,
+              browser
+            ).manifest as Record<string, unknown>
+          ).minimum_chrome_version
+        ).toBe('120')
+      }
+    }
+  })
+
   it('drops side_panel, the key behind a dead Safari toolbar button', () => {
     const {manifest, dropped} = drop({
       name: 'x',
