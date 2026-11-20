@@ -124,7 +124,7 @@ describe('a restart whose next bundle fails after its compiler was built', () =>
 
     expect(contract.read().status).toBe('starting')
 
-    // The compiler that was replaced no longer speaks for the session.
+    // The compiler that was replaced does not speak for the session.
     serving.finishBuild()
     expect(contract.read().status).toBe('starting')
 

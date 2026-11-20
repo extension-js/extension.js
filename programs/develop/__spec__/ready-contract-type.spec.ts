@@ -279,6 +279,9 @@ function fieldsTheWriterWrites(): string[] {
     }
   }
 
+  // Written where the system has a boot id and a start tick, so on Linux.
+  seen.add('pidStartId')
+
   return [...seen].sort()
 }
 
