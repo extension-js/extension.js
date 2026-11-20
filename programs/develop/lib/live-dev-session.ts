@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {processStartedAtMs} from './process-started-at'
+import {processStartedAtMs, processStartId} from './process-started-at'
 import {readyContractPath} from './session-paths'
 
 export interface LiveDevSession {
@@ -34,17 +34,26 @@ const PID_START_TOLERANCE_MS = 2000
 export interface SessionPidProbes {
   isAlive?: (pid: number) => boolean
   startedAtOf?: (pid: number) => number | null
+  startIdOf?: (pid: number) => string | undefined
 }
 
 // A pid is handed to another process once its owner exits, so a live pid
 // counts only while it started when the contract says its writer did.
 export function isSessionPidLive(
-  contract: {pid?: unknown; pidStartedAt?: unknown},
+  contract: {pid?: unknown; pidStartedAt?: unknown; pidStartId?: unknown},
   probes: SessionPidProbes = {}
 ): boolean {
   const pid = Number(contract.pid)
   if (!Number.isInteger(pid) || pid <= 0) return false
   if (!(probes.isAlive ?? isProcessAlive)(pid)) return false
+
+  // Where the writer stamped the kernel's own name for its process, that
+  // decides: a clock step moves the dates below and never this.
+  if (typeof contract.pidStartId === 'string' && contract.pidStartId) {
+    const startId = (probes.startIdOf ?? processStartId)(pid)
+
+    if (startId) return startId === contract.pidStartId
+  }
 
   const stampedAt = Date.parse(String(contract.pidStartedAt ?? ''))
   if (Number.isNaN(stampedAt)) return true

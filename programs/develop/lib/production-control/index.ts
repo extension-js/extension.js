@@ -14,6 +14,7 @@ import parse from 'content-security-policy-parser'
 import {ActionsFileWriter} from '../../dev-server/control-bridge/actions-file'
 import {BridgeBroker} from '../../dev-server/control-bridge/broker'
 import {readExtensionLoadRefusal} from '../../dev-server/control-bridge/consumer-client'
+import type {LogContext} from '../../dev-server/control-bridge/contracts'
 import {LogsFileWriter} from '../../dev-server/control-bridge/logs-file'
 import {
   buildBridgeRelaySource,
@@ -28,16 +29,29 @@ import {
   type ControlServer,
   startControlServer
 } from '../../dev-server/control-bridge/ws-control-server'
-import {buildDevProducerSource} from '../../plugin-reload/reload-lib/producer-reload'
-import {RELAY_TARGETS} from '../../plugin-reload/steps/inject-bridge-relay'
-import {withAddedSources} from '../../plugin-web-extension/feature-manifest/steps/apply-dev-defaults-lib/patch-csp'
-import {BACKGROUND_ASSET} from '../../plugin-web-extension/shared/background-asset'
 import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../constants'
 import {prependBehindTakeBlock} from '../extension-base-from-stack'
 import {isSameOrInsidePath} from '../real-path'
 import {actionsPath, browserArtifactsDir, logsPath} from '../session-paths'
 
+// What a controlled build borrows from a dev session: the producer a dev
+// background runs, the files it and its relay ride and the policy merge.
+// The command hands them over, so this folder reaches into no plugin.
+export interface ControlledBuildParts {
+  producerSource: (options: {
+    controlPort: number
+    instanceId: string
+    context: 'background'
+    host?: string
+  }) => string
+  relayTargets: ReadonlyArray<{re: RegExp; context: LogContext}>
+  // The emitted files a build of ours runs as its background.
+  backgroundAsset: RegExp
+  addPolicySources: (current: string[], added: string[]) => string[]
+}
+
 export interface ProductionControlOptions {
+  parts: ControlledBuildParts
   packageJsonDir: string
   browser: string
   // The production build the run would load: copied, never written to.
@@ -131,7 +145,8 @@ function buildPolicy(csp: Map<string, string[]>): string {
 // Dev writes its own policy for the same reason; this is the copy's.
 function controlledPagesPolicy(
   policy: string | undefined,
-  controlSource: string
+  controlSource: string,
+  addPolicySources: ControlledBuildParts['addPolicySources']
 ): string {
   const csp = parse(policy || "script-src 'self'; object-src 'self'")
 
@@ -140,7 +155,7 @@ function controlledPagesPolicy(
   const connectSrc = csp.get('connect-src') || csp.get('default-src')
 
   if (connectSrc) {
-    csp.set('connect-src', withAddedSources(connectSrc, [controlSource]))
+    csp.set('connect-src', addPolicySources(connectSrc, [controlSource]))
   }
 
   return buildPolicy(csp)
@@ -148,7 +163,8 @@ function controlledPagesPolicy(
 
 export function patchControlledManifest(
   manifest: Record<string, unknown>,
-  controlSource: string
+  controlSource: string,
+  addPolicySources: ControlledBuildParts['addPolicySources']
 ): Record<string, unknown> {
   const policy = manifest.content_security_policy
 
@@ -157,7 +173,11 @@ export function patchControlledManifest(
 
     return {
       ...manifest,
-      content_security_policy: controlledPagesPolicy(policy, controlSource)
+      content_security_policy: controlledPagesPolicy(
+        policy,
+        controlSource,
+        addPolicySources
+      )
     }
   }
 
@@ -176,7 +196,11 @@ export function patchControlledManifest(
     ...manifest,
     content_security_policy: {
       ...slots,
-      extension_pages: controlledPagesPolicy(pages, controlSource)
+      extension_pages: controlledPagesPolicy(
+        pages,
+        controlSource,
+        addPolicySources
+      )
     }
   }
 }
@@ -222,6 +246,7 @@ export function declaredBackgroundFiles(
 }
 
 export function prepareControlledBuild(input: {
+  parts: ControlledBuildParts
   distPath: string
   controlledPath: string
   controlPort: number
@@ -233,7 +258,7 @@ export function prepareControlledBuild(input: {
   fs.mkdirSync(path.dirname(input.controlledPath), {recursive: true})
   fs.cpSync(input.distPath, input.controlledPath, {recursive: true})
 
-  const source = buildDevProducerSource({
+  const source = input.parts.producerSource({
     controlPort: input.controlPort,
     instanceId: input.instanceId,
     context: 'background',
@@ -254,7 +279,15 @@ export function prepareControlledBuild(input: {
 
     fs.writeFileSync(
       manifestPath,
-      JSON.stringify(patchControlledManifest(manifest, controlSource), null, 2)
+      JSON.stringify(
+        patchControlledManifest(
+          manifest,
+          controlSource,
+          input.parts.addPolicySources
+        ),
+        null,
+        2
+      )
     )
   }
 
@@ -268,7 +301,7 @@ export function prepareControlledBuild(input: {
   for (const rel of listFiles(input.controlledPath)) {
     // The same relay dev bundles into each page and content script: the only
     // route from the background to a production page's DOM and console.
-    const relay = RELAY_TARGETS.find((target) => target.re.test(rel))
+    const relay = input.parts.relayTargets.find((target) => target.re.test(rel))
 
     if (relay) {
       const file = path.join(input.controlledPath, rel)
@@ -290,7 +323,13 @@ export function prepareControlledBuild(input: {
     // A background the browser never starts would carry a producer nobody
     // runs, and the session would wait for a connection that cannot come.
     if (declared.runsNone) continue
-    if (!BACKGROUND_ASSET.test(rel) && !declared.files.includes(rel)) continue
+
+    if (
+      !input.parts.backgroundAsset.test(rel) &&
+      !declared.files.includes(rel)
+    ) {
+      continue
+    }
 
     const file = path.join(input.controlledPath, rel)
     const original = fs.readFileSync(file, 'utf-8')
@@ -387,6 +426,7 @@ export async function startProductionControl(
       options.distPath
     )
     const backgroundAssets = prepareControlledBuild({
+      parts: options.parts,
       distPath: options.distPath,
       controlledPath,
       controlPort: opened.port,

@@ -930,6 +930,8 @@ export interface ReadyContract {
   pid: number
   /** When the process behind `pid` started, to tell a reused pid apart. */
   pidStartedAt: string
+  /** Linux only: boot id and start tick of `pid`, exact across clock steps. */
+  pidStartId?: string
   /** When this document was last written. */
   ts: string
   compiledAt: string | null

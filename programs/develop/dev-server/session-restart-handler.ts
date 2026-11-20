@@ -224,6 +224,9 @@ export interface RestartBundleBuild<Compiler, Bundle> {
   build: () => Promise<Bundle>
   activeCompiler: () => Compiler | null
   setActiveCompiler: (compiler: Compiler | null) => void
+  // Marks the session contract before the build, and answers how to give
+  // it back to the serving compiler when the build does not finish.
+  holdContract?: () => () => void
 }
 
 // A restart that cannot build its next bundle leaves the session exactly
@@ -233,12 +236,19 @@ export async function buildRestartBundle<
   Bundle
 >(steps: RestartBundleBuild<Compiler, Bundle>): Promise<Bundle> {
   const serving = steps.activeCompiler()
+  const giveContractBack = steps.holdContract?.()
 
   try {
     return await steps.build()
   } catch (error) {
     const abandoned = steps.activeCompiler()
     steps.setActiveCompiler(serving)
+
+    try {
+      giveContractBack?.()
+    } catch {
+      // Best-effort: the contract never decides how a failed restart ends.
+    }
 
     if (abandoned && abandoned !== serving) {
       try {

@@ -91,6 +91,76 @@ describe('findLiveDevSession', () => {
     ).toBe(false)
   })
 
+  // Linux dates a start off the wall clock as it reads now, so after a clock
+  // step the process table disagrees with the stamp of a session that lives.
+  it('trusts the stamped start id over dates a clock step moved apart', () => {
+    const contract = {
+      pid: 4242,
+      pidStartedAt: '2026-11-20T10:00:00.000Z',
+      pidStartId: 'boot-a:5000'
+    }
+    const steppedByAnHour = () => Date.parse('2026-11-20T11:00:00.000Z')
+
+    expect(
+      isSessionPidLive(contract, {
+        isAlive: () => true,
+        startedAtOf: steppedByAnHour,
+        startIdOf: () => 'boot-a:5000'
+      })
+    ).toBe(true)
+  })
+
+  it('finds a reused pid by its start id even when the dates agree', () => {
+    const contract = {
+      pid: 4242,
+      pidStartedAt: '2026-11-20T10:00:00.000Z',
+      pidStartId: 'boot-a:5000'
+    }
+    const sameSecond = () => Date.parse('2026-11-20T10:00:00.000Z')
+
+    for (const startId of ['boot-a:5001', 'boot-b:5000']) {
+      expect(
+        isSessionPidLive(contract, {
+          isAlive: () => true,
+          startedAtOf: sameSecond,
+          startIdOf: () => startId
+        })
+      ).toBe(false)
+    }
+  })
+
+  it('reads the dates when either side has no start id', () => {
+    const stamped = '2026-11-20T10:00:00.000Z'
+    const far = () => Date.parse('2026-11-20T11:00:00.000Z')
+
+    // An older writer stamped none.
+    expect(
+      isSessionPidLive(
+        {pid: 4242, pidStartedAt: stamped},
+        {isAlive: () => true, startedAtOf: far, startIdOf: () => 'boot-a:1'}
+      )
+    ).toBe(false)
+
+    // The reader cannot name the live process, as on macOS and Windows.
+    expect(
+      isSessionPidLive(
+        {pid: 4242, pidStartedAt: stamped, pidStartId: 'boot-a:1'},
+        {isAlive: () => true, startedAtOf: far, startIdOf: () => undefined}
+      )
+    ).toBe(false)
+
+    expect(
+      isSessionPidLive(
+        {pid: 4242, pidStartedAt: stamped, pidStartId: 'boot-a:1'},
+        {
+          isAlive: () => true,
+          startedAtOf: () => Date.parse(stamped) + 1000,
+          startIdOf: () => undefined
+        }
+      )
+    ).toBe(true)
+  })
+
   it('counts a session that is still starting', () => {
     const project = projectWith({
       command: 'dev',

@@ -78,3 +78,107 @@ describe('ownProcessStartedAt', () => {
     expect(Math.abs(Date.parse(startedAt) - ownClockStart())).toBeLessThan(50)
   })
 })
+
+describe('processStartId', () => {
+  // Field 22 is the start tick. The command name may hold spaces and
+  // parentheses, so nothing before the last one is counted.
+  const STAT =
+    '4242 (node (dev) x) S 1 4242 4242 0 -1 4194304 100 0 0 0 5 3 0 0 20 0 11 0 987654 1000000 200 18446744073709551615 1 1 0 0 0 0 0 0 0 0 0 0 17 3 0 0 0 0 0'
+
+  const reading = (files: Record<string, string>) => ({
+    platform: 'linux' as const,
+    readFile: (file: string) => {
+      if (!(file in files)) throw new Error(`ENOENT ${file}`)
+
+      return files[file]
+    }
+  })
+
+  it('joins the boot id and the start tick of the pid on Linux', async () => {
+    const {processStartId} = await import('../process-started-at')
+
+    expect(
+      processStartId(
+        4242,
+        reading({
+          '/proc/4242/stat': STAT,
+          '/proc/sys/kernel/random/boot_id': 'boot-a\n'
+        })
+      )
+    ).toBe('boot-a:987654')
+  })
+
+  it('answers nothing off Linux, for a pid that is gone or a bad pid', async () => {
+    const {processStartId} = await import('../process-started-at')
+    const files = {
+      '/proc/4242/stat': STAT,
+      '/proc/sys/kernel/random/boot_id': 'boot-a\n'
+    }
+
+    expect(
+      processStartId(4242, {...reading(files), platform: 'darwin'})
+    ).toBeUndefined()
+
+    expect(processStartId(7, reading(files))).toBeUndefined()
+    expect(processStartId(0, reading(files))).toBeUndefined()
+    expect(
+      processStartId(4242, reading({'/proc/4242/stat': STAT}))
+    ).toBeUndefined()
+  })
+
+  it.runIf(process.platform === 'linux')(
+    'names this process the same way twice and a child differently',
+    async () => {
+      const {processStartId} = await import('../process-started-at')
+      const own = processStartId(process.pid)
+
+      expect(own).toMatch(/^[0-9a-f-]{36}:\d+$/)
+      expect(processStartId(process.pid)).toBe(own)
+      expect(processStartId(process.ppid)).not.toBe(own)
+    }
+  )
+
+  it.runIf(process.platform === 'linux')(
+    'reads the start tick of a process whose name holds spaces and a parenthesis',
+    async () => {
+      const {spawn} = await import('node:child_process')
+      const fs = await import('node:fs')
+      const os = await import('node:os')
+      const path = await import('node:path')
+      const {processStartId} = await import('../process-started-at')
+      const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-comm-'))
+      const named = path.join(folder, 'a b) (c')
+      const uptime = () =>
+        Number(fs.readFileSync('/proc/uptime', 'utf8').split(' ')[0])
+
+      fs.copyFileSync(process.execPath, named)
+      fs.chmodSync(named, 0o755)
+
+      const before = uptime()
+      const child = spawn(named, ['-e', 'setTimeout(() => {}, 30000)'], {
+        stdio: 'ignore'
+      })
+
+      try {
+        await new Promise((resolve) => child.once('spawn', resolve))
+
+        const pid = Number(child.pid)
+        const after = uptime()
+        const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8')
+        const [bootId, ticks] = String(processStartId(pid)).split(':')
+
+        expect(stat).toContain('(a b) (c)')
+        expect(bootId).toBe(
+          fs.readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim()
+        )
+
+        // The kernel counts a start in hundredths of a second since boot.
+        expect(Number(ticks) / 100).toBeGreaterThanOrEqual(before - 0.02)
+        expect(Number(ticks) / 100).toBeLessThanOrEqual(after + 0.02)
+      } finally {
+        child.kill('SIGKILL')
+        fs.rmSync(folder, {recursive: true, force: true})
+      }
+    }
+  )
+})

@@ -45,7 +45,7 @@ import {
   warningCodes
 } from './lib/compilation-diagnostics'
 import {
-  forgetPreloadedEnvOf,
+  holdPreloadedEnvOf,
   loadBrowserConfig,
   loadCommandConfig,
   loadConfigResolvedHook,
@@ -80,12 +80,11 @@ import {
   browserRowValue,
   CODES,
   card,
-  claimCardKey,
   debugLine,
+  holdCardKey,
   holdHumanLines,
   isDebug,
   isMachineOutput,
-  releaseCardKeysOf,
   stripChannelPrefix
 } from './lib/messaging'
 import {applySplitChunksGuard} from './lib/normalize-split-chunks'
@@ -111,6 +110,7 @@ import {
   ensureSessionStateInProjectGitignore,
   readyContractPath
 } from './lib/session-paths'
+import {parkForStartLaunch} from './lib/start-launch-handoff'
 import {thrownFrom} from './lib/thrown-location'
 import {assertNoManagedDependencyConflicts} from './lib/validate-user-dependencies'
 import {
@@ -155,17 +155,15 @@ export function resetBuildToolchainLine(): void {
   toolchainLinePrinted.clear()
 }
 
-// The card is the session header, printed before the first work line, and its
-// key is what lets `start` dedupe the preview leg instead of reprinting.
+// The card is the session header, printed before the first work line. The
+// caller holds its key, which is what keeps `start` from printing it twice.
 function printBuildCard(
   manifestPath: string,
   browser: string,
   distPath: string,
   projectRoot: string,
   writtenDir: string
-): boolean {
-  if (!claimCardKey(`${browser}::${nodePath.resolve(distPath)}`)) return false
-
+): void {
   let extensionLabel = ''
 
   try {
@@ -207,8 +205,6 @@ function printBuildCard(
 
   humanLine(' ')
   process.env.EXTENSION_CLI_BANNER_PRINTED = 'true'
-
-  return true
 }
 
 // The build retires and deletes whatever sits at <outDir>/<browser>, so the
@@ -394,8 +390,10 @@ async function runBuild(
   let projectRoot = ''
   // What a green build would list, kept for the failure that carries it.
   let failureWarnings: string[] = []
-  // The card this build claimed, given back with the env files when it ends.
-  let claimedCardPath = ''
+  // The card this build claimed and its hold on the project's env file
+  // values, both given back when it ends.
+  let releaseCard: (() => void) | undefined
+  let releaseEnv: (() => void) | undefined
   let succeeded = false
   const resolvedMode: 'development' | 'production' | 'none' =
     buildOptions?.mode === 'development' ||
@@ -409,6 +407,7 @@ async function runBuild(
     const {manifestDir, packageJsonDir} = getDirs(projectStructure)
 
     projectRoot = packageJsonDir
+    releaseEnv = holdPreloadedEnvOf(packageJsonDir)
     announceLeftoverOutputFolder(projectStructure)
 
     // A browser passed in wins; with none, commands.<cmd>.browser from the
@@ -430,14 +429,15 @@ async function runBuild(
         buildOptions?.safariBinary
       )
     // The config reads the env files the bundle will, so its first load is
-    // told the mode, and the browser whenever the config does not name it.
+    // told the mode and the browser that builds when the config names none.
     const browser = askedBrowser
       ? browserFor(askedBrowser)
       : browserFor(
           configBrowserOrThrow(
             (
               await loadCommandConfig(packageJsonDir, commandKey, {
-                mode: resolvedMode
+                mode: resolvedMode,
+                browser: String(browserFor(undefined))
               })
             ).browser,
             commandKey
@@ -871,8 +871,12 @@ async function runBuild(
 
         // The identity card and asset tree are informational; a throw here
         // would leave this promise pending and the process would exit 0.
+        releaseCard = holdCardKey(
+          `${browser}::${nodePath.resolve(displayDistPath)}`
+        )
+
         try {
-          if (
+          if (releaseCard) {
             printBuildCard(
               projectStructure.manifestPath,
               browser,
@@ -880,8 +884,6 @@ async function runBuild(
               packageJsonDir,
               useStagingSwap ? stagingDistPath : displayDistPath
             )
-          ) {
-            claimedCardPath = nodePath.resolve(displayDistPath)
           }
 
           if (!silent) {
@@ -1367,7 +1369,14 @@ async function runBuild(
         console.error(isDebug() ? error : messages.buildCommandFailed(error))
       }
 
-      console.error(messages.buildFailed(failureCount))
+      console.error(
+        messages.buildFailed(
+          failureCount,
+          (error as {code?: unknown}).code === CODES.E_ZIP_SKIPPED
+            ? displayPath(distPath)
+            : undefined
+        )
+      )
     }
 
     // A failed build carried on past the same warnings a green one lists,
@@ -1398,9 +1407,15 @@ async function runBuild(
       buildOptions?.metadataCommand === 'start' &&
       buildOptions?.launchFollows === true
 
-    if (!previewFollows) {
-      if (claimedCardPath) releaseCardKeysOf(claimedCardPath)
-      if (projectRoot) forgetPreloadedEnvOf(projectRoot)
+    const releaseBoth = () => {
+      releaseCard?.()
+      releaseEnv?.()
+    }
+
+    if (previewFollows) {
+      parkForStartLaunch(pathOrRemoteUrl, projectRoot, releaseBoth)
+    } else {
+      releaseBoth()
     }
 
     await closeCompiler(compilerToClose)

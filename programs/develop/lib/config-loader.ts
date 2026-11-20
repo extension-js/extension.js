@@ -114,18 +114,53 @@ function forgetPreloadedEnv(): void {
   preloadedFrom = undefined
 }
 
-// The folder whose files are on process.env now. A session that ends takes
-// them out of its host only when they are its own project's.
+// The folder whose files are on process.env now.
 let preloadedFrom: string | undefined
 
-export function forgetPreloadedEnvOf(projectPath: string): void {
-  if (!preloadedFrom) return
+function isInside(root: string, target: string): boolean {
+  const relative = path.relative(root, target)
 
-  const relative = path.relative(path.resolve(projectPath), preloadedFrom)
+  return !relative.startsWith('..') && !path.isAbsolute(relative)
+}
 
-  if (relative.startsWith('..') || path.isAbsolute(relative)) return
+// How many running commands still read each project's file values. A build
+// that ends beside a live session of the same project must leave them be.
+const envHoldsByRoot = new Map<string, number>()
 
-  forgetPreloadedEnv()
+// The caller keeps the project's file values on process.env until it calls
+// the function handed back. They leave the host with the last holder.
+export function holdPreloadedEnvOf(projectPath: string): () => void {
+  const root = path.resolve(projectPath)
+  let released = false
+
+  envHoldsByRoot.set(root, (envHoldsByRoot.get(root) || 0) + 1)
+
+  return () => {
+    if (released) return
+
+    released = true
+
+    const left = (envHoldsByRoot.get(root) || 1) - 1
+
+    if (left > 0) {
+      envHoldsByRoot.set(root, left)
+
+      return
+    }
+
+    envHoldsByRoot.delete(root)
+
+    if (!preloadedFrom || !isInside(root, preloadedFrom)) return
+
+    // A holder of a folder above or at the config's own still reads them.
+    const loadedFrom = preloadedFrom
+
+    if ([...envHoldsByRoot.keys()].some((held) => isInside(held, loadedFrom))) {
+      return
+    }
+
+    forgetPreloadedEnv()
+  }
 }
 
 function applyEnvFile(filePath: string, shellOwned: ReadonlySet<string>) {

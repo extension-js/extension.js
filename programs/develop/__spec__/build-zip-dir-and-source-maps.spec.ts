@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {unzipSync} from 'fflate'
-import {afterAll, describe, expect, it} from 'vitest'
+import {afterAll, describe, expect, it, vi} from 'vitest'
 import {listOutputFiles} from '../lib/output-files'
 
 // The archive can be placed as well as named, and a production build can
@@ -208,4 +208,44 @@ describe('extension build --source-maps', () => {
 
     expect(summary.source_map_assets).toBeGreaterThan(0)
   }, 120_000)
+
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'closes a build whose archive cannot be written by naming the folder that was built',
+    async () => {
+      const root = fs.realpathSync(project())
+      const locked = path.join(root, 'locked')
+      const said: string[] = []
+
+      fs.mkdirSync(locked)
+      fs.chmodSync(locked, 0o555)
+
+      const error = vi
+        .spyOn(console, 'error')
+        .mockImplementation((...parts: unknown[]) => {
+          said.push(parts.join(' '))
+        })
+      const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+      try {
+        await expect(
+          build(root, {zip: true, zipDir: 'locked', silent: false})
+        ).rejects.toMatchObject({code: 'E_ZIP_SKIPPED'})
+      } finally {
+        error.mockRestore()
+        log.mockRestore()
+        fs.chmodSync(locked, 0o755)
+      }
+
+      const dist = path.join(root, 'dist', 'chrome')
+      const plain = said.map((line) => line.replace(/\u001b\[[0-9;]*m/g, ''))
+
+      expect(plain.at(-1)).toMatch(
+        /Build failed with 1 error\. The output folder \S+ is in place and loads as built\.$/
+      )
+
+      expect(plain.at(-1)).toContain(path.join('dist', 'chrome'))
+      expect(fs.existsSync(path.join(dist, 'manifest.json'))).toBe(true)
+    },
+    120_000
+  )
 })

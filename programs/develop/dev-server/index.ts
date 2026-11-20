@@ -15,7 +15,7 @@ import {merge} from 'webpack-merge'
 import {codedError} from '../lib/coded-error'
 import {recordCodedWarning} from '../lib/coded-warnings'
 import {
-  forgetPreloadedEnvOf,
+  holdPreloadedEnvOf,
   loadBrowserConfig,
   loadCommandConfig,
   loadConfigResolvedHook,
@@ -61,7 +61,8 @@ import {
   createPlaywrightMetadataWriter,
   detectLiveDevSessionOwner,
   forgetSessionRun,
-  getSessionRunId
+  getSessionRunId,
+  holdServingContract
 } from '../plugin-playwright'
 import {
   dispatchRestartReload,
@@ -98,7 +99,7 @@ import {
   clearControlToken,
   writeControlToken
 } from './control-bridge/session-token'
-import {openControlBridge} from './control-bridge-start'
+import {controlCoordinatesOf, openControlBridge} from './control-bridge-start'
 import {
   attachEmulatorFileIndex,
   buildEmulatorViewerUrl,
@@ -137,7 +138,7 @@ import {
 import {isAwaitingMainWorldRestart} from './session-restart-holds'
 import {withSessionStartPrune} from './session-start-prune'
 import {
-  announceReadyOnCleanCompile,
+  attachUnlaunchedSession,
   createBindFailureRelay,
   createReadyAnnouncer,
   createRestartFailure,
@@ -338,7 +339,7 @@ async function startDevSession(
 
   holdings.add(releaseClaim)
   // The env file values the config loads below leave the host with it too.
-  holdings.addLast(() => forgetPreloadedEnvOf(packageJsonDir))
+  holdings.addLast(holdPreloadedEnvOf(packageJsonDir))
 
   // The same env files as the command's own loads, so no layer differs.
   const envTarget = {mode: 'development', browser: String(devOptions.browser)}
@@ -592,7 +593,7 @@ async function startDevSession(
   })
   closeControlBridge = controlBridge.close
   const bridgeControlPort = controlBridge.controlPort
-  const controlPortUnavailableReason = controlBridge.unavailableReason
+  const controlCoordinates = controlCoordinatesOf(controlBridge)
 
   // Only --port bounds a port, so a debug run names the others it listens on.
   if (isDebug()) debugLine(messages.debugSessionPorts(port, bridgeControlPort))
@@ -725,9 +726,7 @@ async function startDevSession(
     mode: 'development' as const,
     instanceId: currentInstance.instanceId,
     instanceExplicit: currentInstance.instanceExplicit,
-    controlPort: bridgeControlPort,
-    controlPortUnavailableReason,
-    controlPath: CONTROL_WS_PATH,
+    ...controlCoordinates,
     logsPath: bridgeLogsRelPath,
     connectableHost,
     readyAwaitsExecutor,
@@ -748,9 +747,7 @@ async function startDevSession(
     host: connectableHost,
     instanceId: currentInstance.instanceId,
     instanceExplicit: currentInstance.instanceExplicit,
-    controlPort: bridgeControlPort,
-    controlPortUnavailableReason,
-    controlPath: CONTROL_WS_PATH,
+    ...controlCoordinates,
     logsPath: bridgeLogsRelPath,
     readyAwaitsRdpPort: Boolean(extendedOptions.browsersPlugin),
     readyAwaitsCdpPort:
@@ -820,7 +817,6 @@ async function startDevSession(
     isSessionExtensionOrigin: (origin) =>
       bridgeBroker.isSessionExtensionOrigin(origin),
     publicFolder,
-    packageJsonDir,
     emulatorFiles,
     socketPath,
     activeCompiler: () => activeCompiler,
@@ -916,17 +912,16 @@ async function startDevSession(
 
     // With no browser plugin the session reloads the browser the user runs,
     // through the same reload session a launched browser uses.
-    if (!extendedOptions.browsersPlugin) {
-      reloadEachBuild(compiler, {
-        browser: browserName,
-        broker: bridgeBroker,
-        isHeld: isAwaitingMainWorldRestart
-      })
-    }
-
-    if (!extendedOptions.browsersPlugin) {
-      announceReadyOnCleanCompile(compiler, announceReady)
-    }
+    attachUnlaunchedSession(compiler, {
+      launches: Boolean(extendedOptions.browsersPlugin),
+      reloadEachBuild: () =>
+        reloadEachBuild(compiler, {
+          browser: browserName,
+          broker: bridgeBroker,
+          isHeld: isAwaitingMainWorldRestart
+        }),
+      announceReady
+    })
 
     if (emulatorFiles) attachEmulatorFileIndex(compiler, emulatorFiles)
 
@@ -994,6 +989,7 @@ async function startDevSession(
 
   const createRestartBundle = () =>
     buildRestartBundle({
+      holdContract: () => holdServingContract(metadata.readyPath),
       build: () => createCompilerAndServer({isRestart: true}),
       activeCompiler: () => activeCompiler,
       setActiveCompiler: (compiler) => {

@@ -33,7 +33,7 @@ vi.mock('../lib/config-loader', () => {
     loadBrowserConfig: vi.fn(async () => ({})),
     loadProjectConfigDefaults: vi.fn(async () => ({})),
     loadCommandConfig: vi.fn(async () => ({})),
-    forgetPreloadedEnvOf: vi.fn(),
+    holdPreloadedEnvOf: vi.fn(() => () => undefined),
     userConfigSpy
   }
 })

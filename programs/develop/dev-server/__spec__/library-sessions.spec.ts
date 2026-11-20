@@ -88,6 +88,19 @@ function runHost<Result>(scenario: string, env: Record<string, string> = {}) {
         (error, stdout) => {
           const lines = String(stdout).split('\n')
           const line = lines.find((entry) => entry.startsWith('RESULT '))
+          const stuck = lines.find((entry) => entry.startsWith('STUCK '))
+
+          // The host gave up on a wait at its own deadline and said which.
+          if (stuck) {
+            reject(
+              new Error(
+                `the host waited past its deadline for ${stuck.slice('STUCK '.length)}` +
+                  (line ? `, and answered ${line.slice('RESULT '.length)}` : '')
+              )
+            )
+
+            return
+          }
 
           if (!line) {
             reject(error ?? new Error('the host printed no result'))
@@ -116,6 +129,43 @@ afterAll(() => {
   for (const root of roots.splice(0)) {
     fs.rmSync(root, {recursive: true, force: true})
   }
+})
+
+describe('the library host fixture', () => {
+  it('answers false at one deadline for the scenario and names the stuck waits', async () => {
+    const startedAt = Date.now()
+    const outcome = await runHost('stuck', {
+      LIBRARY_HOST_DEADLINE_MS: '1500'
+    }).catch((error: Error) => error)
+
+    expect(outcome).toBeInstanceOf(Error)
+    expect((outcome as Error).message).toBe(
+      'the host waited past its deadline for ' +
+        '["what never comes","a wait after the deadline"], ' +
+        'and answered {"first":false,"second":false}'
+    )
+
+    // Both waits share the deadline, the second does not start a new one.
+    expect(Date.now() - startedAt).toBeLessThan(60_000)
+  }, 180_000)
+})
+
+describe('a host that builds beside a live dev session', () => {
+  it('keeps the env files the session reads until the session ends', async () => {
+    const {result} = await runHost<{
+      built: boolean | string
+      probeAfterBuild: string | null
+      released: boolean
+      probeAfterSession: string | null
+    }>('build-beside-dev')
+
+    expect(result).toEqual({
+      built: true,
+      probeAfterBuild: '1',
+      released: true,
+      probeAfterSession: null
+    })
+  }, 180_000)
 })
 
 describe('a host that starts dev sessions from the library', () => {

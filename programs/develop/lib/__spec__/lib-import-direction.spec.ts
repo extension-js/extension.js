@@ -6,16 +6,12 @@ const developRoot = path.resolve(__dirname, '..', '..')
 const libDir = path.join(developRoot, 'lib')
 
 // Plugins and the dev server build on lib, never the other way around.
-// production-control still drives the dev server's bridge and is not counted.
-const OWNER_FOLDERS = /^\.\.\/(plugin-[^/]+|dev-server)(\/|$)/
+const OWNER_FOLDERS = /^(?:\.\.\/)+(plugin-[^/]+|dev-server)(\/|$)/
 
-function sourceFiles(dir: string): string[] {
-  return fs
-    .readdirSync(dir, {withFileTypes: true})
-    .filter((entry) => entry.isFile() && /\.ts$/.test(entry.name))
-    .filter((entry) => !entry.name.endsWith('.d.ts'))
-    .map((entry) => path.join(dir, entry.name))
-}
+// production-control runs the control bridge for start and preview, so it
+// drives that one dev-server folder. Every plugin piece is handed to it.
+const BRIDGE_OF_PRODUCTION_CONTROL =
+  /^production-control\/index\.ts -> \.\.\/\.\.\/dev-server\/control-bridge\//
 
 function walk(dir: string, found: string[] = []): string[] {
   for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
@@ -37,17 +33,20 @@ describe('lib', () => {
   it('imports nothing from a plugin folder or the dev server', () => {
     const reaching: string[] = []
 
-    for (const file of sourceFiles(libDir)) {
+    for (const file of walk(libDir)) {
       const source = fs.readFileSync(file, 'utf8')
+      const name = path.relative(libDir, file).split(path.sep).join('/')
 
       for (const match of source.matchAll(/from\s+'([^']+)'/g)) {
         if (OWNER_FOLDERS.test(match[1])) {
-          reaching.push(`${path.basename(file)} -> ${match[1]}`)
+          reaching.push(`${name} -> ${match[1]}`)
         }
       }
     }
 
-    expect(reaching).toEqual([])
+    expect(
+      reaching.filter((reach) => !BRIDGE_OF_PRODUCTION_CONTROL.test(reach))
+    ).toEqual([])
   })
 
   it('keeps one workspace root finder for the env files', () => {

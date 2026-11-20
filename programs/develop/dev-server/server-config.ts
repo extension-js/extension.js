@@ -111,7 +111,6 @@ export interface ServerConfigInput {
   allowedHosts?: string | string[]
   isSessionExtensionOrigin: SessionExtensionOriginCheck
   publicFolder: string | undefined
-  packageJsonDir: string
   emulatorFiles: EmulatorFileIndexHolder | null
   // The middleware reads the live compiler's output; a restart swaps it.
   activeCompiler: () => Compiler | null
@@ -119,7 +118,6 @@ export interface ServerConfigInput {
   // Called once per session, with the origin the first refused request named.
   onSiteRefused: (origin: string) => void
   server: Configuration['server']
-  env?: Readonly<Record<string, string | undefined>>
   // The reload socket path the session's own extension is built with.
   socketPath: string
 }
@@ -165,7 +163,6 @@ export function refuseOtherSessionSockets(
 
 export function buildServerConfig(input: ServerConfigInput): Configuration {
   const {publicFolder, emulatorFiles, emulatorOrigin} = input
-  const env = input.env ?? process.env
   const access = devServerAccessConfig({
     connectableHost: input.connectableHost,
     emulatorOrigin,
@@ -200,6 +197,8 @@ export function buildServerConfig(input: ServerConfigInput): Configuration {
   return {
     host: input.host,
     allowedHosts: access.allowedHosts,
+    // Served, never watched: an edit under public/ reaches the session
+    // through the compiler, which copies the folder and reloads for it.
     static: publicFolder ? {directory: publicFolder, watch: false} : false,
     compress: false,
     devMiddleware: {
@@ -215,27 +214,6 @@ export function buildServerConfig(input: ServerConfigInput): Configuration {
             | OutputFileSystemLike
             | undefined
       })
-    },
-    watchFiles: {
-      // Meant to watch public/ outside the compiler, but chokidar 5 reads this
-      // glob as a literal path, so it sees no edit (see the loopback spec).
-      paths: publicFolder ? [path.join(publicFolder, '**/*')] : [],
-      options: {
-        // A literal path to chokidar 5 as well. This watcher only sends
-        // static-changed and never rebuilds, so it guards nothing today.
-        ignored: [path.join(input.packageJsonDir, 'dist', '**/*')],
-        // Native FS events by default: polling wakes the CPU and adds HMR latency.
-        // EXTENSION_WATCH_POLL opts into polling where native events are unreliable.
-        ...(env.EXTENSION_WATCH_POLL === 'true'
-          ? {
-              usePolling: true,
-              interval: parseInt(
-                String(env.EXTENSION_WATCH_POLL_INTERVAL || '1000'),
-                10
-              )
-            }
-          : {})
-      }
     },
     client: false,
     // The stock socket check still runs after this one, on the connection.

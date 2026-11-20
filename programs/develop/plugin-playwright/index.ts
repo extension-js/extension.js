@@ -31,7 +31,7 @@ import * as messages from '../lib/messages'
 import {humanWarn} from '../lib/messaging'
 import {parseJsonSafe} from '../lib/parse-json-safe'
 import {type AbsolutePath, asAbsolute} from '../lib/paths'
-import {ownProcessStartedAt} from '../lib/process-started-at'
+import {ownProcessStartedAt, ownProcessStartId} from '../lib/process-started-at'
 import {renameSyncWithRetry} from '../lib/rename-with-retry'
 import {
   browserArtifactsDir,
@@ -67,6 +67,9 @@ export type ReadyMetadata = {
   // once its owner exits, so a reader that finds `pid` alive checks this
   // against the process table before trusting it.
   pidStartedAt: string
+  // Linux only: the boot id and the kernel's start tick of `pid`, which name
+  // one process exactly and do not move when the wall clock is stepped.
+  pidStartId?: string
   ts: string
   compiledAt: string | null
   errors: string[]
@@ -173,6 +176,7 @@ export type PlaywrightAutomationEvent = {
     | 'shutdown'
     | 'browser_exited'
     | 'browser_launch_failed'
+    | 'restart_failed'
   ts: string
   command: PlaywrightAutomationCommand
   browser: string
@@ -188,6 +192,10 @@ export type PlaywrightAutomationEvent = {
   // browser_launch_failed: when the launcher gave up and why, off ready.json.
   browserLaunchFailedAt?: string
   reason?: string
+  // restart_failed: the code of what stopped the restart, with `reason`, and
+  // whether the build from before it still serves the session.
+  code?: string
+  serving?: boolean
   // Set when the per-event byte cap trimmed this row's error text, so a reader
   // never mistakes a shortened message for the whole diagnostic.
   truncated?: boolean
@@ -311,7 +319,8 @@ const EVENT_IDENTITY_FIELDS = new Set([
   'ts',
   'command',
   'browser',
-  'runId'
+  'runId',
+  'code'
 ])
 
 function fitsEventCap(event: unknown): boolean {
@@ -378,6 +387,7 @@ const WRITER_FIELDS: ReadonlySet<string> = new Set<
   'host',
   'pid',
   'pidStartedAt',
+  'pidStartId',
   'ts',
   'compiledAt',
   'errors',
@@ -430,6 +440,36 @@ export function getSessionRunId(
 // Writers of one run are told apart by the epoch their writeStarting opened:
 // a compiler torn down after its successor opened no longer owns the document.
 const writerEpochByMetadataDir = new Map<string, number>()
+
+// What a restart's next compiler replaced when it opened the same run: the
+// serving writer's epoch and the document as that writer left it.
+const takeoverByMetadataDir = new Map<
+  string,
+  {epoch: number | undefined; document: Record<string, unknown>}
+>()
+
+// A restart's next compiler takes the contract as it is built. When the rest
+// of that bundle fails, the compiler that keeps serving gets both back.
+export function holdServingContract(readyPath: string): () => void {
+  const metadataDir = path.dirname(asAbsolute(readyPath))
+
+  takeoverByMetadataDir.delete(metadataDir)
+
+  return () => {
+    const taken = takeoverByMetadataDir.get(metadataDir)
+    if (!taken) return
+
+    takeoverByMetadataDir.delete(metadataDir)
+
+    if (taken.epoch === undefined) {
+      writerEpochByMetadataDir.delete(metadataDir)
+    } else {
+      writerEpochByMetadataDir.set(metadataDir, taken.epoch)
+    }
+
+    writeContractFile(asAbsolute(readyPath), taken.document)
+  }
+}
 
 // The runs whose launcher came back, by contract path and run. A session
 // holds two writers, and the one that compiles has to hear the other.
@@ -923,6 +963,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       status,
       pid: process.pid,
       pidStartedAt: ownProcessStartedAt(),
+      ...(ownProcessStartId() ? {pidStartId: ownProcessStartId()} : {}),
       ts: nowISO(),
       compiledAt,
       errors: Array.isArray(extra?.errors) ? extra.errors : []
@@ -1138,13 +1179,23 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     writeStarting() {
       if (foreignLiveDevSession) return
 
-      openedEpoch = (writerEpochByMetadataDir.get(metadataDir) || 0) + 1
+      const replaced = readContract()
+      const servingEpoch = writerEpochByMetadataDir.get(metadataDir)
+
+      if (replaced?.runId === base.runId) {
+        takeoverByMetadataDir.set(metadataDir, {
+          epoch: servingEpoch,
+          document: replaced
+        })
+      }
+
+      openedEpoch = (servingEpoch || 0) + 1
       writerEpochByMetadataDir.set(metadataDir, openedEpoch)
       ensureDirSync(metadataDir)
 
       // A new run resets the timeline so prior-run entries don't interleave;
       // a restart reopens the run on disk and keeps appending to it.
-      if (readContract()?.runId !== base.runId) {
+      if (replaced?.runId !== base.runId) {
         try {
           fs.writeFileSync(eventsPath, '', 'utf-8')
           eventsBytes = 0
@@ -1313,7 +1364,23 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
 
       writeContract(prev)
     },
-    appendEvent
+    appendEvent,
+    // A dev restart that could not be made, beside the compiles around it.
+    writeRestartFailed(args: {
+      code: string
+      message: string
+      serving: boolean
+    }) {
+      appendEvent({
+        type: 'restart_failed',
+        ts: nowISO(),
+        command: base.command,
+        browser: base.browser,
+        code: args.code,
+        reason: args.message,
+        serving: args.serving
+      })
+    }
   }
 }
 

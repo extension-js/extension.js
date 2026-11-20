@@ -20,7 +20,7 @@ vi.mock('../lib/project', () => ({
 }))
 
 vi.mock('../lib/config-loader', () => ({
-  forgetPreloadedEnvOf: vi.fn(),
+  holdPreloadedEnvOf: vi.fn(() => () => undefined),
   loadCommandConfig: vi.fn(async () => ({})),
   loadProjectConfigDefaults: vi.fn(async () => ({})),
   loadBrowserConfig: vi.fn(async () => ({}))
@@ -106,7 +106,7 @@ const startProductionControl = vi.hoisted(() =>
     }
   })
 )
-vi.mock('../dev-server/control-bridge/production-control', () => ({
+vi.mock('../lib/production-control', () => ({
   startProductionControl
 }))
 
