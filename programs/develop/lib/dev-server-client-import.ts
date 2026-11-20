@@ -71,6 +71,20 @@ function resolveHmrHotPath(): string {
   return _resolvedHotPath
 }
 
+// The stock socket class the dev server provides to its client.
+export const STOCK_SOCKET_CLIENT_SPECIFIER =
+  '@rspack/dev-server/client/clients/WebSocketClient.js'
+
+export function resolveStockSocketClientPath(): string | undefined {
+  try {
+    return cjsRequire.resolve(STOCK_SOCKET_CLIENT_SPECIFIER, {
+      paths: [__dirname]
+    })
+  } catch {
+    return undefined
+  }
+}
+
 // The host and port of the session that builds this compiler. Each one
 // wins over the environment, which the newest session in the process wrote.
 export interface DevServerSession {

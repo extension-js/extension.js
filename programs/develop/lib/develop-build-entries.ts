@@ -32,6 +32,7 @@ export const DEVELOP_BUILD_ENTRIES: readonly string[] = [
   'env-write-loader',
   'minimum-script-file',
   'preact-refresh-shim',
+  'page-socket-client',
   'solid-jsx-runtime',
   'main-world-bridge',
   'minimum-chromium-file',

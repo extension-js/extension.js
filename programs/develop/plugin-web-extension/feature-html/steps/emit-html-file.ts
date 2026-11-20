@@ -145,7 +145,14 @@ export class EmitHtmlFile {
             const rawHtml = fs.readFileSync(resolved, 'utf8')
             const rawSource = new sources.RawSource(rawHtml)
             const filepath = getFilePath(featureName, '.html', false)
-            compilation.emitAsset(filepath, rawSource)
+            // The dev server reloads only the tabs showing the saved page.
+            const sourceFilename = path
+              .relative(
+                String(compiler.options.context || projectDir),
+                resolved
+              )
+              .replace(/\\/g, '/')
+            compilation.emitAsset(filepath, rawSource, {sourceFilename})
           }
         }
       }
