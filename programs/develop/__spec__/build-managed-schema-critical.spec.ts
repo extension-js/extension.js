@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // Chrome refuses a storage.managed_schema it cannot parse or that is not an
 // object, so the build must fail the same way it does for a broken DNR
@@ -39,22 +40,9 @@ function project(schema: string, spelling = 'schema.json') {
 }
 
 async function build(root: string) {
-  const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
-
-  try {
-    return await extensionBuild(root, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      mode: 'production',
-      exitOnError: false
-    } as any)
-  } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
-  }
+  return buildProject(root, {
+    mode: 'production'
+  })
 }
 
 describe('storage.managed_schema is critical JSON', () => {

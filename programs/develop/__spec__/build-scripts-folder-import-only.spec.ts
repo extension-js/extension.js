@@ -41,8 +41,6 @@ function project(files: Record<string, string>) {
 
 async function build(root: string) {
   const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
   const printed: string[] = []
 
   const capture = (...args: unknown[]) => {
@@ -58,8 +56,7 @@ async function build(root: string) {
       browser: 'chrome',
       silent: false,
       install: false,
-      mode: 'production',
-      exitOnError: false
+      mode: 'production'
     } as any)
 
     return {
@@ -70,8 +67,6 @@ async function build(root: string) {
     }
   } finally {
     for (const spy of spies) spy.mockRestore()
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
   }
 }
 

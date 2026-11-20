@@ -71,8 +71,6 @@ describe('build: content script (real rspack)', () => {
     const {extensionBuild} = await import('../command-build')
 
     const previousAuthorMode = process.env.EXTENSION_AUTHOR_MODE
-    const previousVitest = process.env.VITEST
-    process.env.VITEST = 'true'
     Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
 
     try {
@@ -80,8 +78,7 @@ describe('build: content script (real rspack)', () => {
         browser: 'chrome',
         silent: true,
         install: false,
-        mode: 'development',
-        exitOnError: false
+        mode: 'development'
       } as any)
 
       expect(summary.errors_count).toBe(0)
@@ -91,12 +88,6 @@ describe('build: content script (real rspack)', () => {
         Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
       } else {
         process.env.EXTENSION_AUTHOR_MODE = previousAuthorMode
-      }
-
-      if (previousVitest === undefined) {
-        delete process.env.VITEST
-      } else {
-        process.env.VITEST = previousVitest
       }
     }
 

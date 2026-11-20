@@ -36,8 +36,6 @@ function project() {
 
 async function devBuild(root: string, browser: 'chrome' | 'safari') {
   const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
   const originalLog = console.log
   const originalWarn = console.warn
   const originalError = console.error
@@ -56,8 +54,7 @@ async function devBuild(root: string, browser: 'chrome' | 'safari') {
       silent: true,
       install: false,
       mode: 'development',
-      metadataCommand: 'dev',
-      exitOnError: false
+      metadataCommand: 'dev'
     } as any)
 
     expect(summary.errors_count).toBe(0)
@@ -65,8 +62,6 @@ async function devBuild(root: string, browser: 'chrome' | 'safari') {
     console.log = originalLog
     console.warn = originalWarn
     console.error = originalError
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
   }
 
   const distDir = path.join(root, 'dist', browser)

@@ -108,30 +108,22 @@ function summaryLine(): string {
 
 async function build(root: string) {
   const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
 
-  try {
-    const summary = await extensionBuild(root, {
-      browser: 'chrome',
-      silent: false,
-      install: false,
-      mode: 'production',
-      exitOnError: false
-    } as any)
-    expect(summary.errors_count).toBe(0)
+  const summary = await extensionBuild(root, {
+    browser: 'chrome',
+    silent: false,
+    install: false,
+    mode: 'production'
+  } as any)
+  expect(summary.errors_count).toBe(0)
 
-    const distDir = path.join(root, 'dist', 'chrome')
-    const files = fs
-      .readdirSync(distDir, {recursive: true})
-      .map((file) => String(file).split(path.sep).join('/'))
-      .filter((file) => fs.statSync(path.join(distDir, file)).isFile())
+  const distDir = path.join(root, 'dist', 'chrome')
+  const files = fs
+    .readdirSync(distDir, {recursive: true})
+    .map((file) => String(file).split(path.sep).join('/'))
+    .filter((file) => fs.statSync(path.join(distDir, file)).isFile())
 
-    return {summary, files, line: summaryLine()}
-  } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
-  }
+  return {summary, files, line: summaryLine()}
 }
 
 describe('a wasm runtime under the performance budget of a production build', () => {

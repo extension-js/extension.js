@@ -41,7 +41,7 @@
   "scripts": {
     "watch": "node ../../scripts/run-locked.mjs watch \"rslib build --watch\"",
     "compile": "node ../../scripts/run-locked.mjs compile \"rslib build\"",
-    "test": "vitest run"
+    "test": "node ../../scripts/run-vitest.mjs"
   },
   "keywords": [
     "webextension",

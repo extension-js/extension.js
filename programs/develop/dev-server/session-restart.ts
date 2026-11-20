@@ -232,10 +232,50 @@ export function requestDevSessionRestart(
   return true
 }
 
+// The restart each serving compiler asks for again on its next change.
+const retryByCompiler = new WeakMap<object, DevSessionRestartRequest>()
+const retryTapped = new WeakSet<object>()
+
+interface WatchingCompiler {
+  hooks?: {watchRun?: {tap?: (name: string, fn: () => void) => void}}
+}
+
+// The next change the serving compiler sees asks for the failed restart
+// again, unless a newer request is already in line to take its place.
+function retryOnNextChange(
+  compiler: object,
+  request: DevSessionRestartRequest
+): void {
+  retryByCompiler.set(compiler, request)
+
+  if (retryTapped.has(compiler)) return
+
+  const watchRun = (compiler as WatchingCompiler).hooks?.watchRun
+  if (typeof watchRun?.tap !== 'function') return
+
+  retryTapped.add(compiler)
+  watchRun.tap('extjs-session-restart-retry', () => {
+    const retry = retryByCompiler.get(compiler)
+    if (!retry) return
+
+    retryByCompiler.delete(compiler)
+
+    if (liveSessionOf(compiler)?.hasQueuedRequest()) return
+
+    requestDevSessionRestart(compiler, retry)
+  })
+}
+
 // A restart that could not build its next compiler leaves this one serving,
-// so it reports its own diagnostics again.
-export function endCompilerRestart(compiler: object | undefined): void {
-  if (compiler) restartingCompilers.delete(compiler)
+// so it reports its own diagnostics again and retries on the next change.
+export function endCompilerRestart(
+  compiler: object | undefined,
+  retry?: DevSessionRestartRequest
+): void {
+  if (!compiler) return
+
+  restartingCompilers.delete(compiler)
+  if (retry) retryOnNextChange(compiler, retry)
 }
 
 export function isCompilerRestarting(compiler: object | undefined): boolean {

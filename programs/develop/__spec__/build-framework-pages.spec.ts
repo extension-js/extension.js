@@ -207,8 +207,6 @@ async function build(
   mode: 'production' | 'development' = 'production'
 ) {
   const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
   const lines: string[] = []
   const originalError = console.error
   const originalLog = console.log
@@ -228,8 +226,7 @@ async function build(
       browser: 'chrome',
       silent: false,
       install: false,
-      mode,
-      exitOnError: false
+      mode
     } as any)
   } catch (error) {
     throw new Error(`build failed: ${String(error)}\n${lines.join('\n')}`)
@@ -237,8 +234,6 @@ async function build(
     process.stderr.write = originalStderr
     console.error = originalError
     console.log = originalLog
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
   }
 
   const distDir = path.join(root, 'dist', 'chrome')

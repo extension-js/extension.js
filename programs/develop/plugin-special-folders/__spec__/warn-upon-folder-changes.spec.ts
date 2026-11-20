@@ -78,6 +78,7 @@ const createFakeCompiler = () => {
       context: projectRoot
     },
     hooks,
+    watchMode: true,
     modifiedFiles: new Set<string>(),
     removedFiles: new Set<string>()
   }

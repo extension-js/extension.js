@@ -5,6 +5,7 @@ import {afterAll, describe, expect, it} from 'vitest'
 // The published type, so a config a project annotates with it is what the
 // fixtures write and the typecheck gate fails once the type drops the key.
 import type {FileConfig} from '../../extension/config-types'
+import {buildProject} from './helpers/build-project'
 
 // An offscreen document only Chromium opens lives in pages/ beside a page
 // every browser ships. `browser.firefox.exclude` leaves it out of the Firefox
@@ -66,23 +67,11 @@ async function build(
   browser: 'chrome' | 'firefox',
   mode: 'production' | 'development' = 'production'
 ) {
-  const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
-
-  try {
-    return await extensionBuild(root, {
-      browser,
-      silent: true,
-      install: false,
-      mode,
-      addonLint: false,
-      exitOnError: false
-    } as any)
-  } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
-  }
+  return buildProject(root, {
+    browser,
+    mode,
+    addonLint: false
+  })
 }
 
 function emittedFiles(root: string, browser: string) {

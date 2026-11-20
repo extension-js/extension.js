@@ -412,7 +412,10 @@ export class WarnUponFolderChanges {
     compiler.hooks.done.tap(
       {name: 'special-folders:warn-upon-folder-changes', stage: -1000},
       (stats) => {
-        this.dropNoiseAboutGoneFiles(compiler, stats.compilation)
+        if (compiler.watchMode) {
+          this.dropNoiseAboutGoneFiles(compiler, stats.compilation)
+        }
+
         this.compileEnded = true
       }
     )
@@ -433,6 +436,8 @@ export class WarnUponFolderChanges {
     compiler.hooks.thisCompilation.tap(
       'special-folders:warn-upon-folder-changes',
       (compilation) => {
+        if (!compiler.watchMode) return
+
         const projectPath: string =
           (compiler.options.context as string) || process.cwd()
 

@@ -330,7 +330,7 @@ describe('content-script-wrapper loader', () => {
     )
 
     expect(wrapped).toBe(vendored)
-    expect(wrapped).not.toContain('__EXTJS_WRAPPER_KIND')
+    expect(wrapped).not.toContain('__EXTENSIONJS_BUNDLE_KEY')
     expect(wrapped).not.toContain('__EXTENSIONJS_REINJECT_GENERATION')
   })
 
@@ -395,7 +395,6 @@ describe('content-script-wrapper loader', () => {
       "console.log('declared min entry')"
     )
 
-    expect(wrapped).toContain('var __EXTJS_WRAPPER_KIND="FS3_INLINE";')
     expect(wrapped).toContain(
       'var __EXTENSIONJS_BUNDLE_KEY="content_scripts/content-0";'
     )
@@ -499,12 +498,56 @@ describe('content-script-wrapper loader', () => {
       "console.log('plain module execution')"
     )
 
-    expect(wrapped).toContain('var __EXTJS_WRAPPER_KIND="FS3_INLINE";')
+    expect(wrapped).toContain(
+      'var __EXTENSIONJS_BUNDLE_KEY="content_scripts/content-0";'
+    )
+
     expect(wrapped).toContain(
       'try { __EXTENSIONJS_scheduleBundleCssHydration() }'
     )
 
     expect(wrapped).not.toContain('__EXTENSIONJS_mount(__EXTENSIONJS_default__')
+  })
+
+  // Nothing reads a marker naming the wrapper, so no bundle carries one.
+  it('ships no wrapper marker in either mode or module shape', () => {
+    const projectDir = createTempProject()
+    const contentDir = path.join(projectDir, 'content')
+    fs.mkdirSync(contentDir, {recursive: true})
+
+    const manifestPath = path.join(projectDir, 'manifest.json')
+    const resourcePath = path.join(contentDir, 'scripts.ts')
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        manifest_version: 3,
+        content_scripts: [{matches: ['<all_urls>'], js: ['content/scripts.ts']}]
+      }),
+      'utf8'
+    )
+
+    for (const mode of ['development', 'production']) {
+      for (const source of [
+        "console.log('plain module')\n",
+        'export default function main() { return () => {} }\n'
+      ]) {
+        const wrapped = String(
+          contentScriptWrapper.call(
+            createLoaderContext(
+              resourcePath,
+              manifestPath,
+              'chrome',
+              mode
+            ) as any,
+            source
+          )
+        )
+
+        expect(wrapped).toContain('var __EXTENSIONJS_BUNDLE_KEY=')
+        expect(wrapped).not.toContain('__EXTJS_WRAPPER_KIND')
+        expect(wrapped).not.toContain('MOUNT_WRAPPED')
+      }
+    }
   })
 
   it('wraps a declared entry referenced through a symlinked ancestor dir', () => {
@@ -775,5 +818,71 @@ describe('what an extension asks of the wrapper', () => {
 
     expect(extended).toContain(filter)
     expect(extended).not.toContain(ownCheck)
+  })
+
+  // A page with no shadow root of ours has nothing to style, so a dev build
+  // asks for its sheet when a root needs it, the way the shipped one does.
+  it('reads the stylesheet only once a shadow root wants it, in both modes', async () => {
+    const {manifestPath, resourcePath} = writeDeclaredEntry()
+    const source = [
+      "import './styles.css'",
+      'export default function mount() {',
+      '  return () => {}',
+      '}'
+    ].join('\n')
+
+    for (const mode of ['development', 'production']) {
+      const wrapped = String(
+        contentScriptWrapper.call(
+          createLoaderContext(
+            resourcePath,
+            manifestPath,
+            'chrome',
+            mode
+          ) as any,
+          source
+        )
+      )
+      const script = wrapped
+        .replace(/^import .*$/gm, '')
+        .replace(/^export default .*$/gm, '')
+        .replaceAll('import.meta.url', '"chrome-extension://spec/c.js"')
+      const realm = createRealm()
+      const hosts: unknown[] = []
+      const timers: Array<() => void> = []
+      const fetched: string[] = []
+      const doc = {
+        ...realm.document,
+        querySelectorAll: () => hosts
+      }
+
+      new Function('globalThis', 'document', 'fetch', 'setTimeout', script)(
+        realm.sandbox,
+        doc,
+        (url: string) => {
+          fetched.push(url)
+
+          return Promise.resolve({ok: true, text: () => Promise.resolve('')})
+        },
+        (fn: () => void) => timers.push(fn)
+      )
+
+      const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+      for (let i = 0; i < 3; i++) timers.shift()?.()
+      await settle()
+
+      expect(fetched, mode).toEqual([])
+
+      hosts.push({
+        shadowRoot: {querySelectorAll: () => []},
+        getAttribute: () => null
+      })
+
+      timers.shift()?.()
+      await settle()
+
+      expect(fetched, mode).toEqual(['chrome-extension://spec/styles.css'])
+    }
   })
 })
