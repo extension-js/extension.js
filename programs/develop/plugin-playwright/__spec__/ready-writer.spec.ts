@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {chromiumExtensionId} from '../../lib/extension-id'
+import {processStartedAtMs} from '../../lib/process-started-at'
 import {
   forgetSessionRun,
   getSessionRunId,
@@ -682,7 +683,16 @@ describe('ready.json writer preservation', () => {
   it('a build writer never rewrites a LIVE dev session contract', () => {
     const devWriter = makeWriter()
     devWriter.writeReady()
-    patchContract(devWriter.readyPath, {pid: process.ppid})
+    // Another live process, stamped with when it really started.
+    const parentStartedAt = processStartedAtMs(process.ppid)
+    patchContract(devWriter.readyPath, {
+      pid: process.ppid,
+      pidStartedAt:
+        parentStartedAt == null
+          ? undefined
+          : new Date(parentStartedAt).toISOString()
+    })
+
     const ready = readContract(devWriter.readyPath)
 
     const buildWriter = makeProjectWriter(tmp, {command: 'build'})

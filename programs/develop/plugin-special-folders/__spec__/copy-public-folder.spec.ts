@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import {stripVTControlCharacters as stripAnsi} from 'node:util'
 import {afterEach, describe, expect, it} from 'vitest'
 import {SpecialFoldersPlugin} from '..'
 import {
@@ -112,9 +113,17 @@ describe('SpecialFoldersPlugin copies public/ in a real compile', () => {
       'public/manifest.json': '{"name": "public copy"}'
     })
 
-    expect(result.errors.map((error) => error.message)).toContain(
-      `manifest.json must not be placed under public/: ${path.join(result.root, 'public', 'manifest.json')}`
-    )
+    expect(
+      result.errors.map((error) => ({
+        name: error.name,
+        message: stripAnsi(error.message)
+      }))
+    ).toContainEqual({
+      name: 'ManifestInPublicFolder',
+      message:
+        'public/manifest.json is left out of the build: the manifest the build writes comes from the manifest.json the project names, and only one file can claim that output path.\n' +
+        'Move it out of the public folder, or delete it.'
+    })
 
     expect(result.assets['manifest.json']).toBeUndefined()
     // A production build with an error writes nothing at all.

@@ -11,6 +11,7 @@ import {
   manifest,
   notBundledRefs,
   PAGE,
+  pageNotBundledRefs,
   project
 } from './helpers/private-files-project'
 
@@ -82,12 +83,11 @@ const SHIPPED_FROM_A_PAGE = [
 
 const MARKED_FROM_A_PAGE = ['package.json']
 
-const MISSING_FROM_A_PAGE = [
-  ...PRIVATE_TARGETS,
-  ...CLIMBING_TARGETS,
-  ...LINKED_TARGETS,
-  '/nothing.txt'
-].sort()
+// A climbing path is read at the extension root, where nothing sits.
+const MISSING_FROM_A_PAGE = [...CLIMBING_TARGETS, '/nothing.txt'].sort()
+
+// A file that is there and stays out is said to be not bundled.
+const NOT_BUNDLED_FROM_A_PAGE = [...PRIVATE_TARGETS, ...LINKED_TARGETS].sort()
 
 // The project's own package.json is a file the build ships when named, and
 // the fixture marks it. No other output file may hold private text.
@@ -101,11 +101,16 @@ function expectOnlyProjectManifestMarked(result: Built) {
 
 const times = (text: string, part: string) => text.split(part).length - 1
 
-// Each ref is said once, in the words a missing page asset gets. The text is
-// read twice over: the printed lines, then the summary that repeats them.
+// Each ref is said once, in the words a missing page asset gets or in the
+// words of a file left out. The text is read twice over: the printed lines,
+// then the summary that repeats them.
 function expectEachSaidOnce(result: Built) {
   for (const ref of MISSING_FROM_A_PAGE) {
     expect(times(result.printed, `Update the ${ref} reference`), ref).toBe(2)
+  }
+
+  for (const ref of NOT_BUNDLED_FROM_A_PAGE) {
+    expect(times(result.printed, ` ${ref} is not bundled.`), ref).toBe(2)
   }
 
   expect(
@@ -127,6 +132,10 @@ describe('a root-absolute path that names a file outside public/', () => {
       expect(result.shipped).toEqual(SHIPPED_FROM_A_PAGE)
       expect(result.marked).toEqual(MARKED_FROM_A_PAGE)
       expect(result.missing).toEqual(MISSING_FROM_A_PAGE)
+      expect(pageNotBundledRefs(result.printed)).toEqual(
+        NOT_BUNDLED_FROM_A_PAGE
+      )
+
       expect(result.errors).toBe(0)
       expectEachSaidOnce(result)
       expectOnlyProjectManifestMarked(result)
@@ -147,6 +156,10 @@ describe('a root-absolute path that names a file outside public/', () => {
       expect(result.shipped).toEqual(SHIPPED_FROM_A_PAGE)
       expect(result.marked).toEqual(MARKED_FROM_A_PAGE)
       expect(result.missing).toEqual(MISSING_FROM_A_PAGE)
+      expect(pageNotBundledRefs(result.printed)).toEqual(
+        NOT_BUNDLED_FROM_A_PAGE
+      )
+
       expect(result.errors).toBe(0)
       expectEachSaidOnce(result)
       expectOnlyProjectManifestMarked(result)
@@ -295,7 +308,7 @@ describe('a root-absolute path that names a file outside public/', () => {
       expect(stopped.shipped).toEqual([])
       expect(stopped.marked).toEqual([])
       expect(stopped.printed).toContain(
-        "Can't find an icon file listed in icons."
+        '.env is not bundled. Check the icons field in your manifest.json file.'
       )
 
       expect(stopped.printed).toContain(`NOT FOUND ${path.join(root, '.env')}`)
@@ -352,7 +365,8 @@ describe('a root-absolute path that names a file outside public/', () => {
       // The copier leaves the file out, so public/ does not answer for it.
       expect(result.shipped).toEqual(['theme.css'])
       expect(result.marked).toEqual([])
-      expect(result.missing).toEqual(['/.env', '/.npmrc'])
+      expect(result.missing).toEqual([])
+      expect(pageNotBundledRefs(result.printed)).toEqual(['/.env', '/.npmrc'])
       expect(result.printed).toContain(
         'public/.env is an env file, and it is left out of the chrome build.'
       )
@@ -553,27 +567,46 @@ describe('a withheld root-absolute reference and a missing one', () => {
           sheet
         )
       ]
+      // A file that is there says so, and keeps the code of its tag.
+      const kept = (
+        code: string,
+        ref: string,
+        tag: string,
+        holds: string,
+        page: string,
+        notFound: string
+      ) =>
+        [
+          `${code}${ref} is not bundled. Check the ${tag} that names it in this page.`,
+          `The build never bundles env files, tooling files or repository files. Move the ${holds} into a file with another name.`,
+          `PATH ${page}`,
+          `NOT FOUND ${notFound}`,
+          'The page loads without it.'
+        ].join('\n')
       const withheld = (page: string, dir: string) => [
-        said(
+        kept(
           'W_ENTRY_NOT_FOUND: ',
-          'a script file',
+          `/${dir}.env.js`,
+          '<script>',
+          'code',
           page,
-          `${dir}.env.js`,
-          script
+          `${dir}.env.js`
         ),
-        said(
+        kept(
           'W_ENTRY_NOT_FOUND: ',
-          'a stylesheet',
+          `/${dir}.env.css`,
+          '<link>',
+          'contents',
           page,
-          `${dir}.env.css`,
-          sheet
+          `${dir}.env.css`
         ),
-        said(
+        kept(
           'W_ASSET_MISSING: ',
-          'an asset',
+          `/${dir}.npmrc`,
+          'tag',
+          'contents',
           page,
-          `${dir}.npmrc`,
-          asset(`/${dir}.npmrc`)
+          `${dir}.npmrc`
         )
       ]
 
@@ -594,15 +627,17 @@ describe('a withheld root-absolute reference and a missing one', () => {
         ].sort()
       )
 
-      // Each withheld ref opens as a missing one of the same tag.
+      // Each withheld ref carries the code of a missing one of the same tag.
+      const codeOf = (notFound: string) => opening(notFound)?.[0].split(':')[0]
+
       for (const dir of ['', 'o/']) {
-        for (const [kept, absent] of [
+        for (const [there, absent] of [
           ['.env.js', 'missing.js'],
           ['.env.css', 'missing.css'],
           ['.npmrc', 'missing']
         ]) {
-          expect(opening(`${dir}${kept}`), kept).toEqual(
-            opening(`${dir}${absent}`)
+          expect(codeOf(`${dir}${there}`), there).toEqual(
+            codeOf(`${dir}${absent}`)
           )
         }
       }

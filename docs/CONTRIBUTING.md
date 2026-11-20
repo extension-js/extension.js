@@ -114,6 +114,7 @@ cd my-extension && pnpm dev
 - `pnpm test:e2e`, Playwright end-to-end tests
 - `pnpm lint`, Biome lint (config in `biome.json`), a Biome format check, then `eslint .`
 - `pnpm format`, Runs `scripts/format-wrapper.cjs`: Biome format write, then `eslint . --fix`, over the whole repo
+- `pnpm smoke:first-dev` | `pnpm smoke:browser-identity` | `pnpm smoke:content-reload` | `pnpm smoke:open-action`, Hand-run checks that launch a real browser against the compiled CLI. No CI job runs them, so run the one that matches a change to first run, browser detection, content script reload or the action button before you open a pull request
 
 Tip: run a single package’s script with Turbo filters, e.g.:
 

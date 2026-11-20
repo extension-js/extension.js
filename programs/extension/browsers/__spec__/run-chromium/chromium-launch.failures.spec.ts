@@ -462,6 +462,23 @@ describe('a Chromium launch that does not reach a running extension', () => {
     })
   })
 
+  // The wire dies because the browser is leaving, and the exit is the news.
+  describe('a handshake that dies with the browser', () => {
+    it('reports the exit and not the broken wire', async () => {
+      const {runOnly} = await start({
+        script: {
+          handshake: 'dies',
+          exitsAfterMs: 200,
+          exit: {code: 0, signal: null}
+        }
+      })
+      await onFakeClock(runOnly)
+
+      expect(said('error')).not.toContain('[browser] CDP pipe closed')
+      expect(said('error').join('\n')).toContain('chrome closed cleanly')
+    })
+  })
+
   describe('a guest the browser refuses', () => {
     it('ends a run-only launch on the reason the browser gave and stops the browser', async () => {
       const {plugin, runOnly} = await start()

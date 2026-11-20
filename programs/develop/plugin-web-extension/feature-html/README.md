@@ -25,7 +25,7 @@ This module is part of the [Extension.js](https://extension.js.org) project. It 
 - Asks for a dev server restart when the list of scripts or stylesheets of a page changes, and when a script or stylesheet that was missing at startup is created. A live session restarts by itself.
 - Gives a Chromium `options_ui` page that opens in the embedded dialog (`open_in_tab` not `true`) a `<link rel="stylesheet" href="/options/dialog-floor.css" data-extension-js="options-dialog-floor">` first in `<head>`, and ships `options/dialog-floor.css` holding `html{min-height:32px}`. It is a file and not a `<style>` tag because an extension policy of `style-src 'self'` blocks an inline style, and the dialog would then never open. Chrome opens that dialog on the page's first non-empty layout and stops drawing a guest shorter than 8px, so a page that paints empty until data arrives would never open it, and a 1px first paint would open it and never grow. Author styles come later and win. Pages that open in a tab, the legacy `options_page`, Gecko and Safari builds are left untouched.
 
-### Path resolution convention (consistent across @plugin-extension)
+### Path resolution convention (consistent across plugin-web-extension)
 
 - Leading `/` means extension root (public root) relative to the directory containing `manifest.json`.
 - Relative paths are resolved from the manifest directory.

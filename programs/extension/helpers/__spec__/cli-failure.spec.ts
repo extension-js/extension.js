@@ -83,8 +83,9 @@ describe('commanderErrorEnvelope', () => {
     expect(frame.command).toBe('dev')
     expect(frame.status).toBe('usage')
     expect(frame.error?.code).toBe('E_FLAG_NOT_SUPPORTED_HERE')
-    expect(frame.error?.message).toBe("unknown option '--nope'")
+    expect(frame.error?.message).toBe('Unknown option --nope.')
     expect(frame.error?.refs).toEqual({flag: '--nope'})
+    expect(frame.hint).toBe('Run extension dev --help to see the options.')
   })
 
   it('maps an unknown command and carries the command as a ref', () => {
@@ -109,6 +110,19 @@ describe('commanderErrorEnvelope', () => {
     )
     expect(frame.error?.code).toBe('E_FLAG_VALUE_INVALID')
     expect(frame.error?.refs).toEqual({flag: '--output'})
+  })
+
+  it('names the long flag of an option that also has a short one', () => {
+    const frame = commanderErrorEnvelope(
+      {
+        code: 'commander.optionMissingArgument',
+        message:
+          "error: option '-b, --browser <chrome | firefox>' argument missing"
+      },
+      'dev'
+    )
+    expect(frame.error?.message).toBe('Missing value for --browser.')
+    expect(frame.error?.refs).toEqual({flag: '--browser'})
   })
 
   it('maps a missing required argument onto E_ARGS without refs', () => {
@@ -241,7 +255,10 @@ describe('a command handed more arguments than it takes', () => {
 
     expect(frame.status).toBe('usage')
     expect(frame.error?.code).toBe('E_ARGS')
-    expect(frame.error?.message).toContain('my, extension, folder')
+    expect(frame.error?.message).toBe(
+      'Unexpected arguments: extension, folder. extension dev takes 1 argument.'
+    )
+
     expect(frame.hint).toBe(
       'Put quotes around a path that has spaces, or run extension dev --help to see the arguments.'
     )
@@ -270,7 +287,7 @@ describe('a command handed more arguments than it takes', () => {
         },
         'dev'
       ).hint
-    ).toBeUndefined()
+    ).toBe('Run extension dev --help to see the options.')
   })
 })
 

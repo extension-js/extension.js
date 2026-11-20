@@ -3,7 +3,7 @@ import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {
   getSpecialFoldersDataForProjectRoot,
-  walkedScriptsLeftOut
+  walkedEntriesLeftOut
 } from '../get-data'
 import {listOutput} from './helpers/compile-harness'
 import {
@@ -114,7 +114,7 @@ async function tableFor(root: string) {
 const leftOut = (files: string[], browser = 'chrome') =>
   [
     `${files.join(', ')} ${files.length === 1 ? 'is' : 'are'} left out of the ${browser} build.`,
-    `The build never bundles env files, tooling files or repository files, or a file a link brings from outside the project or from node_modules. To build ${files.length === 1 ? 'it as a script, give it another name or copy it' : 'them as scripts, give them another name or copy them'} into the project.`
+    `The build never bundles env files, tooling files or repository files, or a file a link brings from outside the project or from node_modules. To build ${files.length === 1 ? 'it, give it another name or copy it' : 'them, give them another name or copy them'} into the project.`
   ].join('\n')
 
 // How many times the build said a file was left out, in any words.
@@ -282,7 +282,7 @@ describe('the list of walked scripts', () => {
       'scripts/ok'
     ])
 
-    expect(walkedScriptsLeftOut(root)).toEqual([
+    expect(walkedEntriesLeftOut(root)).toEqual([
       'scripts/.env.example.js',
       'scripts/.env.js',
       'scripts/.env.local.js',
@@ -306,7 +306,7 @@ describe('the list of walked scripts', () => {
 
     // The author named the folder, and a private name in it stays out.
     expect(keysOf(root, folders)).toEqual(['scripts/shared'])
-    expect(walkedScriptsLeftOut(root, folders)).toEqual([
+    expect(walkedEntriesLeftOut(root, folders)).toEqual([
       '../outside-scripts/scripts/.env.js',
       '../outside-scripts/scripts/.git/tool.js'
     ])
@@ -316,6 +316,6 @@ describe('the list of walked scripts', () => {
     const root = fixture({})
 
     expect(keysOf(root, {scripts: false})).toEqual([])
-    expect(walkedScriptsLeftOut(root, {scripts: false})).toEqual([])
+    expect(walkedEntriesLeftOut(root, {scripts: false})).toEqual([])
   })
 })

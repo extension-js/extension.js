@@ -29,7 +29,7 @@ A failure adds two more properties so a failure count can be read as a cause rat
 | `exit_code` | the process exit code, an integer from 0 to 255                            |
 
 `code` is checked against the catalog before it is sent. A Node errno, a message, or any
-value that is not a catalog name is dropped and the event reports `E_INTERNAL` instead, so
+value that is not a catalog name is dropped and the event is sent with no `code` at all, so
 no error text ever travels.
 
 A failure with `code` `E_INTERNAL` is one the CLI did not expect, so the code alone cannot say

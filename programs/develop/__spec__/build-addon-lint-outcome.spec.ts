@@ -16,7 +16,8 @@ import type {BuildSummary} from '../lib/build-summary'
 import {buildSummaryPath} from '../lib/session-paths'
 
 const injected = vi.hoisted(() => ({
-  override: {} as Partial<Pick<RunAddonLintInput, 'loadLinter' | 'timeoutMs'>>
+  override: {} as Partial<Pick<RunAddonLintInput, 'loadLinter' | 'timeoutMs'>>,
+  throws: undefined as Error | undefined
 }))
 
 vi.mock('../lib/addon-lint', async (importActual) => {
@@ -25,7 +26,9 @@ vi.mock('../lib/addon-lint', async (importActual) => {
   return {
     ...actual,
     runAddonLint: (input: RunAddonLintInput) =>
-      actual.runAddonLint({...input, ...injected.override})
+      injected.throws
+        ? Promise.reject(injected.throws)
+        : actual.runAddonLint({...input, ...injected.override})
   }
 })
 
@@ -37,6 +40,7 @@ afterAll(() => {
 
 afterEach(() => {
   injected.override = {}
+  injected.throws = undefined
 })
 
 function stripAnsi(value: string): string {
@@ -334,6 +338,33 @@ describe('the store check outcome after a production firefox build', () => {
     ).toContain('old findings')
 
     expect(output).toContain('commands.build.addonLint: false')
+    expect(output).toMatch(
+      /reviewer note of the last lint moved to .*amo-reviewer-note\.stale\.md/
+    )
+  }, 180_000)
+
+  it('a store check that throws before it runs retires the note of the last lint', async () => {
+    const root = project()
+    const note = path.join(root, 'dist', ADDON_REVIEWER_NOTE_FILE)
+    fs.mkdirSync(path.dirname(note), {recursive: true})
+    fs.writeFileSync(note, '# Notes to reviewer\n\nold findings\n')
+
+    injected.throws = new Error('boom before the run')
+    const {output, receipt} = await build(root)
+
+    expect(receipt.addon_lint).toEqual({
+      status: 'failed',
+      reason: 'addons-linter crashed: boom before the run'
+    })
+
+    expect(fs.existsSync(note)).toBe(false)
+    expect(
+      fs.readFileSync(
+        path.join(root, 'dist', ADDON_REVIEWER_NOTE_STALE_FILE),
+        'utf8'
+      )
+    ).toContain('old findings')
+
     expect(output).toMatch(
       /reviewer note of the last lint moved to .*amo-reviewer-note\.stale\.md/
     )

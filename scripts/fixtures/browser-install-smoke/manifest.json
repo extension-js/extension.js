@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Browser install smoke",
+  "version": "0.0.1",
+  "description": "Loaded once a week by the browser install run.",
+  "chromium:background": {
+    "service_worker": "background.js"
+  },
+  "firefox:background": {
+    "scripts": ["background.js"]
+  },
+  "firefox:browser_specific_settings": {
+    "gecko": {
+      "id": "browser-install-smoke@extension.js.org",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
+  }
+}

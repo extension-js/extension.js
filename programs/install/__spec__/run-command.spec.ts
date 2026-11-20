@@ -5,7 +5,9 @@ import path from 'node:path'
 import {spawn} from 'cross-spawn'
 import {afterAll, afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {
+  descendantsOf,
   installTimeoutMs,
+  parseProcessTable,
   type RunCommandOptions,
   runCommand,
   type SpawnProcess
@@ -496,6 +498,72 @@ describe('runCommand with a real child', () => {
       }
     )
 
+    const SWITCH_LINE = 'Switching to root user to install dependencies...'
+
+    // sudo asks on the terminal, which no pipe shows, so silence after the
+    // root-switch line is the one sign that the prompt is still waiting.
+    it.skipIf(process.platform === 'win32')(
+      'stops an attached installer, and the prompt it started, once the password wait passes',
+      async () => {
+        const run = start(
+          'const prompt = require("node:child_process").spawn(process.execPath, ' +
+            `["-e", '${IDLE}', "--", "${TAG}"], {stdio: "inherit"}); ` +
+            `process.stdout.write(prompt.pid + "\\n${SWITCH_LINE}\\n"); ${IDLE}`,
+          {ownGroup: false, promptWaitMs: 300}
+        )
+        await until(() => printed().includes(SWITCH_LINE))
+        const prompt = Number(printed().split('\n')[0])
+        // Not in the child's group, so the cleanup has to name it.
+        started.push(prompt)
+
+        const result = await run
+
+        expect(result).toEqual({
+          code: null,
+          signal: 'SIGTERM',
+          stdout: `${prompt}\n${SWITCH_LINE}\n`,
+          stderr: '',
+          promptTimedOut: true
+        })
+
+        await until(() => !alive(prompt))
+        expect(alive(prompt)).toBe(false)
+        expect(alive(started[0])).toBe(false)
+      },
+      15_000
+    )
+
+    it('lets an installer run on once anything follows the root-switch line', async () => {
+      const result = await start(
+        `process.stdout.write("${SWITCH_LINE}\\n"); ` +
+          'setTimeout(() => process.stderr.write("+ arch\\n"), 50); ' +
+          'setTimeout(() => process.exit(0), 700)',
+        {ownGroup: false, promptWaitMs: 300}
+      )
+
+      expect(result).toEqual({
+        code: 0,
+        signal: null,
+        stdout: `${SWITCH_LINE}\n`,
+        stderr: '+ arch\n'
+      })
+    })
+
+    it('starts no password wait for an installer that was not given one', async () => {
+      const result = await start(
+        `process.stdout.write("${SWITCH_LINE}\\n"); ` +
+          'setTimeout(() => process.exit(0), 400)',
+        {ownGroup: false}
+      )
+
+      expect(result).toEqual({
+        code: 0,
+        signal: null,
+        stdout: `${SWITCH_LINE}\n`,
+        stderr: ''
+      })
+    })
+
     it.each([
       'SIGINT',
       'SIGTERM'
@@ -640,5 +708,32 @@ describe('installTimeoutMs, read from an environment', () => {
     vi.stubEnv('EXTENSION_INSTALL_TIMEOUT_MS', undefined)
     expect(installTimeoutMs()).toBe(HALF_HOUR)
     vi.unstubAllEnvs()
+  })
+})
+
+describe('the processes under an installer, read from ps', () => {
+  const TABLE =
+    '    1     0\n   10     1\n   11    10\n   12    11\n' +
+    '   20     1\n   13    10\n   21    20\nnot a row\n\n'
+
+  it('reads each pid beside its parent and skips what is not a row', () => {
+    expect(parseProcessTable(TABLE)).toEqual([
+      [1, 0],
+      [10, 1],
+      [11, 10],
+      [12, 11],
+      [20, 1],
+      [13, 10],
+      [21, 20]
+    ])
+  })
+
+  it('walks every level under the root and nothing beside it', () => {
+    expect(descendantsOf(10, parseProcessTable(TABLE))).toEqual([11, 13, 12])
+    expect(descendantsOf(21, parseProcessTable(TABLE))).toEqual([])
+  })
+
+  it('stops on a table that loops back on itself', () => {
+    expect(descendantsOf(5, parseProcessTable('5 7\n7 5\n'))).toEqual([7])
   })
 })

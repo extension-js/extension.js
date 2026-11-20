@@ -37,7 +37,6 @@ export interface ManifestEntries {
 }
 
 const isCodeAsset = (name: string) => /\.(js|mjs|cjs|css|wasm)$/i.test(name)
-const isSourceMap = (name: string) => /\.map$/i.test(name)
 const isHotUpdate = (name: string) => /(^|\/)hot\//.test(name)
 const isSharedChunk = (name: string) => name.startsWith(`${SHARED_CHUNK_DIR}/`)
 const isRootServiceWorkerFile = (name: string) =>
@@ -123,7 +122,6 @@ export function categorizeAsset(
   const name = String(rawName || '').replace(/\\/g, '/')
   if (!name) return 'ignored'
   if (!isCodeAsset(name)) return 'ignored'
-  if (isSourceMap(name)) return 'ignored'
   if (isHotUpdate(name)) return 'ignored'
   if (info?.copied) return 'public'
   if (manifestEntries?.background.has(name)) return 'service-worker'

@@ -183,8 +183,8 @@ export class PerfBudgetsPlugin {
   // Budgets are a production check, so a dev-only budget block is told so
   // once instead of being accepted and never read.
   private warnDevBudgets(compiler: Compiler) {
-    const projectPath = String(compiler.options?.context || '')
-    if (!projectPath || !compiler.hooks?.watchRun?.tapPromise) return
+    const projectPath = String(compiler.options.context || '')
+    if (!projectPath) return
 
     compiler.hooks.watchRun.tapPromise(PerfBudgetsPlugin.name, async () => {
       const configPath = findConfigFile(projectPath)
@@ -214,7 +214,7 @@ export class PerfBudgetsPlugin {
       return
     }
 
-    const projectPath = String(compiler.options?.context || '')
+    const projectPath = String(compiler.options.context || '')
     const configPath = projectPath ? findConfigFile(projectPath) : undefined
     const {budgets, ignore, onExceed, unknownKeys} = resolvePerfBudgets(
       this.options.budgets,
@@ -231,21 +231,21 @@ export class PerfBudgetsPlugin {
     const ignored = ignore.map(ignorePatternToRegExp)
 
     const report = (compilation: Compilation) => {
-      if (compilation.errors?.length) return
+      if (compilation.errors.length) return
 
       const oversized: OversizedAsset[] = []
-      const assets = compilation.assets || {}
+      const assets = compilation.assets
       let unreadable = false
       const referrers = collectAssetReferrers(compilation, () => {
         unreadable = true
       })
       const manifestEntries = manifestEntriesOf(
-        String(assets['manifest.json']?.source?.() ?? '')
+        String(assets['manifest.json']?.source() ?? '')
       )
       const tightened: string[] = []
 
       for (const [name, source] of Object.entries(assets)) {
-        const size = (source as {size?: () => number})?.size?.() ?? 0
+        const size = source.size()
         if (!size) continue
 
         const normalized = name.replace(/\\/g, '/')
@@ -253,7 +253,7 @@ export class PerfBudgetsPlugin {
 
         let category = categorizeAsset(
           name,
-          compilation.getAsset?.(name)?.info,
+          compilation.getAsset(name)?.info,
           referrers.get(normalized),
           manifestEntries
         )
@@ -280,17 +280,13 @@ export class PerfBudgetsPlugin {
 
       oversized.sort((a, b) => b.size - a.size)
 
-      const ErrorConstructor = compiler?.rspack?.WebpackError || Error
+      const ErrorConstructor = compiler.rspack.WebpackError
 
       // The author asked for an overrun to stop the build, so it is an error
       // of the compilation and nothing is written over the last good output.
       if (onExceed === 'error') {
         const error = new ErrorConstructor(perfBudgetError(oversized))
         ;(error as Error).name = 'PerfBudgetError'
-
-        if (!compilation.errors) {
-          compilation.errors = []
-        }
 
         compilation.errors.push(error)
 
@@ -299,10 +295,6 @@ export class PerfBudgetsPlugin {
 
       const warning = new ErrorConstructor(perfBudgetWarning(oversized))
       ;(warning as Error).name = 'PerfBudgetWarning'
-
-      if (!compilation.warnings) {
-        compilation.warnings = []
-      }
 
       compilation.warnings.push(warning)
     }

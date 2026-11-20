@@ -43,7 +43,9 @@
 - `manifestPath`
 - `port`
 - `pid`
-- `ts`
+- `ts`: when `status` was last written. Both writers move it only with the
+  status, never for a fact stamped beside it, so a reader can date the status
+  by it
 - `compiledAt`
 - `errors`: the last failed compile's messages as plain text (no color),
   whether the compile reported errors or the compiler itself failed, empty
@@ -74,7 +76,15 @@
   `browserLaunchFailedCode`, `browserUpNotAttachedAt`,
   `browserUpNotAttachedWaitMs` and `browserUpNotAttachedHint`, and
   `extensionLoadRefusedAt`, `extensionLoadRefusedReason` and
-  `extensionLoadRefusedCause`, and `profileLockedAt` and `profileLockOwner`
+  `extensionLoadRefusedCause`, and `profileLockedAt` and `profileLockOwner`.
+  Every field the launcher stamps is kept across recompiles of the same run,
+  including one this list does not name yet. `browserUpNotAttached*` and
+  `extensionLoadRefused*` reset when the run starts again
+- a browser verdict is kept across recompiles: once the launcher wrote `status:
+  error` with a code of its own (`browser_exited`, `browser_launch_failed`,
+  `profile_locked`, `extension_load_refused`), a compile that succeeds leaves
+  that status, code and message as they are. Only `compile_error` and
+  `compile_failed` are cleared by the next good compile
 - optional `engine: emulator` with `browserPid: null` for an emulator run
 - optional `controlPortUnavailableReason`: the bind error, present whenever
   `controlPort` is `null` because the control bridge could not start. It is part
@@ -136,7 +146,8 @@ contract it mirrors reads `status: error` with `code: browser_launch_failed`.
 
 The stream is bounded like `logs.ndjson`: it rotates at 8 MB or 50,000 lines
 into `events.1.ndjson` through `events.3.ndjson`, and a single row over 64 KB
-has its error text trimmed and is marked `truncated: true`. Every row stays
+has its text trimmed (each error and any other long field such as `reason`)
+and is marked `truncated: true`. Every row stays
 valid JSON, so a consumer always parses line by line.
 
 ### Usage
@@ -175,6 +186,13 @@ metadata.writeError('preview_manifest_missing', 'Expected manifest at ...')
 ```
 
 ### Notes
+
+- A write that fails (a file where the output folder goes, a read-only dist)
+  prints one warning naming the file and the error code. It is said again only
+  after a write to that file succeeded in between.
+- A live dev session owns its contract while its `pid` is alive and started
+  at `pidStartedAt` (within 2 seconds). A reused pid owns nothing, so a build
+  beside it writes its own receipt.
 
 - Keep extension payload clean: metadata lives under `dist/extension-js/*`, not `dist/<browser>`.
 - For scripts/agents, parse these files instead of terminal output.

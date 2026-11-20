@@ -166,7 +166,11 @@ const ROWS: Row[] = [
     writeResult: NOT_WRITTEN,
     exit: 1,
     writes: ['enabled'],
-    stderr: ['✗ Could not write telemetry consent file.'],
+    stderr: [
+      '⏵⏵⏵ Error: Could not write telemetry consent file.\n' +
+        'PATH /tmp/consent.json\n' +
+        'Check write permissions on the consent file path.'
+    ],
     frame: CONSENT_NOT_WRITTEN
   },
   {
@@ -175,7 +179,11 @@ const ROWS: Row[] = [
     writeResult: NOT_WRITTEN,
     exit: 1,
     writes: ['disabled'],
-    stderr: ['✗ Could not write telemetry consent file.'],
+    stderr: [
+      '⏵⏵⏵ Error: Could not write telemetry consent file.\n' +
+        'PATH /tmp/consent.json\n' +
+        'Check write permissions on the consent file path.'
+    ],
     frame: CONSENT_NOT_WRITTEN
   },
   {
@@ -311,7 +319,10 @@ const ROWS: Row[] = [
     exit: 1,
     writes: [],
     resets: 1,
-    stderr: ['✗ Could not remove every telemetry file.'],
+    stderr: [
+      '⏵⏵⏵ Error: Could not remove every telemetry file.\n' +
+        'Check write permissions on the telemetry folder.'
+    ],
     frame: {
       ok: false,
       status: 'failed',
@@ -329,7 +340,8 @@ const ROWS: Row[] = [
     exit: 1,
     writes: [],
     stderr: [
-      'Unknown telemetry action: bogus. Expected: enable | disable | status | reset.'
+      '⏵⏵⏵ Error: Unknown telemetry action: bogus.\n' +
+        'Expected: enable | disable | status | reset.'
     ],
     frame: {
       ok: false,

@@ -11,8 +11,8 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {parseAuthoredJson} from '../lib/parse-json-safe'
 import {hasPrivateFileName} from '../plugin-special-folders/public-private-files'
-import {publicRootsFor} from '../plugin-special-folders/resolve-public-folder'
 import {getCanonicalContentScriptEntryName} from '../plugin-web-extension/feature-scripts/contracts'
+import {relativePublicRootsOf} from './build-reads'
 import {projectRelative} from './project-relative'
 import {DEV_CONTENT_SCRIPT_REGISTRY_ASSET} from './reload-lib/dev-content-scripts'
 
@@ -137,22 +137,6 @@ function isLeftOutPublicSource(rel: string, publicRoots?: string[]) {
   const output = publicOutputPath(rel, publicRoots)
 
   return output !== undefined && hasPrivateFileName(output)
-}
-
-// The public/ roots as project-relative, forward-slashed prefixes so they
-// compare with the changed-source paths the tracker records.
-function relativePublicRoots(
-  compilation: import('@rspack/core').Compilation,
-  contextDir: string
-): string[] {
-  const out: string[] = []
-
-  for (const root of publicRootsFor(compilation?.compiler)) {
-    const rel = projectRelative(contextDir, root)
-    if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) out.push(rel)
-  }
-
-  return out
 }
 
 // Loader-prefixed module identifier to project-relative resource path(s).
@@ -324,7 +308,7 @@ export function buildSourceFeatureIndex(
     contentEntriesBySource: new Map(),
     pageSources: new Set(),
     scriptFilesBySource,
-    publicRoots: relativePublicRoots(compilation, contextDir)
+    publicRoots: relativePublicRootsOf(compilation?.compiler, contextDir)
   }
   const compilationOf = chunksByCompilation(compilation)
   const chunks = [...compilationOf.keys()]

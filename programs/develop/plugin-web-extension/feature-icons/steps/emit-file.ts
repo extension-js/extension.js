@@ -22,6 +22,7 @@ import {
   themeIconOutputPath,
   themeImageOutputPath
 } from '../../feature-manifest/normalize-manifest-path'
+import {withheldEntryKind} from '../../feature-scripts/scripts-lib/utils'
 import {reportToCompilation} from '../../shared/compilation-issues'
 import {isFolder} from '../../shared/paths'
 import * as messages from '../messages'
@@ -213,7 +214,7 @@ export class EmitFile {
                 // --load-extension shows that only as a native modal.
                 const isThemeImage = group === 'theme' && sub === 'images'
 
-                // A withheld file is reported the way a missing one is.
+                // A withheld file stops the build as a missing one does.
                 const withheld =
                   fs.existsSync(resolved) &&
                   !sourceMayShip(resolved, projectPath, manifestDir, {
@@ -241,13 +242,26 @@ export class EmitFile {
                   reportToCompilation(
                     compilation,
                     compiler,
-                    isThemeImage
-                      ? messages.themeImageMissingFile(feature, displayPath, {
-                          publicRootHint: isPublicRoot
-                        })
-                      : messages.iconsMissingFile(feature, displayPath, {
-                          publicRootHint: isPublicRoot
-                        }),
+                    withheld
+                      ? messages.iconFileWithheld(
+                          feature,
+                          path
+                            .relative(manifestDir, resolved)
+                            .split(path.sep)
+                            .join('/'),
+                          withheldEntryKind(resolved, [
+                            projectPath,
+                            manifestDir
+                          ]),
+                          displayPath
+                        )
+                      : isThemeImage
+                        ? messages.themeImageMissingFile(feature, displayPath, {
+                            publicRootHint: isPublicRoot
+                          })
+                        : messages.iconsMissingFile(feature, displayPath, {
+                            publicRootHint: isPublicRoot
+                          }),
                     'error',
                     'manifest.json',
                     'IconsMissingFile'

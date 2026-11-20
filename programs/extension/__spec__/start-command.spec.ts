@@ -186,7 +186,6 @@ const UNTYPED_BUILD = {
 }
 
 const UNTYPED_LAUNCH = {
-  mode: 'production',
   profile: undefined,
   browser: 'chromium',
   chromiumBinary: undefined,
@@ -266,7 +265,7 @@ const FORWARDING: ForwardingRow[] = [
   // dev. start serves nothing, so the value is taken and never forwarded.
   {argv: ['--public-host', '203.0.113.7']},
   {
-    argv: ['--log-context', 'background, nope ,content'],
+    argv: ['--log-context', 'background, CONTENT '],
     launch: {logContexts: ['background', 'content']}
   },
   {argv: ['--log-context', 'all']},
@@ -384,6 +383,31 @@ describe('extension start flag forwarding', () => {
     expect(configReads[0]).toEqual([PROJECT, 'start'])
   })
 
+  it('says what --port and --host bind in start --help', () => {
+    const help = startCommand().helpInformation().replace(/\s+/g, ' ')
+
+    expect(help).toContain(
+      "--port <port> seed the browser's debugging port, which listens on this value plus 100. Without it the browser listens on 9222"
+    )
+
+    expect(help).toContain(
+      '--host <host> host the control channel binds to under --allow-control or --allow-eval. Nothing else listens. Defaults to `127.0.0.1`'
+    )
+
+    expect(help).not.toContain('development server')
+    expect(help).not.toContain('dev server')
+  })
+
+  // A typed --no-browser and one from extension.config.js both open no
+  // browser, and the control channel rides on the browser.
+  it('refuses --allow-control when the config turns the browser off', async () => {
+    commandConfig = {noBrowser: true}
+
+    expect(await run(['start', PROJECT, '--allow-control'])).toBe(1)
+    expect(stderr).toEqual([CONTROL_NEEDS_BROWSER])
+    expect(builds).toEqual([])
+  })
+
   it('lists both control flags in start --help', () => {
     const help = startCommand().helpInformation()
 
@@ -421,7 +445,25 @@ const WHOLE_NUMBER_USE = {
     'Use a whole number from 0 to 65535, such as 8080. 0 picks a free port.'
 } as const
 
+const CONTROL_NEEDS_BROWSER_TEXT =
+  '--no-browser cannot be combined with --allow-control or --allow-eval on start.\n' +
+  'The control channel is carried by the browser this command opens, and --no-browser opens none. Drop --no-browser, or drop --allow-control and --allow-eval.'
+
+const CONTROL_NEEDS_BROWSER = `⏵⏵⏵ Error: ${CONTROL_NEEDS_BROWSER_TEXT}`
+
 const REFUSALS: RefusalRow[] = [
+  ...[['--allow-control'], ['--allow-eval']].map(
+    (argv): RefusalRow => ({
+      name: `--no-browser with ${argv[0]}`,
+      argv,
+      env: {EXTENSION_CLI_NO_BROWSER: '1'},
+      stderr: [CONTROL_NEEDS_BROWSER],
+      frame: {
+        status: 'usage',
+        error: {code: 'E_INVALID_OPTION', message: CONTROL_NEEDS_BROWSER_TEXT}
+      }
+    })
+  ),
   ...[
     ['--wait-timeout', '5000'],
     ['--wait', 'false', '--wait-timeout', '5000']
@@ -624,6 +666,24 @@ describe('extension start --output json', () => {
     expect(reportFailure.mock.calls).toEqual([
       [{code: CODES.E_COMPILE, exitCode: 1}]
     ])
+  })
+
+  it.each([
+    [
+      'E_MANIFEST_NOT_FOUND',
+      'Add a manifest.json at the project root or in src/, or pass the folder that holds it.'
+    ],
+    [
+      'E_MANIFEST_IN_PUBLIC',
+      'Move manifest.json out of public/ to the project root or src/. Files in public/ are copied to the output as they are.'
+    ]
+  ])('frames %s from the build as usage with the way out', async (code, hint) => {
+    build = async () => {
+      throw Object.assign(new Error('Manifest file not found.'), {code})
+    }
+
+    expect(await run(['start', '.', '--output', 'json'])).toBe(1)
+    expect(frames()).toMatchObject([{status: 'usage', error: {code}, hint}])
   })
 
   it('keeps the code the build declared in the frame and the failure row', async () => {

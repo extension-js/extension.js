@@ -49,7 +49,7 @@ function channels(match: RegExpExecArray): number[] | undefined {
 }
 
 // Only the forms with one exact [R, G, B] reading translate for Chromium.
-// An alpha, a percentage, hsl() or a color name stays the author's call.
+// A color name has one reading too. An alpha, a percentage or hsl() does not.
 export function translateThemeColor(value: unknown): number[] | undefined {
   if (typeof value !== 'string') return undefined
 
@@ -58,8 +58,13 @@ export function translateThemeColor(value: unknown): number[] | undefined {
   if (hex) return hexBytes(hex[1])
 
   const rgb = RGB.exec(text)
+  if (rgb) return channels(rgb)
 
-  return rgb ? channels(rgb) : undefined
+  const name = text.toLowerCase()
+
+  return Object.prototype.hasOwnProperty.call(NAMED_CSS_COLORS, name)
+    ? [...NAMED_CSS_COLORS[name]]
+    : undefined
 }
 
 export function formatThemeArray(entries: number[]): string {

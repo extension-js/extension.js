@@ -682,7 +682,9 @@ export class EnvPlugin {
         compilation.hooks.processAssets.tap(
           {
             name: 'env:module',
-            stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE
+            // Ahead of the page rewrite at OPTIMIZE_SIZE - 1, which builds on
+            // the templated markup and must not escape a value a second time.
+            stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_SIZE - 2
           },
           (assets) => {
             // Prefer compilation assets to be robust against different bundler versions

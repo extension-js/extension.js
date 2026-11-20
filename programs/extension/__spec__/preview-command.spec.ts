@@ -122,7 +122,6 @@ function flagsIn(argv: string[]): string[] {
 // What extensionPreview receives when no flag is typed. A row states only the
 // keys its flags change, and the whole object is compared.
 const UNTYPED = {
-  mode: 'production',
   profile: undefined,
   browser: 'chromium',
   chromiumBinary: undefined,
@@ -130,6 +129,7 @@ const UNTYPED = {
   noOpen: undefined,
   startingUrl: undefined,
   port: undefined,
+  host: undefined,
   noBrowser: false,
   extensions: undefined,
   outputPath: undefined,
@@ -191,8 +191,9 @@ const FORWARDING: ForwardingRow[] = [
   },
   {argv: ['--port', '9000'], options: {port: '9000'}},
   {argv: ['--port', '0'], options: {port: '0'}},
+  {argv: ['--host', '0.0.0.0'], options: {host: '0.0.0.0'}},
   {
-    argv: ['--log-context', 'background, nope ,content'],
+    argv: ['--log-context', 'background, CONTENT '],
     options: {logContexts: ['background', 'content']}
   },
   {argv: ['--log-context', 'all'], options: {}},
@@ -253,6 +254,25 @@ describe('extension preview flag forwarding', () => {
   it('reads the project config for the preview command before it picks a browser', async () => {
     expect(await run(['preview', PROJECT])).toBe(0)
     expect(configReads[0]).toEqual([PROJECT, 'preview'])
+  })
+
+  // preview serves nothing: --port seeds the browser's debugging port, and
+  // --host binds only the control channel --allow-control opens.
+  it('says what --port and --host bind in preview --help', () => {
+    const help = makeProgram(registerPreviewCommand)
+      .commands.find((cmd) => cmd.name() === 'preview')
+      ?.helpInformation()
+      .replace(/\s+/g, ' ')
+
+    expect(help).toContain(
+      "--port <port> seed the browser's debugging port, which listens on this value plus 100. Without it the browser listens on 9222"
+    )
+
+    expect(help).toContain(
+      '--host <host> host the control channel binds to under --allow-control or --allow-eval. Nothing else listens. Defaults to `127.0.0.1`'
+    )
+
+    expect(help).not.toContain('development server')
   })
 
   // preview never starts the dev server, so nothing reads a connectable host.
@@ -448,6 +468,24 @@ describe('extension preview --output json', () => {
     ])
   })
 
+  it.each([
+    [
+      'E_MANIFEST_NOT_FOUND',
+      'Add a manifest.json at the project root or in src/, or pass the folder that holds it.'
+    ],
+    [
+      'E_MANIFEST_IN_PUBLIC',
+      'Move manifest.json out of public/ to the project root or src/. Files in public/ are copied to the output as they are.'
+    ]
+  ])('frames %s as usage with the way out', async (code, hint) => {
+    preview = async () => {
+      throw Object.assign(new Error('Manifest file not found.'), {code})
+    }
+
+    expect(await run(['preview', '.', '--output', 'json'])).toBe(1)
+    expect(frames()).toMatchObject([{status: 'usage', error: {code}, hint}])
+  })
+
   // Both needles are matched against real producer copy, so a rewrite of either
   // message fails here rather than silently downgrading to E_INTERNAL.
   it('pins the not-found needles against the real producers', async () => {
@@ -477,6 +515,30 @@ describe('extension preview --output json', () => {
         status: 'not-found',
         value: null,
         error: {code: 'E_PREVIEW_NO_DIST', message: `${needle} …`},
+        warnings: [],
+        hint: 'Run `extension build` before previewing.'
+      }
+    ])
+  })
+
+  // The engine stamps nothing to preview with its code, so the frame reads
+  // the code and not the copy, and keeps the status and hint it always had.
+  it('frames a coded E_PREVIEW_NO_DIST as not-found with the build hint', async () => {
+    preview = async () => {
+      throw Object.assign(new Error('No build to run here'), {
+        code: 'E_PREVIEW_NO_DIST'
+      })
+    }
+
+    expect(await run(['preview', '.', '--output', 'json'])).toBe(1)
+    expect(frames()).toEqual([
+      {
+        schema: 1,
+        ok: false,
+        command: 'preview',
+        status: 'not-found',
+        value: null,
+        error: {code: 'E_PREVIEW_NO_DIST', message: 'No build to run here'},
         warnings: [],
         hint: 'Run `extension build` before previewing.'
       }

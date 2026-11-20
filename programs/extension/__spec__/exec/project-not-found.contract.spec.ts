@@ -78,8 +78,8 @@ function put(file: string, body: unknown): void {
 }
 
 const REFUSALS: RefusalRow[] = [
-  // Pins current behavior: a not-found message, a generic hint and an empty
-  // stderr for a manifest that sits in public.
+  // A manifest that sits in public is a usage mistake. The message names the
+  // file it found and the frame hint names the fix.
   {
     code: 'E_MANIFEST_IN_PUBLIC',
     label: 'build pointed at the public folder that holds the manifest',
@@ -97,15 +97,15 @@ const REFUSALS: RefusalRow[] = [
           schema: 1,
           ok: false,
           command: 'build',
-          status: 'build-failed',
+          status: 'usage',
           value: null,
           error: {
             code: 'E_MANIFEST_IN_PUBLIC',
             message:
-              'Manifest file not found.\nNOT FOUND <dir>/manifest.json\nEnsure the path to your extension exists, then try again.'
+              'manifest.json sits in the public/ folder.\nFOUND <dir>/public/manifest.json\nFiles in public/ are copied to the output as they are. Move manifest.json to the project root or src/, then try again.'
           },
           warnings: [],
-          hint: 'Fix the error above and run build again.'
+          hint: 'Move manifest.json out of public/ to the project root or src/. Files in public/ are copied to the output as they are.'
         }
       ],
       stderr: [''].join('\n')
@@ -328,8 +328,7 @@ const REFUSALS: RefusalRow[] = [
   {
     code: 'E_PARENT_GONE',
     label: 'dev told to follow a parent pid that is gone',
-    // Pins current behavior: the frame, then a SIGTERM to itself, so the
-    // parent sees a signal and no exit code.
+    // Gone before the engine loads: one frame and exit 1, no signal.
     setup: (dir) => {
       put(path.join(dir, 'manifest.json'), mv3)
 
@@ -338,8 +337,8 @@ const REFUSALS: RefusalRow[] = [
       }
     },
     expected: {
-      status: null,
-      signal: 'SIGTERM',
+      status: 1,
+      signal: null,
       frames: [
         {
           schema: 1,
@@ -356,15 +355,14 @@ const REFUSALS: RefusalRow[] = [
         }
       ],
       stderr: [
-        '[Extension.js] Parent process 999999999 is gone (--parent-pid). Shutting down.',
+        '⏵⏵⏵ Error: Parent process 999999999 is gone (--parent-pid). Shutting down.',
         ''
       ].join('\n')
     }
   }
 ]
 
-// Rows written for posix: native path separators, the ENOTDIR text, and the
-// SIGTERM the E_PARENT_GONE run sends itself.
+// Rows written for posix: native path separators and the ENOTDIR text.
 describe.skipIf(process.platform === 'win32')(
   'a refusal one command gives before any browser, read whole',
   () => {

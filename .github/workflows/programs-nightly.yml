@@ -22,12 +22,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            ~/.pnpm-store
-            ~/.cache/ms-playwright
-          key: nightly-chromium-${{ runner.os }}-20-${{ hashFiles('**/pnpm-lock.yaml') }}
+          path: ~/.cache/ms-playwright
+          key: nightly-chromium-${{ runner.os }}-playwright-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
-            nightly-chromium-${{ runner.os }}-20-
+            nightly-chromium-${{ runner.os }}-playwright-
       - uses: ./.github/actions/setup
         with:
           node-version: '22'
@@ -80,12 +78,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            ~/.pnpm-store
-            ~/.cache/ms-playwright
-          key: nightly-edge-${{ runner.os }}-20-${{ hashFiles('**/pnpm-lock.yaml') }}
+          path: ~/.cache/ms-playwright
+          key: nightly-edge-${{ runner.os }}-playwright-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
-            nightly-edge-${{ runner.os }}-20-
+            nightly-edge-${{ runner.os }}-playwright-
       - uses: ./.github/actions/setup
         with:
           node-version: '22'
@@ -147,12 +143,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            ~/.pnpm-store
-            ~/.cache/ms-playwright
-          key: nightly-firefox-${{ runner.os }}-20-${{ hashFiles('**/pnpm-lock.yaml') }}
+          path: ~/.cache/ms-playwright
+          key: nightly-firefox-${{ runner.os }}-playwright-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
-            nightly-firefox-${{ runner.os }}-20-
+            nightly-firefox-${{ runner.os }}-playwright-
       - uses: ./.github/actions/setup
         with:
           node-version: '22'
@@ -329,12 +323,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            ~/.pnpm-store
-            ~/.cache/ms-playwright
-          key: nightly-runtimes-${{ matrix.browser }}-${{ runner.os }}-20-${{ hashFiles('**/pnpm-lock.yaml') }}
+          path: ~/.cache/ms-playwright
+          key: nightly-runtimes-${{ matrix.browser }}-${{ runner.os }}-playwright-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
-            nightly-runtimes-${{ matrix.browser }}-${{ runner.os }}-20-
+            nightly-runtimes-${{ matrix.browser }}-${{ runner.os }}-playwright-
       - uses: ./.github/actions/setup
         with:
           node-version: '22'

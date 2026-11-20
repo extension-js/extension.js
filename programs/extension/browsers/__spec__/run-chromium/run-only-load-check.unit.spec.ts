@@ -45,11 +45,9 @@ vi.mock('../../browsers-lib/banner', () => ({
   printProdBannerOnce: vi.fn(async () => true)
 }))
 
-// No develop bridge: wait mode falls back to the plain dist/extension-js path.
+// An empty bridge: wait mode reads the plain dist/extension-js path.
 vi.mock('../../../helpers/extension-develop-runtime', () => ({
-  loadExtensionDevelopBridgeModule: vi.fn(async () => {
-    throw new Error('no bridge in this spec')
-  })
+  loadExtensionDevelopBridgeModule: vi.fn(async () => ({}))
 }))
 
 import {runWaitMode} from '../../../commands/dev-wait'
