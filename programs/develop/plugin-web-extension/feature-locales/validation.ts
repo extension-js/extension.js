@@ -11,12 +11,12 @@ import * as path from 'node:path'
 import type {Compilation, Compiler} from '@rspack/core'
 import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
 import {debugLine, isDebug} from '../../lib/messaging'
-import {findUndefinedMsgReferences} from '../../lib/msg-placeholders'
 import {parseAuthoredJson} from '../../lib/parse-json-safe'
 import type {DevOptions, Manifest} from '../../types'
 import {pushCompilationError} from './compilation-error'
 import {resolveLocalesFolder} from './get-locales'
 import * as messages from './messages'
+import {findUndefinedMsgReferences} from './msg-placeholders'
 
 function readDefaultLocale(
   manifestPath: string,

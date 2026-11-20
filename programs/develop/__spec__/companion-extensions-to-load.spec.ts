@@ -289,6 +289,115 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
     ).toEqual([themeForBrowser, userOut])
   })
 
+  describe('a project that is a built-in itself', () => {
+    function firefoxBuiltIns(root: string) {
+      const devtools = path.join(
+        root,
+        'dist',
+        'extension-js-devtools',
+        'firefox'
+      )
+      const theme = path.join(root, 'dist', 'extension-js-theme', 'firefox')
+
+      const write = (dir: string, manifest: object) => {
+        fs.mkdirSync(dir, {recursive: true})
+        fs.writeFileSync(
+          path.join(dir, 'manifest.json'),
+          JSON.stringify(manifest)
+        )
+      }
+
+      write(devtools, {
+        manifest_version: 3,
+        name: 'Extension.js',
+        version: '0.0.0',
+        browser_specific_settings: {gecko: {id: 'devtools@extension.js'}}
+      })
+
+      write(theme, {
+        manifest_version: 2,
+        name: 'Extension.js Theme',
+        version: '0.0.0',
+        theme: {colors: {}}
+      })
+
+      return {devtools, theme}
+    }
+
+    it('leaves the built-in devtools out when the project carries its gecko id', () => {
+      const root = tmpDir('extjs-builtin-same-id-')
+      const {theme} = firefoxBuiltIns(root)
+      const userOut = path.join(root, 'user', 'dist', 'firefox')
+      fs.mkdirSync(userOut, {recursive: true})
+      fs.writeFileSync(
+        path.join(userOut, 'manifest.json'),
+        JSON.stringify({
+          manifest_version: 3,
+          name: 'Extension.js',
+          version: '0.0.0',
+          browser_specific_settings: {gecko: {id: 'devtools@extension.js'}}
+        })
+      )
+
+      expect(
+        computeExtensionsToLoad(root, 'development', 'firefox', userOut, [])
+      ).toEqual([theme, userOut])
+    })
+
+    it('leaves the built-in devtools out when the project has its package name', () => {
+      const root = tmpDir('extjs-builtin-same-package-')
+      const {theme} = firefoxBuiltIns(root)
+      const project = path.join(root, 'user')
+      const userOut = path.join(project, 'dist', 'firefox')
+      fs.mkdirSync(path.join(project, 'src'), {recursive: true})
+      fs.writeFileSync(
+        path.join(project, 'package.json'),
+        JSON.stringify({name: 'extension-js-devtools'})
+      )
+
+      fs.writeFileSync(
+        path.join(project, 'src', 'manifest.json'),
+        JSON.stringify({
+          manifest_version: 3,
+          name: 'Extension.js',
+          version: '0.0.0',
+          applications: {gecko: {id: 'another@example.com'}}
+        })
+      )
+
+      expect(
+        computeExtensionsToLoad(
+          root,
+          'development',
+          'firefox',
+          userOut,
+          [],
+          path.join(project, 'src', 'manifest.json')
+        )
+      ).toEqual([theme, userOut])
+    })
+
+    it('keeps the built-in devtools for a project with another id and name', () => {
+      const root = tmpDir('extjs-builtin-other-')
+      const {devtools, theme} = firefoxBuiltIns(root)
+      const userOut = path.join(root, 'user', 'dist', 'firefox')
+      fs.mkdirSync(userOut, {recursive: true})
+      fs.writeFileSync(
+        path.join(userOut, 'manifest.json'),
+        JSON.stringify({
+          manifest_version: 3,
+          name: 'Mine',
+          version: '0.0.0',
+          browser_specific_settings: {gecko: {id: 'mine@example.com'}}
+        })
+      )
+
+      expect(
+        computeExtensionsToLoad(root, 'development', 'firefox', userOut, [])
+      ).toEqual([devtools, theme, userOut])
+    })
+  })
+
   it('leaves the built-in theme out for Opera and Yandex and keeps it for the other Chromium targets', () => {
     const root = tmpDir('extjs-builtins-theme-refusal-')
     const userOut = path.join(root, 'dist', 'chromium')

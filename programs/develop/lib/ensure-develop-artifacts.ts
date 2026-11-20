@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {Writable} from 'node:stream'
 import {codedError} from './coded-error'
 import {corepackRegistryOrigin} from './corepack-registry'
 import {
@@ -224,6 +225,14 @@ export type DevelopArtifactsOptions = {
   watchPollMs?: number
 }
 
+function discard(): Writable {
+  return new Writable({
+    write(_chunk, _encoding, done) {
+      done()
+    }
+  })
+}
+
 export async function ensureDevelopArtifacts(
   options?: DevelopArtifactsOptions
 ) {
@@ -261,7 +270,6 @@ export async function ensureDevelopArtifacts(
   const command = buildInstallCommand(pm, ['run', 'compile'])
   const rebuild = [command.command, ...command.args].join(' ')
   const isAuthor = isDebug()
-  const stdio = isAuthor ? 'inherit' : 'ignore'
 
   if (isAuthor) {
     console.warn(
@@ -272,11 +280,22 @@ export async function ensureDevelopArtifacts(
   }
 
   try {
-    await execInstallCommand(command.command, command.args, {
-      cwd: developRoot,
-      stdio
-    })
-  } catch {
+    // Quiet unless it fails: the output is kept, not printed, so a failed
+    // compile shows its own error above the refusal instead of nothing.
+    await execInstallCommand(
+      command.command,
+      command.args,
+      isAuthor
+        ? {cwd: developRoot, stdio: 'inherit'}
+        : {cwd: developRoot, tee: {stdout: discard(), stderr: discard()}}
+    )
+  } catch (error) {
+    const output = (error as InstallCommandError)?.output
+
+    if (!isAuthor && output?.trim()) {
+      console.error(messages.developCompileOutput(output))
+    }
+
     throw codedError(
       CODES.E_INTERNAL,
       messages.developArtifactsMissing(missing, {command: rebuild, developRoot})

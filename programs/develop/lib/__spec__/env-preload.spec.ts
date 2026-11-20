@@ -5,6 +5,7 @@ import {afterAll, afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {getEnvFileCandidates} from '../../plugin-compilation/env'
 import {
   envFileCandidates,
+  forgetPreloadedEnvOf,
   getPreloadedEnvKeys,
   loadCommandConfig,
   loadProjectConfigDefaults
@@ -367,6 +368,36 @@ describe('env preload keeps two projects apart', () => {
     expect(await seenBy(second)).toBe(
       'set-by-the-host|second-both|second-SHELL'
     )
+  })
+
+  it('takes a project file values out of the host when its session ends', async () => {
+    process.env.EXTENSION_PUBLIC_SHELL = 'from-shell'
+    const first = project(FIRST_FILES)
+
+    await seenBy(first)
+    expect(process.env.EXTENSION_PUBLIC_ONLY_FIRST).toBe('first-only')
+
+    forgetPreloadedEnvOf(first)
+
+    expect(process.env.EXTENSION_PUBLIC_ONLY_FIRST).toBeUndefined()
+    expect(process.env.EXTENSION_PUBLIC_BOTH).toBeUndefined()
+    expect(process.env.EXTENSION_PUBLIC_SHELL).toBe('from-shell')
+    expect([...getPreloadedEnvKeys()]).toEqual([])
+  })
+
+  it('leaves the values of another project loaded since then in place', async () => {
+    const first = project(FIRST_FILES)
+    const second = project(SECOND_FILES)
+
+    await seenBy(first)
+    await seenBy(second)
+    forgetPreloadedEnvOf(first)
+
+    expect(process.env.EXTENSION_PUBLIC_BOTH).toBe('second-both')
+    expect([...getPreloadedEnvKeys()].sort()).toEqual([
+      'EXTENSION_PUBLIC_BOTH',
+      'EXTENSION_PUBLIC_SHELL'
+    ])
   })
 
   it('keeps each config its own values when two projects load at once', async () => {

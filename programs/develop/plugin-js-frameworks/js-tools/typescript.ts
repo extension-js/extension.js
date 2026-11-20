@@ -14,6 +14,7 @@ import {
   findNearestProjectManifestDirSync,
   hasProjectDependency
 } from '../../lib/project-manifest'
+import {getUserTypeScriptConfigFile} from '../../lib/user-tsconfig'
 import type {DevOptions} from '../../types'
 import {isUsingJSFramework} from '../frameworks-lib/integrations'
 import {getJsxImportSource} from '../js-frameworks-lib/jsx-transform'
@@ -169,24 +170,6 @@ export function defaultTypeScriptConfig(projectPath: string) {
     },
     exclude: ['node_modules', 'dist']
   }
-}
-
-export function getUserTypeScriptConfigFile(projectPath: string) {
-  // The project root is the same fallback writeTsConfig uses. A manifest-only
-  // project has no package.json to sit beside, so without it the scaffold is
-  // written and then never found again: TypeScript detection stays false and
-  // the .ts source reaches the JS parser as 'const declarations must be
-  // initialized'.
-  const searchDirs = [findNearestPackageJsonDirectory(projectPath), projectPath]
-
-  for (const dir of searchDirs) {
-    if (!dir) continue
-
-    const tsconfigPath = path.join(dir, 'tsconfig.json')
-    if (fs.existsSync(tsconfigPath)) return tsconfigPath
-  }
-
-  return undefined
 }
 
 // A JavaScript project keeps its path aliases in jsconfig.json, which the

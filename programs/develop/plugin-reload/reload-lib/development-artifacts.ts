@@ -8,9 +8,9 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {CONTROL_PORT_ASSET_NAME} from '../dev-server/control-bridge/producer-runtime'
-import {DEV_CONTENT_SCRIPT_REGISTRY_ASSET} from '../plugin-reload/reload-lib/dev-content-scripts'
-import {isDevContentScriptStandInAsset} from '../plugin-web-extension/feature-scripts/contracts'
+import {CONTROL_PORT_ASSET_NAME} from '../../dev-server/control-bridge/producer-runtime'
+import {isDevContentScriptStandInAsset} from '../../plugin-web-extension/feature-scripts/contracts'
+import {DEV_CONTENT_SCRIPT_REGISTRY_ASSET} from './dev-content-scripts'
 
 const DEV_HOT_UPDATES_DIR = 'hot'
 

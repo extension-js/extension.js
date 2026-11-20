@@ -8,7 +8,7 @@
 
 import {createRequire} from 'node:module'
 import type {Compiler} from '@rspack/core'
-import {resolveConnectableHost} from '../dev-server/connectable-host'
+import {resolveConnectableHost} from './connectable-host'
 
 const cjsRequire = createRequire(import.meta.url)
 

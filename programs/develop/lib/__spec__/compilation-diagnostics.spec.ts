@@ -280,7 +280,7 @@ describe('warningCodes', () => {
     const codes = warningCodes({
       warnings: [
         named('PerfBudgetWarning', '\u001b[33mtoo big\u001b[0m\n'),
-        named('MissingCssAssetWarning', 'CSS asset "a.png" was not found'),
+        named('HtmlAssetMissing', 'Asset "a.png" was not found'),
         new Error('uncoded'),
         'a bare string'
       ]
@@ -288,7 +288,7 @@ describe('warningCodes', () => {
 
     expect([...codes]).toEqual([
       ['too big', 'W_PERF_BUDGET'],
-      ['CSS asset "a.png" was not found', 'W_ASSET_MISSING']
+      ['Asset "a.png" was not found', 'W_ASSET_MISSING']
     ])
   })
 

@@ -9,10 +9,12 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {codedError} from './coded-error'
+import {STOCK_COMPANION_DIR} from './constants'
 import * as messages from './messages'
 import {CODES, stripChannelPrefix} from './messaging'
 import {parseAuthoredJson} from './parse-json-safe'
 import {devtoolsEngineFor} from './paths'
+import {findNearestProjectManifestDirSync} from './project-manifest'
 import {realPath} from './real-path'
 
 function hasNewTabOverride(extensionDir: string): boolean {
@@ -28,6 +30,79 @@ function hasNewTabOverride(extensionDir: string): boolean {
   } catch {
     // If the manifest cannot be read/parsed, keep loading behavior unchanged.
     return false
+  }
+}
+
+// The fields read off a manifest.json or package.json to name an extension.
+interface IdentityFields {
+  name?: unknown
+  browser_specific_settings?: {gecko?: {id?: unknown}}
+  applications?: {gecko?: {id?: unknown}}
+}
+
+function readManifestAt(file: string): IdentityFields | undefined {
+  try {
+    const parsed: unknown = parseAuthoredJson(fs.readFileSync(file, 'utf-8'))
+
+    return parsed && typeof parsed === 'object'
+      ? (parsed as IdentityFields)
+      : undefined
+  } catch {
+    return undefined
+  }
+}
+
+function geckoIdOf(manifest: IdentityFields | undefined) {
+  const id =
+    manifest?.browser_specific_settings?.gecko?.id ??
+    manifest?.applications?.gecko?.id
+
+  return typeof id === 'string' && id.trim() ? id.trim() : undefined
+}
+
+// The package names a built-in ships under, in this repository and on npm.
+const BUILT_IN_PACKAGE_NAMES = {
+  'extension-js-devtools': ['extension-js-devtools'],
+  'extension-js-theme': ['extension-js-theme', '@extension-js/theme']
+} as const
+
+// The project is a built-in itself when it carries the built-in's gecko id or
+// package name: loading both would give Firefox two add-ons with one id.
+function isSameAsBuiltIn(
+  builtInDir: string,
+  packageName: keyof typeof BUILT_IN_PACKAGE_NAMES,
+  user: {geckoId?: string; packageName?: string}
+): boolean {
+  if (
+    user.packageName &&
+    (BUILT_IN_PACKAGE_NAMES[packageName] as readonly string[]).includes(
+      user.packageName
+    )
+  ) {
+    return true
+  }
+
+  const builtInId = geckoIdOf(
+    readManifestAt(path.join(builtInDir, 'manifest.json'))
+  )
+
+  return Boolean(user.geckoId && builtInId && user.geckoId === builtInId)
+}
+
+function userIdentity(outputPath: string, manifestPath?: string) {
+  const manifest =
+    (manifestPath ? readManifestAt(manifestPath) : undefined) ??
+    readManifestAt(path.join(outputPath, 'manifest.json'))
+  const projectDir = manifestPath
+    ? findNearestProjectManifestDirSync(path.dirname(manifestPath), 6)
+    : undefined
+  const pkg = projectDir
+    ? readManifestAt(path.join(projectDir, 'package.json'))
+    : undefined
+
+  return {
+    geckoId: geckoIdOf(manifest),
+    packageName: typeof pkg?.name === 'string' ? pkg.name : undefined
   }
 }
 
@@ -347,10 +422,6 @@ export function companionsDeclaredIn(
   return undefined
 }
 
-// The folder the commands scan when no layer says which one. Its absence
-// is the usual state of a project, so it is never spoken of on its own.
-const STOCK_SCAN_DIR = './extensions'
-
 function declaredScanDir(config: unknown): string | undefined {
   if (!config || typeof config !== 'object' || Array.isArray(config)) {
     return undefined
@@ -392,7 +463,7 @@ export function unresolvedNamedCompanions(input: {
 
   // A folder some layer declared and that is not there loads nothing, and
   // without a word a typo runs the session with no companion at all.
-  if (scanDir && (input.declaredIn || scanDir !== STOCK_SCAN_DIR)) {
+  if (scanDir && (input.declaredIn || scanDir !== STOCK_COMPANION_DIR)) {
     const folder = path.resolve(input.projectRoot, scanDir)
 
     if (!isFolderAsSpelled(folder)) {
@@ -508,11 +579,21 @@ export function computeExtensionsToLoad(
     const shouldSkipDevtoolsForNtpConflict =
       userHasNewTabOverride && devtoolsHasNewTabOverride
 
-    if (devtoolsForBrowser && !shouldSkipDevtoolsForNtpConflict) {
+    const user = userIdentity(userExtensionOutputPath, userManifestPath)
+
+    if (
+      devtoolsForBrowser &&
+      !shouldSkipDevtoolsForNtpConflict &&
+      !isSameAsBuiltIn(devtoolsForBrowser, 'extension-js-devtools', user)
+    ) {
       list.push(devtoolsForBrowser)
     }
 
-    if (themeForBrowser && browserAcceptsThemeExtension(browser)) {
+    if (
+      themeForBrowser &&
+      browserAcceptsThemeExtension(browser) &&
+      !isSameAsBuiltIn(themeForBrowser, 'extension-js-theme', user)
+    ) {
       list.push(themeForBrowser)
     }
   } catch {

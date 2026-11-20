@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it, vi} from 'vitest'
 import {PlaywrightPlugin} from '../plugin-playwright'
+import {WarnManifestV2OnChromium} from '../plugin-web-extension/feature-manifest/steps/warn-mv2-on-chromium'
 import webpackConfig from '../rspack-config'
 import {trackTempFolders} from './helpers/temp-folders'
 
@@ -728,17 +729,7 @@ describe('webpack-config MV2 on chromium warning', () => {
     }
 
     for (const plugin of config.plugins ?? []) {
-      if (
-        plugin &&
-        plugin.constructor === Object &&
-        typeof plugin.apply === 'function'
-      ) {
-        try {
-          plugin.apply(compiler)
-        } catch (error) {
-          void error
-        }
-      }
+      if (plugin instanceof WarnManifestV2OnChromium) plugin.apply(compiler)
     }
 
     return tapped
