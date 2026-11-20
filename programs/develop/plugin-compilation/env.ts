@@ -17,6 +17,7 @@ import {
   WebpackError
 } from '@rspack/core'
 import * as dotenv from 'dotenv'
+import {codedError} from '../lib/coded-error'
 import {envFileCandidates, getPreloadedEnvKeys} from '../lib/config-loader'
 import {
   CHROMIUM_FAMILY_ALIASES,
@@ -24,7 +25,9 @@ import {
   SUPPORTED_BROWSERS,
   WEBKIT_BASED_BROWSERS
 } from '../lib/constants'
-import {debugLine, isDebug} from '../lib/messaging'
+import {resolveDevelopDistFile} from '../lib/develop-context'
+import {CODES, debugLine, isDebug} from '../lib/messaging'
+import {toProjectRelativePath} from '../lib/resource-path'
 import {setCurrentManifestContent} from '../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import type {DevOptions, PluginInterface} from '../types'
 import {toJsStringLiteral} from './compilation-lib/js-literal'
@@ -207,6 +210,22 @@ function findNearestWorkspaceRoot(startDir: string): string | undefined {
 
 const ENV_DEFAULTS_FILE = '.env.defaults'
 
+// The compiler is being made when this runs, so the throw carries its own code
+// and the path the author can open, never the bare EISDIR or EACCES.
+function readEnvFile(filePath: string, projectPath: string): Buffer {
+  try {
+    return fs.readFileSync(filePath)
+  } catch (error) {
+    throw codedError(
+      CODES.E_ENV_FILE_UNREADABLE,
+      messages.envFileUnreadable(
+        toProjectRelativePath(projectPath, filePath),
+        (error as NodeJS.ErrnoException)?.code === 'EISDIR'
+      )
+    )
+  }
+}
+
 // Every matching file of one folder is read, never one folder's files mixed
 // with another's. Only .env.defaults falls through from the workspace root.
 function resolveEnvLayers(projectPath: string, layerNames: string[]) {
@@ -361,7 +380,7 @@ export class EnvPlugin {
 
     // Watch every layer of each folder consulted, present or not, so writing
     // a file that was missing mid-session counts as a change as well.
-    if (projectPath && compiler.options.watchOptions) {
+    if (projectPath) {
       new WatchEnvFilesPlugin(
         [...new Set([projectPath, envDir])].flatMap((dir) =>
           envLayers.map((file) => path.join(dir, file))
@@ -379,7 +398,7 @@ export class EnvPlugin {
       if (!fs.existsSync(filePath)) continue
 
       for (const [key, value] of Object.entries(
-        dotenv.parse(fs.readFileSync(filePath))
+        dotenv.parse(readEnvFile(filePath, projectPath))
       )) {
         fileVars[key] = value
         fileOfVar.set(key, path.basename(filePath))
@@ -581,6 +600,20 @@ export class EnvPlugin {
 
     new DefinePlugin(filteredEnvVars).apply(compiler)
 
+    // A define turns a write to a replaced name into `"value" = x`, which no
+    // parser accepts. Last in line, so it reads the JavaScript other loaders made.
+    compiler.options.module?.rules?.push({
+      enforce: 'post',
+      test: /\.[cm]?[jt]sx?$/,
+      loader: resolveDevelopDistFile('env-write-loader'),
+      options: {
+        names: definedEnvNames(
+          filteredEnvVars,
+          compiler.options.optimization?.nodeEnv !== false
+        )
+      }
+    })
+
     // rspack inlines a bare import.meta.url as the module's file:// path, which
     // ships the build machine's folders. new URL(x, import.meta.url) keeps its own rewrite.
     const importMetaUrl = new DefinePlugin({
@@ -722,6 +755,22 @@ export class EnvPlugin {
       }
     )
   }
+}
+
+// The names a dotted env read is replaced for, NODE_ENV included: the bundler
+// defines that one itself from optimization.nodeEnv.
+function definedEnvNames(
+  defines: Record<string, string>,
+  nodeEnvDefined: boolean
+): string[] {
+  const names = new Set(nodeEnvDefined ? ['NODE_ENV'] : [])
+
+  for (const key of Object.keys(defines)) {
+    const name = /^(?:process|import\.meta)\.env\.(.+)$/.exec(key)?.[1]
+    if (name) names.add(name)
+  }
+
+  return [...names].sort()
 }
 
 export function buildTemplateVars(

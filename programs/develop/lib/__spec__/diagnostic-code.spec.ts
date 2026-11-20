@@ -126,6 +126,7 @@ describe('diagnosticCode', () => {
     ['MissingBuildConstantWarning', 'W_BUILD_CONSTANT_UNDEFINED'],
     ['EnvPrivatePlaceholder', 'W_BUILD_CONSTANT_UNDEFINED'],
     ['EnvReservedName', 'W_ENV_NAME_RESERVED'],
+    ['EnvDefinedNameWritten', 'W_ENV_DEFINE_WRITTEN'],
     ['UnknownRegistrationWorld', 'W_SCRIPT_WORLD_UNKNOWN']
   ])('maps a diagnostic named %s to %s', (name, code) => {
     expect(diagnosticCode(named(name))).toBe(code)
@@ -439,7 +440,7 @@ describe('the warning class', () => {
   })
 
   it('finds the W_ names in the catalog', () => {
-    expect(WARNING_NAMES.length).toBe(43)
+    expect(WARNING_NAMES.length).toBe(44)
   })
 
   it.each(WARNING_NAMES)('reports %s on a warning as it is', (code) => {
