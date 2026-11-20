@@ -35,8 +35,6 @@ function mutable(info: AssetInfo): AssetInfo {
 // forces a full extension reload; the name now changes only with the script.
 export class StableContentScriptNames {
   apply(compiler: Compiler) {
-    if (!compiler?.hooks?.thisCompilation) return
-
     compiler.hooks.thisCompilation.tap(
       StableContentScriptNames.name,
       (compilation) => {

@@ -1,5 +1,10 @@
 import {describe, expect, it} from 'vitest'
-import {entryOwnJsFile, initialJsFiles, isJsFile} from '../initial-files'
+import {
+  entryOwnJsFile,
+  initialJsFiles,
+  isHotUpdateFile,
+  isJsFile
+} from '../initial-files'
 
 describe('initial JS files for a page entry', () => {
   it('keeps ordinary chunks', () => {
@@ -105,5 +110,27 @@ describe('initial JS files for a page entry', () => {
     const entrypoint = {getFiles: () => files}
 
     expect(entryOwnJsFile('pages/deals', entrypoint, files)).toBeUndefined()
+  })
+})
+
+// The names a dev session writes, read off a real rebuild, and the ones a
+// compile without the session's renaming would write.
+describe('a hot update file', () => {
+  it.each([
+    'hot/343.d2f4138b33e37f53.js',
+    'hot/343.d2f4138b33e37f53.js.map',
+    'hot/content_scripts/content-0.d2f4138b33e37f53.json',
+    'hot/343.d2f4138b33e37f53.hot-update.js',
+    'hot/background/service_worker.d2f4138b33e37f53.hot-update.json'
+  ])('is recognized by its name, %s', (name) => {
+    expect(isHotUpdateFile(name)).toBe(true)
+  })
+
+  it.each([
+    'content_scripts/content-0.js',
+    'pages/hot/index.js',
+    'scripts/hot.js'
+  ])('is not %s', (name) => {
+    expect(isHotUpdateFile(name)).toBe(false)
   })
 })

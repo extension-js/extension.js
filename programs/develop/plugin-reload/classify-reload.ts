@@ -9,10 +9,12 @@
 import {createHash} from 'node:crypto'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {debugLine, isDebug} from '../lib/messaging'
 import {parseAuthoredJson} from '../lib/parse-json-safe'
 import {hasPrivateFileName} from '../plugin-special-folders/public-private-files'
 import {getCanonicalContentScriptEntryName} from '../plugin-web-extension/feature-scripts/contracts'
 import {relativePublicRootsOf} from './build-reads'
+import * as reloadMessages from './messages'
 import {projectRelative} from './project-relative'
 import {DEV_CONTENT_SCRIPT_REGISTRY_ASSET} from './reload-lib/dev-content-scripts'
 
@@ -498,8 +500,10 @@ export function classifyReloadFromSources(opts: {
 
   try {
     index = getSourceFeatureIndex ? getSourceFeatureIndex() : null
-  } catch {
+  } catch (error) {
     index = null
+
+    if (isDebug()) debugLine(reloadMessages.debugSourceIndexUnreadable(error))
   }
 
   const changedSources = allChangedSources.filter(

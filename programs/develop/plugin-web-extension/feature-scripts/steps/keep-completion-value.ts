@@ -8,6 +8,7 @@
 
 import {Compilation, type Compiler} from '@rspack/core'
 import {prependToEmittedAsset} from '../../../lib/asset-source-maps'
+import {isHotUpdateFile} from '../../shared/initial-files'
 import {
   carriesCompletionValue,
   closeCompletionValueBlock,
@@ -27,8 +28,6 @@ export function keepCompletionValueOf(
   files.add(assetName)
   injectedFiles.set(compilation, files)
 }
-
-const HOT_UPDATE = /\.hot-update\./i
 
 function parsesAsScript(text: string): boolean {
   try {
@@ -61,7 +60,7 @@ export class KeepCompletionValue {
               const injected =
                 injectedFiles.get(compilation)?.has(asset.name) === true
               if (!injected && !SCRIPTS_FILE.test(asset.name)) continue
-              if (HOT_UPDATE.test(asset.name)) continue
+              if (isHotUpdateFile(asset.name)) continue
 
               const text = asset.source.source().toString()
 
