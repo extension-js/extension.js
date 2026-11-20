@@ -219,6 +219,12 @@ export function debugSessionPorts(port: number, controlPort: number | null) {
   return `${getLoggingPrefix('debug')} ports    port=${port} controlPort=${controlPort ?? 'none'}`
 }
 
+// The guard reads fields the bundler's watcher keeps to itself, so a
+// release that renames them has to show somewhere.
+export function debugFolderScanGuardOff(missing: string[]) {
+  return `${getLoggingPrefix('debug')} watch    the folder watcher has no ${missing.join(' or ')}, so scans asked for mid-scan are not held`
+}
+
 export function debugControlFrameTooLarge(maxBytes: number) {
   return `${getLoggingPrefix('debug')} control  closed a socket that sent a frame above ${maxBytes} bytes`
 }

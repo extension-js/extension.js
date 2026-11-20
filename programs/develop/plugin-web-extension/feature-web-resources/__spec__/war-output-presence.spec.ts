@@ -23,35 +23,48 @@ describe('web_accessible_resources: public-root presence checks', () => {
     }
   })
 
-  it("does not warn when public-root resource exists in output (builtAbs present under 'dist/')", () => {
-    const rel = 'pages/oauth-callback.html'
-    const warRef = `/${rel}`
-
-    const outputAbs = path.join(tmpRoot, 'dist', rel)
-    fs.mkdirSync(path.dirname(outputAbs), {recursive: true})
-    fs.writeFileSync(outputAbs, '<html></html>')
-
+  // The manifest patch over a compilation that emits the given files.
+  function patched(
+    listed: string,
+    options: Record<string, unknown>,
+    emitted: Record<string, string> = {}
+  ) {
     const manifest = {
       manifest_version: 3,
-      web_accessible_resources: [{matches: ['<all_urls>'], resources: [warRef]}]
+      web_accessible_resources: [{matches: ['<all_urls>'], resources: [listed]}]
     }
     const manifestSource = {source: () => JSON.stringify(manifest)}
+    const updateAsset = vi.fn()
     const compilation: any = {
-      getAsset: vi.fn(() => ({
-        name: 'manifest.json',
-        source: manifestSource
-      })),
+      getAsset: vi.fn((name: string) => {
+        if (name === 'manifest.json') return {name, source: manifestSource}
+
+        return name in emitted
+          ? {name, source: {source: () => emitted[name]}}
+          : undefined
+      }),
       assets: {'manifest.json': manifestSource},
-      updateAsset: vi.fn(),
+      updateAsset,
       emitAsset: vi.fn(),
       fileDependencies: new Set(),
-      options: {mode: 'development'}
+      warnings: [],
+      options
     }
 
     generateManifestPatches(compilation as Compilation, manifestPath, {})
 
-    expect(compilation.warnings?.length || 0).toBe(0)
-  })
+    const written = updateAsset.mock.calls.at(-1)?.[1]
+    const groups = written
+      ? JSON.parse(String(written.source())).web_accessible_resources || []
+      : []
+
+    return {
+      warnings: compilation.warnings as Array<{name: string; file?: string}>,
+      resources: groups.flatMap(
+        (group: {resources: string[]}) => group.resources
+      ) as string[]
+    }
+  }
 
   it('does not warn for relative WAR path when file exists in public/', () => {
     const rel = 'pages/oauth-callback.js'
@@ -82,36 +95,41 @@ describe('web_accessible_resources: public-root presence checks', () => {
     expect(compilation.warnings?.length || 0).toBe(0)
   })
 
-  it('does not warn for relative WAR path when file exists in output root', () => {
+  // A copy an earlier build left in the output folder is not the file.
+  it.each([
+    ['development', 'sidebar/index.html'],
+    ['production', 'sidebar/index.html'],
+    ['production', '/sidebar/index.html']
+  ] as const)('warns in %s for %s when only a stale copy sits in the output folder', (mode, listed) => {
     const rel = 'sidebar/index.html'
 
     const outputAbs = path.join(tmpRoot, 'dist', rel)
     fs.mkdirSync(path.dirname(outputAbs), {recursive: true})
     fs.writeFileSync(outputAbs, '<html></html>')
 
-    const manifest = {
-      manifest_version: 3,
-      web_accessible_resources: [{matches: ['<all_urls>'], resources: [rel]}]
-    }
-    const manifestSource = {source: () => JSON.stringify(manifest)}
-    const compilation: any = {
-      getAsset: vi.fn(() => ({
-        name: 'manifest.json',
-        source: manifestSource
-      })),
-      assets: {'manifest.json': manifestSource},
-      updateAsset: vi.fn(),
-      emitAsset: vi.fn(),
-      fileDependencies: new Set(),
-      options: {
-        mode: 'development',
-        output: {path: path.join(tmpRoot, 'dist')}
-      }
-    }
+    const {warnings, resources} = patched(listed, {
+      mode,
+      output: {path: path.join(tmpRoot, 'dist')}
+    })
 
-    generateManifestPatches(compilation as Compilation, manifestPath, {})
+    expect(warnings.map(({name}) => name)).toEqual(['WARRelativeAssetMissing'])
+    expect(warnings[0].file).toBe('manifest.json')
+    expect(resources).toEqual([])
+  })
 
-    expect(compilation.warnings?.length || 0).toBe(0)
+  it.each([
+    'development',
+    'production'
+  ] as const)('does not warn in %s for a file this build emits at that path', (mode) => {
+    const rel = 'sidebar/index.html'
+    const {warnings, resources} = patched(
+      rel,
+      {mode, output: {path: path.join(tmpRoot, 'dist')}},
+      {[rel]: '<html></html>'}
+    )
+
+    expect(warnings).toEqual([])
+    expect(resources).toEqual([rel])
   })
 
   it('does not warn when compilation already has the output asset (getAsset returns truthy for the resource)', () => {
