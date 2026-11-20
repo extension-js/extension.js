@@ -38,8 +38,9 @@ class FakeActions implements ActionsSink {
 function errorOf(frame: ServerFrame | CommandFrame | undefined) {
   const error = (frame as ResultFrame | undefined)?.error
 
-  if (!error)
-    {throw new Error(`expected a refused result, got ${JSON.stringify(frame)}`)}
+  if (!error) {
+    throw new Error(`expected a refused result, got ${JSON.stringify(frame)}`)
+  }
 
   return error
 }
