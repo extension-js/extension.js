@@ -12,6 +12,7 @@ import {
   closeSocket,
   connectClient,
   createFixture,
+  LOOPBACK_SOCKET_PATH,
   type LoopbackSession,
   waitFor
 } from './helpers/loopback-dev-server'
@@ -373,6 +374,25 @@ describe('requests to the dev server on loopback', () => {
     expect(answer.status).toBe(404)
     expect(answer.body.trim().split('\n')).toHaveLength(1)
     expect(answer.body).toMatch(/another dev session/)
+  })
+
+  // A page names itself in the query, which the path check never reads.
+  it('opens the session socket for a page that names itself', async () => {
+    const page = `${LOOPBACK_SOCKET_PATH}?page=${encodeURIComponent('/options/index.html')}`
+
+    expect(await socketFrames(session.port, EXTENSION, page)).toEqual(
+      expect.arrayContaining(['hot', 'liveReload'])
+    )
+  })
+
+  it('refuses a page that names itself on the path with no session', async () => {
+    expect(
+      await socketFrames(
+        session.port,
+        EXTENSION,
+        '/ws?page=%2Foptions%2Findex.html'
+      )
+    ).toEqual(['refused: Unexpected server response: 404'])
   })
 
   it('leaves a socket with no Origin to the stock server, which closes it', async () => {

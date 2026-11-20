@@ -11,6 +11,7 @@ import type {LogContext} from '../../dev-server/control-bridge/contracts'
 import {buildBridgeRelaySource} from '../../dev-server/control-bridge/producer-runtime'
 import {prependToEmittedAsset} from '../../lib/asset-source-maps'
 import {buildDeclaredSheetSignalSource} from '../reload-lib/producer-reload'
+import {BRIDGE_STAGE_AFTER_REPORT} from './stages'
 
 // Map an output asset to its bridge context. The background SW and hot/* are
 // DELIBERATELY excluded: the SW runs the producer, relay-injecting would loop.
@@ -64,7 +65,9 @@ export class InjectBridgeRelay {
         compilation.hooks.processAssets.tap(
           {
             name: InjectBridgeRelay.name,
-            stage: Compilation.PROCESS_ASSETS_STAGE_REPORT + 101
+            stage:
+              Compilation.PROCESS_ASSETS_STAGE_REPORT +
+              BRIDGE_STAGE_AFTER_REPORT
           },
           () => {
             for (const asset of compilation.getAssets()) {

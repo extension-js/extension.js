@@ -14,6 +14,7 @@ import * as devServerMessages from './dev-server/messages'
 import {announceLeftoverOutputFolder} from './lib/build-output-guard'
 import {codedError} from './lib/coded-error'
 import {
+  forgetPreloadedEnvOf,
   loadBrowserConfig,
   loadCommandConfig,
   loadProjectConfigDefaults
@@ -38,6 +39,7 @@ import {
   humanLine,
   humanWarn,
   isDebug,
+  releaseCardKeysOf,
   stripChannelPrefix
 } from './lib/messaging'
 import {
@@ -250,9 +252,41 @@ function firstOf(settled: Promise<void>, ms: number): Promise<void> {
   })
 }
 
+// What the host is handed back when the preview leg ends: the env files its
+// config loaded and the card of the folder it ran, `start`'s build card too.
+interface PreviewLeg {
+  projectDir: string
+  outputPath: string
+  browserOpen: boolean
+}
+
 export async function extensionPreview(
   pathOrRemoteUrl: string | undefined,
   previewOptions: PreviewOptions,
+  browserLauncher?: PreviewLauncherFn
+) {
+  const leg: PreviewLeg = {projectDir: '', outputPath: '', browserOpen: false}
+
+  try {
+    return await runPreview(
+      pathOrRemoteUrl,
+      previewOptions,
+      leg,
+      browserLauncher
+    )
+  } finally {
+    // An open browser is a live session, and it keeps both until it ends.
+    if (!leg.browserOpen) {
+      if (leg.outputPath) releaseCardKeysOf(path.resolve(leg.outputPath))
+      if (leg.projectDir) forgetPreloadedEnvOf(leg.projectDir)
+    }
+  }
+}
+
+async function runPreview(
+  pathOrRemoteUrl: string | undefined,
+  previewOptions: PreviewOptions,
+  leg: PreviewLeg,
   browserLauncher?: PreviewLauncherFn
 ) {
   const metadataCommand =
@@ -283,6 +317,7 @@ export async function extensionPreview(
   const debug = isDebug()
   const {manifestDir, packageJsonDir} = getDirs(projectStructure)
 
+  leg.projectDir = packageJsonDir
   announceLeftoverOutputFolder(projectStructure)
 
   const userManifestPath =
@@ -334,6 +369,7 @@ export async function extensionPreview(
           browser,
           previewOptions.outputPath
         )
+  leg.outputPath = outputPath
   // With no project around it, the folder that was named and is loaded is
   // the build, so no dist/<browser> is looked for beneath it.
   const namedFolderIsTheBuild =
@@ -786,6 +822,8 @@ export async function extensionPreview(
     stampShutdownOnExit(openSession.readyPath, () => {
       openSession.writeShutdown(`the ${metadataCommand} session ended`)
     })
+
+    leg.browserOpen = true
 
     return {warnings}
   } catch (error) {

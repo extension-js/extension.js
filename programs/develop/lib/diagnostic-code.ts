@@ -75,7 +75,6 @@ export const NAMED_CODES: Record<string, ErrorCode> = {
   CssWithheldRef: CODES.E_CSS_DEAD_REF,
   CssParseWarning: CODES.E_CSS_PARSE,
   CssMinifierDroppedRules: CODES.E_CSS_PARSE,
-  BackgroundRequired: CODES.E_BACKGROUND_REQUIRED,
   ContentScriptSyntax: CODES.E_CONTENT_SCRIPT_SYNTAX,
   ManifestNotFoundError: CODES.E_MANIFEST_NOT_FOUND,
   ManifestFatalShapeWarning: CODES.W_MANIFEST_INVALID,

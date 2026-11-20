@@ -82,6 +82,10 @@ export class WarnUponFolderChanges {
   private goneFiles: Array<{folder: SpecialFolder; filePath: string}> = []
   private removedInPass: string[] = []
 
+  // A save during a compile starts the next one and the first never reaches
+  // done, so what it saw still waits for the compile that does.
+  private compileEnded = true
+
   // The files the folders held the last time they were read from disk.
   private filesOnDisk = new Set<string>()
 
@@ -113,12 +117,13 @@ export class WarnUponFolderChanges {
     return {present: Array.from(present), missing: Array.from(missing)}
   }
 
+  // True when a live session restarts for the change, which answers it.
   private throwCompilationError(
     compilation: Compilation,
     folder: SpecialFolder,
     filePath: string,
     isAddition?: boolean
-  ) {
+  ): boolean {
     const addingOrRemoving = isAddition ? 'Adding' : 'Removing'
     const typeOfAsset = folder === 'pages' ? 'HTML pages' : 'script files'
     const errorMessage =
@@ -138,7 +143,7 @@ export class WarnUponFolderChanges {
           pathAfter: filePath
         })
       ) {
-        return
+        return true
       }
 
       const warn = new WebpackError(errorMessage) as Error & {
@@ -151,7 +156,7 @@ export class WarnUponFolderChanges {
       warn.details = `Detected change in ${folder}/ affecting ${typeOfAsset}. Restart may be required for full effect.`
       compilation.warnings?.push(warn)
 
-      return
+      return false
     }
 
     // A live session drops the entry by restarting itself, which also clears
@@ -164,7 +169,7 @@ export class WarnUponFolderChanges {
     ) {
       this.goneFiles.push({folder, filePath})
 
-      return
+      return true
     }
 
     const err = new WebpackError(errorMessage) as Error & {
@@ -176,6 +181,8 @@ export class WarnUponFolderChanges {
     err.file = filePath
     err.details = `Removing from ${folder}/ breaks current build. Restart the dev server to recompile.`
     compilation.errors?.push(err)
+
+    return false
   }
 
   private trackChange(
@@ -234,7 +241,11 @@ export class WarnUponFolderChanges {
       }
     }
 
-    this.removedInPass = Array.from(removedFiles)
+    for (const filePath of removedFiles) {
+      if (!this.removedInPass.includes(filePath)) {
+        this.removedInPass.push(filePath)
+      }
+    }
 
     for (const filePath of removedFiles) {
       // Drop from the snapshot so a future re-add of the same name is
@@ -332,16 +343,17 @@ export class WarnUponFolderChanges {
       }
     }
 
-    for (const change of this.pendingChanges) {
-      this.throwCompilationError(
-        compilation,
-        change.folder,
-        change.filePath,
-        change.type === 'add'
-      )
-    }
-
-    this.pendingChanges = []
+    // A diagnostic stays pending until a compile ends, a superseded one
+    // never reports it. A restart already answered its change.
+    this.pendingChanges = this.pendingChanges.filter(
+      (change) =>
+        !this.throwCompilationError(
+          compilation,
+          change.folder,
+          change.filePath,
+          change.type === 'add'
+        )
+    )
   }
 
   private dropNoiseAboutGoneFiles(
@@ -403,12 +415,20 @@ export class WarnUponFolderChanges {
         if (compiler.watchMode) {
           this.dropNoiseAboutGoneFiles(compiler, stats.compilation)
         }
+
+        this.compileEnded = true
       }
     )
 
     compiler.hooks.watchRun.tap(
       'special-folders:warn-upon-folder-changes',
       () => {
+        if (this.compileEnded) {
+          this.pendingChanges = []
+          this.removedInPass = []
+        }
+
+        this.compileEnded = false
         this.collectChanges(compiler)
       }
     )
