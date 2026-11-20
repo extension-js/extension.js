@@ -375,6 +375,7 @@ export function developLoadFailure(error: unknown, root: string): Error {
     // The command still names the package, with no version to pin.
   }
 
+  // The package's library target predates the cause option of Error.
   return Object.assign(
     new Error(
       messages.developLoadFailed(
@@ -382,10 +383,9 @@ export function developLoadFailure(error: unknown, root: string): Error {
         reason,
         reinstallCommandFor(root, version || 'latest'),
         runnerCacheFolderOf(root)
-      ),
-      {cause: error}
+      )
     ),
-    {code: CODES.E_RUNTIME_NOT_FOUND}
+    {code: CODES.E_RUNTIME_NOT_FOUND, cause: error}
   )
 }
 

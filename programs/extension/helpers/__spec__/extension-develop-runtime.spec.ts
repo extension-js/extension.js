@@ -584,11 +584,19 @@ describe('an installed engine that throws while it loads', () => {
     expect(error.message).not.toContain('Require stack')
     expect((error.cause as Error).message).toContain('Require stack')
     expect(telemetryFailureCode(error.code)).toBe('E_RUNTIME_NOT_FOUND')
-    expect(internalErrorEnvelope(error, 'dev')).toMatchObject({
+    // The frame carries the refusal alone: the cause holds a require stack.
+    expect(internalErrorEnvelope(error, 'dev')).toEqual({
+      schema: 1,
       ok: false,
       command: 'dev',
       status: 'failed',
-      error: {code: 'E_RUNTIME_NOT_FOUND'}
+      value: null,
+      error: {
+        code: 'E_RUNTIME_NOT_FOUND',
+        message: stripChannelPrefix(error.message),
+        name: 'Error'
+      },
+      warnings: []
     })
   })
 
