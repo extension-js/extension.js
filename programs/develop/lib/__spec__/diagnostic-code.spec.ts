@@ -95,6 +95,8 @@ describe('diagnosticCode', () => {
     ['ScriptsFolderFilesLeftOutWarning', 'W_PROJECT_LAYOUT'],
     ['PublicEnvFilesWarning', 'W_PROJECT_LAYOUT'],
     ['PublicLinkedFilesWarning', 'W_PROJECT_LAYOUT'],
+    ['EntryFolderCaseWarning', 'W_PROJECT_LAYOUT'],
+    ['EntryNameCollisionWarning', 'W_PROJECT_LAYOUT'],
     ['NamespaceImportReadAsValue', 'E_ASSET_IMPORT_SHAPE'],
     ['ManifestV2OnChromiumWarning', 'W_MANIFEST_COMPAT'],
     ['ManifestLegacyWarning', 'W_MANIFEST_COMPAT'],

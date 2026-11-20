@@ -267,7 +267,9 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
   "plugin-special-folders/messages.ts": [
     "devOnlyEntriesLeftOut: function(1)",
     "entryFolderFilesLeftOut: function(2)",
+    "entryFolderMiscased: function(3)",
     "entryFolderUnreadable: function(3)",
+    "entryNameCollision: function(2)",
     "excludeEntryMissing: function(2)",
     "excludedEntriesLeftOut: function(1)",
     "includeOutputPathInvalid: function(2)",
