@@ -119,7 +119,6 @@
     "pintor": "0.3.0",
     "postcss": "8.5.23",
     "postcss-loader": "8.2.1",
-    "postcss-scss": "4.0.9",
     "preact": "11.0.0",
     "prefers-yarn": "2.0.1",
     "react-refresh": "0.18.0",
@@ -131,7 +130,6 @@
     "vue-loader": "17.4.2",
     "webextension-polyfill": "^0.12.0",
     "webpack-merge": "^6.0.1",
-    "webpack-target-webextension": "^2.1.3",
     "ws": "^8.20.1"
   },
   "devDependencies": {

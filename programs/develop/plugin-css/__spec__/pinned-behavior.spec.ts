@@ -77,29 +77,29 @@ function productionSources(dir: string): string[] {
   return found
 }
 
-describe('postcss-scss and postcss-preset-env', () => {
-  it('are imported by no production file, and the sass contract lists only the first', () => {
-    const importOf = (name: string) =>
-      new RegExp(
-        `(from\\s*|require\\(\\s*|import\\(\\s*)['"]${name}(/[^'"]*)?['"]`
+// A listed dependency that no production file names is installed for nothing.
+describe('the dependencies of this package', () => {
+  it('are each named by a production file, and Sass asks only for its loaders', () => {
+    const pkg = JSON.parse(
+      fs.readFileSync(path.join(DEVELOP, 'package.json'), 'utf8')
+    ) as {dependencies: Record<string, string>}
+    const sources = productionSources(DEVELOP).map((file) =>
+      fs.readFileSync(file, 'utf8')
+    )
+    const unnamed = Object.keys(pkg.dependencies).filter((name) => {
+      const specifier = new RegExp(
+        `['"]${name.replace(/[/.]/g, '\\$&')}(/[^'"]*)?['"]`
       )
-    const importers = productionSources(DEVELOP).filter((file) => {
-      const text = fs.readFileSync(file, 'utf8')
 
-      return (
-        importOf('postcss-preset-env').test(text) ||
-        importOf('postcss-scss').test(text)
-      )
+      return !sources.some((text) => specifier.test(text))
     })
 
-    // Pins today's behavior.
+    expect(unnamed).toEqual([])
     expect(
       getOptionalDependencyContract('sass').installPackages.map((spec) =>
         spec.replace(/(.)@.*$/, '$1')
       )
-    ).toEqual(['postcss-loader', 'postcss-scss', 'sass-loader'])
-
-    expect(importers).toEqual([])
+    ).toEqual(['postcss-loader', 'sass-loader'])
   })
 })
 

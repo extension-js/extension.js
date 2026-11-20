@@ -261,9 +261,9 @@ describe('detectOptionalDependencies', () => {
       files: [],
       plan: {
         integrations: ['Sass', 'PostCSS'],
-        dependencies: ['sass-loader', 'postcss-loader', 'postcss-scss'],
+        dependencies: ['sass-loader', 'postcss-loader'],
         dependenciesByIntegration: {
-          Sass: ['sass-loader', 'postcss-loader', 'postcss-scss'],
+          Sass: ['sass-loader', 'postcss-loader'],
           PostCSS: []
         }
       }
