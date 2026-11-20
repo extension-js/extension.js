@@ -67,14 +67,7 @@ export type BridgeRole = 'producer' | 'consumer' | 'controller' | 'viewer'
 export type BridgeEngine = 'chromium' | 'firefox' | 'webkit' | 'emulator'
 
 export interface BridgeTarget {
-  context:
-    | 'background'
-    | 'popup'
-    | 'options'
-    | 'sidebar'
-    | 'devtools'
-    | 'content'
-    | 'page'
+  context: LogContext
   url?: string
   tabId?: number
 }
