@@ -467,9 +467,6 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
     packages = getPackagesForRunner()
   })
 
-  const isNpmFamilyExec = runner.name === 'npx' || runner.name === 'npmExec'
-  const shouldAssertNoNodeModules = !isNpmFamilyExec
-
   // A runner whose probe failed reports its cases as skipped, never as passed.
   const skipUnlessReady = (skip: (note?: string) => void) => {
     if (!runnerReady.get(runner.name)) {
@@ -507,42 +504,37 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
       expect(provenance.template).toBe(DEFAULT_TEMPLATE)
       expect(provenance.source).toBe(catalog?.url)
 
-      if (shouldAssertNoNodeModules) {
-        expect(existsSync(join(projectPath, 'node_modules'))).toBe(false)
-      }
+      expect(existsSync(join(projectPath, 'node_modules'))).toBe(false)
     } finally {
       removeWorkspaceWithRetry(workspace)
     }
   })
 
-  it.skipIf(isNpmFamilyExec)(
-    'creates explicit template without install',
-    ({skip}) => {
-      skipUnlessReady(skip)
+  it('creates explicit template without install', ({skip}) => {
+    skipUnlessReady(skip)
 
-      const workspace = mkdtempSync(join(tmpdir(), 'extjs-cli-create-'))
-      const projectPath = join(workspace, 'app-template')
+    const workspace = mkdtempSync(join(tmpdir(), 'extjs-cli-create-'))
+    const projectPath = join(workspace, 'app-template')
 
-      try {
-        const result = runCommand(
-          runner.command,
-          runner.buildArgs(packages, [
-            'create',
-            projectPath,
-            '--template',
-            'javascript',
-            '--install',
-            'false'
-          ]),
-          {cwd: workspace, env: defaultEnv}
-        )
-        expect(result.status).toBe(0)
-        expect(existsSync(join(projectPath, 'package.json'))).toBe(true)
-      } finally {
-        removeWorkspaceWithRetry(workspace)
-      }
+    try {
+      const result = runCommand(
+        runner.command,
+        runner.buildArgs(packages, [
+          'create',
+          projectPath,
+          '--template',
+          'javascript',
+          '--install',
+          'false'
+        ]),
+        {cwd: workspace, env: defaultEnv}
+      )
+      expect(result.status).toBe(0)
+      expect(existsSync(join(projectPath, 'package.json'))).toBe(true)
+    } finally {
+      removeWorkspaceWithRetry(workspace)
     }
-  )
+  })
 
   // The unpacked extension is written here, so the case runs on every machine.
   it('previews a prebuilt extension without install', ({skip}) => {
@@ -573,51 +565,46 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
     }
   })
 
-  it.skipIf(isNpmFamilyExec)(
-    'builds without install when project has no deps',
-    ({skip}) => {
-      skipUnlessReady(skip)
+  it('builds without install when project has no deps', ({skip}) => {
+    skipUnlessReady(skip)
 
-      const workspace = mkdtempSync(join(tmpdir(), 'extjs-cli-noinstall-'))
-      const projectPath = join(workspace, 'app-build')
+    const workspace = mkdtempSync(join(tmpdir(), 'extjs-cli-noinstall-'))
+    const projectPath = join(workspace, 'app-build')
 
-      try {
-        const createResult = runCommand(
-          runner.command,
-          runner.buildArgs(packages, [
-            'create',
-            projectPath,
-            '--template',
-            'javascript',
-            '--install',
-            'false'
-          ]),
-          {cwd: workspace, env: defaultEnv}
-        )
-        expect(createResult.status).toBe(0)
+    try {
+      const createResult = runCommand(
+        runner.command,
+        runner.buildArgs(packages, [
+          'create',
+          projectPath,
+          '--template',
+          'javascript',
+          '--install',
+          'false'
+        ]),
+        {cwd: workspace, env: defaultEnv}
+      )
+      expect(createResult.status).toBe(0)
 
-        const buildResult = runCommand(
-          runner.command,
-          runner.buildArgs(packages, [
-            'build',
-            projectPath,
-            '--silent',
-            'true',
-            '--install',
-            'false'
-          ]),
-          {cwd: projectPath, env: defaultEnv}
-        )
-        expect(buildResult.status).toBe(0)
+      const buildResult = runCommand(
+        runner.command,
+        runner.buildArgs(packages, [
+          'build',
+          projectPath,
+          '--silent',
+          'true',
+          '--install',
+          'false'
+        ]),
+        {cwd: projectPath, env: defaultEnv}
+      )
+      expect(buildResult.status).toBe(0)
 
-        if (shouldAssertNoNodeModules) {
-          expect(existsSync(join(projectPath, 'node_modules'))).toBe(false)
-        }
-      } finally {
-        removeWorkspaceWithRetry(workspace)
-      }
+      expect(existsSync(join(projectPath, 'node_modules'))).toBe(false)
+    } finally {
+      removeWorkspaceWithRetry(workspace)
     }
-  )
+  })
 
   it('runs dev without install when project has no deps', async ({skip}) => {
     skipUnlessReady(skip)
