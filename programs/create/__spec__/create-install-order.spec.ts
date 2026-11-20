@@ -303,6 +303,7 @@ describe('create with install personalizes and commits after the install', () =>
     expect(installed.result).toEqual({
       projectPath: installed.projectPath,
       projectName: 'with-install',
+      packageName: 'with-install',
       template: TEMPLATE,
       depsInstalled: true,
       installSeconds: expect.any(Number),
@@ -344,6 +345,7 @@ describe('create without install starts no package manager', () => {
     expect(notInstalled.result).toEqual({
       projectPath: notInstalled.projectPath,
       projectName: 'without-install',
+      packageName: 'without-install',
       template: TEMPLATE,
       depsInstalled: false,
       packageManager: 'npm',
