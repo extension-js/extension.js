@@ -1,4 +1,5 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import type {ClientFrame, LogFrame} from '../contracts'
 import {buildBridgeProducerSource} from '../producer-runtime'
 
 class FakeWebSocket {
@@ -75,7 +76,7 @@ function boot(options: {control: Control[]; sessionFromFile?: boolean}) {
   )(fakeGlobal)
 
   const frames = (ws: FakeWebSocket) =>
-    ws.sent.map((text) => JSON.parse(text) as Record<string, any>)
+    ws.sent.map((text) => JSON.parse(text) as ClientFrame)
 
   return {fetched, frames, console: consoleRef as Record<string, Function>}
 }
@@ -166,7 +167,7 @@ describe('bridge producer runtime, a session read from the control file', () => 
 
     const logs = h
       .frames(FakeWebSocket.instances[0])
-      .filter((frame) => frame.type === 'log')
+      .filter((frame): frame is LogFrame => frame.type === 'log')
 
     expect(logs).toHaveLength(1)
     expect(logs[0].event.runId).toBe('this-session')
