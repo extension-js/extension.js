@@ -57,51 +57,54 @@ describe('the spec helper stop elsewhere', () => {
   })
 })
 
-describe.skipIf(process.platform === 'win32')(
-  'the spec helper stop on a real process tree',
-  () => {
-    const started: ChildProcess[] = []
-    const grandchildren: number[] = []
+// Both stand-ins are Node processes, so every host runs this: the process
+// group ends them off Windows and the system taskkill ends them on it.
+describe('the spec helper stop on a real process tree', () => {
+  const started: ChildProcess[] = []
+  const grandchildren: number[] = []
 
-    // A failed run leaves nothing behind, and a pid is signaled only seconds
-    // after this spec read it.
-    afterEach(() => {
-      for (const child of started.splice(0)) {
-        if (child.exitCode === null && child.signalCode === null) {
-          child.kill('SIGKILL')
-        }
+  // A failed run leaves nothing behind, and a pid is signaled only seconds
+  // after this spec read it.
+  afterEach(() => {
+    for (const child of started.splice(0)) {
+      if (child.exitCode === null && child.signalCode === null) {
+        child.kill('SIGKILL')
       }
+    }
 
-      for (const pid of grandchildren.splice(0)) {
-        if (isPidAlive(pid)) process.kill(pid, 'SIGKILL')
+    for (const pid of grandchildren.splice(0)) {
+      if (isPidAlive(pid)) process.kill(pid, 'SIGKILL')
+    }
+  })
+
+  it('takes the grandchild down with the child it started', async () => {
+    // Spawned as the helper spawns the CLI: a group leader off Windows.
+    const child = spawn(
+      process.execPath,
+      [
+        '-e',
+        "const c = require('node:child_process').spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], {stdio: 'ignore'}); console.log(c.pid); setInterval(() => {}, 1000)"
+      ],
+      {
+        detached: process.platform !== 'win32',
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'ignore']
       }
+    )
+    started.push(child)
+
+    const [chunk] = (await once(child.stdout!, 'data')) as [Buffer]
+    const grandchild = Number(String(chunk).trim())
+    grandchildren.push(grandchild)
+
+    expect(isPidAlive(grandchild)).toBe(true)
+
+    const exit = once(child, 'exit')
+    killCliTree(child)
+    await exit
+
+    await vi.waitFor(() => expect(isPidAlive(grandchild)).toBe(false), {
+      timeout: 5000
     })
-
-    it('takes the grandchild down with the child it started', async () => {
-      // The child leads its own group, as the helper spawns the CLI.
-      const child = spawn(
-        process.execPath,
-        [
-          '-e',
-          "const c = require('node:child_process').spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], {stdio: 'ignore'}); console.log(c.pid); setInterval(() => {}, 1000)"
-        ],
-        {detached: true, stdio: ['ignore', 'pipe', 'ignore']}
-      )
-      started.push(child)
-
-      const [chunk] = (await once(child.stdout!, 'data')) as [Buffer]
-      const grandchild = Number(String(chunk).trim())
-      grandchildren.push(grandchild)
-
-      expect(isPidAlive(grandchild)).toBe(true)
-
-      const exit = once(child, 'exit')
-      killCliTree(child)
-      await exit
-
-      await vi.waitFor(() => expect(isPidAlive(grandchild)).toBe(false), {
-        timeout: 5000
-      })
-    })
-  }
-)
+  })
+})
