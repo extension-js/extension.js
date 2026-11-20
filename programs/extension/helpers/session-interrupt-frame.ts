@@ -6,6 +6,7 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {claimInterruptFrame} from './early-interrupt'
 import {exitAfterDrain} from './exit-after-drain'
 import {CODES, ENVELOPE} from './messaging'
 import {
@@ -47,6 +48,8 @@ export function writeFrameWhenInterrupted(
   target: InterruptSignalTarget = process,
   exit: (code: number) => unknown = (code) => exitAfterDrain(code)
 ): () => void {
+  claimInterruptFrame()
+
   let written = false
   const listeners = TERMINATION_SIGNALS.map((signal) => {
     const listener = () => {

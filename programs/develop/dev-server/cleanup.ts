@@ -238,6 +238,14 @@ export function setupCleanupHandlers(
     await cleanup()
   }
 
+  // The CLI arms a fallback frame for a signal no command answers yet. This
+  // session frames its own stop from here on, and says so where both can read.
+  if (onSignal) {
+    ;(globalThis as unknown as Record<symbol, boolean>)[
+      Symbol.for('extension.js.interrupt-frame-claimed')
+    ] = true
+  }
+
   // Do not remove other listeners; let browser plugins receive signals too.
   // Register our cleanup alongside theirs so Ctrl+C terminates the browser.
   const signals: NodeJS.Signals[] = ['SIGINT', 'SIGTERM', 'SIGHUP']

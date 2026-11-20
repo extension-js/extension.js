@@ -47,6 +47,7 @@ import {
   writeStdoutFrame
 } from './helpers/cli-failure'
 import {getCliPackageJson} from './helpers/cli-package-json'
+import {claimInterruptFrame} from './helpers/early-interrupt'
 import {exitAfterDrain} from './helpers/exit-after-drain'
 import {resolveExtensionDevelopVersion} from './helpers/extension-develop-runtime'
 import * as messages from './helpers/messages'
@@ -125,6 +126,7 @@ export async function run(argv: string[], deps: RunDeps): Promise<number> {
 }
 
 function endRun(deps: RunDeps, code: number): never {
+  claimInterruptFrame()
   deps.exit(code)
 
   throw new RunEnded(code)
@@ -411,6 +413,8 @@ async function runUntilEnd(argv: string[], deps: RunDeps): Promise<number> {
     }
 
     await extensionJs.parseAsync(parsedArgv)
+    // The command wrote its own ending, so a late signal adds no frame.
+    claimInterruptFrame()
     markCommandSuccess()
 
     return 0

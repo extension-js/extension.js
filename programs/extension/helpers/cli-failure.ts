@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import colors from 'pintor'
 import {scanArgvValue} from './cli-argv'
+import {streamEndedByInterrupt} from './early-interrupt'
 import {portUnavailableHint, profileLockedHint} from './messages'
 import {
   CODES,
@@ -367,6 +368,8 @@ export function earlyExitEnvelope(
 // process.exit can cut a queued console.log on a pipe, and this frame is the
 // last thing a machine consumer sees, so write it synchronously.
 export function writeStdoutFrame(frame: unknown): void {
+  if (streamEndedByInterrupt()) return
+
   try {
     fs.writeSync(1, `${JSON.stringify(frame)}\n`)
   } catch {
