@@ -260,7 +260,10 @@ describe('the parent watchdog shutdown', () => {
     }
   }
 
-  it('sends itself SIGTERM once, then exits 1 when the grace period runs out', () => {
+  // The exit waits on the bounded telemetry drain before it runs.
+  const drained = () => vi.advanceTimersByTimeAsync(1000)
+
+  it('frames once, then exits 1 with no signal to itself', async () => {
     const {kill, exit} = watchShutdown()
     const log = vi.fn()
     const emitFrame = vi.fn()
@@ -274,17 +277,13 @@ describe('the parent watchdog shutdown', () => {
     ])
 
     expect(emitFrame).toHaveBeenCalledTimes(1)
-    expect(kill.mock.calls).toEqual([[process.pid, 'SIGTERM']])
-    expect(exit).not.toHaveBeenCalled()
+    await drained()
 
-    vi.advanceTimersByTime(4999)
-    expect(exit).not.toHaveBeenCalled()
-
-    vi.advanceTimersByTime(1)
+    expect(kill).not.toHaveBeenCalled()
     expect(exit.mock.calls).toEqual([[1]])
   })
 
-  it('leaves the frame, the signal and the exit to a session that ended itself', () => {
+  it('leaves the frame, the signal and the exit to a session that ended itself', async () => {
     const {kill, exit} = watchShutdown()
     const emitFrame = vi.fn()
     const endSession = vi.fn(() => true)
@@ -298,9 +297,9 @@ describe('the parent watchdog shutdown', () => {
 
     expect(endSession).toHaveBeenCalledTimes(1)
     expect(emitFrame).not.toHaveBeenCalled()
-    expect(kill).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(60_000)
 
-    vi.advanceTimersByTime(60_000)
+    expect(kill).not.toHaveBeenCalled()
     expect(exit).not.toHaveBeenCalled()
   })
 
@@ -312,8 +311,8 @@ describe('the parent watchdog shutdown', () => {
         throw new Error('engine gone')
       }
     ]
-  ])('frames and signals itself when %s', (_name, endSession) => {
-    const {kill} = watchShutdown()
+  ])('frames and exits 1 with no signal when %s', async (_name, endSession) => {
+    const {kill, exit} = watchShutdown()
     const emitFrame = vi.fn()
 
     setupParentWatchdog(PARENT, {
@@ -324,37 +323,30 @@ describe('the parent watchdog shutdown', () => {
     })
 
     expect(emitFrame).toHaveBeenCalledTimes(1)
-    expect(kill.mock.calls).toEqual([[process.pid, 'SIGTERM']])
-  })
+    await drained()
 
-  it('exits 1 at once when the signal to itself cannot be sent', () => {
-    const {kill, exit} = watchShutdown()
-
-    kill.mockImplementation(() => {
-      throw new Error('kill EPERM')
-    })
-
-    setupParentWatchdog(PARENT, {log: () => {}, isAlive: () => false})
-
+    expect(kill).not.toHaveBeenCalled()
     expect(exit.mock.calls).toEqual([[1]])
   })
 
-  it('shuts down on the first poll that finds the parent gone, and only once', () => {
-    const {kill} = watchShutdown()
+  it('shuts down on the first poll that finds the parent gone, and only once', async () => {
+    const {kill, exit} = watchShutdown()
     const answers = [true, true, false, false]
     const isAlive = vi.fn(() => answers.shift() ?? false)
 
     setupParentWatchdog(PARENT, {log: () => {}, isAlive})
 
-    vi.advanceTimersByTime(2000)
-    expect(kill).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(exit).not.toHaveBeenCalled()
 
-    vi.advanceTimersByTime(2000)
-    expect(kill.mock.calls).toEqual([[process.pid, 'SIGTERM']])
+    await vi.advanceTimersByTimeAsync(2000)
+    await drained()
+    expect(exit.mock.calls).toEqual([[1]])
 
-    vi.advanceTimersByTime(4000)
+    await vi.advanceTimersByTimeAsync(4000)
     expect(isAlive).toHaveBeenCalledTimes(3)
-    expect(kill).toHaveBeenCalledTimes(1)
+    expect(exit).toHaveBeenCalledTimes(1)
+    expect(kill).not.toHaveBeenCalled()
   })
 
   it('never shuts down after its cancel is called', () => {
