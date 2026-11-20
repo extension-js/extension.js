@@ -10,75 +10,56 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type {InstallBrowserTarget} from './browser-target'
 
-// The working directory is read only where a branch needs it, so a caller
-// that leaves it out never asks the process for one it would not use.
+// Where a managed browser lives. The launcher in the extension package keeps
+// a copy, computeSharedCacheRoot, and one table spec here pins both on the
+// path shapes of all three platforms, so they can never disagree. The working
+// directory is read only where a branch needs it.
 export function resolveBrowsersCacheRoot(
   env: Record<string, string | undefined> = process.env,
   platform: NodeJS.Platform = process.platform,
   cwd?: string
 ): string {
+  const p = platform === 'win32' ? path.win32 : path.posix
   const explicit = String(env.EXT_BROWSERS_CACHE_DIR || '').trim()
 
   if (explicit) {
-    return cwd === undefined
-      ? path.resolve(explicit)
-      : path.resolve(cwd, explicit)
+    return cwd === undefined ? p.resolve(explicit) : p.resolve(cwd, explicit)
   }
 
-  const isWin = platform === 'win32'
-  const isMac = platform === 'darwin'
+  // Nothing to resolve against falls back to the folder the process runs in.
+  const inWorkingDir = () =>
+    p.resolve(cwd ?? process.cwd(), '.cache', 'extension.js', 'browsers')
 
-  if (isWin) {
+  if (platform === 'win32') {
     const local = String(env.LOCALAPPDATA || '').trim()
-    if (local) return path.join(local, 'extension.js', 'browsers')
+    if (local) return p.join(local, 'extension.js', 'browsers')
 
     const userProfile = String(env.USERPROFILE || '').trim()
 
     if (userProfile) {
-      return path.join(
-        userProfile,
-        'AppData',
-        'Local',
-        'extension.js',
-        'browsers'
-      )
+      return p.join(userProfile, 'AppData', 'Local', 'extension.js', 'browsers')
     }
 
-    return path.resolve(
-      cwd ?? process.cwd(),
-      '.cache',
-      'extension.js',
-      'browsers'
-    )
+    return inWorkingDir()
   }
 
-  if (isMac) {
+  if (platform === 'darwin') {
     const home = String(env.HOME || '').trim()
 
     if (home) {
-      return path.join(home, 'Library', 'Caches', 'extension.js', 'browsers')
+      return p.join(home, 'Library', 'Caches', 'extension.js', 'browsers')
     }
 
-    return path.resolve(
-      cwd ?? process.cwd(),
-      '.cache',
-      'extension.js',
-      'browsers'
-    )
+    return inWorkingDir()
   }
 
   const xdg = String(env.XDG_CACHE_HOME || '').trim()
-  if (xdg) return path.join(xdg, 'extension.js', 'browsers')
+  if (xdg) return p.join(xdg, 'extension.js', 'browsers')
 
   const home = String(env.HOME || '').trim()
-  if (home) return path.join(home, '.cache', 'extension.js', 'browsers')
+  if (home) return p.join(home, '.cache', 'extension.js', 'browsers')
 
-  return path.resolve(
-    cwd ?? process.cwd(),
-    '.cache',
-    'extension.js',
-    'browsers'
-  )
+  return inWorkingDir()
 }
 
 export function resolveBrowserInstallDir(

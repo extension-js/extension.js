@@ -12,53 +12,55 @@ import type {CompilationLike} from '../browsers-types'
 import {locatorEnv} from './locator-env'
 import {sessionRootFor} from './ready-stamp'
 
-export function computeSharedCacheRoot(): string {
-  const explicit = String(process.env.EXT_BROWSERS_CACHE_DIR || '').trim()
-  if (explicit) return path.resolve(explicit)
+// The folder extension-install downloads into, by the same rule as its
+// resolveBrowsersCacheRoot. A table spec in programs/install runs both on
+// every platform's path shapes, so the launcher reads where the install wrote.
+export function computeSharedCacheRoot(
+  env: Record<string, string | undefined> = process.env,
+  platform: NodeJS.Platform = process.platform,
+  cwd?: string
+): string {
+  const p = platform === 'win32' ? path.win32 : path.posix
+  const explicit = String(env.EXT_BROWSERS_CACHE_DIR || '').trim()
 
-  const isWin = process.platform === 'win32'
-  const isMac = process.platform === 'darwin'
+  if (explicit) {
+    return cwd === undefined ? p.resolve(explicit) : p.resolve(cwd, explicit)
+  }
 
-  if (isWin) {
-    const local = String(process.env.LOCALAPPDATA || '').trim()
-    if (local) return path.join(local, 'extension.js', 'browsers')
+  // Nothing to resolve against falls back to the folder the process runs in.
+  const inWorkingDir = () =>
+    p.resolve(cwd ?? process.cwd(), '.cache', 'extension.js', 'browsers')
 
-    const userProfile = String(process.env.USERPROFILE || '').trim()
+  if (platform === 'win32') {
+    const local = String(env.LOCALAPPDATA || '').trim()
+    if (local) return p.join(local, 'extension.js', 'browsers')
+
+    const userProfile = String(env.USERPROFILE || '').trim()
 
     if (userProfile) {
-      return path.join(
-        userProfile,
-        'AppData',
-        'Local',
-        'extension.js',
-        'browsers'
-      )
+      return p.join(userProfile, 'AppData', 'Local', 'extension.js', 'browsers')
     }
 
-    return path.resolve(process.cwd(), '.cache', 'extension.js', 'browsers')
+    return inWorkingDir()
   }
 
-  if (isMac) {
-    const home = String(process.env.HOME || '').trim()
+  if (platform === 'darwin') {
+    const home = String(env.HOME || '').trim()
 
     if (home) {
-      return path.join(home, 'Library', 'Caches', 'extension.js', 'browsers')
+      return p.join(home, 'Library', 'Caches', 'extension.js', 'browsers')
     }
 
-    return path.resolve(process.cwd(), '.cache', 'extension.js', 'browsers')
+    return inWorkingDir()
   }
 
-  const xdg = String(process.env.XDG_CACHE_HOME || '').trim()
+  const xdg = String(env.XDG_CACHE_HOME || '').trim()
+  if (xdg) return p.join(xdg, 'extension.js', 'browsers')
 
-  if (xdg) return path.join(xdg, 'extension.js', 'browsers')
+  const home = String(env.HOME || '').trim()
+  if (home) return p.join(home, '.cache', 'extension.js', 'browsers')
 
-  const home = String(process.env.HOME || '').trim()
-
-  if (home) {
-    return path.join(home, '.cache', 'extension.js', 'browsers')
-  }
-
-  return path.resolve(process.cwd(), '.cache', 'extension.js', 'browsers')
+  return inWorkingDir()
 }
 
 // The managed-cache environment the launcher resolves its binary under, for

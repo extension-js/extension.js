@@ -22,9 +22,9 @@ import {
   type CommandResult,
   detectSystemEdgeBinary,
   edgeInstallNeedsInteractivePrivilegedSession,
-  locateSystemEdge,
   installPlan,
   isEdgePrivilegeEscalationFailure,
+  locateSystemEdge,
   lookupOnPath,
   packageManagerFromExecPath,
   prepareInstall,
@@ -54,36 +54,44 @@ const USERPROFILE = path.join(scratch, 'UserProfile')
 describe('resolveBrowsersCacheRoot from an explicit env, platform and cwd', () => {
   const everything = {HOME, XDG_CACHE_HOME: XDG, LOCALAPPDATA, USERPROFILE}
   const cwdFallback = path.join(project, '.cache', 'extension.js', 'browsers')
+  // Windows rows name Windows paths, so every host joins them the same way.
+  const WIN_PROJECT = 'C:\\dev\\project'
+  const WIN_LOCALAPPDATA = 'C:\\Users\\dev\\AppData\\Local'
+  const WIN_USERPROFILE = 'C:\\Users\\dev'
+  const winEverything = {
+    HOME,
+    XDG_CACHE_HOME: XDG,
+    LOCALAPPDATA: WIN_LOCALAPPDATA,
+    USERPROFILE: WIN_USERPROFILE
+  }
 
   const cases: Array<{
     name: string
     platform: NodeJS.Platform
     env: Record<string, string | undefined>
     expected: string
+    cwd?: string
   }> = [
     {
       name: 'win32 uses LOCALAPPDATA first',
       platform: 'win32',
-      env: everything,
-      expected: path.join(LOCALAPPDATA, 'extension.js', 'browsers')
+      env: winEverything,
+      cwd: WIN_PROJECT,
+      expected: `${WIN_LOCALAPPDATA}\\extension.js\\browsers`
     },
     {
       name: 'win32 falls back to USERPROFILE',
       platform: 'win32',
-      env: {HOME, XDG_CACHE_HOME: XDG, USERPROFILE},
-      expected: path.join(
-        USERPROFILE,
-        'AppData',
-        'Local',
-        'extension.js',
-        'browsers'
-      )
+      env: {HOME, XDG_CACHE_HOME: XDG, USERPROFILE: WIN_USERPROFILE},
+      cwd: WIN_PROJECT,
+      expected: `${WIN_USERPROFILE}\\AppData\\Local\\extension.js\\browsers`
     },
     {
       name: 'win32 with neither falls back to the working directory',
       platform: 'win32',
       env: {HOME, XDG_CACHE_HOME: XDG},
-      expected: cwdFallback
+      cwd: WIN_PROJECT,
+      expected: `${WIN_PROJECT}\\.cache\\extension.js\\browsers`
     },
     {
       name: 'darwin uses HOME and ignores the XDG and Windows variables',
@@ -135,22 +143,20 @@ describe('resolveBrowsersCacheRoot from an explicit env, platform and cwd', () =
     }
   ]
 
-  it.each(cases)('$name', ({platform, env, expected}) => {
-    expect(resolveBrowsersCacheRoot(env, platform, project)).toBe(expected)
+  it.each(cases)('$name', ({platform, env, expected, cwd = project}) => {
+    expect(resolveBrowsersCacheRoot(env, platform, cwd)).toBe(expected)
   })
 
   it.each([
-    'win32',
-    'darwin',
-    'linux'
-  ] as const)('EXT_BROWSERS_CACHE_DIR outranks every default on %s', (platform) => {
-    const override = path.join(scratch, 'override')
-
+    ['win32', 'D:\\override', WIN_PROJECT, winEverything],
+    ['darwin', path.posix.join('/', 'override'), project, everything],
+    ['linux', path.posix.join('/', 'override'), project, everything]
+  ] as const)('EXT_BROWSERS_CACHE_DIR outranks every default on %s', (platform, override, cwd, env) => {
     expect(
       resolveBrowsersCacheRoot(
-        {...everything, EXT_BROWSERS_CACHE_DIR: override},
+        {...env, EXT_BROWSERS_CACHE_DIR: override},
         platform,
-        project
+        cwd
       )
     ).toBe(override)
   })
@@ -256,7 +262,8 @@ const PLATFORMS = [
   {
     platform: 'win32',
     suffix: '.cmd',
-    cacheRoot: path.join(LOCALAPPDATA, 'extension.js', 'browsers')
+    // Joined by the Windows rules on every host, as the resolver joins it.
+    cacheRoot: path.win32.join(LOCALAPPDATA, 'extension.js', 'browsers')
   }
 ] as const
 
