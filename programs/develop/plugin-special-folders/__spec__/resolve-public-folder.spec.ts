@@ -2,8 +2,10 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import {canonicalizeDir} from '../../lib/resource-path'
 import {
   inspectPublicFolders,
+  publicContainmentRoot,
   publicFolderOrDefault,
   publicResolveRoots,
   resolvePublicFolder
@@ -91,4 +93,27 @@ describe('publicResolveRoots', () => {
       root
     ])
   })
+})
+
+describe('the public root of a project reached through a link', () => {
+  // A link is created with a privilege Windows runners do not grant.
+  it.skipIf(process.platform === 'win32')(
+    'resolves to the real folder even when no public/ exists yet',
+    () => {
+      const {root} = project({})
+      const linked = `${root}-link`
+      fs.symlinkSync(root, linked, 'dir')
+      created.push(linked)
+
+      const manifest = path.join(linked, 'src', 'manifest.json')
+      const containment = publicContainmentRoot(manifest, linked)
+
+      // The loader measures real resource paths against this root.
+      expect(containment).toBe(path.join(linked, 'public'))
+      expect(canonicalizeDir(containment)).toBe(path.join(root, 'public'))
+      expect(canonicalizeDir(path.join(linked, 'public', 'img', 'deep'))).toBe(
+        path.join(root, 'public', 'img', 'deep')
+      )
+    }
+  )
 })

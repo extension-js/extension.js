@@ -115,6 +115,8 @@ export const NAMED_CODES: Record<string, ErrorCode> = {
   PublicLinkedFilesWarning: CODES.W_PROJECT_LAYOUT,
   PublicFileShadowedWarning: CODES.W_PROJECT_LAYOUT,
   PublicFolderCaseWarning: CODES.W_PROJECT_LAYOUT,
+  EntryFolderCaseWarning: CODES.W_PROJECT_LAYOUT,
+  EntryNameCollisionWarning: CODES.W_PROJECT_LAYOUT,
   NamespaceImportReadAsValue: CODES.E_ASSET_IMPORT_SHAPE,
   ManifestV2OnChromiumWarning: CODES.W_MANIFEST_COMPAT,
   ManifestLegacyWarning: CODES.W_MANIFEST_COMPAT,
@@ -147,7 +149,8 @@ export const NAMED_CODES: Record<string, ErrorCode> = {
   EnvReservedName: CODES.W_ENV_NAME_RESERVED,
   EnvDefinedNameWritten: CODES.W_ENV_DEFINE_WRITTEN,
   EnvPlaceholderNotUtf8: CODES.W_ENV_ASSET_NOT_UTF8,
-  UnknownRegistrationWorld: CODES.W_SCRIPT_WORLD_UNKNOWN
+  UnknownRegistrationWorld: CODES.W_SCRIPT_WORLD_UNKNOWN,
+  CssSetupNotApplied: CODES.W_CSS_NOT_APPLIED
 }
 
 // The bundler wraps what a loader threw or emitted under one of these names

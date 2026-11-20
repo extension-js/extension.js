@@ -6,6 +6,7 @@
 // ╚══════╝╚═╝     ╚══════╝ ╚═════╝╚═╝╚═╝  ╚═╝╚══════╝ ╚═╝      ╚═════╝ ╚══════╝╚═════╝ ╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {ExcludeFilesConfig, SpecialFoldersConfig} from '../types'
 
@@ -44,7 +45,12 @@ const SCRIPTS_FOLDER_EXTENSIONS: ReadonlySet<string> = new Set([
   '.mtsx'
 ])
 
+// A declaration file holds types only, so it is never an entry.
+const DECLARATION_FILE = /\.d\.[cm]?ts$/
+
 export function isScriptsFolderEntry(filePath: string): boolean {
+  if (DECLARATION_FILE.test(filePath)) return false
+
   return SCRIPTS_FOLDER_EXTENSIONS.has(path.extname(filePath))
 }
 
@@ -153,12 +159,9 @@ export function omitExcludedEntries<T extends Record<string, unknown>>(
 export type SpecialFolderName = 'pages' | 'scripts'
 export type SpecialFoldersRoots = Partial<Record<SpecialFolderName, string>>
 
-// The absolute folder each entry kind is read from: the configured one, the
-// root default otherwise, and none for `false` or a folder spelled another
-// name (the scan reads a relocated folder under its own name only).
-export function foldersRoots(
+function configuredRoots(
   projectRoot: string,
-  folders: SpecialFoldersConfig = rememberedFolders(projectRoot)
+  folders: SpecialFoldersConfig
 ): SpecialFoldersRoots {
   const roots: SpecialFoldersRoots = {}
 
@@ -177,6 +180,76 @@ export function foldersRoots(
   }
 
   return roots
+}
+
+// The folders beside an entry folder's place that spell its name in another
+// letter case, and whether the name itself is written there.
+function spellingsOf(root: string): {exact: boolean; others: string[]} {
+  const parent = path.dirname(root)
+  const name = path.basename(root)
+  let names: string[]
+
+  try {
+    names = fs.readdirSync(parent)
+  } catch {
+    return {exact: false, others: []}
+  }
+
+  const others = names
+    .filter((found) => found !== name && found.toLowerCase() === name)
+    .map((found) => path.join(parent, found))
+    .filter((found) => {
+      try {
+        return fs.statSync(found).isDirectory()
+      } catch {
+        return false
+      }
+    })
+
+  return {exact: names.includes(name), others}
+}
+
+// The absolute folder each entry kind is read from: the configured one, the
+// root default otherwise, and none for `false` or a folder spelled another
+// name (the scan reads a relocated folder under its own name only).
+export function foldersRoots(
+  projectRoot: string,
+  folders: SpecialFoldersConfig = rememberedFolders(projectRoot)
+): SpecialFoldersRoots {
+  const roots = configuredRoots(projectRoot, folders)
+
+  for (const name of ['pages', 'scripts'] as const) {
+    const root = roots[name]
+
+    if (!root) continue
+
+    const {exact, others} = spellingsOf(root)
+
+    // A disk that ignores letter case would hand `Scripts/` over as
+    // `scripts/`. No disk does here, so every disk builds the same.
+    if (!exact && others.length > 0) delete roots[name]
+  }
+
+  return roots
+}
+
+export interface MiscasedEntryFolder {
+  name: SpecialFolderName
+  dir: string
+}
+
+// The `Pages/` and `Scripts/` folders of a project, which no build reads.
+export function miscasedEntryFolders(
+  projectRoot: string,
+  folders: SpecialFoldersConfig = rememberedFolders(projectRoot)
+): MiscasedEntryFolder[] {
+  const roots = configuredRoots(projectRoot, folders)
+
+  return (['pages', 'scripts'] as const).flatMap((name) => {
+    const root = roots[name]
+
+    return root ? spellingsOf(root).others.map((dir) => ({name, dir})) : []
+  })
 }
 
 // The folder whose files are content scripts by location: the moved one,
