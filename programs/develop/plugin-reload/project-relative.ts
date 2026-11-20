@@ -21,6 +21,7 @@ export function resolveReal(absolute: string): string {
     try {
       return path.join(fs.realpathSync.native(head), ...tail)
     } catch {
+      // A path that does not exist resolves through its nearest real parent
       const parent = path.dirname(head)
       if (parent === head) return absolute
 

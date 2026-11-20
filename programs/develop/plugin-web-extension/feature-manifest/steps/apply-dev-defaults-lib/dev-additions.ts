@@ -11,10 +11,10 @@ import {isHostPattern} from './dev-injected-hosts'
 
 const PERMISSION_REASONS: Record<string, string> = {
   scripting:
-    'the dev reload registers content scripts and injects the rebuilt files into open tabs',
-  tabs: 'the dev reload finds the open tabs and extension pages a save touches and reloads them',
+    'the dev session registers content scripts and injects the rebuilt files into open tabs',
+  tabs: 'the dev session finds the open tabs and extension pages a save touches and loads them again',
   storage:
-    'the dev reload keeps its state in storage.local across service worker restarts'
+    'the dev session keeps its state in storage.local across service worker restarts'
 }
 
 const RESOURCE_REASONS: Record<string, string> = {
@@ -26,7 +26,7 @@ const RESOURCE_REASONS: Record<string, string> = {
 const UNSAFE_EVAL = "'unsafe-eval'"
 
 const HOST_REASON =
-  'a content script matches it, and the dev reload injects the rebuilt script into open tabs on save'
+  'a content script matches it, and the dev session injects the rebuilt script into open tabs on save'
 
 function strings(value: unknown): string[] {
   return Array.isArray(value)
@@ -136,7 +136,7 @@ function listManifestChanges(
   if (!sourceEntry && devEntry) {
     change(
       devEntry,
-      'the manifest declares no background, and the dev reload and the control bridge run in one'
+      'the manifest declares no background, and the dev session runs its control channel in one'
     )
   } else if (
     record(dev.background).persistent === true &&
@@ -169,9 +169,7 @@ export function listDevManifestAdditions(
         : {
             kind: 'permission',
             value: permission,
-            reason:
-              PERMISSION_REASONS[permission] ||
-              'the dev reload and the control bridge call it'
+            reason: PERMISSION_REASONS[permission] || 'the dev session calls it'
           }
     )
   }

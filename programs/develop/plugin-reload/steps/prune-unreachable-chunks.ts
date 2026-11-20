@@ -38,7 +38,7 @@ export class PruneUnreachableChunks {
           try {
             fs.rmSync(path.join(outputPath, name), {force: true})
           } catch {
-            // Ignore
+            // A stale chunk that cannot be removed is retried on the next build
           }
         }
       } catch {

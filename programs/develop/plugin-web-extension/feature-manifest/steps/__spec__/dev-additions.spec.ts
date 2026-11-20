@@ -187,6 +187,31 @@ describe('listDevManifestAdditions', () => {
     expect('matches' in additions[2]).toBe(false)
   })
 
+  // The manifest feature says what a grant lets the session do. Which
+  // plugin does it is not the manifest's to name.
+  it('gives each reason in terms of the dev session', () => {
+    const reasons = listDevManifestAdditions(
+      {},
+      {
+        permissions: ['scripting', 'tabs', 'storage', 'management'],
+        host_permissions: ['https://example.com/*'],
+        web_accessible_resources: [
+          {
+            resources: ['hot/*', 'extension-js-control.json'],
+            matches: ['<all_urls>']
+          }
+        ],
+        background: {service_worker: 'background/service_worker.js'}
+      }
+    ).map((entry) => entry.reason)
+
+    expect(reasons).toHaveLength(8)
+    expect(reasons.filter((reason) => /dev reload/.test(reason))).toEqual([])
+    expect(
+      reasons.filter((reason) => !/dev session|content script/.test(reason))
+    ).toEqual([])
+  })
+
   it('answers an empty list when dev added nothing', () => {
     const manifest = {
       permissions: ['scripting', 'tabs', 'storage'],

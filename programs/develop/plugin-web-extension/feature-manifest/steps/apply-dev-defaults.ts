@@ -325,8 +325,8 @@ export class ApplyDevDefaults {
                       this.connectableHost
                     ),
 
-              // Dev-only permissions for the control bridge + reload loop. MV2 also
-              // needs content-script host patterns in `permissions` (no host_permissions).
+              // What the dev session calls. MV2 has no host_permissions, so its
+              // content script host patterns go in `permissions` too.
               permissions: [
                 ...new Set([
                   ...injectedPermissions,

@@ -62,6 +62,7 @@ function pruneOrphanDevContentScriptFiles(
       }
     }
   } catch {
+    // With no readable manifest nothing is known to be orphaned
     return
   }
 
@@ -76,7 +77,7 @@ function pruneOrphanDevContentScriptFiles(
     try {
       fs.rmSync(path.join(folder, file), {force: true})
     } catch {
-      // Ignore
+      // An orphan that cannot be removed is retried on the next build
     }
   }
 }
@@ -138,6 +139,7 @@ export class SetupDevContentScripts {
                   manifestAsset.source.source().toString()
               ) as Manifest
             } catch {
+              // A manifest that does not parse is the manifest feature's error
               return
             }
 

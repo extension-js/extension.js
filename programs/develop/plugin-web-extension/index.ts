@@ -42,7 +42,6 @@ export class WebExtensionPlugin {
   public readonly devSession?: boolean
   public readonly define?: Record<string, unknown>
   public readonly connectableHost?: string
-  public readonly port?: string | number
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
@@ -50,7 +49,6 @@ export class WebExtensionPlugin {
     this.devSession = options.devSession
     this.define = options.define
     this.connectableHost = options.connectableHost
-    this.port = options.port
   }
 
   public apply(compiler: Compiler): void {
@@ -128,9 +126,6 @@ export class WebExtensionPlugin {
     )
 
     new HtmlPlugin({
-      devSession: this.devSession,
-      connectableHost: this.connectableHost,
-      port: this.port,
       manifestPath,
       browser: this.browser,
       includeList: pageEntries

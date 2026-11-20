@@ -40,8 +40,8 @@ export function reloadForBuild(
     loaded?: LoadedContentScripts
   }
 ): ReloadInstruction | undefined {
-  const outputPath = String(compilation.options?.output?.path || '')
-  const contextDir = String(compilation.options?.context || '')
+  const outputPath = String(compilation.options.output.path || '')
+  const contextDir = String(compilation.options.context || '')
   const {forcedFull, changedSources} = options.changedSources.snapshot()
   const classified = classifyReloadFromSources({
     changedSources,
