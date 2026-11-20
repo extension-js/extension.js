@@ -24,9 +24,10 @@ import {
   getCanonicalContentScriptEntryName,
   markMainWorldCompiler
 } from '../contracts'
+import * as messages from '../messages'
 import {findRuntimeMainWorldEntries} from '../scripts-lib/runtime-main-world-scripts'
 import {isRemoteUrl} from '../scripts-lib/utils'
-import {createSequentialEntryModule} from './add-scripts'
+import {createSequentialEntryModule, manifestFieldOf} from './add-scripts'
 import {
   withEagerDynamicImports,
   withoutDevRefresh
@@ -41,6 +42,8 @@ export interface MainWorldGroup {
 interface MainWorldEntry {
   entryName: string
   files: string[]
+  // The feature a copy was made of, which is the one the author named.
+  copyOf?: string
 }
 
 // The MAIN world content script groups a dev build compiles apart: every js
@@ -214,7 +217,7 @@ export class CompileMainWorldScripts {
           },
           async () => {
             for (const group of groups) {
-              await compileGroup(compiler, compilation, group)
+              await compileGroup(compiler, compilation, group, manifestDir)
             }
           }
         )
@@ -278,17 +281,50 @@ function namedForParent(compiler: Compiler, issue: ChildIssue): ChildIssue {
   return named
 }
 
+// AddScripts names a file that is gone when the build starts. One deleted
+// after that check is named here, so no build passes over it in silence.
+function reportMissingOnce(
+  compiler: Compiler,
+  compilation: Compilation,
+  group: MainWorldEntry,
+  file: string,
+  manifestDir: string
+) {
+  // Read through a copy: the list the bundler hands out is a view.
+  const said = Array.from(compilation.errors).some(
+    (error) =>
+      error?.name === 'ScriptsMissingFile' &&
+      String(error.message).includes(file)
+  )
+  if (said) return
+
+  const report = new compiler.rspack.WebpackError(
+    messages.scriptsMissingFile(
+      path.relative(manifestDir, file).split(path.sep).join('/'),
+      manifestFieldOf(group.copyOf ?? group.entryName, file, new Map()),
+      file
+    )
+  ) as Error & {file?: string}
+
+  report.name = 'ScriptsMissingFile'
+  report.file = 'manifest.json'
+  compilation.errors.push(report as Compilation['errors'][number])
+}
+
 async function compileGroup(
   compiler: Compiler,
   compilation: Compilation,
-  group: MainWorldEntry
+  group: MainWorldEntry,
+  manifestDir: string
 ): Promise<void> {
-  // AddScripts already names a deleted file and its field. Watched here, so
-  // the group builds again once the file is written back.
+  // Watched here, so the group builds again once the file is written back.
   const gone = group.files.filter((file) => !fs.existsSync(file))
 
   if (gone.length > 0) {
-    for (const file of gone) compilation.missingDependencies.add(file)
+    for (const file of gone) {
+      compilation.missingDependencies.add(file)
+      reportMissingOnce(compiler, compilation, group, file, manifestDir)
+    }
 
     return
   }
