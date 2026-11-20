@@ -567,6 +567,15 @@ export function buildOutputPathRefused(
 }
 
 // The compile is done and the finished folder could not take its place.
+export function buildOutputFolderNotWritable(folder: string, reason: string) {
+  return (
+    `${getLoggingPrefix('error')} Couldn't write the build into its output folder.\n` +
+    `${colors.gray('PATH')} ${colors.underline(folder)}\n` +
+    `${colors.gray('REASON')} ${colors.red(reason)}\n` +
+    `Make that folder writable, or pick another with ${colors.blue('--out-dir')}, then run the build again.`
+  )
+}
+
 export function buildOutputNotPublished(distPath: string, error: unknown) {
   return (
     `${getLoggingPrefix('error')} Couldn't move the finished build into place.\n` +

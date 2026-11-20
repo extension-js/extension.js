@@ -843,7 +843,12 @@ async function runBuild(
         err: Error | null,
         stats: Parameters<Parameters<typeof compiler.run>[0]>[1]
       ) => {
-        if (err) return reject(fatalFailure(err, packageJsonDir))
+        if (err) {
+          return reject(
+            outputNotWritable(err, nodePath.dirname(distPath)) ??
+              fatalFailure(err, packageJsonDir)
+          )
+        }
 
         // Guard against silent-success scenarios where the bundler callback
         // does not provide stats, which means we cannot trust emission output.
@@ -1444,6 +1449,32 @@ function readableFailure(thrown: unknown, projectRoot: string): Error {
   return Object.assign(new Error(messages.thrownValueText(thrown)), {
     cause: thrown
   })
+}
+
+const WRITE_REFUSALS: Record<string, string> = {
+  EACCES: 'permission denied',
+  EPERM: 'operation not permitted',
+  EROFS: 'read-only file system'
+}
+
+// The bundler reports a folder it may not write to as its own fatal error.
+// It is the output folder's state, so it is named as that, with the folder.
+function outputNotWritable(thrown: unknown, outputRoot: string) {
+  const text = thrown instanceof Error ? thrown.message : String(thrown)
+  const code = Object.keys(WRITE_REFUSALS).find((name) => text.includes(name))
+
+  if (!code || !text.includes(outputRoot)) return undefined
+
+  return Object.assign(
+    codedError(
+      CODES.E_OUTPUT_NOT_WRITABLE,
+      messages.buildOutputFolderNotWritable(
+        displayPath(outputRoot),
+        `${code}: ${WRITE_REFUSALS[code]}`
+      )
+    ),
+    {cause: thrown}
+  )
 }
 
 // A throw from a plugin or from the bundler itself, with no compile error

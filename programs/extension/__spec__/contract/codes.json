@@ -410,7 +410,7 @@
     },
     "E_OUTPUT_NOT_WRITABLE": {
       "area": "compile",
-      "summary": "The build could not write manifest.json into the output folder."
+      "summary": "The build could not write into the output folder: the folder is not writable, or manifest.json could not be written into it."
     },
     "E_PREVIEW_NO_DIST": {
       "area": "preview",
