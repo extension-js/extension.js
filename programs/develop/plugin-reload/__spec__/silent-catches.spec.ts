@@ -51,7 +51,24 @@ function catchBlocks(text: string): Array<{line: number; body: string}> {
 }
 
 const REPORTS = /\bthrow\b|debugLine\(|console\.(?:warn|error)\(|\.push\(/
-const SAYS_WHY = /\/\/\s*(?!ignore\b|noop\b|no-op\b)\S+(?:\s+\S+){2,}/i
+const NOT_A_REASON = ['ignore', 'noop', 'no-op']
+
+// A reason is a comment of three words or more.
+function saysWhy(body: string): boolean {
+  return body.split('\n').some((line) => {
+    const at = line.indexOf('//')
+    if (at === -1) return false
+
+    const words = line
+      .slice(at + 2)
+      .split(' ')
+      .filter(Boolean)
+
+    return words.length >= 3 && !NOT_A_REASON.includes(words[0].toLowerCase())
+  })
+}
+
+const isSilent = (body: string) => !REPORTS.test(body) && !saysWhy(body)
 
 describe('the catches of the reload plugin', () => {
   it('each report the failure or say why it is safe to drop', () => {
@@ -59,7 +76,7 @@ describe('the catches of the reload plugin', () => {
       .filter((file) => !IN_BROWSER.includes(file))
       .flatMap((file) =>
         catchBlocks(fs.readFileSync(path.join(FOLDER, file), 'utf8'))
-          .filter(({body}) => !REPORTS.test(body) && !SAYS_WHY.test(body))
+          .filter(({body}) => isSilent(body))
           .map(({line}) => `${file}:${line}`)
       )
 
@@ -68,8 +85,8 @@ describe('the catches of the reload plugin', () => {
 
   it('reads a bare catch and an ignore note as silent', () => {
     const read = (body: string) =>
-      catchBlocks(`try { run() } catch {${body}}`).filter(
-        (block) => !REPORTS.test(block.body) && !SAYS_WHY.test(block.body)
+      catchBlocks(`try { run() } catch {${body}}`).filter((block) =>
+        isSilent(block.body)
       ).length
 
     expect(read(' return false ')).toBe(1)

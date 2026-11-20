@@ -29,21 +29,48 @@ export function isDevServerClientFile(file: string | undefined): boolean {
   )
 }
 
-function escapeForPattern(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
-// The id as the bundle writes it: a number bare, a name as a string literal.
-function requireCall(moduleId: ModuleId): string {
+// The startup line of a module as the bundle writes it: a number bare, a
+// name as a string literal.
+function startupStatement(moduleId: ModuleId): string {
   const written =
     typeof moduleId === 'number' ? String(moduleId) : JSON.stringify(moduleId)
 
-  return `__webpack_require__\\(${escapeForPattern(written)}\\)`
+  return `__webpack_require__(${written});`
 }
 
-// A startup line that only starts one module, which is all a strip removes.
-function startupLine(moduleId: ModuleId): RegExp {
-  return new RegExp(`^[ \\t]*${requireCall(moduleId)};\\n?`, 'm')
+// Where the line that only starts this module begins and ends, newline
+// included, at or after `from`.
+function startupLine(
+  source: string,
+  from: number,
+  moduleId: ModuleId
+): [number, number] | undefined {
+  const statement = startupStatement(moduleId)
+
+  for (
+    let at = source.indexOf(statement, from);
+    at !== -1;
+    at = source.indexOf(statement, at + 1)
+  ) {
+    let start = at
+
+    while (
+      start > 0 &&
+      (source[start - 1] === ' ' || source[start - 1] === '\t')
+    ) {
+      start -= 1
+    }
+
+    const end = at + statement.length
+    const opensLine = start === 0 || source[start - 1] === '\n'
+    const closesLine = end === source.length || source[end] === '\n'
+
+    if (opensLine && closesLine) {
+      return [start, Math.min(end + 1, source.length)]
+    }
+  }
+
+  return undefined
 }
 
 export interface StrippedContentScript {
@@ -66,20 +93,13 @@ export function stripDevServerStartup(
   const startupIndex = source.indexOf('// startup')
 
   for (const moduleId of clientEntryIds) {
-    const match =
+    const line =
       startupIndex === -1
-        ? null
-        : startupLine(moduleId).exec(source.slice(startupIndex))
+        ? undefined
+        : startupLine(source, startupIndex, moduleId)
 
-    if (!match) {
-      kept.push(moduleId)
-
-      continue
-    }
-
-    const start = startupIndex + match.index
-
-    removed.push([start, start + match[0].length])
+    if (line) removed.push(line)
+    else kept.push(moduleId)
   }
 
   removed.sort((a, b) => a[0] - b[0])
