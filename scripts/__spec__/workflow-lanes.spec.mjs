@@ -142,7 +142,7 @@ test('every pull request workflow cancels the run a new push supersedes', () => 
     if (!file.endsWith('.yml')) continue
 
     const workflow = readWorkflow(file)
-    const on = workflow.on ?? workflow[true]
+    const on = workflow.on ?? workflow['true']
     if (!on || typeof on !== 'object' || !('pull_request' in on)) continue
 
     const group = workflow.concurrency?.group ?? ''
