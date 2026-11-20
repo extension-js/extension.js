@@ -10,12 +10,19 @@ import * as path from 'node:path'
 import {type Command, Option} from 'commander'
 import {normalizeProfileOption} from '../browsers/browsers-lib/resolve-profile'
 import {runOnlyPreviewBrowser} from '../browsers/run-only'
-import {refuseUnlistedChoices} from '../helpers/choice-flags'
+import {
+  refuseUnknownListItems,
+  refuseUnlistedChoices
+} from '../helpers/choice-flags'
 import {
   explicitCliValue,
   explicitOptionalBoolean
 } from '../helpers/cli-explicit'
-import {declaredErrorCode} from '../helpers/cli-failure'
+import {
+  declaredErrorCode,
+  failureHint,
+  isUsageCode
+} from '../helpers/cli-failure'
 import {
   cliGeckoBinary,
   firefoxBinaryAliasOption,
@@ -193,11 +200,11 @@ export function registerStartCommand(
     )
     .option(
       '--port <port>',
-      'specify the port to use for the development server. Defaults to `8080`'
+      "seed the browser's debugging port, which listens on this value plus 100. Without it the browser listens on 9222"
     )
     .option(
       '--host <host>',
-      'specify the host to bind the dev server to. Use 0.0.0.0 for Docker/devcontainers. Defaults to `127.0.0.1`'
+      'host the control channel binds to under --allow-control or --allow-eval. Nothing else listens. Defaults to `127.0.0.1`'
     )
     // Accepted and ignored: start serves nothing a browser dials, and a
     // caller that shares its flags with dev must not be refused for it.
@@ -273,6 +280,12 @@ export function registerStartCommand(
     )
     .hook('preAction', refuseUnreadableOutput({reportFailure}))
     .hook('preAction', refuseUnlistedChoices({reportFailure}))
+    .hook(
+      'preAction',
+      refuseUnknownListItems('--log-context', [...LOG_CONTEXTS, 'all'], {
+        reportFailure
+      })
+    )
     .action(
       async (
         pathOrRemoteUrl: string,
@@ -488,6 +501,20 @@ export function registerStartCommand(
           loadDevelop
         )
 
+        // The engine refuses this pair for preview, but start skips the engine
+        // under --no-browser, so the refusal has to be made here, before a build.
+        if (
+          noBrowser &&
+          (startOptions.allowControl || startOptions.allowEval)
+        ) {
+          const message = messages.controlNeedsBrowser('start')
+
+          // eslint-disable-next-line no-console
+          if (!asJson) console.error(messages.usageRefusal(message))
+
+          failAndExit(asJson, 'usage', {code: CODES.E_INVALID_OPTION, message})
+        }
+
         for (const vendor of list) {
           const logsOption = startOptions.logs
           const logContextOption = startOptions.logContext
@@ -525,13 +552,17 @@ export function registerStartCommand(
               printFrame(
                 ENVELOPE.fail(
                   'start',
-                  'build-failed',
+                  isUsageCode(code) ? 'usage' : 'build-failed',
                   {
                     code,
                     message:
                       error instanceof Error ? error.message : String(error)
                   },
-                  {hint: 'Fix the error above and run start again.'}
+                  {
+                    hint:
+                      failureHint(code) ??
+                      'Fix the error above and run start again.'
+                  }
                 )
               )
             }
@@ -550,7 +581,6 @@ export function registerStartCommand(
           await extensionPreview(
             pathOrRemoteUrl,
             {
-              mode: 'production',
               profile: normalizeProfileOption(startOptions.profile),
               browser: vendor as DevelopBrowser,
               chromiumBinary: startOptions.chromiumBinary,

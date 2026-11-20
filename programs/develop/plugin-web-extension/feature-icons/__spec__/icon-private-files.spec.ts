@@ -1,3 +1,4 @@
+import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {
@@ -62,14 +63,19 @@ describe('a manifest icon that names a file the build never copies', () => {
     async (_label, ref, feature, field) => {
       const {root} = makeProject({'manifest.json': manifest(field(ref))})
       const result = await build(root)
+      const key =
+        feature === 'theme/images' ? 'theme/images/theme_frame' : feature
 
       expect(result.marked).toEqual([])
       expect(result.shipped).toEqual([])
       expect(result.errors).toBe(1)
+      // A file that is there is not bundled, and only an absent one is missing.
       expect(result.printed).toContain(
-        feature === 'theme/images'
-          ? 'Check the theme/images/theme_frame field in your manifest.json file.'
-          : `Can't find an icon file listed in ${feature}.`
+        fs.existsSync(path.join(root, ref))
+          ? `is not bundled. Check the ${key} field in your manifest.json file.`
+          : feature === 'theme/images'
+            ? `Check the ${key} field in your manifest.json file.`
+            : `Can't find an icon file listed in ${feature}.`
       )
 
       expectNothingPrivate(result)

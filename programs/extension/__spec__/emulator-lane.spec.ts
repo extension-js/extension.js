@@ -383,7 +383,7 @@ describe('tooling refuses an emulator session', () => {
       'pretty'
     ])
     expect(code).toBe(1)
-    expect(errorSpy).toHaveBeenCalledWith(EMULATOR_LOGS_REFUSAL)
+    expect(errorSpy).toHaveBeenCalledWith(`⏵⏵⏵ Error: ${EMULATOR_LOGS_REFUSAL}`)
     expect(bridge.controllers).toBe(0)
   })
 

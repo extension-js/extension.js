@@ -15,7 +15,8 @@ export {
   manifest,
   missingRefs,
   notFoundPaths,
-  PAGE
+  PAGE,
+  pageNotBundledRefs
 } from '../../../../plugin-special-folders/__spec__/helpers/private-files-project'
 
 // The shared fixture project of fake private files, plus dot-named files in

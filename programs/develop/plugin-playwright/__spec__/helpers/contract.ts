@@ -189,6 +189,20 @@ export function stampReadyBrowserLaunchFailed(
   patchContract(readyPath, fields)
 }
 
+// status, code and message are what the stamp flips.
+export function stampReadyProfileLocked(
+  readyPath: string,
+  fields: {
+    status: 'error'
+    code: 'profile_locked'
+    message: string
+    profileLockedAt: string
+    profileLockOwner?: {host: string; pid: number}
+  }
+) {
+  patchContract(readyPath, fields)
+}
+
 // status, code and message flip only before ready or
 // under preview and start.
 export function stampReadyBrowserExited(

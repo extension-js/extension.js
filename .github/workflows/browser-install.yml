@@ -1,0 +1,126 @@
+name: CI – Browser Install
+
+# Every other lane runs a browser that Playwright or a setup step put in
+# place, so nothing proved that `extension install` itself still gets a
+# browser the CLI can launch. Once a week, on each desktop OS, this builds
+# the CLI from the repository, installs each browser through it and runs a
+# tiny extension in that browser until ready.json shows it attached. It
+# blocks nothing and never runs on pull requests.
+on:
+  schedule:
+    - cron: '0 7 * * 2'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: browser-install-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pins:
+    name: Installer pins resolve
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+
+      - name: Check that every installer pin resolves
+        run: node scripts/check-installer-pins.mjs
+
+  install:
+    name: ${{ matrix.browser }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      # One browser going red must not cancel the evidence from the others.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        # Edge runs on all three: the CLI marks it unsupported on none of
+        # them. The ubuntu image ships a system Edge and a step has no
+        # terminal, so there the run proves the CLI takes that Edge. macOS
+        # and Windows run Playwright's Edge installer.
+        browser: [chrome, firefox, edge]
+    permissions:
+      contents: read
+      # report-red-lane.sh opens or comments on the red lane issue
+      issues: write
+    env:
+      EXTENSION_TELEMETRY_DISABLED: '1'
+      DO_NOT_TRACK: '1'
+      # Below the job budget, so a stalled installer ends as the CLI's own
+      # coded timeout and not as a cancelled job.
+      EXTENSION_INSTALL_TIMEOUT_MS: '900000'
+      BROWSER: ${{ matrix.browser }}
+      FIXTURE: scripts/fixtures/browser-install-smoke
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/setup
+        with:
+          node-version: '22'
+
+      - name: Compile Extension.js
+        run: pnpm compile
+
+      - name: Assert the compiled CLI answers
+        run: node programs/extension/bin/extension.cjs --version
+
+      # The envelope tells a browser the CLI refuses on this OS apart from a
+      # failed install. A refusal skips the launch and says so in the summary.
+      - name: Install ${{ matrix.browser }} through the CLI
+        id: install
+        timeout-minutes: 18
+        run: |
+          set +e
+          node programs/extension/bin/extension.cjs install "$BROWSER" --output json > install.json
+          code=$?
+          set -e
+          cat install.json
+          if [ "$code" -ne 0 ]; then
+            if grep -Eq '"code": ?"(E_BROWSER_NOT_INSTALLABLE|E_UNSUPPORTED_BROWSER)"' install.json; then
+              echo "::notice::The CLI does not install $BROWSER on $RUNNER_OS, so its launch is skipped"
+              echo "$BROWSER is not installable on $RUNNER_OS, launch skipped" >> "$GITHUB_STEP_SUMMARY"
+              echo "skipped=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            exit "$code"
+          fi
+          node programs/extension/bin/extension.cjs install --where "$BROWSER"
+
+      # Same proof as the nightly dev smoke: only ready.json showing the
+      # extension attached in the browser is a pass. Linux needs an X server.
+      - name: Launch ${{ matrix.browser }} through the CLI
+        if: steps.install.outputs.skipped != 'true'
+        timeout-minutes: 8
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            xvfb-run -a node scripts/nightly-dev-smoke.mjs "$FIXTURE" --browser "$BROWSER" --no-open --port 0
+          else
+            node scripts/nightly-dev-smoke.mjs "$FIXTURE" --browser "$BROWSER" --no-open --port 0
+          fi
+
+      - name: Report a red lane
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RED_LANE_REPRO: |
+            pnpm compile
+            node programs/extension/bin/extension.cjs install ${{ matrix.browser }}
+            node scripts/nightly-dev-smoke.mjs scripts/fixtures/browser-install-smoke --browser ${{ matrix.browser }} --no-open --port 0
+        run: bash scripts/report-red-lane.sh "Browser install ${{ matrix.browser }} on ${{ matrix.os }}"
+
+      - name: Close the red lane
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/close-red-lane.sh "Browser install ${{ matrix.browser }} on ${{ matrix.os }}"

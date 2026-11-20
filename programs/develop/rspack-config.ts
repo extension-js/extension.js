@@ -242,7 +242,8 @@ export default function webpackConfig(
       manifestPath,
       browser: devOptions.browser,
       mode: devOptions.mode,
-      transpilePackages: devOptions.transpilePackages
+      transpilePackages: devOptions.transpilePackages,
+      define: devOptions.define
     }),
     new CompatibilityPlugin({
       manifestPath,

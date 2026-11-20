@@ -146,6 +146,15 @@ export function manifestNotFoundError(
   return `${base}\n\n${colors.gray(hint)}\n${colors.blue(suggestions)}`
 }
 
+// The manifest sits in the folder copied as is, so the way out is moving it.
+export function manifestInPublicError(manifestPath: string) {
+  return (
+    `${getLoggingPrefix('error')} manifest.json sits in the public/ folder.\n` +
+    `${colors.gray('FOUND')} ${colors.underline(manifestPath)}\n` +
+    `Files in public/ are copied to the output as they are. Move manifest.json to the project root or src/, then try again.`
+  )
+}
+
 export function companionManifestNotProjectError(
   manifestPath: string,
   companionManifestPath: string
@@ -456,6 +465,27 @@ export function anotherDevSessionActive(
     `${getLoggingPrefix('warn')} Another dev session is already writing dist/${browser} (PID ${pid}${run}).\n` +
     `Both sessions rebuild the same output, so the last compile wins.\n` +
     `Stop the other session. A distinct ${fmt.code('EXTENSION_INSTANCE_ID')} keeps the ports apart, but ready.json and the eval token hold one session per browser.`
+  )
+}
+
+// A dev session owns its contract, so another command beside it leaves it be.
+export function liveDevSessionOwnsContract(
+  command: string,
+  pid: number,
+  readyPath: string
+) {
+  return (
+    `${getLoggingPrefix('warn')} A live dev session (PID ${pid}) owns ${colors.underline(asAskedPath(readyPath))}, so this ${command} run leaves its ready.json and events.ndjson as they are.\n` +
+    `The output folder is shared, so the dev browser may pick up the files this ${command} writes. Stop the dev session first for a clean ${command} receipt.`
+  )
+}
+
+// The session contract is the only way a tool learns the run's state, so a
+// write that failed is said once instead of leaving the tool to time out.
+export function sessionContractUnwritable(filePath: string, reason: string) {
+  return (
+    `${getLoggingPrefix('warn')} Could not write ${colors.underline(asAskedPath(filePath))} (${reason}).\n` +
+    `Tools that read the session contract, such as ${fmt.code('--wait')} and ${fmt.code('extension doctor')}, see no update until it can be written.`
   )
 }
 
@@ -1873,6 +1903,21 @@ export function configUnknownKeys(
     `${getLoggingPrefix('warn')} ${colors.blue('extension.config.js')} declares ${keys.length === 1 ? 'a key' : 'keys'} nothing reads: ${colors.yellow(keys.join(', '))}.\n` +
     `${fmt.label('PATH')} ${fmt.val(configPath)}\n` +
     `Accepted keys are ${colors.blue(accepted.join(', '))}.`
+  )
+}
+
+// One line per key, named by its full path, with the key it likely meant.
+export function configUnknownNestedKey(
+  configPath: string,
+  keyPath: string,
+  suggestion?: string
+) {
+  return (
+    `${getLoggingPrefix('warn')} ${colors.blue('extension.config.js')} declares a key nothing reads: ${colors.yellow(keyPath)}.\n` +
+    `${fmt.label('PATH')} ${fmt.val(configPath)}\n` +
+    (suggestion
+      ? `Did you mean ${colors.blue(suggestion)}?`
+      : 'Remove it, or check its spelling against the FileConfig type.')
   )
 }
 

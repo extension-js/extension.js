@@ -101,6 +101,36 @@ describe('coded warnings', () => {
     expect(takeCodedWarnings()).toEqual([])
   })
 
+  it('gives a line no build can be named for to every build running, and to no later one', async () => {
+    let release = () => {}
+
+    const mayFinish = new Promise<void>((resolve) => {
+      release = resolve
+    })
+
+    const run = () =>
+      withCodedWarnings(async () => {
+        await mayFinish
+
+        return takeCodedWarnings()
+      })
+
+    const first = run()
+    const second = run()
+
+    // A hook that names no compiler, while both builds run.
+    recordCodedWarning(CODES.W_TYPES_EMIT, 'from a hook of either build')
+
+    const later = withCodedWarnings(async () => takeCodedWarnings())
+
+    release()
+
+    expect(await first).toEqual(['W_TYPES_EMIT: from a hook of either build'])
+    expect(await second).toEqual(['W_TYPES_EMIT: from a hook of either build'])
+    expect(await later).toEqual([])
+    expect(takeCodedWarnings()).toEqual([])
+  })
+
   it('gives a line from no scope to the one build that is running', async () => {
     let release = () => {}
 

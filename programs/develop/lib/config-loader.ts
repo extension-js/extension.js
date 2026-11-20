@@ -20,6 +20,7 @@ import type {
   FileConfig
 } from '../types'
 import {type CodedError, codedError} from './coded-error'
+import {unknownNestedConfigKeys} from './config-known-keys'
 import {
   CHROMIUM_FAMILY_ALIASES,
   GECKO_FAMILY_ALIASES,
@@ -704,6 +705,9 @@ const CONFIG_TOP_LEVEL_KEYS = [
   'transpilePackages'
 ] as const
 
+// A config evaluated again under other env files has the same keys.
+const reportedNestedKeys = new Set<string>()
+
 // A config file is a plain object. A function default export is the webpack
 // habit, and taking it silently meant nothing the author wrote applied.
 function assertConfigShape(configPath: string, value: unknown): void {
@@ -721,6 +725,20 @@ function assertConfigShape(configPath: string, value: unknown): void {
     // eslint-disable-next-line no-console
     console.error(
       messages.configUnknownKeys(configPath, unknown, CONFIG_TOP_LEVEL_KEYS)
+    )
+  }
+
+  // A typo one level down, like commands.dev.startingUrll, used to be just as
+  // silent, so each one is named the same way, once per process.
+  for (const {path: keyPath, suggestion} of unknownNestedConfigKeys(value)) {
+    const key = `${configPath}\0${keyPath}`
+
+    if (reportedNestedKeys.has(key)) continue
+
+    reportedNestedKeys.add(key)
+    // eslint-disable-next-line no-console
+    console.error(
+      messages.configUnknownNestedKey(configPath, keyPath, suggestion)
     )
   }
 }

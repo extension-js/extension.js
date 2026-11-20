@@ -43,7 +43,9 @@ describe('classifyReloadFromSources', () => {
     ).toMatchObject({type: 'service-worker'})
   })
 
-  it('a content source change with declared content scripts → content-scripts with canonical entries', () => {
+  // The tracker hands over only files the build read, so a file no bundle
+  // names here is one a loader or a config read, never a note nothing reads.
+  it('a read file no bundle names, with declared content scripts → every canonical entry', () => {
     const result = classifyReloadFromSources({
       changedSources: ['src/content/scripts.js'],
       getContentScriptCount: count(2)

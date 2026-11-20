@@ -496,6 +496,7 @@ describe('webpack/command-preview (run-only)', () => {
       .catch((err: Error) => err)
 
     expect(thrown).toBeInstanceOf(Error)
+    expect(thrown).toMatchObject({code: 'E_PREVIEW_NO_DIST'})
     expect(thrown?.message).toContain('⏵⏵⏵')
     expect(thrown?.message).toContain('Preview is run-only')
     expect(thrown?.message).toContain('NOT FOUND')

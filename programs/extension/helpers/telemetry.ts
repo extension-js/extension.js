@@ -721,6 +721,21 @@ function resolveConsentWith(
     return {enabled: true, source: 'env', variable: 'EXTENSION_TELEMETRY'}
   }
 
+  // A stored refusal is read where it already exists, so a pipeline that the
+  // gate below turns off never gets a folder created on its disk.
+  const existing = locateStorageWith(deps)
+
+  if (
+    existing &&
+    readConsentFile(deps.fs, existing.consentFile) === 'disabled'
+  ) {
+    return {enabled: false, source: 'config'}
+  }
+
+  if (deps.isCI() && !deps.stdoutIsTTY()) {
+    return {enabled: false, source: 'ci'}
+  }
+
   const storage = resolveStorageWith(deps)
 
   // With nowhere to keep the ID, the consent or the audit log, the run
@@ -730,10 +745,6 @@ function resolveConsentWith(
   const stored = readConsentFile(deps.fs, storage.consentFile)
 
   if (stored === 'disabled') return {enabled: false, source: 'config'}
-
-  if (deps.isCI() && !deps.stdoutIsTTY()) {
-    return {enabled: false, source: 'ci'}
-  }
 
   // A consent file that lives inside a git worktree came with the clone, so
   // it cannot record this person's agreement and never yields `enabled`; it

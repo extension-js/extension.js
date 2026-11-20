@@ -6,6 +6,7 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {usageRefusal} from './messages'
 import {parseWholeNumber} from './normalize-options'
 
 const POLL_INTERVAL_MS = 2_000
@@ -23,8 +24,21 @@ function isProcessAlive(pid: number): boolean {
   }
 }
 
+// SIGTERM self-delivery runs the cleanup a live run installed.
+export function shutDownBySignal(): void {
+  // Backstop first: if the graceful path wedges, still exit.
+  const hardExit = setTimeout(() => process.exit(1), HARD_EXIT_GRACE_MS)
+  hardExit.unref?.()
+
+  try {
+    process.kill(process.pid, 'SIGTERM')
+  } catch {
+    process.exit(1)
+  }
+}
+
 // Exit when the parent pid dies (--parent-pid): an orphaned dev otherwise races
-// the next session's builds. SIGTERM self-delivery runs cleanup. Returns cancel.
+// the next session's builds. Returns cancel.
 export function setupParentWatchdog(
   parentPid: number,
   options?: {
@@ -35,7 +49,7 @@ export function setupParentWatchdog(
     // The last thing a machine consumer sees, so it is written before the
     // shutdown that closes stdout behind it.
     emitFrame?: () => void
-    // Test seam: replaces the SIGTERM-self shutdown.
+    // Replaces the SIGTERM-self shutdown.
     onDeath?: () => void
     pollIntervalMs?: number
     // Answers whether a pid is alive, the system probe when left out.
@@ -45,19 +59,7 @@ export function setupParentWatchdog(
   const log = options?.log ?? console.error
   const pollIntervalMs = options?.pollIntervalMs ?? POLL_INTERVAL_MS
   const isAlive = options?.isAlive ?? isProcessAlive
-  const shutdown =
-    options?.onDeath ??
-    (() => {
-      // Backstop first: if the graceful path wedges, still exit.
-      const hardExit = setTimeout(() => process.exit(1), HARD_EXIT_GRACE_MS)
-      hardExit.unref?.()
-
-      try {
-        process.kill(process.pid, 'SIGTERM')
-      } catch {
-        process.exit(1)
-      }
-    })
+  const shutdown = options?.onDeath ?? shutDownBySignal
 
   const endedBySession = () => {
     try {
@@ -69,7 +71,9 @@ export function setupParentWatchdog(
 
   const onParentDeath = () => {
     log(
-      `[Extension.js] Parent process ${parentPid} is gone (--parent-pid). Shutting down.`
+      usageRefusal(
+        `Parent process ${parentPid} is gone (--parent-pid). Shutting down.`
+      )
     )
 
     if (endedBySession()) return

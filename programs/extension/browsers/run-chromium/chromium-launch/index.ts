@@ -1599,12 +1599,13 @@ export class ChromiumLaunchPlugin {
       const hint = /timed out|did not complete/i.test(message)
         ? " Chrome likely rejected the extension at launch, open chrome://extensions in the dev browser window for the exact error. Common causes: MV3 content_security_policy with 'unsafe-inline', manifest keys Chrome does not support, or manifest references to missing files. Reload/HMR cannot attach until this is fixed."
         : ''
-      humanError(`[browser] ${message}${hint}`)
 
       // A wire that died during the handshake is usually a browser on its way
       // out. Let that exit land first, so the session reports the browser gone
-      // rather than ready and then gone.
+      // rather than ready and then gone, and the dead wire is not news.
       await this.waitForBrowserGone(child, 1500)
+
+      if (!this.browserGone) humanError(`[browser] ${message}${hint}`)
 
       if (this.browserGone) {
         if (compilation.options.mode === 'development') {

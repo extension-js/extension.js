@@ -6,6 +6,8 @@ import type {SpawnProcess} from '../lib/install-runner'
 // which is how a hung package manager looks to the runner.
 export interface FakeRun {
   exit?: number | null
+  // The signal that ended the child, reported with a null exit.
+  signal?: NodeJS.Signals
   stdout?: string
   stderr?: string
   error?: Error
@@ -74,7 +76,10 @@ export function fakeSpawn(
 
       if (run.stdout) child.stdout?.emit('data', Buffer.from(run.stdout))
       if (run.stderr) child.stderr?.emit('data', Buffer.from(run.stderr))
-      if (run.exit !== undefined) child.emit('close', run.exit)
+
+      if (run.exit !== undefined) {
+        child.emit('close', run.exit, run.signal ?? null)
+      }
     })
 
     return child as unknown as ChildProcess

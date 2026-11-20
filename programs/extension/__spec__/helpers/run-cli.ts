@@ -353,7 +353,10 @@ export function startCli(
       if (!ended) child.kill(signal)
     },
     async stop(signal = 'SIGTERM', graceMs = 5000) {
-      if (!ended) child.kill(signal)
+      // Windows has no polite signal: kill() ends the CLI alone and orphans
+      // what it started, so the tree goes while the CLI still roots it.
+      if (!ended && process.platform === 'win32') killGroup(child, 'SIGKILL')
+      else if (!ended) child.kill(signal)
 
       const timer = setTimeout(() => killGroup(child, 'SIGKILL'), graceMs)
 
