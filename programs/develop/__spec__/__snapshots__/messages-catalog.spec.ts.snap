@@ -298,6 +298,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "serverRestartRequiredFromCreatedFile: function(2)",
     "serverRestartRequiredFromHtml: function(1)",
     "staticAssetError: function(3)",
+    "unbundledScriptImport: function(5)",
   ],
   "plugin-web-extension/feature-icons/messages.ts": [
     "iconFileWithheld: function(4)",
