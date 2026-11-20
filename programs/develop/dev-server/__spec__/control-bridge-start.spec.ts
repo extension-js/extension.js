@@ -4,6 +4,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {controlPortFilePath} from '../../lib/session-paths'
+import {stripAnsi} from '../../lib/strip-ansi'
 import {
   createPlaywrightMetadataWriter,
   PlaywrightPlugin
@@ -12,7 +13,6 @@ import type {BridgeBroker} from '../control-bridge/broker'
 import {CONTROL_WS_PATH} from '../control-bridge/contracts'
 import type {ControlServer} from '../control-bridge/ws-control-server'
 import {controlCoordinatesOf, openControlBridge} from '../control-bridge-start'
-import {stripAnsi} from '../lifecycle-stream'
 
 const roots: string[] = []
 const closers: Array<() => Promise<void>> = []

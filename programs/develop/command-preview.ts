@@ -17,13 +17,14 @@ import {
 import {controlledBuildParts} from './controlled-build-parts'
 import {CONTROL_WS_PATH} from './dev-server/control-bridge/contracts'
 import * as devServerMessages from './dev-server/messages'
+import {startProductionControl} from './dev-server/production-control'
 import {announceLeftoverOutputFolder} from './lib/build-output-guard'
 import {codedError} from './lib/coded-error'
 import {
   refuseCompanionLinksNoStoreReads,
   resolveCompanionExtensionsConfig
 } from './lib/companion-extensions/resolve-config'
-import {resolveCompanionExtensionDirs as resolveCompanionExtensionDirsFromSpecialFolders} from './lib/companion-extensions/resolve-dirs'
+import {resolveCompanionExtensionDirs} from './lib/companion-extensions/resolve-dirs'
 import type {CompanionExtensionsConfig} from './lib/companion-extensions/types'
 import {
   holdPreloadedEnvOf,
@@ -60,7 +61,6 @@ import {
   getDirs,
   getDistPath
 } from './lib/paths'
-import {startProductionControl} from './lib/production-control'
 import {getProjectStructure, type RemoteArchiveTarget} from './lib/project'
 import {linkFreePath} from './lib/real-path'
 import {
@@ -764,14 +764,13 @@ async function runPreview(
       excludeBrowserFlags: merged.excludeBrowserFlags
     })
 
-    const companionUnpackedExtensionDirs =
-      resolveCompanionExtensionDirsFromSpecialFolders({
-        projectRoot: packageJsonDir,
-        config: merged.extensions,
-        browser,
-        // The no-browser run returned above, and a dry run opens nothing.
-        launchesBrowser: !merged.dryRun
-      })
+    const companionUnpackedExtensionDirs = resolveCompanionExtensionDirs({
+      projectRoot: packageJsonDir,
+      config: merged.extensions,
+      browser,
+      // The no-browser run returned above, and a dry run opens nothing.
+      launchesBrowser: !merged.dryRun
+    })
 
     const unpackedExtensionDirsToLoad = computeExtensionsToLoad(
       // __dirname changes after publishing; anchor relative paths at the package

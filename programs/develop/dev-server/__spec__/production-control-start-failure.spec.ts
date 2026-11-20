@@ -4,10 +4,10 @@ import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {controlledBuildParts} from '../../controlled-build-parts'
-import {startProductionControl} from '../../lib/production-control'
 import {ActionsFileWriter} from '../control-bridge/actions-file'
 import {LogsFileWriter} from '../control-bridge/logs-file'
 import {readControlToken} from '../control-bridge/session-token'
+import {startProductionControl} from '../production-control'
 
 const tempFolder = trackTempFolders()
 

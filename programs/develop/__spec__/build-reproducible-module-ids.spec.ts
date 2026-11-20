@@ -3,7 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {afterAll, describe, expect, it} from 'vitest'
-import {stripAnsi} from '../dev-server/lifecycle-stream'
+import {stripAnsi} from '../lib/strip-ansi'
 import {buildProject} from './helpers/build-project'
 
 // A hashed module id follows where every loader sits. Here extension-develop

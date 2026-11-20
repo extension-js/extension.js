@@ -9,8 +9,9 @@ import {
   watchFixture
 } from './helpers/compile-harness'
 
-// Two folder polls in a row: the second lands while the first rescan runs.
-// The folder must still rescan afterwards, or an added file never ships.
+// A scan asked for while one runs: by a second folder poll, or by the
+// watcher itself. The folder must still rescan afterwards, or an added file
+// never ships.
 
 afterEach(() => {
   removeFixtureRoots()
@@ -20,15 +21,17 @@ const NEXT_BUILD_MS = 10_000
 // A stuck watcher never goes idle, so a slow scan on a busy machine gets
 // a long window without letting a stuck one pass.
 const SETTLE_MS = 10_000
-const ROW_MS = NEXT_BUILD_MS + SETTLE_MS * 2 + 5_000
+const ROW_MS = NEXT_BUILD_MS + SETTLE_MS * 3 + 5_000
 
 interface ScanState {
   scanning?: boolean
+  // The event source of the folder.
+  watcher?: {emit: (event: string) => void}
 }
 
 describe('a watch session over public/ with the folder poll', () => {
   it(
-    'rescans public/ again after a poll that landed mid-scan',
+    'rescans public/ again after a scan that was asked for mid-scan',
     async () => {
       const root = makeFixtureRoot({
         'index.js': 'self.out = 1\n',
@@ -83,6 +86,14 @@ describe('a watch session over public/ with the folder poll', () => {
 
         poll?.()
         poll?.()
+
+        expect(await settled()).toBe(true)
+
+        // The watcher asks for a scan of its own after its event stream
+        // restarts, which a rebuild causes. Here it lands mid-scan.
+        poll?.()
+        expect(folderWatcher()?.scanning).toBe(true)
+        folderWatcher()?.watcher?.emit('rescan')
 
         expect(await settled()).toBe(true)
       } finally {

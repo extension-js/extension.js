@@ -8,11 +8,6 @@ const libDir = path.join(developRoot, 'lib')
 // Plugins and the dev server build on lib, never the other way around.
 const OWNER_FOLDERS = /^(?:\.\.\/)+(plugin-[^/]+|dev-server)(\/|$)/
 
-// production-control runs the control bridge for start and preview, so it
-// drives that one dev-server folder. Every plugin piece is handed to it.
-const BRIDGE_OF_PRODUCTION_CONTROL =
-  /^production-control\/index\.ts -> \.\.\/\.\.\/dev-server\/control-bridge\//
-
 function walk(dir: string, found: string[] = []): string[] {
   for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
     if (['node_modules', 'dist', '__spec__'].includes(entry.name)) continue
@@ -44,9 +39,7 @@ describe('lib', () => {
       }
     }
 
-    expect(
-      reaching.filter((reach) => !BRIDGE_OF_PRODUCTION_CONTROL.test(reach))
-    ).toEqual([])
+    expect(reaching).toEqual([])
   })
 
   it('keeps one workspace root finder for the env files', () => {
@@ -69,5 +62,27 @@ describe('lib', () => {
       .map((file) => path.relative(developRoot, file).split(path.sep).join('/'))
 
     expect(literal).toEqual(['lib/constants.ts'])
+  })
+
+  // The printer and the color stripper are lib's. A command that took them
+  // from the dev server would load the whole session code to print a line.
+  it('is where every file outside the dev server gets its printer', () => {
+    const through = walk(developRoot)
+      .concat(walk(path.join(developRoot, '__spec__')))
+      .filter((file) => !file.startsWith(path.join(developRoot, 'dev-server')))
+      .filter((file) =>
+        /import \{[^}]*\b(?:humanLine|stripAnsi)\b[^}]*\} from '[^']*lifecycle-stream'/.test(
+          fs.readFileSync(file, 'utf8')
+        )
+      )
+      .map((file) => path.relative(developRoot, file).split(path.sep).join('/'))
+
+    expect(through).toEqual([])
+    expect(
+      fs.readFileSync(
+        path.join(developRoot, 'dev-server', 'lifecycle-stream.ts'),
+        'utf8'
+      )
+    ).not.toMatch(/^export \{[^}]*\} from /m)
   })
 })

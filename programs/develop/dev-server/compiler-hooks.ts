@@ -8,7 +8,7 @@
 
 import type {Compiler, Stats} from '@rspack/core'
 import {devAdditionsOf} from '../lib/dev-additions'
-import {humanLine} from './lifecycle-stream'
+import {humanLine} from '../lib/messaging'
 import * as messages from './messages'
 
 export function setupCompilerLifecycleHooks(compiler: Compiler): void {
