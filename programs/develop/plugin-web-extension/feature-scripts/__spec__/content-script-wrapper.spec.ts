@@ -668,6 +668,77 @@ describe('content-script-wrapper loader', () => {
 
 // What a content script's default export means for a later copy is the
 // business of the plugin that makes copies, so the wrapper only reports it.
+describe('a content script whose own teardown throws', () => {
+  function mounted(source: string, mode = 'development') {
+    const entry = writeDeclaredEntry()
+    const realm = createRealm()
+    const wrapped = contentScriptWrapper.call(
+      createLoaderContext(
+        entry.resourcePath,
+        entry.manifestPath,
+        undefined,
+        mode
+      ) as any,
+      source
+    )
+
+    runWrapped(
+      `${String(wrapped).replace(/\nexport default __EXTENSIONJS_default__\n$/, '\n')}\nglobalThis.__specCleanup = __EXTENSIONJS_cleanup;\n`,
+      realm
+    )
+
+    return realm.sandbox as {
+      __specCleanup: () => void
+      __EXTENSIONJS_registerCleanup: (fn: () => void) => void
+    }
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  const said = () =>
+    vi.mocked(console.warn).mock.calls.map((call) => call.map(String).join(' '))
+
+  it.each([
+    'development',
+    'production'
+  ])('names the script once in the page console and finishes the teardown in %s', (mode) => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const ran: string[] = []
+    const page = mounted(
+      [
+        'export default function mount() {',
+        "  return () => { throw new Error('teardown broke') }",
+        '}'
+      ].join('\n'),
+      mode
+    )
+
+    page.__EXTENSIONJS_registerCleanup(() => ran.push('registered'))
+    page.__EXTENSIONJS_registerCleanup(() => {
+      throw new Error('listener broke')
+    })
+
+    expect(() => page.__specCleanup()).not.toThrow()
+    expect(ran).toEqual(['registered'])
+    expect(said()).toEqual([
+      'Extension.js: the cleanup of src/content/scripts.ts failed, so what it left on the page may stay. Error: teardown broke'
+    ])
+  })
+
+  it('says nothing when the teardown works', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const page = mounted('export default function mount(){ return () => {} }')
+
+    page.__specCleanup()
+
+    expect(said()).toEqual([])
+  })
+})
+
 describe('what the wrapper hands an extension about each module', () => {
   function readsOf(
     entry: {manifestPath: string; resourcePath: string},
