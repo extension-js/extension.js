@@ -48,6 +48,13 @@ function channels(match: RegExpExecArray): number[] | undefined {
   return rgb.every(isChannel) ? rgb : undefined
 }
 
+// A name such as "constructor" is on every object, so only own names count.
+function namedColor(name: string): readonly number[] | undefined {
+  return Object.prototype.hasOwnProperty.call(NAMED_CSS_COLORS, name)
+    ? NAMED_CSS_COLORS[name]
+    : undefined
+}
+
 // Only the forms with one exact [R, G, B] reading translate for Chromium.
 // A color name has one reading too. An alpha, a percentage or hsl() does not.
 export function translateThemeColor(value: unknown): number[] | undefined {
@@ -60,11 +67,9 @@ export function translateThemeColor(value: unknown): number[] | undefined {
   const rgb = RGB.exec(text)
   if (rgb) return channels(rgb)
 
-  const name = text.toLowerCase()
+  const named = namedColor(text.toLowerCase())
 
-  return Object.prototype.hasOwnProperty.call(NAMED_CSS_COLORS, name)
-    ? [...NAMED_CSS_COLORS[name]]
-    : undefined
+  return named ? [...named] : undefined
 }
 
 export function formatThemeArray(entries: number[]): string {
@@ -96,9 +101,9 @@ function colorToWrite(value: unknown): string {
 
   if (text === 'transparent') return formatThemeArray([0, 0, 0, 0])
 
-  const named = NAMED_CSS_COLORS[text]
+  const named = namedColor(text)
 
-  return named ? formatThemeArray(named) : '[R, G, B]'
+  return named ? formatThemeArray([...named]) : '[R, G, B]'
 }
 
 // Chrome's theme handler loads a color as [R, G, B] integers with an optional
