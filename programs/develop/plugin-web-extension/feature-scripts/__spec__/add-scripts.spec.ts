@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import {asCompiler} from '../../__spec__/helpers/rspack-fakes'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../contracts'
 import {AddScripts} from '../steps/add-scripts'
 
@@ -25,11 +26,14 @@ function createTempProject() {
   return dir
 }
 
+// An entry as the step writes it: the files it imports and its options.
+type Entry = {import: string[]} & Record<string, unknown>
+
 function createCompiler(context: string) {
   return {
     options: {
       context,
-      entry: {}
+      entry: {} as Record<string, Entry>
     },
     hooks: {
       thisCompilation: {
@@ -64,9 +68,11 @@ describe('AddScripts', () => {
       manifestPath: path.join(projectDir, 'manifest.json'),
       browser,
       includeList: {'background/scripts': [bgPath]}
-    } as any).apply(compiler as any)
+    } as ConstructorParameters<typeof AddScripts>[0]).apply(
+      asCompiler(compiler)
+    )
 
-    return (compiler.options.entry as any)['background/scripts']
+    return compiler.options.entry['background/scripts']
   }
 
   it('gives an MV3 background.scripts bundle the worker chunk loader on chromium', () => {
@@ -111,9 +117,11 @@ describe('AddScripts', () => {
       manifestPath: path.join(projectDir, 'manifest.json'),
       browser,
       includeList: {'background/service_worker': [swPath]}
-    } as any).apply(compiler as any)
+    } as ConstructorParameters<typeof AddScripts>[0]).apply(
+      asCompiler(compiler)
+    )
 
-    return (compiler.options.entry as any)['background/service_worker']
+    return compiler.options.entry['background/service_worker']
   }
 
   it('gives a module service worker no chunk loader whether the key is plain or prefixed', () => {
@@ -199,9 +207,11 @@ describe('AddScripts', () => {
       includeList: {
         'content_scripts/content-0': [onePath, twoPath, cssPath]
       }
-    } as any).apply(compiler as any)
+    } as ConstructorParameters<typeof AddScripts>[0]).apply(
+      asCompiler(compiler)
+    )
 
-    const entry = (compiler.options.entry as any)['content_scripts/content-0']
+    const entry = compiler.options.entry['content_scripts/content-0']
     expect(entry.layer).toBe(EXTENSIONJS_CONTENT_SCRIPT_LAYER)
     expect(entry.import).toHaveLength(2)
     expect(entry.import[1]).toBe(cssPath)
@@ -247,9 +257,11 @@ describe('AddScripts', () => {
       includeList: {
         'content_scripts/content-0': [basePath, childPath]
       }
-    } as any).apply(compiler as any)
+    } as ConstructorParameters<typeof AddScripts>[0]).apply(
+      asCompiler(compiler)
+    )
 
-    const entry = (compiler.options.entry as any)['content_scripts/content-0']
+    const entry = compiler.options.entry['content_scripts/content-0']
     expect(entry.import).toHaveLength(1)
 
     const entryPath = String(entry.import[0])
@@ -284,10 +296,12 @@ describe('AddScripts', () => {
     new AddScripts({
       manifestPath: path.join(manifestDir, 'manifest.json'),
       includeList: {'background/scripts': [tsPath, jsPath]}
-    } as any).apply(compiler as any)
+    } as ConstructorParameters<typeof AddScripts>[0]).apply(
+      asCompiler(compiler)
+    )
 
     const tsEntry = String(
-      (compiler.options.entry as any)['background/scripts'].import[0]
+      compiler.options.entry['background/scripts'].import[0]
     )
     expect(tsEntry).toContain('__extensionjs_classic_concat__')
 
@@ -295,10 +309,12 @@ describe('AddScripts', () => {
     new AddScripts({
       manifestPath: path.join(manifestDir, 'manifest.json'),
       includeList: {'background/scripts': [jsPath, mjsPath]}
-    } as any).apply(compiler2 as any)
+    } as ConstructorParameters<typeof AddScripts>[0]).apply(
+      asCompiler(compiler2)
+    )
 
     const mjsEntry = String(
-      (compiler2.options.entry as any)['background/scripts'].import[0]
+      compiler2.options.entry['background/scripts'].import[0]
     )
     expect(mjsEntry).not.toContain('__extensionjs_classic_concat__')
   })
@@ -336,9 +352,11 @@ describe('AddScripts', () => {
       includeList: {
         'content_scripts/content-0': [basePath, childPath, cssPath]
       }
-    } as any).apply(compiler as any)
+    } as ConstructorParameters<typeof AddScripts>[0]).apply(
+      asCompiler(compiler)
+    )
 
-    const entry = (compiler.options.entry as any)['content_scripts/content-0']
+    const entry = compiler.options.entry['content_scripts/content-0']
     expect(entry.import).toHaveLength(2)
 
     const entryPath = String(entry.import[0])
@@ -389,9 +407,11 @@ describe('AddScripts', () => {
         'scripts/thirdParty/texmath': contentPath,
         'scripts/helper': helperPath
       }
-    } as any).apply(compiler as any)
+    } as ConstructorParameters<typeof AddScripts>[0]).apply(
+      asCompiler(compiler)
+    )
 
-    const entries = compiler.options.entry as any
+    const entries = compiler.options.entry
     expect(entries['content_scripts/content-0']).toBeTruthy()
     expect(entries['scripts/thirdParty/katex']).toBeUndefined()
     expect(entries['scripts/thirdParty/texmath']).toBeUndefined()
@@ -423,9 +443,11 @@ describe('AddScripts', () => {
       includeList: {
         'scripts/standalone': scriptPath
       }
-    } as any).apply(compiler as any)
+    } as ConstructorParameters<typeof AddScripts>[0]).apply(
+      asCompiler(compiler)
+    )
 
-    expect((compiler.options.entry as any)['scripts/standalone']).toEqual({
+    expect(compiler.options.entry['scripts/standalone']).toEqual({
       import: [scriptPath],
       layer: EXTENSIONJS_CONTENT_SCRIPT_LAYER
     })

@@ -10,6 +10,16 @@ const SOURCE = buildMainWorldCopyRoutingSource({'scripts/hook.js': COPY})
 
 type Script = Record<string, unknown>
 
+// The namespace as an author reaches it once the routing wrapped it: a call
+// takes whatever shape the author passed, and the wrap leaves its mark.
+interface Namespace {
+  registerContentScripts(scripts: unknown, done?: unknown): unknown
+  updateContentScripts(scripts: unknown, done?: unknown): unknown
+  getRegisteredContentScripts(filter?: unknown, done?: unknown): unknown
+  executeScript(injection: unknown, done?: unknown): unknown
+  [key: string]: unknown
+}
+
 // A scripting namespace that keeps what it is handed, the way the browser's
 // registry does, under both the promise and the callback form.
 function browserWith(namespaces: Array<'chrome' | 'browser'> = ['chrome']) {
@@ -38,7 +48,7 @@ function browserWith(namespaces: Array<'chrome' | 'browser'> = ['chrome']) {
 
   const updates: Script[][] = []
 
-  const scripting = {
+  const scripting: Namespace = {
     registerContentScripts(scripts: Script[], done?: unknown) {
       shaped(scripts)
 
@@ -90,7 +100,7 @@ function browserWith(namespaces: Array<'chrome' | 'browser'> = ['chrome']) {
 
       return answer([{result: null}], done)
     }
-  } as Record<string, any>
+  }
   const root: {scripting: typeof scripting; runtime: {lastError?: object}} = {
     scripting,
     runtime: {}
