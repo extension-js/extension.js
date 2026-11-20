@@ -31,13 +31,6 @@ export function ranInjectedFilesAgain(files: string[], tabs: number) {
   )
 }
 
-export function backgroundIsRequiredMessageOnly(backgroundChunkName: string) {
-  return (
-    `Check the ${colors.blue(backgroundChunkName.replace('/', '.'))} ` +
-    `field in your ${colors.blue('manifest.json')} file.`
-  )
-}
-
 // A declared entry that starts itself at import cannot be cleaned up, so
 // each re-inject adds a copy. Said in the session, where it bites.
 export function contentScriptWithoutDefaultExport(
@@ -65,4 +58,16 @@ export function defaultExportCalledAgain(file: string, name: string) {
     `Only the run Extension.js starts has its cleanup called before the next copy in this dev session, so what the other run adds stays on the page.\n` +
     `Remove the call if one run is what you want. Keep it if another run is intended, for example on a navigation event.`
   )
+}
+
+// The reload kind then comes from file names, which can pick a wider reload.
+export function debugSourceIndexUnreadable(error: unknown) {
+  const reason = error instanceof Error ? error.message : String(error)
+
+  return `${prefix('debug')} reload  could not read which bundle holds each file (${reason}), so the reload kind comes from file names`
+}
+
+// A page edit the dev client applies in the open page, so nothing reloads.
+export function updatedPage(label: string) {
+  return `${prefix('info')} Updated ${label}.`
 }

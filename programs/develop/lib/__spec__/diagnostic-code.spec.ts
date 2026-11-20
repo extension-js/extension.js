@@ -62,7 +62,6 @@ describe('diagnosticCode', () => {
     ['CssWithheldRef', 'E_CSS_DEAD_REF'],
     ['CssParseWarning', 'E_CSS_PARSE'],
     ['CssMinifierDroppedRules', 'E_CSS_PARSE'],
-    ['BackgroundRequired', 'E_BACKGROUND_REQUIRED'],
     ['ContentScriptSyntax', 'E_CONTENT_SCRIPT_SYNTAX'],
     ['ManifestNotFoundError', 'E_MANIFEST_NOT_FOUND'],
     ['ManifestFatalShapeWarning', 'W_MANIFEST_INVALID'],
@@ -126,6 +125,7 @@ describe('diagnosticCode', () => {
     ['EnvPrivatePlaceholder', 'W_BUILD_CONSTANT_UNDEFINED'],
     ['EnvReservedName', 'W_ENV_NAME_RESERVED'],
     ['EnvDefinedNameWritten', 'W_ENV_DEFINE_WRITTEN'],
+    ['EnvPlaceholderNotUtf8', 'W_ENV_ASSET_NOT_UTF8'],
     ['UnknownRegistrationWorld', 'W_SCRIPT_WORLD_UNKNOWN']
   ])('maps a diagnostic named %s to %s', (name, code) => {
     expect(diagnosticCode(named(name))).toBe(code)
@@ -250,7 +250,6 @@ describe('diagnosticCode', () => {
 
 // Classes the build only ever fails on, so none of them has a W_ name.
 const ERRORS_ONLY = new Set<ErrorCode>([
-  CODES.E_BACKGROUND_REQUIRED,
   CODES.E_CONTENT_SCRIPT_SYNTAX,
   CODES.E_MANIFEST_NOT_FOUND,
   CODES.E_COMPILE,
@@ -365,10 +364,10 @@ describe('the warning class', () => {
       }
 
       expect(codeForSeverity(CODES.E_COMPILE, 'warning')).toBeUndefined()
-      expect(toDiagnostic(named('BackgroundRequired'), 'warning')).toEqual({
+      expect(toDiagnostic(named('ContentScriptSyntax'), 'warning')).toEqual({
         message: 'text',
         severity: 'warning',
-        name: 'BackgroundRequired'
+        name: 'ContentScriptSyntax'
       })
 
       expect(stderr).not.toHaveBeenCalled()
@@ -442,7 +441,7 @@ describe('the warning class', () => {
   })
 
   it('finds the W_ names in the catalog', () => {
-    expect(WARNING_NAMES.length).toBe(44)
+    expect(WARNING_NAMES.length).toBe(45)
   })
 
   it.each(WARNING_NAMES)('reports %s on a warning as it is', (code) => {

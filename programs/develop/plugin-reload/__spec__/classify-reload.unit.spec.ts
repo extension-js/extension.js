@@ -809,8 +809,7 @@ describe('classifyReloadFromSources with a source index that throws', () => {
     throw new Error('chunk graph unreadable')
   }
 
-  // Pins current behavior: a throwing source index leaves no debug line.
-  it('falls back to the name heuristics and prints nothing, debug on', () => {
+  it('falls back to the name heuristics and says so, debug on', () => {
     vi.stubEnv('EXTENSION_DEBUG', '1')
     const printed = [
       vi.spyOn(console, 'log').mockImplementation(() => {}),
@@ -837,6 +836,20 @@ describe('classifyReloadFromSources with a source index that throws', () => {
       ]
     })
 
-    expect(printed.map((spy) => spy.mock.calls)).toEqual([[], [], [], []])
+    const [log, ...others] = printed
+
+    expect(log.mock.calls.map((call) => String(call[0]))).toEqual(
+      Array(3).fill(expect.stringContaining('chunk graph unreadable'))
+    )
+
+    expect(others.map((spy) => spy.mock.calls)).toEqual([[], [], []])
+  })
+
+  it('prints nothing outside a debug session', () => {
+    vi.stubEnv('EXTENSION_DEBUG', '0')
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    expect(classify('src/lib/util.ts', throwing)?.type).toBe('content-scripts')
+    expect(log).not.toHaveBeenCalled()
   })
 })

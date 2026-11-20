@@ -17,6 +17,7 @@ import {
   readEmittedScripts,
   readProjectSource
 } from '../plugin-web-extension/feature-manifest/steps/apply-dev-defaults-lib/emitted-evidence'
+import {isHotUpdateFile} from '../plugin-web-extension/shared/initial-files'
 import type {DevOptions, PluginInterface} from '../types'
 import {
   mentionsBrowserName,
@@ -32,8 +33,6 @@ type BrowserGlobalWarningCommand = NonNullable<
   messages.BrowserGlobalWarningContext['command']
 >
 
-const HOT_UPDATE_RE = /\.hot-update\.js$/
-
 interface ScanCompilation extends EmittedCompilation {
   modules: Iterable<EmittedModule>
 }
@@ -42,7 +41,7 @@ function offendingScripts(compilation: ScanCompilation): string[] {
   const offenders: string[] = []
 
   for (const [name, text] of readEmittedScripts(compilation)) {
-    if (HOT_UPDATE_RE.test(name)) continue
+    if (isHotUpdateFile(name)) continue
     if (referencesBrowserGlobal(text)) offenders.push(name)
   }
 

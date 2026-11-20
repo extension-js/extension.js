@@ -16,16 +16,14 @@ import {
   emittedFilesOf,
   readProjectSource
 } from '../../plugin-web-extension/feature-manifest/steps/apply-dev-defaults-lib/emitted-evidence'
+import {BACKGROUND_ASSET} from '../../plugin-web-extension/shared/background-asset'
+import {isHotUpdateFile} from '../../plugin-web-extension/shared/initial-files'
 import {DEV_BUILD_GLOBAL} from '../reload-dispatch'
 import {
   buildDevProducerSource,
   DEV_BOOT_REGISTERS_GLOBAL
 } from '../reload-lib/producer-reload'
-
-// Matches the compiled background entry across engines: Chromium emits
-// background/service_worker.js, Firefox background/scripts.js, and a declared
-// background page compiles to background/index.js; scripts? covers both forms.
-const BACKGROUND_ASSET = /^background\/(?:service_worker|scripts?|index)\.js$/i
+import {BRIDGE_STAGE_AFTER_REPORT} from './stages'
 
 const builds = new WeakMap<object, string>()
 const bootRegistrations = new WeakMap<object, boolean>()
@@ -87,8 +85,7 @@ function digestBuild(compilation: Compilation): string {
     if (
       asset.name === CONTROL_PORT_ASSET_NAME ||
       asset.name.endsWith('.map') ||
-      asset.name.startsWith('hot/') ||
-      asset.name.includes('.hot-update.')
+      isHotUpdateFile(asset.name)
     ) {
       continue
     }
@@ -161,7 +158,9 @@ export class InjectBridgeProducer {
         compilation.hooks.processAssets.tap(
           {
             name: InjectBridgeProducer.name,
-            stage: Compilation.PROCESS_ASSETS_STAGE_REPORT + 101
+            stage:
+              Compilation.PROCESS_ASSETS_STAGE_REPORT +
+              BRIDGE_STAGE_AFTER_REPORT
           },
           () => {
             // A profile-cached SW keeps running the OLD bundle after a server

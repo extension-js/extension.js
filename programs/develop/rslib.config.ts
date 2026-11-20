@@ -43,6 +43,10 @@ export const browserEntries = {
     __dirname,
     './plugin-web-extension/feature-html/steps/preact-refresh-shim.ts'
   ),
+  'page-socket-client': path.resolve(
+    __dirname,
+    './plugin-web-extension/feature-html/steps/page-socket-client.ts'
+  ),
   'solid-jsx-runtime': path.resolve(
     __dirname,
     './plugin-js-frameworks/js-tools/solid-jsx-runtime.ts'

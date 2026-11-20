@@ -10,6 +10,7 @@ import {
 } from '../../__spec__/helpers/real-compiler'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {diagnosticCode} from '../../lib/diagnostic-code'
+import {WebExtensionPlugin} from '../../plugin-web-extension'
 import {SetupChunkLoadingTarget} from '../../plugin-web-extension/feature-chunk-loading'
 import {ReloadPlugin} from '../index'
 import {SetupBackgroundEntry} from '../steps/setup-reload-strategy/setup-background-entry'
@@ -183,7 +184,7 @@ describe('SetupBackgroundEntry with a declared background', () => {
     expect(compiler.__collectErrors()).toHaveLength(0)
   })
 
-  it('reports an error for Firefox when the declared script is missing', () => {
+  it('leaves a missing Firefox script to the scripts feature', () => {
     const manifestPath = writeManifest({
       manifest_version: 2,
       name: 'Declared',
@@ -194,9 +195,7 @@ describe('SetupBackgroundEntry with a declared background', () => {
 
     new SetupBackgroundEntry({manifestPath, browser: 'firefox'}).apply(compiler)
 
-    const errors = compiler.__collectErrors()
-    expect(errors).toHaveLength(1)
-    expect(String(errors[0].message)).toContain('background.scripts')
+    expect(compiler.__collectErrors()).toHaveLength(0)
     expect(compiler.options.entry).toEqual({})
   })
 
@@ -229,7 +228,7 @@ describe('SetupBackgroundEntry with a declared background', () => {
     expect(compiler.__collectErrors()).toHaveLength(0)
   })
 
-  it('reports an error for Chrome MV2 when the declared script is missing', () => {
+  it('leaves a missing Chrome MV2 script to the scripts feature', () => {
     const manifestPath = writeManifest({
       manifest_version: 2,
       name: 'Declared',
@@ -240,9 +239,7 @@ describe('SetupBackgroundEntry with a declared background', () => {
 
     new SetupBackgroundEntry({manifestPath, browser: 'chrome'}).apply(compiler)
 
-    const errors = compiler.__collectErrors()
-    expect(errors).toHaveLength(1)
-    expect(String(errors[0].message)).toContain('background.scripts')
+    expect(compiler.__collectErrors()).toHaveLength(0)
   })
 
   it('registers the declared MV3 service_worker as the entry when it exists', () => {
@@ -264,7 +261,7 @@ describe('SetupBackgroundEntry with a declared background', () => {
     expect(compiler.__collectErrors()).toHaveLength(0)
   })
 
-  it('reports an error and adds no entry when the MV3 service_worker is missing', () => {
+  it('adds no entry and no report when the MV3 service_worker is missing', () => {
     const manifestPath = writeManifest({
       manifest_version: 3,
       name: 'Declared',
@@ -275,9 +272,7 @@ describe('SetupBackgroundEntry with a declared background', () => {
 
     new SetupBackgroundEntry({manifestPath, browser: 'chrome'}).apply(compiler)
 
-    const errors = compiler.__collectErrors()
-    expect(errors).toHaveLength(1)
-    expect(String(errors[0].message)).toContain('background.service_worker')
+    expect(compiler.__collectErrors()).toHaveLength(0)
     expect(compiler.options.entry).not.toHaveProperty(
       'background/service_worker'
     )
@@ -332,7 +327,7 @@ describe('SetupBackgroundEntry with a declared MV2 background page', () => {
     new SetupBackgroundEntry({manifestPath, browser: 'chrome'}).apply(compiler)
 
     expect(compiler.options.entry).toEqual({})
-    expect(compiler.__collectErrors()).toHaveLength(1)
+    expect(compiler.__collectErrors()).toHaveLength(0)
   })
 })
 
@@ -362,13 +357,12 @@ describe('SetupBackgroundEntry on a static theme', () => {
   })
 })
 
-// The missing background check runs only inside the dev reload pipeline, so
-// it is read here through the same two plugins rspack-config applies.
-describe('the background required error', () => {
+// A missing background script is reported once, by the scripts feature, in
+// every mode. The reload pipeline adds no second report of its own.
+describe('a missing background script', () => {
   function project(manifest: object, files: string[]) {
     const root = writeProject(makeTempFolder('extjs-bg-required-'), {
       'manifest.json': {name: 'Required', version: '1.0.0', ...manifest},
-      'content.js': '',
       ...Object.fromEntries(files.map((file) => [file, '']))
     })
 
@@ -380,22 +374,22 @@ describe('the background required error', () => {
     browser: string,
     {root, manifestPath}: {root: string; manifestPath: string}
   ) {
-    const {errors} = await compileIssues(
-      root,
-      mode,
-      {'content_scripts/content-0': 'content.js'},
-      [
-        new ReloadPlugin({manifestPath, browser} as ConstructorParameters<
-          typeof ReloadPlugin
-        >[0]),
-        new SetupChunkLoadingTarget({
-          manifestPath,
-          browser
-        } as ConstructorParameters<typeof SetupChunkLoadingTarget>[0])
-      ]
-    )
+    const options = {
+      manifestPath,
+      browser,
+      devSession: mode === 'development'
+    } as ConstructorParameters<typeof ReloadPlugin>[0]
+    const {errors} = await compileIssues(root, mode, {}, [
+      new WebExtensionPlugin(
+        options as ConstructorParameters<typeof WebExtensionPlugin>[0]
+      ),
+      new ReloadPlugin(options),
+      new SetupChunkLoadingTarget(
+        options as ConstructorParameters<typeof SetupChunkLoadingTarget>[0]
+      )
+    ])
 
-    return errors.map((error) => ({...error, code: diagnosticCode(error)}))
+    return errors.map((error) => diagnosticCode(error))
   }
 
   const missingWorker = {
@@ -403,55 +397,30 @@ describe('the background required error', () => {
     background: {service_worker: 'missing.js'}
   }
 
-  // Pins current behavior: the check runs in dev sessions only.
-  it('is raised by a dev session for a missing service worker', async () => {
+  it('is reported once by a dev session, as a missing entry', async () => {
     expect(
       await errorsOf('development', 'chrome', project(missingWorker, []))
-    ).toEqual([
-      {
-        name: 'BackgroundRequired',
-        message:
-          'Check the background.service_worker field in your manifest.json file.',
-        code: 'E_BACKGROUND_REQUIRED'
-      }
-    ])
+    ).toEqual(['E_ENTRY_NOT_FOUND'])
   })
 
-  // Pins current behavior: production builds skip the check.
-  it('is not raised by a production build of the same manifest', async () => {
+  it('is reported the same way by a production build', async () => {
     expect(
       await errorsOf('production', 'chrome', project(missingWorker, []))
-    ).toEqual([])
+    ).toEqual(['E_ENTRY_NOT_FOUND'])
   })
 
-  // Pins current behavior: a missing second script goes unreported.
-  it('checks only the first background script', async () => {
-    const manifest = (scripts: string[]) => ({
+  it('is reported for a missing second background script too', async () => {
+    const manifest = {
       manifest_version: 2,
-      background: {scripts}
-    })
+      background: {scripts: ['present.js', 'missing.js']}
+    }
 
     expect(
       await errorsOf(
         'development',
         'firefox',
-        project(manifest(['present.js', 'missing.js']), ['present.js'])
+        project(manifest, ['present.js'])
       )
-    ).toEqual([])
-
-    expect(
-      await errorsOf(
-        'development',
-        'firefox',
-        project(manifest(['missing.js', 'present.js']), ['present.js'])
-      )
-    ).toEqual([
-      {
-        name: 'BackgroundRequired',
-        message:
-          'Check the background.scripts field in your manifest.json file.',
-        code: 'E_BACKGROUND_REQUIRED'
-      }
-    ])
+    ).toEqual(['E_ENTRY_NOT_FOUND'])
   })
 })

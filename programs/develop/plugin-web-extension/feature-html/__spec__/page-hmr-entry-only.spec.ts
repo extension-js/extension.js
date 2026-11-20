@@ -180,4 +180,40 @@ describe('page HMR prelude in a real rspack compile', () => {
     expect(background).not.toContain(PRELUDE_MARK)
     expect(page).toContain(PRELUDE_MARK)
   }, 60000)
+
+  it('names the source page in the built page asset info', async () => {
+    const root = writeProject()
+    const manifestPath = path.join(root, 'src', 'manifest.json')
+    const htmlPath = path.join(root, 'src', 'newtab', 'index.html')
+    let info: {sourceFilename?: string} | undefined
+
+    const compiler = rspack({
+      mode: 'development',
+      context: root,
+      devtool: false,
+      entry: {},
+      output: {path: path.join(root, 'dist')},
+      plugins: [
+        new HtmlPlugin({
+          manifestPath,
+          browser: 'chrome',
+          devSession: true,
+          includeList: {'chrome_url_overrides/newtab': htmlPath}
+        }),
+        {
+          apply(c: Compiler) {
+            c.hooks.done.tap('read-page-info', (stats) => {
+              info = stats.compilation.getAsset(
+                'chrome_url_overrides/newtab.html'
+              )?.info
+            })
+          }
+        }
+      ]
+    })
+
+    await compile(compiler)
+
+    expect(info?.sourceFilename).toBe('src/newtab/index.html')
+  }, 60000)
 })

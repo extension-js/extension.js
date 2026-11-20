@@ -41,7 +41,7 @@ It is responsible for:
   The whole pipeline no-ops in production, for a build whose `devSession`
   is `false`, under `EXTENSION_NO_RELOAD=true` (`--no-reload`), and when
   the manifest path is not a file. The first three are `isReloadSession`
-  in `lib/reload-session.ts`. Chunk loading is not part of this plugin:
+  in `reload-session.ts`. Chunk loading is not part of this plugin:
   `plugin-web-extension` installs its chunk loading target in every build.
 - the reload session (`reload-session.ts`). `createReloadSession` is what
   `plugin-browsers`' `BrowsersPlugin` and `SafariDevPlugin` (with
@@ -89,8 +89,9 @@ names one, otherwise any mode but production), so it also runs under
 
 - `classify-reload.ts`
   The pure reload classifier. Decision order per changed file: forced-full
-  (manifest/_locales) → chunk-graph membership → emitted static asset →
-  name heuristics. Also defines `ReloadType` / `ReloadInstruction`, the
+  (the project manifest ReloadPlugin was given and the `_locales` folder
+  beside it, never a file that only carries the name) → chunk-graph
+  membership → emitted static asset → name heuristics. Also defines `ReloadType` / `ReloadInstruction`, the
   control-bridge `contracts.ts` mirrors `ReloadType`; update them together.
 
   The source index reads the `scripts/` and `content_scripts/` bundles of
@@ -266,6 +267,7 @@ consumes that contract. It does not define it, and nothing in
 - `classify-reload.unit.spec.ts`, classifier decisions
 - `reload-session.unit.spec.ts`, the session every caller keeps and the
   one call of the `--no-browser` path
+- `reload-session-gate.unit.spec.ts`, which builds carry the pipeline
 - `build-reload.unit.spec.ts`, the per-build call and the browser mapping
 - `reload-dispatch.unit.spec.ts`, dispatch seam and the changed-sources
   tracker
@@ -308,6 +310,8 @@ consumes that contract. It does not define it, and nothing in
 - `strip-content-script-dev-server-runtime.spec.ts`,
   `prune-stale-hot-updates.spec.ts`, `prune-unreachable-chunks.spec.ts`,
   emitted-asset steps
+- `reload-steps-stage.spec.ts`, that the reload runtime and the bridge are
+  written to the background after every step at the shared report stage
 - `stable-content-script-names.spec.ts`,
   `source-index-nameless-chunks.spec.ts`, real rspack compiles. They read
   loaders from `programs/develop/dist`, so run the package `compile` first.

@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compiler, EntryPlugin, type Stats} from '@rspack/core'
 import {afterAll, afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {buildProject} from '../../__spec__/helpers/build-project'
 import {getPreloadedEnvKeys} from '../../lib/config-loader'
 import {getCurrentManifestContent} from '../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import {
@@ -486,6 +487,54 @@ describe('EnvPlugin env file layers', () => {
   })
 })
 
+describe('EnvPlugin env file named for another browser', () => {
+  it('stays quiet about .env.edge under firefox and reads nothing from it', async () => {
+    const root = project({'.env.edge': 'EXTENSION_PUBLIC_FOO=edgeOnly\n'})
+    const result = await build(root, {browser: 'firefox'})
+
+    expect(result.warnings).toEqual([])
+    expect(result.logs()).toEqual(['undefined'])
+
+    // A name no target owns beside it still earns the rename warning alone.
+    writeFiles(root, {'.env.staging': 'EXTENSION_PUBLIC_FOO=staging\n'})
+    const withStray = await build(root, {browser: 'firefox'})
+
+    expect(withStray.warnings.map((warning) => warning.name)).toEqual([
+      'EnvNoMatchingFile'
+    ])
+
+    expect(withStray.warnings[0].message).toContain('Found .env.staging, but')
+    expect(withStray.warnings[0].message).not.toContain('.env.edge,')
+  })
+
+  it('reads the same way through a whole development build for firefox', async () => {
+    const root = makeTempRoot('env-edge')
+    writeFiles(root, {
+      'package.json': JSON.stringify({private: true, name: 'env-edge'}),
+      'manifest.json': JSON.stringify({
+        manifest_version: 3,
+        name: 'env-edge',
+        version: '1.0.0',
+        background: {scripts: ['background.js']}
+      }),
+      'background.js': 'console.log(1)\n',
+      '.env.edge': 'EXTENSION_PUBLIC_FOO=edgeOnly\n'
+    })
+
+    const noMatch = async () =>
+      (
+        (await buildProject(root, {browser: 'firefox', mode: 'development'}))
+          .warnings || []
+      ).filter((line) => line.startsWith('W_ENV_NO_MATCH: '))
+
+    expect(await noMatch()).toEqual([])
+
+    writeFiles(root, {'.env.staging': 'EXTENSION_PUBLIC_FOO=staging\n'})
+
+    expect(await noMatch()).toHaveLength(1)
+  })
+})
+
 describe('EnvPlugin names reserved for the build target', () => {
   it('names a reserved name an env file sets, and the file, never the value', async () => {
     const root = project(
@@ -673,6 +722,58 @@ describe('EnvPlugin placeholders in emitted .json and .html', () => {
     const scope: {X?: string; Y?: string} = {}
     new Function('window', inline)(scope)
     expect(scope).toEqual({X: hostile, Y: hostile})
+  })
+
+  it('leaves a token closed by a second $ in a locale catalog to the browser', async () => {
+    vi.stubEnv('EXTENSION_PUBLIC_FOO', 'envFoo')
+    const catalog = {
+      greeting: {
+        message:
+          'Mode $EXTENSION_MODE$ of $EXTENSION_PUBLIC_FOO, $EXTENSION_PUBLIC_FOO$ in $EXTENSION_MODE',
+        placeholders: {
+          extension_mode: {content: '$1'},
+          extension_public_foo: {content: '$2'}
+        }
+      }
+    }
+    const root = project({
+      '_locales/en/messages.json': JSON.stringify(catalog),
+      '_locales/pt_BR/messages.json': '{"n":{"message":"$EXTENSION_MODE$"}}',
+      '_locales/en/other.json': '{"v":"$EXTENSION_MODE$"}',
+      'data/_locales/en/messages.json': '{"v":"$EXTENSION_MODE$"}',
+      'index.html': '<p>$EXTENSION_MODE$</p>'
+    })
+    const result = await build(root, {
+      mode: 'production',
+      copy: [
+        '_locales/en/messages.json',
+        '_locales/pt_BR/messages.json',
+        '_locales/en/other.json',
+        'data/_locales/en/messages.json',
+        'index.html'
+      ]
+    })
+
+    expect(result.errors).toEqual([])
+    expect(JSON.parse(result.asset('_locales/en/messages.json'))).toEqual({
+      greeting: {
+        ...catalog.greeting,
+        message:
+          'Mode $EXTENSION_MODE$ of envFoo, $EXTENSION_PUBLIC_FOO$ in production'
+      }
+    })
+
+    expect(result.asset('_locales/pt_BR/messages.json')).toBe(
+      '{"n":{"message":"$EXTENSION_MODE$"}}'
+    )
+
+    // Only the catalog the browser reads has its placeholder syntax.
+    expect(result.asset('_locales/en/other.json')).toBe('{"v":"production$"}')
+    expect(result.asset('data/_locales/en/messages.json')).toBe(
+      '{"v":"production$"}'
+    )
+
+    expect(result.asset('index.html')).toBe('<p>production$</p>')
   })
 
   it('does not re-substitute a value that itself names a placeholder', async () => {
