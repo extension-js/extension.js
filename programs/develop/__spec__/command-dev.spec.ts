@@ -37,7 +37,7 @@ function pluginBrowserOptions(): any {
   return devServerOptions()?.browsersPlugin?.options?.browserOptions
 }
 
-describe('webpack/command-dev', () => {
+describe('extensionDev', () => {
   beforeEach(() => {
     devServer.mockReset()
     devServer.mockImplementation(async () => {})

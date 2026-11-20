@@ -346,7 +346,6 @@ dist/
 | plugin-compatibility | core  | - Cross‑browser helpers<br/>- Normalizes browser‑specific manifest fields<br/>- Optional `webextension-polyfill` for Chromium (skipped for Firefox/Safari)                                                      |
 | plugin-compilation   | core  | - Loads env and templating (`EXTENSION_PUBLIC_*`)<br/>- Optional `dist/<browser>` cleaning<br/>- Compact, de‑duplicated compilation summary                                                                     |
 | plugin-special-folders | core | - Copies `public/` to the output root<br/>- Builds the pages in `pages/` and the scripts in `scripts/`<br/>- Resolves companion extensions from `extensions/`<br/>- Applies the `include` and `exclude` lists |
-| plugin-wasm          | core  | - Enables async WebAssembly<br/>- Resolves `.wasm` imports<br/>- Aliases runtime wasm assets |
 | plugin-perf-budgets  | core  | - Size budgets per extension surface<br/>- Replaces the bundler's single size threshold |
 | plugin-reload        | dev   | - Reload and HMR strategy of `extension dev`<br/>- Injects the dev reload runtime<br/>- Classifies each change and dispatches the reload<br/>- Does nothing outside a dev session |
 | plugin-playwright    | dev   | - Writes the session contract (`ready.json`, `events.ndjson`) under `dist/extension-js/<browser>`<br/>- Read by `--wait`, `logs` and automation |

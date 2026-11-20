@@ -247,19 +247,6 @@ function isCompileInTestsAllowed(): boolean {
 }
 
 // Only a contributor running specs in a source checkout reads this.
-function developArtifactsMissingInTestRun(
-  missing: string[],
-  rebuild: string,
-  developRoot: string
-): string {
-  return [
-    messages.developArtifactsMissing(missing).split('\n').slice(0, -1),
-    `A test run does not compile Extension.js into the checkout. Run ${rebuild} in ${developRoot} first, or set ${COMPILE_IN_TESTS_ENV}=1 to let the run compile.`
-  ]
-    .flat()
-    .join('\n')
-}
-
 function discard(): Writable {
   return new Writable({
     write(_chunk, _encoding, done) {
@@ -309,7 +296,11 @@ export async function ensureDevelopArtifacts(
   if (isTestRun() && !isCompileInTestsAllowed()) {
     throw codedError(
       CODES.E_INTERNAL,
-      developArtifactsMissingInTestRun(missing, rebuild, developRoot)
+      messages.developArtifactsMissing(missing, {
+        command: rebuild,
+        developRoot,
+        testRunOptIn: COMPILE_IN_TESTS_ENV
+      })
     )
   }
 

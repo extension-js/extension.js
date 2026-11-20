@@ -154,7 +154,7 @@ function standIn(folder: string) {
   return real
 }
 
-describe('webpack/command-preview (run-only)', () => {
+describe('extensionPreview, which runs what a build left', () => {
   const logged: string[] = []
   const warned: string[] = []
   const stderr: string[] = []

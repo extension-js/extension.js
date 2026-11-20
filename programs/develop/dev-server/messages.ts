@@ -147,7 +147,8 @@ export function devAdditionsNote(additions: readonly DevAddition[]): string {
   const kinds: Array<[DevAddition['kind'], string]> = [
     ['permission', 'permissions'],
     ['host_permission', 'host access'],
-    ['web_accessible_resource', 'web_accessible_resources']
+    ['web_accessible_resource', 'web_accessible_resources'],
+    ['manifest_change', 'manifest']
   ]
 
   for (const [kind, noun] of kinds) {
