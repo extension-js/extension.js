@@ -49,17 +49,17 @@ describe('a PostCSS config finding in the warnings a build returns', () => {
     [
       'a config that throws',
       {'postcss.config.cjs': "throw new Error('boom in config')\n"},
-      /^W_[A-Z_]+: Could not load the PostCSS config at postcss\.config\.cjs\.$/
+      /^W_CSS_NOT_APPLIED: Could not load the PostCSS config at postcss\.config\.cjs\.$/
     ],
     [
       'a config whose plugins are neither a list nor a map',
       {'postcss.config.cjs': "module.exports = {plugins: 'autoprefixer'}\n"},
-      /^W_[A-Z_]+: The PostCSS config at postcss\.config\.cjs lists plugins as string\.$/
+      /^W_CSS_NOT_APPLIED: The PostCSS config at postcss\.config\.cjs lists plugins as string\.$/
     ],
     [
       'a config under a name PostCSS does not read',
       {'postcss.config.json': '{"plugins": {}}\n'},
-      /^W_[A-Z_]+: PostCSS reads no config by this name, so the file was ignored\.$/
+      /^W_CSS_NOT_APPLIED: PostCSS reads no config by this name, so the file was ignored\.$/
     ],
     [
       'a plugin the project does not have',
@@ -67,7 +67,7 @@ describe('a PostCSS config finding in the warnings a build returns', () => {
         'postcss.config.cjs':
           "module.exports = {plugins: {'postcss-not-installed-here': {}}}\n"
       },
-      /^W_[A-Z_]+: Couldn't resolve the PostCSS plugin postcss-not-installed-here\.$/
+      /^W_CSS_NOT_APPLIED: Couldn't resolve the PostCSS plugin postcss-not-installed-here\.$/
     ]
   ])(
     '%s is one coded warning',

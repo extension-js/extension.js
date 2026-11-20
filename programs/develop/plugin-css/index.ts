@@ -568,7 +568,9 @@ export class CssPlugin {
       for (const message of this.setupWarnings.splice(0)) {
         const warning = new compiler.rspack.WebpackError(message)
 
-        warning.name = 'CssSetupWarning'
+        // Its own name, so the code says a setup step did not run and not
+        // that the session needs a restart.
+        warning.name = 'CssSetupNotApplied'
         c.warnings.push(warning)
       }
     })

@@ -125,7 +125,8 @@ describe('diagnosticCode', () => {
     ['EnvPrivatePlaceholder', 'W_BUILD_CONSTANT_UNDEFINED'],
     ['EnvReservedName', 'W_ENV_NAME_RESERVED'],
     ['EnvDefinedNameWritten', 'W_ENV_DEFINE_WRITTEN'],
-    ['UnknownRegistrationWorld', 'W_SCRIPT_WORLD_UNKNOWN']
+    ['UnknownRegistrationWorld', 'W_SCRIPT_WORLD_UNKNOWN'],
+    ['CssSetupNotApplied', 'W_CSS_NOT_APPLIED']
   ])('maps a diagnostic named %s to %s', (name, code) => {
     expect(diagnosticCode(named(name))).toBe(code)
   })
