@@ -36,8 +36,8 @@ const FUNCTIONAL_COMMENT = [
 const LICENSE_NOTICE =
   /\b(MIT|Apache|BSD|ISC|MPL|L?GPL)\b.*\bLicen[cs]e\b|\b(Licensed|Released) under\b|\bCopyright\b|\(c\)\s*\d{4}|SPDX-License-Identifier/i
 
-/** @typedef {import('estree').Comment} Comment */
-/** @typedef {import('estree').SourceLocation} SourceLocation */
+/** @typedef {ReturnType<import('eslint').SourceCode['getAllComments']>[number]} Comment */
+/** @typedef {import('eslint').AST.SourceLocation} SourceLocation */
 /** @typedef {Comment & {loc: SourceLocation, range: [number, number]}} LocatedComment */
 /** @typedef {import('eslint').SourceCode} SourceCode */
 /** @typedef {import('eslint').Rule.RuleFixer} RuleFixer */
@@ -45,7 +45,7 @@ const LICENSE_NOTICE =
 /** @typedef {import('eslint').Rule.RuleModule} RuleModule */
 /** @typedef {{raw: string, text: string, isTag: boolean}} JsdocLine */
 
-/** @type {import('json-schema').JSONSchema4[]} */
+/** @type {import('eslint').Rule.RuleMetaData['schema']} */
 const bannerOption = [
   {
     type: 'object',
@@ -338,7 +338,7 @@ const paddingLineBetweenStatements = {
       // The padding rule reports against a node, which a descriptor may lack.
       const node =
         'node' in descriptor
-          ? /** @type {import('estree').Node} */ (descriptor.node)
+          ? /** @type {import('eslint').Rule.Node} */ (descriptor.node)
           : undefined
       const before = node ? sourceCode.getTokenBefore(node) : null
       const asiGuard =
