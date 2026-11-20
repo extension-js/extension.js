@@ -10,6 +10,8 @@ import type {Manifest} from '../../../../types'
 import {
   getCanonicalContentScriptCssAssetName,
   getCanonicalContentScriptJsAssetName,
+  isHollowContentScript,
+  mainWorldBridgeIndexes,
   parseCanonicalContentScriptAsset
 } from '../../../feature-scripts/contracts'
 import {getFilename} from '../../../shared/paths'
@@ -26,16 +28,6 @@ function isBundledContentPath(filePath: string, ext: 'js' | 'css') {
   const bundledAsset = parseCanonicalContentScriptAsset(normalized)
 
   return bundledAsset?.extension === ext
-}
-
-// No browser loads an entry with neither js nor css. Prefix resolution leaves
-// one behind when every script key was scoped to another browser.
-export function isHollowContentScript(entry: unknown) {
-  const contentObj = (entry || {}) as ContentObj
-  const js = Array.isArray(contentObj.js) ? contentObj.js : []
-  const css = Array.isArray(contentObj.css) ? contentObj.css : []
-
-  return js.length === 0 && css.length === 0
 }
 
 function isAlreadyBundledContentScripts(contentScripts: unknown[]) {
@@ -71,12 +63,15 @@ export function contentScripts(manifest: Manifest) {
     return {content_scripts: original}
   }
 
-  const originalCount = original.length
   const result: Array<Record<string, unknown>> = []
-
   // Keep user content-script indices stable; insert MAIN-world bridges before
   // their entries so MAIN world reads the base URL before HMR initializes.
-  let bridgeOrdinal = 0
+  const bridgeIndexes = new Map(
+    mainWorldBridgeIndexes(original).map(({mainIndex, bridgeIndex}) => [
+      mainIndex,
+      bridgeIndex
+    ])
+  )
 
   for (let index = 0; index < original.length; index++) {
     const contentObj: ContentObj & Record<string, unknown> =
@@ -89,8 +84,9 @@ export function contentScripts(manifest: Manifest) {
     const contentJs = [...new Set(contentObj.js || [])]
     const contentCss = [...new Set(contentObj.css || [])]
 
-    if (contentObj.world === 'MAIN') {
-      const bridgeIndex = originalCount + bridgeOrdinal++
+    const bridgeIndex = bridgeIndexes.get(index)
+
+    if (bridgeIndex !== undefined) {
       const {
         world: _ignoredWorld,
         js: _ignoredJs,

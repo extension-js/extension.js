@@ -221,35 +221,104 @@ describe('the origins a session calls its own', () => {
     ).toBe(true)
   })
 
-  it('admits a host named with --allowed-hosts on any port', () => {
+  it('admits a host named with --allowed-hosts on the dev server port alone', () => {
     const named = {allowedHosts: 'dev.example.test, .tunnel.test'}
+
+    expect(
+      verdict(
+        {
+          'sec-fetch-site': 'cross-site',
+          origin: `https://dev.example.test:${PORT}`
+        },
+        named
+      )
+    ).toBe(true)
+
+    expect(
+      verdict(
+        {
+          'sec-fetch-site': 'cross-site',
+          origin: `http://a.tunnel.test:${PORT}`
+        },
+        named
+      )
+    ).toBe(true)
+
+    expect(
+      verdict(
+        {'sec-fetch-site': 'cross-site', origin: `https://tunnel.test:${PORT}`},
+        named
+      )
+    ).toBe(true)
 
     expect(
       verdict(
         {'sec-fetch-site': 'cross-site', origin: 'https://dev.example.test'},
         named
       )
-    ).toBe(true)
+    ).toBe(false)
 
     expect(
       verdict(
         {'sec-fetch-site': 'cross-site', origin: 'https://a.tunnel.test:8443'},
         named
       )
-    ).toBe(true)
-
-    expect(
-      verdict(
-        {'sec-fetch-site': 'cross-site', origin: 'https://tunnel.test'},
-        named
-      )
-    ).toBe(true)
+    ).toBe(false)
 
     expect(
       verdict(
         {'sec-fetch-site': 'cross-site', origin: 'https://nottunnel.test'},
         named
       )
+    ).toBe(false)
+  })
+
+  // Codespaces, a tunnel or a TLS proxy serve the page on 443 while the
+  // session listens on its own port, and name the page's host to it.
+  it('admits a named host a proxy hands on as the page address', () => {
+    const named = {allowedHosts: 'dev.example.test'}
+    const page = {
+      'sec-fetch-site': 'cross-site',
+      origin: 'https://dev.example.test'
+    }
+
+    expect(verdict({...page, host: 'dev.example.test'}, named)).toBe(true)
+    expect(
+      verdict({...page, 'x-forwarded-host': 'dev.example.test'}, named)
+    ).toBe(true)
+
+    expect(
+      isSocketFromSession(
+        {
+          host: HOST,
+          origin: 'https://dev.example.test',
+          'x-forwarded-host': 'dev.example.test'
+        },
+        session(named)
+      )
+    ).toBe(true)
+  })
+
+  it('refuses a named host on any other port than the one handed on', () => {
+    const named = {allowedHosts: 'dev.example.test'}
+    const other = {
+      'sec-fetch-site': 'cross-site',
+      origin: 'http://dev.example.test:9999'
+    }
+
+    expect(verdict(other, named)).toBe(false)
+    expect(verdict({...other, host: 'dev.example.test'}, named)).toBe(false)
+    expect(
+      verdict({...other, 'x-forwarded-host': 'dev.example.test'}, named)
+    ).toBe(false)
+
+    // A forwarded name counts only for a host the session was given.
+    expect(
+      verdict({
+        'sec-fetch-site': 'cross-site',
+        origin: 'https://other.test',
+        'x-forwarded-host': 'other.test'
+      })
     ).toBe(false)
   })
 
@@ -372,8 +441,16 @@ describe('whether the reload socket opens', () => {
   it('opens for the viewer and for a named host', () => {
     expect(socket(VIEWER, {emulatorOrigin: VIEWER})).toBe(true)
     expect(
-      socket('https://dev.example.test', {allowedHosts: 'dev.example.test'})
+      socket(`https://dev.example.test:${PORT}`, {
+        allowedHosts: 'dev.example.test'
+      })
     ).toBe(true)
+
+    expect(
+      socket('https://dev.example.test:3000', {
+        allowedHosts: 'dev.example.test'
+      })
+    ).toBe(false)
   })
 
   it('leaves a client with no Origin to the stock check', () => {

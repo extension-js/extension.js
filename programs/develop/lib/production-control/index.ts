@@ -16,7 +16,6 @@ import {BridgeBroker} from '../../dev-server/control-bridge/broker'
 import {readExtensionLoadRefusal} from '../../dev-server/control-bridge/consumer-client'
 import {LogsFileWriter} from '../../dev-server/control-bridge/logs-file'
 import {
-  buildBridgeProducerSource,
   buildBridgeRelaySource,
   CONTROL_PORT_ASSET_NAME
 } from '../../dev-server/control-bridge/producer-runtime'
@@ -29,17 +28,14 @@ import {
   type ControlServer,
   startControlServer
 } from '../../dev-server/control-bridge/ws-control-server'
+import {buildDevProducerSource} from '../../plugin-reload/reload-lib/producer-reload'
 import {RELAY_TARGETS} from '../../plugin-reload/steps/inject-bridge-relay'
 import {withAddedSources} from '../../plugin-web-extension/feature-manifest/steps/apply-dev-defaults-lib/patch-csp'
+import {BACKGROUND_ASSET} from '../../plugin-web-extension/shared/background-asset'
 import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../constants'
 import {prependBehindTakeBlock} from '../extension-base-from-stack'
 import {isSameOrInsidePath} from '../real-path'
 import {actionsPath, browserArtifactsDir, logsPath} from '../session-paths'
-
-// Same background entries the dev-build injector prepends to: Chromium emits
-// background/service_worker.js, Firefox background/scripts.js, and a declared
-// background page compiles to background/index.js.
-const BACKGROUND_ASSET = /^background\/(?:service_worker|scripts?|index)\.js$/i
 
 export interface ProductionControlOptions {
   packageJsonDir: string
@@ -237,7 +233,7 @@ export function prepareControlledBuild(input: {
   fs.mkdirSync(path.dirname(input.controlledPath), {recursive: true})
   fs.cpSync(input.distPath, input.controlledPath, {recursive: true})
 
-  const source = buildBridgeProducerSource({
+  const source = buildDevProducerSource({
     controlPort: input.controlPort,
     instanceId: input.instanceId,
     context: 'background',

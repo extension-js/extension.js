@@ -11,6 +11,7 @@ import {Compilation, type Compiler} from '@rspack/core'
 import {prependToEmittedAsset} from '../../../lib/asset-source-maps'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
 import type {DevOptions, FilepathList, PluginInterface} from '../../../types'
+import {BACKGROUND_ASSET} from '../../shared/background-asset'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../contracts'
 import {
   buildMainWorldBridgePairingSource,
@@ -24,10 +25,6 @@ import {
 import {extensionBaseGlobalFor} from '../scripts-lib/taken-extension-base'
 import {resolveMainWorldBridgeSourcePath} from './add-content-script-wrapper/get-bridge-scripts'
 import {getBaseReaderRequirements} from './prune-main-world-bridges'
-
-// From the output root alone: a deeper folder of that name is the project's.
-export const BACKGROUND_ASSET =
-  /^background\/(?:service_worker|scripts?|index)\.js$/i
 
 // The file that starts a page entry, which runs ahead of the page's code.
 export function pageBundleNames(
@@ -122,8 +119,9 @@ export class PairRuntimeMainWorldBridges {
         compilation.hooks.processAssets.tap(
           {
             name: PairRuntimeMainWorldBridges.name,
-            // After minification, so the prepended text ships as written.
-            stage: Compilation.PROCESS_ASSETS_STAGE_REPORT + 100
+            // After minification, so the prepended text ships as written, and
+            // ahead of other background prepends so their order needs no tie.
+            stage: Compilation.PROCESS_ASSETS_STAGE_REPORT + 75
           },
           () => {
             const baseReaders = shipped

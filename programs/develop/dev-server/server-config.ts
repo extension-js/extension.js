@@ -6,7 +6,9 @@
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import type {IncomingMessage} from 'node:http'
 import * as path from 'node:path'
+import type {Duplex} from 'node:stream'
 import type {Compiler} from '@rspack/core'
 import type {Configuration} from '@rspack/dev-server'
 import {rootAbsolutePathIsWithheld} from '../plugin-special-folders/public-private-files'
@@ -115,6 +117,47 @@ export interface ServerConfigInput {
   onSiteRefused: (origin: string) => void
   server: Configuration['server']
   env?: Readonly<Record<string, string | undefined>>
+  // The reload socket path the session's own extension is built with.
+  socketPath: string
+}
+
+// The reload socket names the session, so only an extension this session
+// built can open it. The stock server answers no other path.
+export function sessionSocketPath(instanceId: string): string {
+  return `/ws/${encodeURIComponent(instanceId)}`
+}
+
+// What a build of another session hears when it dials its reload socket here.
+export const OTHER_SESSION_SOCKET_REASON =
+  'This reload socket path belongs to another dev session. Load the build of the session that is running.'
+
+// The stock server leaves an upgrade at a path it does not serve unanswered,
+// so a build from another session would wait out its handshake bound.
+export function refuseOtherSessionSockets(
+  server: {
+    on(
+      event: 'upgrade',
+      listener: (req: IncomingMessage, socket: Duplex) => void
+    ): unknown
+  },
+  socketPath: string
+): void {
+  server.on('upgrade', (req, socket) => {
+    const pathname = String(req.url || '').split('?')[0]
+
+    if (pathname === socketPath) return
+    if (pathname !== '/ws' && !pathname.startsWith('/ws/')) return
+
+    const body = `${OTHER_SESSION_SOCKET_REASON}\n`
+
+    socket.end(
+      'HTTP/1.1 404 Not Found\r\n' +
+        'Connection: close\r\n' +
+        'Content-Type: text/plain; charset=utf-8\r\n' +
+        `Content-Length: ${Buffer.byteLength(body)}\r\n\r\n` +
+        body
+    )
+  })
 }
 
 export function buildServerConfig(input: ServerConfigInput): Configuration {
@@ -186,6 +229,7 @@ export function buildServerConfig(input: ServerConfigInput): Configuration {
     webSocketServer: {
       type: 'ws',
       options: {
+        path: input.socketPath,
         verifyClient: createSocketVerifier(
           access.requestSite,
           announceSiteRefusal
@@ -196,6 +240,12 @@ export function buildServerConfig(input: ServerConfigInput): Configuration {
     setupMiddlewares: (
       ...args: Parameters<NonNullable<Configuration['setupMiddlewares']>>
     ) => {
+      // The HTTP server exists by now. The socket server attaches after listen.
+      const httpServer = (
+        args[1] as {server?: Parameters<typeof refuseOtherSessionSockets>[0]}
+      ).server
+      if (httpServer) refuseOtherSessionSockets(httpServer, input.socketPath)
+
       const checked = withRequestSiteMiddleware(
         withHostCheckMiddleware(args[0], args[1], input.onHostRefused),
         access.requestSite,

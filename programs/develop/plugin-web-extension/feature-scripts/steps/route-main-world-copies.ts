@@ -10,6 +10,7 @@ import * as path from 'node:path'
 import {Compilation, type Compiler} from '@rspack/core'
 import {prependToEmittedAsset} from '../../../lib/asset-source-maps'
 import type {FilepathList, PluginInterface} from '../../../types'
+import {BACKGROUND_ASSET} from '../../shared/background-asset'
 import {
   buildMainWorldCopyRoutingSource,
   MAIN_WORLD_COPY_ROUTING_MARK
@@ -18,10 +19,7 @@ import {
   findBridgePairingPages,
   findRuntimeMainWorldEntries
 } from '../scripts-lib/runtime-main-world-scripts'
-import {
-  BACKGROUND_ASSET,
-  pageBundleNames
-} from './pair-runtime-main-world-bridges'
+import {pageBundleNames} from './pair-runtime-main-world-bridges'
 
 // A file both worlds run is built once for each, and the calls that name it
 // are routed as they are made, in the background and in each page that calls.

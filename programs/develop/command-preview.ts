@@ -64,7 +64,10 @@ import {
   createPlaywrightMetadataWriter,
   getSessionRunId
 } from './plugin-playwright'
-import {resolveCompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/resolve-config'
+import {
+  refuseCompanionLinksNoStoreReads,
+  resolveCompanionExtensionsConfig
+} from './plugin-special-folders/folder-extensions/resolve-config'
 import {resolveCompanionExtensionDirs as resolveCompanionExtensionDirsFromSpecialFolders} from './plugin-special-folders/folder-extensions/resolve-dirs'
 import type {CompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/types'
 import {getSpecialFoldersDataForProjectRoot} from './plugin-special-folders/get-data'
@@ -493,6 +496,10 @@ export async function extensionPreview(
           browser,
           config: mergedExtensionsConfig
         })
+
+    if (previewOptions.noBrowser) {
+      refuseCompanionLinksNoStoreReads(mergedExtensionsConfig)
+    }
 
     // The session goes on without a named companion that is not an extension,
     // browser or not, and the caller reads which one beside the other warnings.

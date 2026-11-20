@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import {rspack} from '@rspack/core'
+import {Compilation, type Compiler, rspack, sources} from '@rspack/core'
 import {afterAll, describe, expect, it} from 'vitest'
 import {MAIN_WORLD_BRIDGE_PAIRING_MARK} from '../scripts-lib/main-world-bridge-pairing'
 import {MAIN_WORLD_COPY_ROUTING_MARK} from '../scripts-lib/main-world-copy-routing'
@@ -23,7 +23,7 @@ const BACKGROUND =
   "  {id: 'main', js: ['scripts/hook.js'], matches: ['<all_urls>'], world: 'MAIN'}\n" +
   '])\n'
 
-async function compiled() {
+async function compiled(first: Array<{apply(compiler: Compiler): void}> = []) {
   const root = fs.realpathSync(
     fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-background-folder-'))
   )
@@ -70,6 +70,7 @@ async function compiled() {
       },
       output: {path: at('dist'), filename: '[name].js'},
       plugins: [
+        ...first,
         new PairRuntimeMainWorldBridges(options),
         new RouteMainWorldCopies(options)
       ]
@@ -103,5 +104,44 @@ describe('a file in a deeper folder named background', () => {
       expect(vendor).not.toContain(MAIN_WORLD_BRIDGE_PAIRING_MARK)
       expect(vendor).not.toContain(MAIN_WORLD_COPY_ROUTING_MARK)
     }
+  }, 120000)
+})
+
+// Another owner prepending to the background at REPORT+100, the dev session's
+// replay shim among them, registered here ahead of the pairing.
+const OTHER = '/* another owner */'
+const prependsAtTheSameStage = {
+  apply(compiler: Compiler) {
+    compiler.hooks.thisCompilation.tap('other-owner', (compilation) => {
+      compilation.hooks.processAssets.tap(
+        {
+          name: 'other-owner',
+          stage: Compilation.PROCESS_ASSETS_STAGE_REPORT + 100
+        },
+        () => {
+          const asset = compilation.getAsset('background/scripts.js')
+          if (!asset) return
+
+          compilation.updateAsset(
+            asset.name,
+            new sources.ConcatSource(`${OTHER}\n`, asset.source)
+          )
+        }
+      )
+    })
+  }
+}
+
+describe('the pairing prepend', () => {
+  it('stays inside another background prepend whichever plugin registered first', async () => {
+    const background = (await compiled([prependsAtTheSameStage]))(
+      'background',
+      'scripts.js'
+    )
+
+    expect(background.indexOf(OTHER)).toBeGreaterThanOrEqual(0)
+    expect(background.indexOf(OTHER)).toBeLessThan(
+      background.indexOf(MAIN_WORLD_BRIDGE_PAIRING_MARK)
+    )
   }, 120000)
 })

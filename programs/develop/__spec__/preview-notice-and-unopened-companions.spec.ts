@@ -180,13 +180,12 @@ describe('a named companion that is not an extension, with no browser', () => {
     expect(withBrowser?.warnings).toEqual(quiet.warnings)
   })
 
-  it('fetches no store companion and leaves a link alone', async () => {
+  it('fetches no store companion and leaves a store link alone', async () => {
     const root = project()
     const {warnings} = await preview(root, {
       extensions: [
         'https://chromewebstore.google.com/detail/some-name/abcdefghijklmnopabcdefghijklmnop',
         'chromewebstore.google.com/detail/some-name/abcdefghijklmnopabcdefghijklmnop',
-        'https://example.com/not-a-store',
         'extensions/gone'
       ]
     })
