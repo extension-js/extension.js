@@ -70,6 +70,10 @@ export class WatchEnvFilesPlugin {
     compiler.hooks.thisCompilation.tap(
       WatchEnvFilesPlugin.name,
       (compilation: Compilation) => {
+        // rspack fills watchOptions in for every compiler, so only watchMode
+        // tells a watch run from a one-shot build.
+        if (!compiler.watchMode) return
+
         this.addDependencies(compilation)
 
         const changedPath = this.changedPath
