@@ -9,6 +9,7 @@ import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import checkUpdates, {
   lookupLatest,
   resolveRegistry,
+  settleUpdateCheck,
   UPDATE_CHECK_BOUND_MS,
   updateCheckWanted
 } from '../check-updates'
@@ -420,5 +421,49 @@ describe('the update check against a loopback registry', () => {
     const env = isolatedEnv({npm_config_registry: endless.url})
 
     expect(await checkUpdates(deps(env, {boundMs: 30_000}))).toBeNull()
+  })
+})
+
+describe('holding a finished command for its update check', () => {
+  function timers() {
+    const armed: Array<{run: () => void; ms: number}> = []
+    const cleared: unknown[] = []
+
+    return {
+      armed,
+      cleared,
+      set: (run: () => void, ms: number) => armed.push({run, ms}),
+      clear: (timer: unknown) => cleared.push(timer)
+    }
+  }
+
+  it.each([
+    ['answers', () => Promise.resolve('a notice')],
+    ['fails', () => Promise.reject(new Error('refused'))]
+  ])('ends as soon as the check %s, and lets the timer go', async (_name, check) => {
+    const clock = timers()
+
+    await settleUpdateCheck(check(), 2000, clock)
+
+    expect(clock.armed.map(({ms}) => ms)).toEqual([2000])
+    expect(clock.cleared).toEqual([1])
+  })
+
+  it('ends at the bound when the check never settles', async () => {
+    const clock = timers()
+    let ended = false
+    const settled = settleUpdateCheck(new Promise(() => {}), 2000, clock).then(
+      () => {
+        ended = true
+      }
+    )
+
+    await Promise.resolve()
+    expect(ended).toBe(false)
+
+    clock.armed[0].run()
+    await settled
+
+    expect(ended).toBe(true)
   })
 })

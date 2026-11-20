@@ -194,6 +194,35 @@ export function lookupLatest(
   })
 }
 
+export interface SettleTimers {
+  set: (run: () => void, ms: number) => unknown
+  clear: (timer: unknown) => void
+}
+
+const processTimers: SettleTimers = {
+  set: (run, ms) => setTimeout(run, ms),
+  clear: (timer) => clearTimeout(timer as NodeJS.Timeout)
+}
+
+// The lookup never holds the process, so a command that ends first would
+// drop its answer. This holds the run until the check settles, or the bound.
+export function settleUpdateCheck(
+  pending: Promise<unknown>,
+  boundMs: number = UPDATE_CHECK_BOUND_MS,
+  timers: SettleTimers = processTimers
+): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = timers.set(resolve, boundMs)
+
+    const done = () => {
+      timers.clear(timer)
+      resolve()
+    }
+
+    pending.then(done, done)
+  })
+}
+
 function cacheFolder(
   env: Env,
   platform: NodeJS.Platform,

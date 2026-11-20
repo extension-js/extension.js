@@ -16,6 +16,15 @@ import {trackTempFolders} from '../helpers/temp-folders'
 
 const makeTempFolder = trackTempFolders()
 const NOTICE = 'version 99.0.0 is available'
+// What a run prints when the answer comes after its banner, on stderr.
+const LATE_NOTICE = 'The latest stable is 99.0.0.'
+
+// The answer races the banner, so a run tells of the update in one of two
+// places. Which one is pinned only where the row controls the order.
+function tellsOfUpdate(output: string): boolean {
+  return output.includes(NOTICE) || output.includes(LATE_NOTICE)
+}
+
 const {version} = JSON.parse(
   fs.readFileSync(path.join(CLI_ROOT, 'package.json'), 'utf8')
 )
@@ -74,7 +83,7 @@ describe('the update check of a spawned CLI', () => {
 
     expect(run.status, run.output).toBe(0)
     expect(asked).toEqual(['/extension/latest'])
-    expect(run.output).toContain(NOTICE)
+    expect(tellsOfUpdate(run.output), run.output).toBe(true)
   })
 
   it('asks the registry npm_config_registry names', async () => {
@@ -87,7 +96,7 @@ describe('the update check of a spawned CLI', () => {
 
     expect(run.status, run.output).toBe(0)
     expect(asked).toEqual(['/extension/latest'])
-    expect(run.output).toContain(NOTICE)
+    expect(tellsOfUpdate(run.output), run.output).toBe(true)
   })
 
   it.each([
@@ -110,7 +119,7 @@ describe('the update check of a spawned CLI', () => {
     })
 
     expect(asked).toEqual([])
-    expect(run.output).not.toContain(NOTICE)
+    expect(tellsOfUpdate(run.output), run.output).toBe(false)
   })
 
   it('asks the registry the home .npmrc names when no pin is set', async () => {
@@ -126,7 +135,7 @@ describe('the update check of a spawned CLI', () => {
 
     expect(run.status, run.output).toBe(0)
     expect(asked).toEqual(['/extension/latest'])
-    expect(run.output).toContain(NOTICE)
+    expect(tellsOfUpdate(run.output), run.output).toBe(true)
   })
 
   it('keeps its answer in the home cache, not in a shared temp folder', async () => {
@@ -153,7 +162,54 @@ describe('the update check of a spawned CLI', () => {
     expect(later.status, later.output).toBe(0)
     expect(asked).toEqual([])
     expect(later.stderr).toBe('')
-    expect(later.output).not.toContain(NOTICE)
+    expect(tellsOfUpdate(later.output), later.output).toBe(false)
+  })
+
+  // The build is done long before a registry on a real network answers. The
+  // answer still has to reach this run and the cache, or no build ever tells.
+  it('a build that finishes before the registry answers still prints the notice and keeps the answer', async () => {
+    let built = false
+    const answers: Array<() => void> = []
+    const slow = http.createServer((_request, response) => {
+      const answer = () => {
+        response.writeHead(200, {'content-type': 'application/json'})
+        response.end(JSON.stringify({name: 'extension', version: '99.0.0'}))
+      }
+
+      if (built) answer()
+      else answers.push(answer)
+    })
+
+    await new Promise<void>((resolve) => slow.listen(0, '127.0.0.1', resolve))
+
+    const address = slow.address()
+    const port = typeof address === 'object' && address ? address.port : 0
+    const home = freshCliHome()
+    const session = startCli(['build', projectDir], {
+      home,
+      env: {npm_registry: `http://127.0.0.1:${port}/`}
+    })
+
+    try {
+      await session.waitFor(
+        () => session.read().stdout.includes('Extension built for production'),
+        60_000,
+        'the built line'
+      )
+
+      built = true
+      for (const answer of answers.splice(0)) answer()
+
+      expect(await session.closed).toEqual({status: 0, signal: null})
+      // After the banner, so on stderr and never inside the build's output.
+      expect(session.read().stdout).not.toContain(NOTICE)
+      expect(session.read().stderr).toContain(LATE_NOTICE)
+      expect(cachedAnswers(home)).toHaveLength(1)
+    } finally {
+      session.killGroup()
+      slow.closeAllConnections()
+      await new Promise<void>((resolve) => slow.close(() => resolve()))
+    }
   })
 
   it('prints no cached notice to a later run with default options', async () => {
@@ -165,18 +221,28 @@ describe('the update check of a spawned CLI', () => {
       env: {npm_registry: registry}
     })
 
+    // On the banner when the answer came first, on stderr when the banner did.
     expect(first.status, first.output).toBe(0)
     expect(asked).toEqual(['/extension/latest'])
-    expect(first.stdout.split('\n')).toContain(`${BANNER} (${NOTICE})`)
+    expect(tellsOfUpdate(first.output), first.output).toBe(true)
 
+    // Read from the cache, the answer is always there before the banner.
     asked.length = 0
+
+    const cached = await runCli(['build', projectDir], {
+      env: {npm_registry: registry}
+    })
+
+    expect(cached.status, cached.output).toBe(0)
+    expect(asked).toEqual([])
+    expect(cached.stdout.split('\n')).toContain(`${BANNER} (${NOTICE})`)
 
     const later = await runCli(['build', projectDir])
 
     expect(later.status, later.output).toBe(0)
     expect(asked).toEqual([])
     expect(later.stderr).toBe('')
-    expect(later.output).not.toContain(NOTICE)
+    expect(tellsOfUpdate(later.output), later.output).toBe(false)
     expect(later.stdout.split('\n')).toContain(BANNER)
     // One answer cached, for the registry that gave it.
     expect(cachedAnswers(home)).toHaveLength(1)
@@ -227,7 +293,7 @@ describe('the update check of a spawned CLI', () => {
 
     expect(run.status, run.output).toBe(0)
     expect(asked).toEqual([])
-    expect(run.output).not.toContain(NOTICE)
+    expect(tellsOfUpdate(run.output), run.output).toBe(false)
     expect(run.output).not.toContain('update is available')
   })
 })
