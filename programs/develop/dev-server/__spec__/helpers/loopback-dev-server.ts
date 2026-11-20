@@ -10,6 +10,9 @@ import {buildServerConfig, type ServerConfigInput} from '../../server-config'
 // A bare rspack compiler on a fixture in a temp folder, served by the stock
 // dev server with this folder's real config. No compiled dist, loopback only.
 
+// The reload socket path a session names, the one its extension dials.
+export const LOOPBACK_SOCKET_PATH = '/ws/loopback-session'
+
 export interface LoopbackSession {
   root: string
   distPath: string
@@ -103,6 +106,7 @@ export async function bootLoopback(options: {
     onSiteRefused: () => {},
     server: undefined,
     env: options.env ?? {},
+    socketPath: LOOPBACK_SOCKET_PATH,
     ...options.input?.(port)
   })
   const finalConfig = options.mutateConfig
@@ -127,14 +131,16 @@ export async function bootLoopback(options: {
 
 export async function connectClient(
   port: number,
-  origin: string | null = 'chrome-extension://abcdefghijklmnopabcdefghijklmnop'
+  origin: string | null = 'chrome-extension://abcdefghijklmnopabcdefghijklmnop',
+  socketPath = LOOPBACK_SOCKET_PATH
 ) {
   const messages: Array<{type: string; data?: unknown}> = []
   // The stock server closes a socket with no Origin; extension pages send theirs.
-  const socket = new WebSocket(
-    `ws://127.0.0.1:${port}/ws`,
-    origin === null ? {} : {origin}
-  )
+  // It never answers an upgrade at a path it does not serve, hence the bound.
+  const socket = new WebSocket(`ws://127.0.0.1:${port}${socketPath}`, {
+    handshakeTimeout: 2000,
+    ...(origin === null ? {} : {origin})
+  })
 
   socket.on('message', (raw) => {
     try {

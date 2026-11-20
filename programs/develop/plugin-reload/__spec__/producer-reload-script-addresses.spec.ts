@@ -1,6 +1,6 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import {SCRIPTS_REPLAY_SHIM_SOURCE} from '../../../plugin-reload/reload-lib/scripts-replay-shim'
-import {buildBridgeProducerSource} from '../producer-runtime'
+import {buildDevProducerSource} from '../reload-lib/producer-reload'
+import {SCRIPTS_REPLAY_SHIM_SOURCE} from '../reload-lib/scripts-replay-shim'
 
 class FakeWebSocket {
   static instances: FakeWebSocket[] = []
@@ -264,7 +264,7 @@ function boot(options: {
   // eslint-disable-next-line no-new-func
   new Function(
     'globalThis',
-    buildBridgeProducerSource({
+    buildDevProducerSource({
       controlPort: 9999,
       instanceId: 'inst-A',
       context: 'background'
