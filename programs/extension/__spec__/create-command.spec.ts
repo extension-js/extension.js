@@ -42,6 +42,8 @@ import {
   stubProcessExit
 } from './command-harness'
 
+type CreateResult = Awaited<ReturnType<typeof extensionCreate>>
+
 const savedRoot = process.env.EXTENSION_CREATE_DEVELOP_ROOT
 const quiet = {log: () => {}, error: () => {}}
 
@@ -125,7 +127,7 @@ describe('extension create', () => {
       packageName: 'my-extension',
       template: 'react',
       depsInstalled: false
-    } as any)
+    } as CreateResult)
 
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     expect(
@@ -152,10 +154,12 @@ describe('extension create', () => {
   it('routes scaffold progress lines to stderr under --output json', async () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    vi.mocked(extensionCreate).mockImplementationOnce(async (_p, opts: any) => {
+    vi.mocked(extensionCreate).mockImplementationOnce(async (_p, opts) => {
+      if (!opts.logger) throw new Error('the command passed no logger')
+
       opts.logger.log('Creating my-extension...')
 
-      return undefined as any
+      return undefined as unknown as CreateResult
     })
 
     expect(await run(['create', 'my-extension', '--output', 'json'])).toBe(0)

@@ -13,15 +13,26 @@ import {
   vi
 } from 'vitest'
 
+// What the act command hands the bridge, read back by the rows.
+interface SentCommand {
+  args: Record<string, unknown>
+  [key: string]: unknown
+}
+
+interface FakeController {
+  opts: unknown
+  closed: boolean
+}
+
 const bridge = {
   ready: {controlPort: 9123, instanceId: 'inst-1'} as unknown,
   token: 'tok-1' as unknown,
   connectError: null as Error | null,
   commandError: null as Error | null,
-  result: {ok: true, value: 'v'} as any,
-  controllers: [] as any[],
-  commands: [] as any[],
-  tokenReads: [] as any[],
+  result: {ok: true, value: 'v'} as unknown,
+  controllers: [] as FakeController[],
+  commands: [] as SentCommand[],
+  tokenReads: [] as unknown[][],
   sessionReads: [] as string[],
   readyDoc: null as Record<string, unknown> | null
 }
@@ -49,16 +60,16 @@ const loadBridge = async () =>
       return bridge.token
     },
     BridgeController: class {
-      opts: any
+      opts: unknown
       closed = false
-      constructor(opts: any) {
+      constructor(opts: unknown) {
         this.opts = opts
         bridge.controllers.push(this)
       }
       async connect() {
         if (bridge.connectError) throw bridge.connectError
       }
-      async command(payload: any) {
+      async command(payload: SentCommand) {
         bridge.commands.push(payload)
         if (bridge.commandError) throw bridge.commandError
 
