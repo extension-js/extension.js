@@ -130,6 +130,10 @@ export const nodeEntries = {
   'solid-jsx-gate-loader': path.resolve(
     __dirname,
     './plugin-js-frameworks/js-tools/solid-jsx-gate-loader.ts'
+  ),
+  'env-write-loader': path.resolve(
+    __dirname,
+    './plugin-compilation/env-write-loader.ts'
   )
 }
 

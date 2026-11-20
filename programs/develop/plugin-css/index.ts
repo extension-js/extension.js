@@ -321,6 +321,7 @@ export class CssPlugin {
             const warning = new WebpackError(
               messages.cssMinifierDroppedRules(asset.name, dropped)
             )
+            warning.name = 'CssMinifierDroppedRules'
             ;(warning as Error & {file?: string}).file = asset.name
             c.warnings.push(warning)
           }

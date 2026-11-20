@@ -253,6 +253,41 @@ export function envReservedName(entries: Array<{name: string; file: string}>) {
   )
 }
 
+// The write runs, so the message names what it cannot change: the reads the
+// build already replaced with the value.
+export function envDefinedNameWritten(
+  writes: Array<{read: string; line: number}>
+) {
+  const first = writes[0].read
+
+  return (
+    writes
+      .map(
+        ({read, line}) =>
+          `Line ${line} writes ${colors.yellow(read)}, which the build ` +
+          `replaces with its value.\n`
+      )
+      .join('') +
+    `The write reaches the env object at run time, but every read written as ` +
+    `${colors.yellow(first)} keeps the build value. Keep a value that changes ` +
+    `at run time in a variable of your own.`
+  )
+}
+
+// A .env layer the build has to read is not a readable file, so its values
+// would be missing without a word. The path is the one the author can open.
+export function envFileUnreadable(file: string, isDirectory: boolean) {
+  const what = isDirectory ? 'is a folder' : 'cannot be read'
+
+  return (
+    `${colors.yellow(file)} ${what}, and the build reads every .env file ` +
+    `that matches its browser and mode.\n` +
+    (isDirectory
+      ? `Rename or remove the folder, or turn it into a file of NAME=value lines.`
+      : `Give it read permission, or remove it.`)
+  )
+}
+
 export function envIgnoredFiles(files: string[], mode: string) {
   return `${prefix('debug')} env      ignored=${files.join(',')} mode=${mode}`
 }
