@@ -206,7 +206,11 @@ export class BoringPlugin {
 
       // Always print the boring line so users can see rebuilds and timing,
       // even on success. Machine output moves it off stdout, not away.
-      humanLine(line)
+      try {
+        humanLine(line)
+      } catch {
+        // A closed terminal must not end the watch loop.
+      }
     })
   }
 }
