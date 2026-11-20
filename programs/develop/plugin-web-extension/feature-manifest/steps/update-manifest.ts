@@ -32,14 +32,13 @@ import {hasMv2SandboxPolicy} from '../manifest-overrides/mv2/content_security_po
 // type (MV2/MV3 intersection). Used to read `css`/`js` without `as any`.
 type ContentScriptEntry = NonNullable<Manifest['content_scripts']>[number]
 
-import {humanLine} from '../../../dev-server/lifecycle-stream'
 import {
   filterKeysForThisBrowser,
   findDroppedVendorKeys,
   findPrefixedManifestVersionKeys,
   isValidManifestVersion
 } from '../../../lib/manifest-utils'
-import {debugLine, isDebug} from '../../../lib/messaging'
+import {debugLine, humanLine, isDebug} from '../../../lib/messaging'
 import {reportToCompilation} from '../../shared/compilation-issues'
 import {
   pageActionDropReason,

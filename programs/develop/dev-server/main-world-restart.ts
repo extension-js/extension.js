@@ -8,6 +8,11 @@
 
 import type {Compiler} from '@rspack/core'
 import {
+  answerMainWorldRestarts,
+  type MainWorldRestartOptions,
+  type NoteMainWorldSet
+} from '../lib/session-restart-signal'
+import {
   canAutoRestartDevSession,
   DEV_SESSION_RESTART_DEBOUNCE_MS,
   type DevSessionRestartRequest,
@@ -29,28 +34,11 @@ const lastRequested = new Map<string, string>()
 // taken back inside it leaves the session on the compiler it already has.
 export const MAIN_WORLD_SETTLE_MS = DEV_SESSION_RESTART_DEBOUNCE_MS
 
-export interface MainWorldScriptChange {
-  files: string[]
-  registeredBy?: string
-}
-
-export interface MainWorldRestartOptions {
-  // The hook name the compiler taps are made under.
-  name: string
-  // One key per manifest, so a restart that did not take is told apart.
-  key: string
-  // The set the compiler was made with, and how to read it from disk now.
-  startSignature: string
-  readSignature: () => string
-}
-
-// Called with each compilation's MAIN world set. True when the session
-// restart takes the change, false when the author is to be warned instead.
-export type NoteMainWorldSet = (
-  compilation: object,
-  signature: string,
-  changed: MainWorldScriptChange[]
-) => boolean
+export type {
+  MainWorldRestartOptions,
+  MainWorldScriptChange,
+  NoteMainWorldSet
+} from '../lib/session-restart-signal'
 
 // The steps that build a MAIN world file take their list once, when the
 // compiler is made, so a set changed mid-session restarts the session.
@@ -159,3 +147,5 @@ export function trackMainWorldRestart(
     return false
   }
 }
+
+answerMainWorldRestarts(trackMainWorldRestart)

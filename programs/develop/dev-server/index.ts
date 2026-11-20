@@ -65,6 +65,7 @@ import {
   holdServingContract
 } from '../plugin-playwright'
 import {
+  attachHtmlRefresh,
   dispatchRestartReload,
   fullReloadsDeliveredTo,
   readDevBuild,
@@ -106,7 +107,8 @@ import {
   createEmulatorFileIndexHolder,
   resolveEmulatorOrigin
 } from './emulator-lane'
-import {attachHtmlRefresh} from './html-refresh'
+// Loaded for what it answers: the MAIN world step asks through lib.
+import './main-world-restart'
 import {
   attachLifecycleStream,
   createLifecycleStream,

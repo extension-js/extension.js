@@ -43,6 +43,7 @@ export {
   type ReloadType,
   readContentScriptCount
 } from './classify-reload'
+export {attachHtmlRefresh} from './html-refresh'
 export {
   mergeReloadInstructions,
   reloadSurvivingPackage

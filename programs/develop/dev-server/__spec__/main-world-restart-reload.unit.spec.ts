@@ -2,11 +2,12 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import {BrowsersPlugin} from '../../plugin-browsers'
 import {
   fakeCompilation,
   fakeCompiler
-} from '../../plugin-browsers/__spec__/fake-compiler'
+} from '../../__spec__/helpers/fake-compiler'
+import {quietBroker} from '../../__spec__/helpers/quiet-broker'
+import {BrowsersPlugin} from '../../plugin-browsers'
 import {SafariDevPlugin} from '../../plugin-browsers/safari-dev-plugin'
 import {WarnMainWorldRegistrationChanged} from '../../plugin-web-extension/feature-scripts/steps/warn-main-world-registration-changed'
 import {MAIN_WORLD_SETTLE_MS} from '../main-world-restart'
@@ -74,7 +75,7 @@ async function launchedSession() {
   })
   const broadcastReload = vi.fn((_instruction: {type: string}) => 0)
 
-  plugin.setReloadBroker({broadcastReload})
+  plugin.setReloadBroker(quietBroker({broadcastReload}))
   plugin.setRestartHold(isAwaitingMainWorldRestart)
   plugin.apply(fake.compiler)
 
@@ -301,7 +302,7 @@ async function packagedSafariSession() {
   const broadcastReload = vi.fn((_instruction: {type: string}) => 0)
   const compiled = vi.fn()
 
-  plugin.setReloadBroker({broadcastReload})
+  plugin.setReloadBroker(quietBroker({broadcastReload}))
   plugin.setRestartHold(isAwaitingMainWorldRestart)
   plugin.emitter.on('compiled', compiled)
   plugin.apply(fake.compiler)

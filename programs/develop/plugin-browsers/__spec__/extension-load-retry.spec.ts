@@ -3,6 +3,7 @@ import {
   fakeCompilation,
   fakeCompiler
 } from '../../__spec__/helpers/fake-compiler'
+import {quietBroker} from '../../__spec__/helpers/quiet-broker'
 import * as messages from '../../lib/messages'
 import type {ReloadBroker} from '../../plugin-reload'
 import type {BrowserType} from '../../types'
@@ -184,7 +185,11 @@ describe('the retry of a refused extension on the next compile', () => {
   it('sends nothing for the compile the retry loaded, and compares with it next', async () => {
     const broadcastReload = vi.fn(() => 1)
     const browser = refusingBrowser(async () => ({status: 'loaded' as const}))
-    const dev = session(browser.controller, {broadcastReload}, 'firefox')
+    const dev = session(
+      browser.controller,
+      quietBroker({broadcastReload}),
+      'firefox'
+    )
 
     await dev.compile('red')
     await dev.compile('blue', ['src/widget.module.css'])

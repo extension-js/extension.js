@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {quietBroker} from '../../__spec__/helpers/quiet-broker'
 import {BridgeBroker} from '../../dev-server/control-bridge/broker'
 import {createPlaywrightMetadataWriter} from '../../plugin-playwright'
 import type {ReloadBroker, ReloadInstruction} from '../index'
@@ -23,13 +24,13 @@ afterEach(() => {
 
 function broker(notified: number, ack: 'acked' | 'unacked' | 'not-expected') {
   const applied: Array<[string, string | undefined]> = []
-  const b: ReloadBroker = {
+  const b: ReloadBroker = quietBroker({
     broadcastReload: () => notified,
     awaitReloadAck: async () => ack as never,
     noteReloadApplied: (kind, label) => {
       applied.push([kind, label])
     }
-  }
+  })
 
   return {b, applied}
 }
