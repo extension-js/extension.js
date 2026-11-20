@@ -234,6 +234,20 @@ export function envPrivatePlaceholder(
   )
 }
 
+// Filling it would decode the file as UTF-8 and write other bytes back.
+export function envPlaceholderNotUtf8(assets: string[]) {
+  const one = assets.length === 1
+
+  return (
+    `${assets.map((asset) => colors.yellow(asset)).join(', ')} ` +
+    `${one ? 'holds' : 'hold'} a ${colors.yellow('$EXTENSION_*')} placeholder ` +
+    `but ${one ? 'is' : 'are'} not UTF-8 text, so ` +
+    `${one ? 'it ships' : 'they ship'} byte for byte and the placeholder ` +
+    `is left as written.\n` +
+    `Save the file as UTF-8 to have its placeholders filled.`
+  )
+}
+
 // Names the variable and the file, never the value the file gave it.
 export function envReservedName(entries: Array<{name: string; file: string}>) {
   return (
