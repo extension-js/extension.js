@@ -335,7 +335,7 @@ async function devSessionBundle(root: string, rule: object) {
     metadataCommand: 'dev',
     silent: true,
     output: {clean: true, path: dist}
-  } as Parameters<typeof webpackConfig>[1])
+  })
 
   config.plugins = (config.plugins || []).filter(
     (plugin) =>

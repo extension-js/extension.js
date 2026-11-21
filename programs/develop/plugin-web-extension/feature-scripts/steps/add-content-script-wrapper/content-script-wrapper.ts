@@ -59,7 +59,7 @@ import {
 } from '../../scripts-lib/taken-extension-base'
 import {refuseTopLevelAwait} from '../../scripts-lib/top-level-await'
 
-interface ContentScriptLoaderContext {
+export interface ContentScriptLoaderContext {
   getOptions(): {
     manifestPath: string
     mode?: string

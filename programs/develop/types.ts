@@ -41,13 +41,21 @@ export type ChromeManifest = WithoutManifestVersion<Partial<ManifestV2>> &
     // Intersecting the two Partials collapses manifest_version to never, so
     // it is declared once here with the two values the engine accepts.
     manifest_version?: 2 | 3
+    // Chromium reads icon_variants at the top level and on each action
+    // surface. The manifest types predate the key.
+    icon_variants?: IconVariant[]
     browser_action?: {
       theme_icons?: ThemeIcon[]
+      icon_variants?: IconVariant[]
     }
     // Firefox supports theme_icons on the MV3 action (light/dark toolbar
     // icons), which @types/chrome does not model.
     action?: ManifestV3['action'] & {
       theme_icons?: ThemeIcon[]
+      icon_variants?: IconVariant[]
+    }
+    page_action?: {
+      icon_variants?: IconVariant[]
     }
     // Extension.js augments the standard omnibox shape with a `default_icon`
     // (string path or per-size record), which `@types/chrome` does not model.
@@ -60,6 +68,14 @@ export type ChromeManifest = WithoutManifestVersion<Partial<ManifestV2>> &
   }
 
 export type Manifest = ChromeManifest
+
+// One icon_variants entry: a path per pixel size, an `any` path (usually an
+// SVG) for every size, and the color schemes the group is drawn under.
+export interface IconVariant {
+  [size: `${number}`]: string
+  any?: string
+  color_schemes?: Array<'light' | 'dark'>
+}
 
 export interface ThemeIcon {
   light: string
