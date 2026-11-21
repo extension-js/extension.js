@@ -59,7 +59,7 @@ jobs:
 
       - name: Hydrate templates from examples repo
         env:
-          PINNED_EXAMPLES_REF: 983dd0447d344bc8e03f5e4b65d92267e3d6cff2
+          PINNED_EXAMPLES_REF: 355e74d00daab8083237af30949cd47c49e0c0c3
           REQUESTED_EXAMPLES_REF: ${{ inputs.examples_ref }}
         run: |
           EXAMPLES_REF="${REQUESTED_EXAMPLES_REF:-$PINNED_EXAMPLES_REF}" \
