@@ -92,7 +92,6 @@ export class RootInjectedSheetUrls {
               }
               warning.name = name
               warning.file = file
-              compilation.warnings ||= []
               compilation.warnings.push(warning)
             }
 

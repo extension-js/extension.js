@@ -297,7 +297,6 @@ function warnOnUnreachableResources(
           if (reported.has(key)) continue
 
           reported.add(key)
-          compilation.warnings = compilation.warnings || []
           const warning = new WebpackError(
             warUnreachableResource(resource, entryName)
           ) as Error & {file?: string}
@@ -342,7 +341,6 @@ function noteNamedPages(compilation: Compilation, manifest: Manifest) {
     }
 
     for (const [page, file] of namedBy) {
-      compilation.warnings = compilation.warnings || []
       const warning = new WebpackError(
         warPageNamedNotExposed(file, page)
       ) as Error & {file?: string}
@@ -611,7 +609,6 @@ export function generateManifestPatches(
     (compilation.options?.mode || 'development') === 'production'
   ) {
     for (const [entryName, widened] of widenedByEntry) {
-      compilation.warnings = compilation.warnings || []
       const warning = new WebpackError(
         warInjectedScriptExposed(
           entryName.endsWith('.css') ? entryName : `${entryName}.js`,

@@ -37,6 +37,9 @@ describe('generateManifestPatches', () => {
     }
   })
 
+  // What the last run warned about, by name and message.
+  let lastWarnings: Array<{name?: string; message?: string}> = []
+
   function runWith(
     entryImports: Record<string, string[]>,
     partialManifest: Manifest = {},
@@ -48,6 +51,8 @@ describe('generateManifestPatches', () => {
     const manifest = {
       ...partialManifest
     }
+
+    lastWarnings = []
 
     const manifestSource = {
       source: () => JSON.stringify(manifest)
@@ -84,6 +89,8 @@ describe('generateManifestPatches', () => {
         updateAsset: updateAssetMock,
         emitAsset: emitAssetMock,
         fileDependencies: new Set(),
+        errors: [],
+        warnings: lastWarnings,
         options: {mode: options?.mode || 'development'}
       } as unknown as Compilation,
       manifestPath,
@@ -843,6 +850,9 @@ describe('generateManifestPatches', () => {
     })
 
     it('de-dupes between user-declared and auto-collected resources', () => {
+      fs.mkdirSync(path.join(tmpRoot, 'assets'), {recursive: true})
+      fs.writeFileSync(path.join(tmpRoot, 'assets', 'a.svg'), '<svg/>')
+
       const result = runWith(
         {
           'content_scripts/content-0': ['assets/a.svg']
@@ -866,9 +876,16 @@ describe('generateManifestPatches', () => {
         resources: string[]
       }[]
       expect(groups[0].resources).toEqual(['assets/a.svg'])
+      expect(lastWarnings.map((w) => [w.name, w.message])).toEqual([])
     })
 
     it('de-dupes public-root asset when also auto-collected (mv3)', () => {
+      fs.mkdirSync(path.join(tmpRoot, 'public', 'assets'), {recursive: true})
+      fs.writeFileSync(
+        path.join(tmpRoot, 'public', 'assets', 'logo.svg'),
+        '<svg/>'
+      )
+
       const result = runWith(
         {
           'content_scripts/content-0': ['assets/logo.svg']
@@ -893,6 +910,7 @@ describe('generateManifestPatches', () => {
       }[]
       expect(groups.length).toBe(1)
       expect(groups[0].resources).toEqual(['assets/logo.svg'])
+      expect(lastWarnings.map((w) => [w.name, w.message])).toEqual([])
     })
 
     it('keeps mv2 string[] relative file at its manifest-relative path', () => {

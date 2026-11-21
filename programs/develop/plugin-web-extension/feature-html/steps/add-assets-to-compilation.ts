@@ -488,7 +488,7 @@ export class AddAssetsToCompilation {
         const copiedScripts = new Map<string, CopiedPageScript>()
 
         const runner = () => {
-          const errs = compilation.errors || []
+          const errs = compilation.errors
           if (Array.isArray(errs) && errs.length > 0) return
 
           const copied = new Set<string>()
