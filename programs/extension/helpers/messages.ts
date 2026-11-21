@@ -935,7 +935,7 @@ ${'Hot Module Replacement (HMR)'}
 - Service workers, _locales and manifest changes reload the extension
 
 ${'Non-destructive testing in CI'}
-- Prefer ${code('EXTENSION_DEBUG=1')} to copy local templates and avoid network.
+- Pass a local template folder with ${code('extension create --template <directory>')} to create without the network.
 - Reuse Playwright's Chromium via ${code('--chromium-binary')} path when available.
 - Set ${code(arg('EXTENSION_AUTO_EXIT_MS'))} and ${code(arg('EXTENSION_FORCE_KILL_MS'))} for non-interactive dev sessions.
 
