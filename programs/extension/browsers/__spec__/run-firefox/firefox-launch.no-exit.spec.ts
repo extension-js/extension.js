@@ -15,10 +15,11 @@ import {
   createFirefoxContext,
   type FirefoxContext
 } from '../../run-firefox/firefox-context'
-import {FirefoxLaunchPlugin} from '../../run-firefox/firefox-launch'
+import {
+  FirefoxLaunchPlugin,
+  type LaunchOptions
+} from '../../run-firefox/firefox-launch'
 import type {FirefoxPluginRuntime} from '../../run-firefox/firefox-types'
-
-type LaunchOptions = Parameters<FirefoxLaunchPlugin['runOnce']>[1]
 
 // The private members these rows drive or read, reached through one cast.
 interface LaunchInternals {

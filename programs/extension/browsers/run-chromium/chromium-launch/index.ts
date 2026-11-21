@@ -124,7 +124,7 @@ interface ChromiumRunOptions {
   debugPortClaim?: DebugPortClaim
 }
 
-interface LaunchDoneStats {
+export interface LaunchDoneStats {
   hasErrors?: () => boolean
   compilation: CompilationLike & {
     options: {mode?: string}

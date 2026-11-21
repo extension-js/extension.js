@@ -2,16 +2,20 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import {buildBrowserLaunchRequest} from '../../browsers-lib/runtime-options'
+import {
+  type BrowserLaunchRequestSource,
+  buildBrowserLaunchRequest
+} from '../../browsers-lib/runtime-options'
+import type {CompilationLike} from '../../browsers-types'
 import type {FirefoxContext} from '../../run-firefox/firefox-context'
 import {FirefoxLaunchPlugin} from '../../run-firefox/firefox-launch'
-import {resolveFirefoxLaunchConfig} from '../../run-firefox/firefox-launch/browser-config'
+import {
+  type BrowserConfigOptions,
+  resolveFirefoxLaunchConfig
+} from '../../run-firefox/firefox-launch/browser-config'
 import type {FirefoxPluginRuntime} from '../../run-firefox/firefox-types'
 import {type FakeFirefox, fakeFirefox} from '../fake-browser'
 
-type LaunchConfigCompilation = Parameters<typeof resolveFirefoxLaunchConfig>[0]
-type LaunchConfigHost = Parameters<typeof resolveFirefoxLaunchConfig>[1]
-type RequestHost = Parameters<typeof buildBrowserLaunchRequest>[0]
 type LaunchFailure = (Error & {code?: string}) | null
 
 // The private members these rows drive, reached through one cast.
@@ -51,12 +55,12 @@ describe('firefox on its own profile', () => {
           context: project,
           output: {path: path.join(project, 'dist', 'firefox')}
         }
-      } as LaunchConfigCompilation,
+      } as CompilationLike,
       {
         extension: '/ext',
         browser: 'firefox',
         profile: false
-      } as LaunchConfigHost
+      } as BrowserConfigOptions
     )
 
     expect(launch.profilePath).toBeFalsy()
@@ -76,7 +80,10 @@ describe('firefox on its own profile', () => {
     return internals(plugin)
       .launch(
         fake.project.compilation('development'),
-        buildBrowserLaunchRequest(host as RequestHost, 'development')
+        buildBrowserLaunchRequest(
+          host as BrowserLaunchRequestSource,
+          'development'
+        )
       )
       .then(
         () => null,
