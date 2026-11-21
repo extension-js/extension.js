@@ -213,7 +213,9 @@ Three callers hand it a patch and write nothing themselves:
 - `plugin-browsers/launch-timeout-stamp.ts`, for a launch the compile stopped waiting for
 - `programs/extension/browsers/browsers-lib/ready-stamp.ts`, the CLI browser launcher, which compiles the writer into its own bundle
 
-`__spec__/ready-contract-one-writer.spec.ts` fails when a second write or rename of the file appears in either program.
+The same module is the only reader. `readReadyRecord` answers the record, or nothing for a missing, half-written or wrong-shape file, and `tryReadReadyRecord` also answers the parse error, which `dev --wait` reports when it times out. `doctor`, the run card, `preview`, the lifecycle stream, the live session check and the published `readReadyContract` and `readReadyContractDocument` all take the record from it. Specs read the file by hand on purpose, as the check on the module.
+
+`__spec__/ready-contract-one-writer.spec.ts` fails when a second write, rename, read or parse of the file appears in either program, or a second rename retry.
 
 ### Notes
 

@@ -9,6 +9,7 @@
 import {createHash} from 'node:crypto'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {readReadyRecord} from '../../../develop/lib/ready-contract-writer'
 import {resolveLocalizedManifestName} from '../../helpers/localized-manifest-name'
 import {
   browserRowValue,
@@ -67,11 +68,7 @@ function toNormalizedId(value: unknown): string {
 function readReadyMetadata(readyPath?: string): ReadyLike {
   if (!readyPath) return null
 
-  try {
-    return JSON.parse(fs.readFileSync(readyPath, 'utf-8')) as ReadyLike
-  } catch {
-    return null
-  }
+  return readReadyRecord(readyPath) ?? null
 }
 
 function resolveRunLabel(ready: ReadyLike): string {

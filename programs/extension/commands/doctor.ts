@@ -11,6 +11,7 @@ import * as os from 'node:os'
 import path from 'node:path'
 import type {Command} from 'commander'
 import colors from 'pintor'
+import {readReadyRecord} from '../../develop/lib/ready-contract-writer'
 import {
   readyContractPath,
   sessionArtifactsRootDir
@@ -230,15 +231,9 @@ function isCompileFailure(ready: {code?: unknown} | null): boolean {
 }
 
 function readReadyDocument(readyPath: string): Record<string, unknown> | null {
-  try {
-    const parsed = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+  const parsed = readReadyRecord(readyPath)
 
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-      ? (parsed as Record<string, unknown>)
-      : null
-  } catch {
-    return null
-  }
+  return parsed && !Array.isArray(parsed) ? parsed : null
 }
 
 function productionCommand(

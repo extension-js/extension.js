@@ -6,9 +6,9 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {processStartedAtMs, processStartId} from './process-started-at'
+import {readReadyRecord} from './ready-contract-writer'
 import {readyContractPath} from './session-paths'
 
 export interface LiveDevSession {
@@ -70,17 +70,9 @@ export function findLiveDevSession(
   projectPath: string,
   browser: string
 ): LiveDevSession | null {
-  let contract: Record<string, unknown>
+  const contract = readReadyRecord(readyContractPath(projectPath, browser))
 
-  try {
-    contract = JSON.parse(
-      fs.readFileSync(readyContractPath(projectPath, browser), 'utf-8')
-    )
-  } catch {
-    return null
-  }
-
-  if (!contract || typeof contract !== 'object') return null
+  if (!contract) return null
   if (contract.command !== 'dev') return null
   if (contract.status !== 'starting' && contract.status !== 'ready') return null
 
