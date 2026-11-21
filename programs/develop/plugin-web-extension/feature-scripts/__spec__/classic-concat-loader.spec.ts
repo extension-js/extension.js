@@ -49,7 +49,7 @@ describe('classic-concat-loader', () => {
       css: []
     })
 
-    classicConcatLoader.call(ctx as any, '')
+    classicConcatLoader.call(ctx, '')
 
     expect(ctx.callback).toHaveBeenCalledTimes(1)
     const [err, output, sourceMap] = ctx.callback.mock.calls[0]
@@ -84,7 +84,7 @@ describe('classic-concat-loader', () => {
       js: [firstPath, gonePath, lastPath]
     })
 
-    classicConcatLoader.call(ctx as any, '')
+    classicConcatLoader.call(ctx, '')
 
     const [err, output, sourceMap] = ctx.callback.mock.calls[0]
 
@@ -126,7 +126,7 @@ describe('classic-concat-loader', () => {
       js: [firstPath, laterPath]
     })
 
-    classicConcatLoader.call(ctx as any, '')
+    classicConcatLoader.call(ctx, '')
 
     const [err, output] = ctx.callback.mock.calls[0]
     expect(err).toBeNull()
@@ -147,7 +147,7 @@ describe('classic-concat-loader', () => {
       js: [firstPath, laterPath]
     })
 
-    classicConcatLoader.call(ctx as any, '')
+    classicConcatLoader.call(ctx, '')
 
     const [, output] = ctx.callback.mock.calls[0]
     expect(output).toContain("import('./x.mjs')")
@@ -167,7 +167,7 @@ describe('classic-concat-loader', () => {
       css: []
     })
 
-    classicConcatLoader.call(ctx as any, '')
+    classicConcatLoader.call(ctx, '')
 
     expect(ctx.addDependency).toHaveBeenCalledWith(aPath)
     expect(ctx.addDependency).toHaveBeenCalledWith(bPath)
@@ -185,7 +185,7 @@ describe('classic-concat-loader', () => {
       css: [cssPath]
     })
 
-    classicConcatLoader.call(ctx as any, '')
+    classicConcatLoader.call(ctx, '')
 
     const [, output] = ctx.callback.mock.calls[0]
     expect(output).toContain(`import ${JSON.stringify(cssPath)};`)
@@ -217,7 +217,7 @@ describe('classic-concat-loader', () => {
       css: []
     })
 
-    classicConcatLoader.call(ctx as any, '')
+    classicConcatLoader.call(ctx, '')
 
     const [, output] = ctx.callback.mock.calls[0]
     expect(output).toContain(';(function (module, exports, define, require) {')
@@ -247,7 +247,7 @@ describe('classic-concat-loader', () => {
       callback: vi.fn()
     }
 
-    classicConcatLoader.call(ctx as any, 'original source')
+    classicConcatLoader.call(ctx, 'original source')
 
     expect(ctx.callback).toHaveBeenCalledWith(null, 'original source')
     expect(ctx.addDependency).not.toHaveBeenCalled()
@@ -273,7 +273,7 @@ describe('classic-concat-loader TypeScript members', () => {
       css: []
     })
 
-    classicConcatLoader.call(ctx as any, '')
+    classicConcatLoader.call(ctx, '')
 
     const [err, output, sourceMap] = ctx.callback.mock.calls[0]
     expect(err).toBeNull()
@@ -308,7 +308,7 @@ describe('classic-concat-loader TypeScript members', () => {
       css: []
     })
 
-    classicConcatLoader.call(ctx as any, '')
+    classicConcatLoader.call(ctx, '')
 
     const [err, output] = ctx.callback.mock.calls[0]
     expect(err).toBeNull()
@@ -328,7 +328,7 @@ describe('classic-concat-loader TypeScript members', () => {
     const sandbox: Record<string, unknown> = {}
     new Function('globalThis', output)(sandbox)
     expect(sandbox.Handlebars).toBeDefined()
-    expect((sandbox as any).helper()).toBe(1)
+    expect((sandbox.helper as () => unknown)()).toBe(1)
     expect(sandbox.hoisted).toBe(2)
   })
 
@@ -347,7 +347,7 @@ describe('classic-concat-loader TypeScript members', () => {
       css: []
     })
 
-    classicConcatLoader.call(ctx as any, '')
+    classicConcatLoader.call(ctx, '')
 
     const [err, output] = ctx.callback.mock.calls[0]
     expect(err).toBeNull()

@@ -1,6 +1,12 @@
 import {describe, expect, it} from 'vitest'
 import {readGeckoManifestId} from '../../../lib/extension-id'
+import {
+  asCompilation,
+  asCompiler,
+  type TapCallback
+} from '../../__spec__/helpers/rspack-fakes'
 import {UpdateManifest} from '../steps/update-manifest'
+import {asBrowser, type FakeSource} from './helpers/manifest-fakes'
 
 type Warning = Error & {name?: string; file?: string}
 
@@ -11,10 +17,10 @@ function compile(
 ) {
   const source = JSON.stringify(manifest)
   let emitted = ''
-  const assets: Record<string, any> = {
+  const assets: Record<string, FakeSource> = {
     'manifest.json': {source: () => source}
   }
-  const compilation: any = {
+  const compilation = asCompilation({
     errors: [],
     warnings: [],
     options: {mode},
@@ -23,18 +29,20 @@ function compile(
       assets[n] ? {source: assets[n].source} : undefined,
     getAssets: () =>
       Object.entries(assets).map(([name, src]) => ({name, source: src})),
-    hooks: {processAssets: {tap: (_opts: any, fn: any) => fn()}},
+    hooks: {processAssets: {tap: (_opts: unknown, fn: TapCallback) => fn()}},
     updateAsset: (_n: string, raw: {source: () => string}) => {
       emitted = String(raw.source())
     },
     emitAsset: (_n: string, raw: {source: () => string}) => {
       emitted = String(raw.source())
     }
-  }
-  const compiler: any = {
+  })
+  const compiler = asCompiler({
     options: {mode},
-    hooks: {thisCompilation: {tap: (_n: string, fn: any) => fn(compilation)}}
-  }
+    hooks: {
+      thisCompilation: {tap: (_n: string, fn: TapCallback) => fn(compilation)}
+    }
+  })
   plugin.apply(compiler)
 
   const warnings = compilation.warnings as Warning[]
@@ -47,7 +55,7 @@ function compile(
 }
 
 const plugin = (browser: string) =>
-  new UpdateManifest({manifestPath: '/m', browser: browser as any})
+  new UpdateManifest({manifestPath: '/m', browser: asBrowser(browser)})
 
 const mv3 = {name: 'x', version: '1.0.0', manifest_version: 3}
 const mv2 = {name: 'x', version: '1.0.0', manifest_version: 2}

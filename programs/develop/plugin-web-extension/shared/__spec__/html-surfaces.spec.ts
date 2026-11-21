@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import type {Manifest} from '../../../types'
 import {
   applyIndependentHtmlSurfaces,
   browserActionOutputTarget,
@@ -32,14 +33,19 @@ describe('browser_action under MV3', () => {
   const popup = {default_popup: 'toolbar.html'}
 
   it('is a live surface only below MV3', () => {
-    expect(isBrowserActionLiveSurface({manifest_version: 2} as any)).toBe(true)
-    expect(isBrowserActionLiveSurface({manifest_version: 3} as any)).toBe(false)
+    expect(isBrowserActionLiveSurface({manifest_version: 2} as Manifest)).toBe(
+      true
+    )
+
+    expect(isBrowserActionLiveSurface({manifest_version: 3} as Manifest)).toBe(
+      false
+    )
   })
 
   it('folds into action when MV3 names no action of its own', () => {
-    const manifest = {manifest_version: 3, browser_action: popup} as any
+    const manifest = {manifest_version: 3, browser_action: popup} as Manifest
     expect(shouldFoldBrowserActionIntoAction(manifest)).toBe(true)
-    const folded = foldBrowserActionIntoAction(manifest) as any
+    const folded = foldBrowserActionIntoAction(manifest) as Manifest
     expect(folded.action).toEqual(popup)
     expect(folded.browser_action).toBeUndefined()
   })
@@ -49,13 +55,13 @@ describe('browser_action under MV3', () => {
       manifest_version: 3,
       action: {default_popup: 'action.html'},
       browser_action: popup
-    } as any
+    } as Manifest
     expect(shouldFoldBrowserActionIntoAction(manifest)).toBe(false)
     expect(foldBrowserActionIntoAction(manifest)).toBe(manifest)
   })
 
   it('leaves an MV2 browser_action alone', () => {
-    const manifest = {manifest_version: 2, browser_action: popup} as any
+    const manifest = {manifest_version: 2, browser_action: popup} as Manifest
     expect(shouldFoldBrowserActionIntoAction(manifest)).toBe(false)
     expect(foldBrowserActionIntoAction(manifest)).toBe(manifest)
   })
@@ -64,32 +70,32 @@ describe('browser_action under MV3', () => {
 describe('isPageActionLiveSurface', () => {
   it('is live on every Firefox manifest and only on Chromium MV2', () => {
     expect(
-      isPageActionLiveSurface({manifest_version: 3} as any, 'firefox')
+      isPageActionLiveSurface({manifest_version: 3} as Manifest, 'firefox')
     ).toBe(true)
 
     expect(
-      isPageActionLiveSurface({manifest_version: 2} as any, 'chrome')
+      isPageActionLiveSurface({manifest_version: 2} as Manifest, 'chrome')
     ).toBe(true)
 
     expect(
-      isPageActionLiveSurface({manifest_version: 3} as any, 'chrome')
+      isPageActionLiveSurface({manifest_version: 3} as Manifest, 'chrome')
     ).toBe(false)
 
-    expect(isPageActionLiveSurface({manifest_version: 3} as any, 'edge')).toBe(
-      false
-    )
+    expect(
+      isPageActionLiveSurface({manifest_version: 3} as Manifest, 'edge')
+    ).toBe(false)
   })
 
   it('drops page_action only where the surface is dead', () => {
     const manifest = {
       manifest_version: 3,
       page_action: {default_popup: 'a.html'}
-    } as any
+    } as Manifest
     expect(shouldDropPageAction(manifest, 'chrome')).toBe(true)
     expect(shouldDropPageAction(manifest, 'firefox')).toBe(false)
-    expect(shouldDropPageAction({manifest_version: 3} as any, 'chrome')).toBe(
-      false
-    )
+    expect(
+      shouldDropPageAction({manifest_version: 3} as Manifest, 'chrome')
+    ).toBe(false)
 
     expect(dropPageAction(manifest)).toEqual({manifest_version: 3})
   })
@@ -99,20 +105,23 @@ describe('isPageActionLiveSurface', () => {
       manifest_version: 2,
       browser_action: {default_popup: 'a.html'},
       page_action: {default_popup: 'b.html'}
-    } as any
+    } as Manifest
     expect(pageActionDropReason(pair, 'chrome')).toBe('conflicts')
     expect(pageActionDropReason(pair, 'edge')).toBe('conflicts')
     expect(pageActionDropReason(pair, 'firefox')).toBeUndefined()
     expect(
       pageActionDropReason(
-        {manifest_version: 2, page_action: {default_popup: 'b.html'}} as any,
+        {
+          manifest_version: 2,
+          page_action: {default_popup: 'b.html'}
+        } as Manifest,
         'chrome'
       )
     ).toBeUndefined()
 
     expect(
       pageActionDropReason(
-        {...pair, manifest_version: 3, action: pair.browser_action} as any,
+        {...pair, manifest_version: 3, action: pair.browser_action} as Manifest,
         'chrome'
       )
     ).toBe('unsupported')
@@ -125,14 +134,14 @@ describe('pageActionOutputTarget', () => {
       pageActionOutputTarget({
         browser_action: {default_popup: 'toolbar.html'},
         page_action: {default_popup: 'address.html'}
-      } as any)
+      } as Manifest)
     ).toBe('page_action/index.html')
 
     expect(
       pageActionOutputTarget({
         action: {default_popup: 'toolbar.html'},
         page_action: {default_popup: './toolbar.html'}
-      } as any)
+      } as Manifest)
     ).toBe('action/index.html')
   })
 
@@ -142,7 +151,7 @@ describe('pageActionOutputTarget', () => {
         action: {default_popup: 'chrome.html'},
         browser_action: {default_popup: 'firefox.html'},
         page_action: {default_popup: './firefox.html'}
-      } as any)
+      } as Manifest)
     ).toBe('browser_action/index.html')
   })
 })
@@ -153,20 +162,20 @@ describe('browserActionOutputTarget', () => {
       browserActionOutputTarget({
         action: {default_popup: 'chrome.html'},
         browser_action: {default_popup: 'firefox.html'}
-      } as any)
+      } as Manifest)
     ).toBe('browser_action/index.html')
 
     expect(
       browserActionOutputTarget({
         action: {default_popup: 'popup.html'},
         browser_action: {default_popup: './popup.html'}
-      } as any)
+      } as Manifest)
     ).toBe('action/index.html')
 
     expect(
       browserActionOutputTarget({
         browser_action: {default_popup: 'firefox.html'}
-      } as any)
+      } as Manifest)
     ).toBe('action/index.html')
   })
 })
@@ -177,20 +186,20 @@ describe('sidebarActionOutputTarget', () => {
       sidebarActionOutputTarget({
         side_panel: {default_path: 'chrome.html'},
         sidebar_action: {default_panel: 'firefox.html'}
-      } as any)
+      } as Manifest)
     ).toBe('sidebar_action/index.html')
 
     expect(
       sidebarActionOutputTarget({
         side_panel: {default_path: 'panel.html'},
         sidebar_action: {default_panel: './panel.html'}
-      } as any)
+      } as Manifest)
     ).toBe('sidebar/index.html')
 
     expect(
       sidebarActionOutputTarget({
         sidebar_action: {default_panel: 'firefox.html'}
-      } as any)
+      } as Manifest)
     ).toBe('sidebar/index.html')
   })
 })
@@ -203,7 +212,7 @@ describe('applyIndependentHtmlSurfaces', () => {
         manifest_version: 2,
         browser_action: {default_popup: 'toolbar.html'},
         page_action: {default_popup: 'address.html'}
-      } as any,
+      } as Manifest,
       context,
       'firefox'
     )
@@ -220,7 +229,7 @@ describe('applyIndependentHtmlSurfaces', () => {
         manifest_version: 2,
         browser_action: {default_popup: 'toolbar.html'},
         page_action: {default_popup: './toolbar.html'}
-      } as any,
+      } as Manifest,
       context,
       'firefox'
     )
@@ -234,7 +243,7 @@ describe('applyIndependentHtmlSurfaces', () => {
         manifest_version: 3,
         action: {default_popup: 'toolbar.html'},
         page_action: {default_popup: 'address.html'}
-      } as any,
+      } as Manifest,
       context,
       'firefox'
     )
@@ -249,7 +258,7 @@ describe('applyIndependentHtmlSurfaces', () => {
         manifest_version: 3,
         action: {default_popup: 'toolbar.html'},
         page_action: {default_popup: 'address.html'}
-      } as any,
+      } as Manifest,
       context,
       'chrome'
     )
@@ -266,7 +275,7 @@ describe('applyIndependentHtmlSurfaces', () => {
         manifest_version: 3,
         action: {default_popup: 'chrome.html'},
         browser_action: {default_popup: 'firefox.html'}
-      } as any,
+      } as Manifest,
       context,
       'firefox'
     )
@@ -283,7 +292,7 @@ describe('applyIndependentHtmlSurfaces', () => {
         manifest_version: 3,
         action: {default_popup: 'popup.html'},
         browser_action: {default_popup: './popup.html'}
-      } as any,
+      } as Manifest,
       context,
       'chrome'
     )
@@ -298,7 +307,7 @@ describe('applyIndependentHtmlSurfaces', () => {
           manifest_version: 3,
           side_panel: {default_path: 'chrome.html'},
           sidebar_action: {default_panel: 'firefox.html'}
-        } as any,
+        } as Manifest,
         context,
         browser
       )
@@ -316,7 +325,7 @@ describe('applyIndependentHtmlSurfaces', () => {
         manifest_version: 3,
         side_panel: {default_path: 'panel.html'},
         sidebar_action: {default_panel: '/panel.html'}
-      } as any,
+      } as Manifest,
       context,
       'firefox'
     )
@@ -327,7 +336,7 @@ describe('applyIndependentHtmlSurfaces', () => {
       {
         manifest_version: 2,
         sidebar_action: {default_panel: 'panel.html'}
-      } as any,
+      } as Manifest,
       context,
       'firefox'
     )
@@ -345,13 +354,16 @@ describe('optionsPageRef', () => {
         manifest_version: 3,
         options_page: 'legacy.html',
         options_ui: {page: 'modern.html'}
-      } as any)
+      } as Manifest)
     ).toBe('modern.html')
   })
 
   it('falls back to the legacy key when it is the only one declared', () => {
     expect(
-      optionsPageRef({manifest_version: 2, options_page: 'legacy.html'} as any)
+      optionsPageRef({
+        manifest_version: 2,
+        options_page: 'legacy.html'
+      } as Manifest)
     ).toBe('legacy.html')
   })
 
@@ -361,7 +373,7 @@ describe('optionsPageRef', () => {
         manifest_version: 3,
         options_page: 'legacy.html',
         options_ui: {open_in_tab: true}
-      } as any)
+      } as Manifest)
     ).toBe('legacy.html')
 
     expect(
@@ -369,12 +381,12 @@ describe('optionsPageRef', () => {
         manifest_version: 3,
         options_page: 'legacy.html',
         options_ui: {page: '   '}
-      } as any)
+      } as Manifest)
     ).toBe('legacy.html')
   })
 
   it('answers nothing when the manifest declares no options page', () => {
-    expect(optionsPageRef({manifest_version: 3} as any)).toBeUndefined()
+    expect(optionsPageRef({manifest_version: 3} as Manifest)).toBeUndefined()
     expect(optionsPageRef(undefined)).toBeUndefined()
   })
 })
@@ -387,7 +399,7 @@ describe('applyIndependentHtmlSurfaces options slot', () => {
         manifest_version: 3,
         options_page: 'legacy.html',
         options_ui: {page: 'modern.html', open_in_tab: false}
-      } as any,
+      } as Manifest,
       context,
       'chrome'
     )
@@ -397,7 +409,7 @@ describe('applyIndependentHtmlSurfaces options slot', () => {
   it('leaves a legacy-only slot exactly where the fields package put it', () => {
     const html = applyIndependentHtmlSurfaces(
       {'options/index': path.join(context, 'legacy.html')},
-      {manifest_version: 2, options_page: 'legacy.html'} as any,
+      {manifest_version: 2, options_page: 'legacy.html'} as Manifest,
       context,
       'chrome'
     )
@@ -411,7 +423,7 @@ describe('applyIndependentHtmlSurfaces options slot', () => {
         manifest_version: 3,
         options_page: 'shared.html',
         options_ui: {page: './shared.html'}
-      } as any,
+      } as Manifest,
       context,
       'chrome'
     )
@@ -425,7 +437,7 @@ describe('applyIndependentHtmlSurfaces options slot', () => {
         manifest_version: 3,
         options_page: 'legacy.html',
         options_ui: {page: 'public/options.html'}
-      } as any,
+      } as Manifest,
       context,
       'chrome'
     )
@@ -446,7 +458,10 @@ describe('applyIndependentHtmlSurfaces options slot', () => {
       const srcContext = path.join(root, 'src')
       const html = applyIndependentHtmlSurfaces(
         {'action/index': path.join(srcContext, 'app', 'popup.html')},
-        {manifest_version: 3, action: {default_popup: 'app/popup.html'}} as any,
+        {
+          manifest_version: 3,
+          action: {default_popup: 'app/popup.html'}
+        } as Manifest,
         srcContext,
         'chrome',
         root
@@ -455,7 +470,10 @@ describe('applyIndependentHtmlSurfaces options slot', () => {
 
       const beside = applyIndependentHtmlSurfaces(
         {},
-        {manifest_version: 3, action: {default_popup: 'popup.html'}} as any,
+        {
+          manifest_version: 3,
+          action: {default_popup: 'popup.html'}
+        } as Manifest,
         srcContext,
         'chrome',
         root

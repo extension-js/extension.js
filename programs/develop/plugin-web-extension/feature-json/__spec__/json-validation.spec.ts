@@ -1,4 +1,5 @@
 import {describe, expect, it} from 'vitest'
+import {asCompilation} from '../../__spec__/helpers/rspack-fakes'
 import {
   isCriticalJsonFeature,
   re2UnsupportedConstruct,
@@ -9,13 +10,13 @@ function makeCompilation() {
   return {
     errors: [] as Array<Error & {file?: string}>,
     warnings: [] as Array<Error & {file?: string}>
-  } as any
+  }
 }
 
 function validateRuleset(json: string, browser?: string) {
   const compilation = makeCompilation()
   const ok = validateJsonAsset(
-    compilation,
+    asCompilation(compilation),
     'declarative_net_request.ruleset',
     '/abs/rules.json',
     Buffer.from(json),

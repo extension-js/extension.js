@@ -1,6 +1,12 @@
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {asCompiler, type TapCallback} from '../../__spec__/helpers/rspack-fakes'
 
-let mockFields: any = {scripts: {}, html: {}, icons: {}, json: {}}
+let mockFields: Record<string, Record<string, unknown>> = {
+  scripts: {},
+  html: {},
+  icons: {},
+  json: {}
+}
 
 vi.mock('browser-extension-manifest-fields', () => ({
   getManifestFieldsData: () => mockFields
@@ -26,38 +32,40 @@ afterEach(() => {
   unbindDevSessionRestart()
 })
 
-function makeCompiler(modified: string[], errorsArr: any[]) {
-  let watchRunHandler: any
-  let thisCompilationHandler: any
-  const hooks: any = {
+function makeCompiler(modified: string[], errorsArr: Error[]) {
+  let watchRunHandler: TapCallback | undefined
+  let thisCompilationHandler: TapCallback | undefined
+  const hooks = {
     watchRun: {
-      tapAsync: (_name: string, fn: any) => {
+      tapAsync: (_name: string, fn: TapCallback) => {
         watchRunHandler = fn
       }
     },
     thisCompilation: {
-      tap: (_name: string, cb: any) => {
+      tap: (_name: string, cb: TapCallback) => {
         thisCompilationHandler = cb
       }
     }
   }
-  const compiler: any = {
+  const compiler = {
     modifiedFiles: new Set(modified),
     options: {mode: 'development'},
     hooks,
     _triggerWatchRun() {
       return new Promise<void>((resolve) =>
-        watchRunHandler(compiler, () => resolve())
+        (watchRunHandler as TapCallback)(compiler, () => resolve())
       )
     },
     _triggerThisCompilation() {
-      const compilation: any = {
+      const compilation = {
         errors: errorsArr,
         hooks: {
-          processAssets: {tap: (_opts: any, runner: any) => runner()}
+          processAssets: {
+            tap: (_opts: unknown, runner: TapCallback) => runner()
+          }
         }
       }
-      thisCompilationHandler(compilation)
+      ;(thisCompilationHandler as TapCallback)(compilation)
     }
   }
 
@@ -77,7 +85,7 @@ describe('the session restart signal', () => {
 
   it('hands whoever answers the change and takes its answer', async () => {
     for (const carried of [true, false]) {
-      const errors: any[] = []
+      const errors: Error[] = []
       const compiler = makeCompiler(['/root/manifest.json'], errors)
       const heard: unknown[] = []
 
@@ -94,7 +102,9 @@ describe('the session restart signal', () => {
       new ManifestFieldsChangeDetector({
         manifestPath: '/root/manifest.json',
         browser: 'chrome'
-      } as any).apply(compiler as any)
+      } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0]).apply(
+        asCompiler(compiler)
+      )
 
       await compiler._triggerWatchRun()
       mockFields = {
@@ -119,16 +129,16 @@ describe('the session restart signal', () => {
 
 describe('ManifestFieldsChangeDetector', () => {
   it('emits error when scripts change', async () => {
-    const errors: any[] = []
+    const errors: Error[] = []
     const compiler = makeCompiler(['/root/manifest.json'], errors)
     mockFields = {scripts: {bg: '/a.js'}, html: {}, icons: {}, json: {}}
 
     const plugin = new ManifestFieldsChangeDetector({
       manifestPath: '/root/manifest.json',
       browser: 'chrome'
-    } as any)
+    } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0])
 
-    plugin.apply(compiler as any)
+    plugin.apply(asCompiler(compiler))
     await compiler._triggerWatchRun()
 
     mockFields = {scripts: {bg: '/b.js'}, html: {}, icons: {}, json: {}}
@@ -142,7 +152,7 @@ describe('ManifestFieldsChangeDetector', () => {
   })
 
   it('emits error when html entries change', async () => {
-    const errors: any[] = []
+    const errors: Error[] = []
     const compiler = makeCompiler(['/root/manifest.json'], errors)
     mockFields = {
       scripts: {},
@@ -154,9 +164,9 @@ describe('ManifestFieldsChangeDetector', () => {
     const plugin = new ManifestFieldsChangeDetector({
       manifestPath: '/root/manifest.json',
       browser: 'chrome'
-    } as any)
+    } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0])
 
-    plugin.apply(compiler as any)
+    plugin.apply(asCompiler(compiler))
     await compiler._triggerWatchRun()
 
     mockFields = {
@@ -176,16 +186,16 @@ describe('ManifestFieldsChangeDetector', () => {
   })
 
   it('emits error when icons change', async () => {
-    const errors: any[] = []
+    const errors: Error[] = []
     const compiler = makeCompiler(['/root/manifest.json'], errors)
     mockFields = {scripts: {}, html: {}, icons: {0: '/a.png'}, json: {}}
 
     const plugin = new ManifestFieldsChangeDetector({
       manifestPath: '/root/manifest.json',
       browser: 'chrome'
-    } as any)
+    } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0])
 
-    plugin.apply(compiler as any)
+    plugin.apply(asCompiler(compiler))
     await compiler._triggerWatchRun()
 
     mockFields = {scripts: {}, html: {}, icons: {0: '/b.png'}, json: {}}
@@ -199,7 +209,7 @@ describe('ManifestFieldsChangeDetector', () => {
   })
 
   it('emits error when critical JSON entries change', async () => {
-    const errors: any[] = []
+    const errors: Error[] = []
     const compiler = makeCompiler(['/root/manifest.json'], errors)
     mockFields = {
       scripts: {},
@@ -211,9 +221,9 @@ describe('ManifestFieldsChangeDetector', () => {
     const plugin = new ManifestFieldsChangeDetector({
       manifestPath: '/root/manifest.json',
       browser: 'chrome'
-    } as any)
+    } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0])
 
-    plugin.apply(compiler as any)
+    plugin.apply(asCompiler(compiler))
     await compiler._triggerWatchRun()
 
     mockFields = {
@@ -233,7 +243,7 @@ describe('ManifestFieldsChangeDetector', () => {
   })
 
   it('ignores non-critical JSON keys', async () => {
-    const errors: any[] = []
+    const errors: Error[] = []
     const compiler = makeCompiler(['/root/manifest.json'], errors)
     mockFields = {
       scripts: {},
@@ -245,9 +255,9 @@ describe('ManifestFieldsChangeDetector', () => {
     const plugin = new ManifestFieldsChangeDetector({
       manifestPath: '/root/manifest.json',
       browser: 'chrome'
-    } as any)
+    } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0])
 
-    plugin.apply(compiler as any)
+    plugin.apply(asCompiler(compiler))
     await compiler._triggerWatchRun()
 
     mockFields = {
@@ -264,16 +274,16 @@ describe('ManifestFieldsChangeDetector', () => {
   })
 
   it('does not emit errors when nothing changes', async () => {
-    const errors: any[] = []
+    const errors: Error[] = []
     const compiler = makeCompiler(['/root/manifest.json'], errors)
     mockFields = {scripts: {bg: '/a.js'}, html: {}, icons: {}, json: {}}
 
     const plugin = new ManifestFieldsChangeDetector({
       manifestPath: '/root/manifest.json',
       browser: 'chrome'
-    } as any)
+    } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0])
 
-    plugin.apply(compiler as any)
+    plugin.apply(asCompiler(compiler))
     await compiler._triggerWatchRun()
     await compiler._triggerWatchRun()
     compiler._triggerThisCompilation()
@@ -283,7 +293,7 @@ describe('ManifestFieldsChangeDetector', () => {
 
   it('does not register hooks in production mode', () => {
     let registered = false
-    const compiler: any = {
+    const compiler = asCompiler({
       options: {mode: 'production'},
       hooks: {
         watchRun: {
@@ -293,19 +303,19 @@ describe('ManifestFieldsChangeDetector', () => {
         },
         thisCompilation: {tap: () => {}}
       }
-    }
+    })
 
     const plugin = new ManifestFieldsChangeDetector({
       manifestPath: '/root/manifest.json',
       browser: 'chrome'
-    } as any)
+    } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0])
 
     plugin.apply(compiler)
     expect(registered).toBe(false)
   })
 
   it('treats real-shape icons (Record<string, string[]>) as a flat list', async () => {
-    const errors: any[] = []
+    const errors: Error[] = []
     const compiler = makeCompiler(['/root/manifest.json'], errors)
     const realShape = {
       icons: ['/a/16.png', '/a/32.png', '/a/48.png', '/a/64.png', '/a/128.png'],
@@ -316,9 +326,9 @@ describe('ManifestFieldsChangeDetector', () => {
     const plugin = new ManifestFieldsChangeDetector({
       manifestPath: '/root/manifest.json',
       browser: 'chrome'
-    } as any)
+    } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0])
 
-    plugin.apply(compiler as any)
+    plugin.apply(asCompiler(compiler))
     await compiler._triggerWatchRun()
 
     mockFields = {
@@ -350,7 +360,7 @@ describe('ManifestFieldsChangeDetector', () => {
   })
 
   it('reports a single icon path (not a comma-joined dump) when icons actually change', async () => {
-    const errors: any[] = []
+    const errors: Error[] = []
     const compiler = makeCompiler(['/root/manifest.json'], errors)
     mockFields = {
       scripts: {},
@@ -362,9 +372,9 @@ describe('ManifestFieldsChangeDetector', () => {
     const plugin = new ManifestFieldsChangeDetector({
       manifestPath: '/root/manifest.json',
       browser: 'chrome'
-    } as any)
+    } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0])
 
-    plugin.apply(compiler as any)
+    plugin.apply(asCompiler(compiler))
     await compiler._triggerWatchRun()
 
     mockFields = {
@@ -386,7 +396,7 @@ describe('ManifestFieldsChangeDetector', () => {
   it('does not misfire on theme_icons, whose entries are fresh objects per read', async () => {
     // browser-extension-manifest-fields rebuilds {light, dark} objects on
     // every call, so identity comparison flagged a change on each re-read.
-    const errors: any[] = []
+    const errors: Error[] = []
     const compiler = makeCompiler(['/root/manifest.json'], errors)
     const themeIconsFields = () => ({
       scripts: {},
@@ -404,9 +414,9 @@ describe('ManifestFieldsChangeDetector', () => {
     const plugin = new ManifestFieldsChangeDetector({
       manifestPath: '/root/manifest.json',
       browser: 'firefox'
-    } as any)
+    } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0])
 
-    plugin.apply(compiler as any)
+    plugin.apply(asCompiler(compiler))
     await compiler._triggerWatchRun()
 
     mockFields = themeIconsFields()
@@ -417,7 +427,7 @@ describe('ManifestFieldsChangeDetector', () => {
   })
 
   it('still reports a genuine theme_icons change', async () => {
-    const errors: any[] = []
+    const errors: Error[] = []
     const compiler = makeCompiler(['/root/manifest.json'], errors)
     mockFields = {
       scripts: {},
@@ -433,9 +443,9 @@ describe('ManifestFieldsChangeDetector', () => {
     const plugin = new ManifestFieldsChangeDetector({
       manifestPath: '/root/manifest.json',
       browser: 'firefox'
-    } as any)
+    } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0])
 
-    plugin.apply(compiler as any)
+    plugin.apply(asCompiler(compiler))
     await compiler._triggerWatchRun()
 
     mockFields = {
@@ -459,7 +469,7 @@ describe('ManifestFieldsChangeDetector', () => {
   })
 
   it('emits multiple category errors when multiple fields change', async () => {
-    const errors: any[] = []
+    const errors: Error[] = []
     const compiler = makeCompiler(['/root/manifest.json'], errors)
     mockFields = {
       scripts: {bg: '/a.js'},
@@ -471,9 +481,9 @@ describe('ManifestFieldsChangeDetector', () => {
     const plugin = new ManifestFieldsChangeDetector({
       manifestPath: '/root/manifest.json',
       browser: 'chrome'
-    } as any)
+    } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0])
 
-    plugin.apply(compiler as any)
+    plugin.apply(asCompiler(compiler))
     await compiler._triggerWatchRun()
 
     mockFields = {
@@ -490,7 +500,7 @@ describe('ManifestFieldsChangeDetector', () => {
   })
 
   it('asks a live session to restart instead of failing on a new script entry', async () => {
-    const errors: any[] = []
+    const errors: Error[] = []
     const compiler = makeCompiler(['/root/manifest.json'], errors)
     mockFields = {scripts: {bg: '/a.js'}, html: {}, icons: {}, json: {}}
     const handler = vi.fn()
@@ -501,8 +511,8 @@ describe('ManifestFieldsChangeDetector', () => {
     const plugin = new ManifestFieldsChangeDetector({
       manifestPath: '/root/manifest.json',
       browser: 'chrome'
-    } as any)
-    plugin.apply(compiler as any)
+    } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0])
+    plugin.apply(asCompiler(compiler))
     await compiler._triggerWatchRun()
 
     mockFields = {
@@ -524,7 +534,7 @@ describe('ManifestFieldsChangeDetector', () => {
   })
 
   it('restarts when a script keeps its path and moves to another entry', async () => {
-    const errors: any[] = []
+    const errors: Error[] = []
     const compiler = makeCompiler(['/root/manifest.json'], errors)
     mockFields = {
       scripts: {'background/scripts': ['/bg.js']},
@@ -541,8 +551,8 @@ describe('ManifestFieldsChangeDetector', () => {
     const plugin = new ManifestFieldsChangeDetector({
       manifestPath: '/root/manifest.json',
       browser: 'chrome'
-    } as any)
-    plugin.apply(compiler as any)
+    } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0])
+    plugin.apply(asCompiler(compiler))
     await compiler._triggerWatchRun()
 
     mockFields = {
@@ -569,7 +579,7 @@ describe('ManifestFieldsChangeDetector', () => {
   })
 
   it('names both manifest fields when no live session can restart for a moved script', async () => {
-    const errors: any[] = []
+    const errors: Error[] = []
     const compiler = makeCompiler(['/root/manifest.json'], errors)
     mockFields = {
       scripts: {'content_scripts/content-0': ['/a.js', '/b.js']},
@@ -581,8 +591,8 @@ describe('ManifestFieldsChangeDetector', () => {
     const plugin = new ManifestFieldsChangeDetector({
       manifestPath: '/root/manifest.json',
       browser: 'chrome'
-    } as any)
-    plugin.apply(compiler as any)
+    } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0])
+    plugin.apply(asCompiler(compiler))
     await compiler._triggerWatchRun()
 
     mockFields = {
@@ -604,7 +614,7 @@ describe('ManifestFieldsChangeDetector', () => {
   })
 
   it('carries a new manifest icon through a restart instead of an error', async () => {
-    const errors: any[] = []
+    const errors: Error[] = []
     const compiler = makeCompiler(['/root/manifest.json'], errors)
     mockFields = {scripts: {}, html: {}, icons: {}, json: {}}
     const handler = vi.fn()
@@ -615,8 +625,8 @@ describe('ManifestFieldsChangeDetector', () => {
     const plugin = new ManifestFieldsChangeDetector({
       manifestPath: '/root/manifest.json',
       browser: 'chrome'
-    } as any)
-    plugin.apply(compiler as any)
+    } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0])
+    plugin.apply(asCompiler(compiler))
     await compiler._triggerWatchRun()
 
     mockFields = {

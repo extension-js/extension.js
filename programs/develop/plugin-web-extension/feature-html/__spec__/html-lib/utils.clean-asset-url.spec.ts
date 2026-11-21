@@ -51,10 +51,10 @@ describe('html-lib utils', () => {
     const doc = parse5utilities.parse(
       '<html><head><base href="/sub/"></head><body></body></html>'
     )
-    expect(getBaseHref(doc as any)).toBe('/sub/')
+    expect(getBaseHref(doc)).toBe('/sub/')
     const doc2 = parse5utilities.parse(
       '<html><head></head><body></body></html>'
     )
-    expect(getBaseHref(doc2 as any)).toBeUndefined()
+    expect(getBaseHref(doc2)).toBeUndefined()
   })
 })

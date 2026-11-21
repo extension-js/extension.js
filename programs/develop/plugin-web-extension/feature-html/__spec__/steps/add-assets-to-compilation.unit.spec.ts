@@ -2,7 +2,16 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {
+  asCompiler,
+  type TapCallback
+} from '../../../__spec__/helpers/rspack-fakes'
 import {AddAssetsToCompilation} from '../../steps/add-assets-to-compilation'
+import {
+  type BuildIssue,
+  type FakeAsset,
+  readSource
+} from '../helpers/html-fakes'
 
 const tmpRoots: string[] = []
 
@@ -20,17 +29,17 @@ function makeTmp(name: string) {
 }
 
 function makeCompilation() {
-  const assets: Record<string, any> = {}
-  const compilationObj: any = {
+  const assets: Record<string, FakeAsset> = {}
+  const compilationObj = {
     options: {mode: 'production'},
     getAsset: (name: string) => assets[name],
     assets,
-    errors: [],
-    warnings: [] as any[],
-    hooks: {processAssets: {tap: (_: any, cb: any) => cb()}},
-    emitAsset: (name: string, src: any) => {
+    errors: [] as BuildIssue[],
+    warnings: [] as BuildIssue[],
+    hooks: {processAssets: {tap: (_: unknown, cb: TapCallback) => cb()}},
+    emitAsset: (name: string, src: unknown) => {
       assets[name] = {
-        source: {source: () => (src.source ? src.source() : src)}
+        source: {source: () => readSource(src)}
       }
     }
   }
@@ -40,7 +49,9 @@ function makeCompilation() {
     getAsset: (name: string) => assets[name],
     assets,
     hooks: {
-      thisCompilation: {tap: (_: any, fn: any) => fn(compilationObj)}
+      thisCompilation: {
+        tap: (_: unknown, fn: TapCallback) => fn(compilationObj)
+      }
     }
   }
 }
@@ -61,37 +72,41 @@ describe('AddAssetsToCompilation', () => {
     )
 
     const c = makeCompilation()
-    ;(c as any).assets[path.basename(html)] = {
+    c.assets[path.basename(html)] = {
       source: {source: () => fs.readFileSync(html).toString()}
     }
 
     new AddAssetsToCompilation({
       manifestPath,
       includeList: {'feature/index': html}
-    } as any).apply(c as any)
+    }).apply(asCompiler(c))
 
-    expect((c as any).assets['favicon.png']).toBeUndefined()
+    expect(c.assets['favicon.png']).toBeUndefined()
   })
 
   describe('missing local refs: Chrome silently 404s them', () => {
     function makeCompilationWithDiagnostics() {
-      const assets: Record<string, any> = {}
-      const compilationObj: any = {
+      const assets: Record<string, FakeAsset> = {}
+      const compilationObj = {
         options: {mode: 'production'},
         getAsset: (name: string) => assets[name],
         assets,
-        errors: [] as any[],
-        warnings: [] as any[],
-        hooks: {processAssets: {tap: (_: any, cb: any) => cb()}},
-        emitAsset: (name: string, src: any) => {
+        errors: [] as BuildIssue[],
+        warnings: [] as BuildIssue[],
+        hooks: {processAssets: {tap: (_: unknown, cb: TapCallback) => cb()}},
+        emitAsset: (name: string, src: unknown) => {
           assets[name] = {
-            source: {source: () => (src.source ? src.source() : src)}
+            source: {source: () => readSource(src)}
           }
         }
       }
       const compiler = {
         options: {mode: 'production'},
-        hooks: {thisCompilation: {tap: (_: any, fn: any) => fn(compilationObj)}}
+        hooks: {
+          thisCompilation: {
+            tap: (_: unknown, fn: TapCallback) => fn(compilationObj)
+          }
+        }
       }
 
       return {compiler, compilation: compilationObj}
@@ -116,7 +131,7 @@ describe('AddAssetsToCompilation', () => {
       new AddAssetsToCompilation({
         manifestPath,
         includeList: {'feature/index': html}
-      } as any).apply(compiler as any)
+      }).apply(asCompiler(compiler))
 
       expect(compilation.errors).toHaveLength(0)
       expect(compilation.warnings).toHaveLength(1)
@@ -132,7 +147,7 @@ describe('AddAssetsToCompilation', () => {
         new AddAssetsToCompilation({
           manifestPath,
           includeList: {'feature/index': html}
-        } as any).apply(compiler as any)
+        }).apply(asCompiler(compiler))
 
         expect(compilation.warnings).toHaveLength(0)
         expect(compilation.errors).toHaveLength(1)
@@ -145,26 +160,30 @@ describe('AddAssetsToCompilation', () => {
 
   describe('root-absolute refs the build satisfies from a source sibling', () => {
     function makeCompilationWithDiagnostics(context: string) {
-      const assets: Record<string, any> = {}
-      const compilationObj: any = {
+      const assets: Record<string, FakeAsset> = {}
+      const compilationObj = {
         options: {
           mode: 'production',
           output: {path: path.join(context, 'dist')}
         },
         getAsset: (name: string) => assets[name],
         assets,
-        errors: [] as any[],
-        warnings: [] as any[],
-        hooks: {processAssets: {tap: (_: any, cb: any) => cb()}},
-        emitAsset: (name: string, src: any) => {
+        errors: [] as BuildIssue[],
+        warnings: [] as BuildIssue[],
+        hooks: {processAssets: {tap: (_: unknown, cb: TapCallback) => cb()}},
+        emitAsset: (name: string, src: unknown) => {
           assets[name] = {
-            source: {source: () => (src.source ? src.source() : src)}
+            source: {source: () => readSource(src)}
           }
         }
       }
       const compiler = {
         options: {mode: 'production', context},
-        hooks: {thisCompilation: {tap: (_: any, fn: any) => fn(compilationObj)}}
+        hooks: {
+          thisCompilation: {
+            tap: (_: unknown, fn: TapCallback) => fn(compilationObj)
+          }
+        }
       }
 
       return {compiler, compilation: compilationObj}
@@ -195,9 +214,9 @@ describe('AddAssetsToCompilation', () => {
       new AddAssetsToCompilation({
         manifestPath,
         includeList: {'action/index': html}
-      } as any).apply(compiler as any)
+      }).apply(asCompiler(compiler))
 
-      return compilation.warnings.map((w: any) => String(w.message))
+      return compilation.warnings.map((w) => String(w.message))
     }
 
     it('does not warn when the .js ref is compiled from a .ts sibling', () => {

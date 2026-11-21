@@ -3,9 +3,14 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
 import {
+  asCompiler,
+  type TapCallback
+} from '../../../__spec__/helpers/rspack-fakes'
+import {
   EmitHtmlFile,
   manifestFieldForHtmlFeature
 } from '../../steps/emit-html-file'
+import type {BuildIssue} from '../helpers/html-fakes'
 
 const tmpRoots: string[] = []
 
@@ -23,12 +28,12 @@ function makeTmp(name: string) {
 }
 
 function makeCompilation() {
-  const state: any = {warnings: []}
-  const assets: Record<string, any> = {}
-  const innerCompilation: any = {
-    hooks: {processAssets: {tap: (_: any, cb: any) => cb()}},
+  const state = {warnings: [] as BuildIssue[]}
+  const assets: Record<string, unknown> = {}
+  const innerCompilation = {
+    hooks: {processAssets: {tap: (_: unknown, cb: TapCallback) => cb()}},
     warnings: state.warnings,
-    emitAsset: (name: string, src: any) => {
+    emitAsset: (name: string, src: unknown) => {
       assets[name] = src
     }
   }
@@ -38,9 +43,11 @@ function makeCompilation() {
     assets,
     options: {mode: 'production'},
     hooks: {
-      thisCompilation: {tap: (_: any, fn: any) => fn(innerCompilation)}
+      thisCompilation: {
+        tap: (_: unknown, fn: TapCallback) => fn(innerCompilation)
+      }
     }
-  } as any
+  }
 }
 
 describe('EmitHtmlFile', () => {
@@ -57,7 +64,7 @@ describe('EmitHtmlFile', () => {
         'feature/index': '/index.html',
         'feature/rel': 'index.html'
       }
-    } as any).apply(c as any)
+    }).apply(asCompiler(c))
 
     const keys = Object.keys(c.assets)
     expect(keys.length).toBeGreaterThanOrEqual(1)
@@ -72,7 +79,7 @@ describe('EmitHtmlFile', () => {
     new EmitHtmlFile({
       manifestPath,
       includeList: {'pages/missing': path.join(tmp, 'pages', 'missing.html')}
-    } as any).apply(c as any)
+    }).apply(asCompiler(c))
 
     expect(c.state.warnings).toHaveLength(1)
 
@@ -102,21 +109,23 @@ describe('EmitHtmlFile', () => {
     const warnings: Array<{name: string; message: string; file?: string}> = []
     const compilation = {
       warnings,
-      errors: [],
+      errors: [] as BuildIssue[],
       hooks: {processAssets: {tap: (_: unknown, run: () => void) => run()}}
     }
 
     new EmitHtmlFile({
       manifestPath,
       includeList: {'panel/index': path.join(tmp, 'panel', 'index.html')}
-    } as any).apply({
-      options: {mode: 'development'},
-      hooks: {
-        thisCompilation: {
-          tap: (_: string, fn: (c: unknown) => void) => fn(compilation)
+    }).apply(
+      asCompiler({
+        options: {mode: 'development'},
+        hooks: {
+          thisCompilation: {
+            tap: (_: string, fn: (c: unknown) => void) => fn(compilation)
+          }
         }
-      }
-    } as any)
+      })
+    )
 
     expect(warnings.map((warning) => warning.name)).toEqual([
       'ManifestPageMissing'
@@ -146,9 +155,15 @@ describe('EmitHtmlFile', () => {
     new EmitHtmlFile({
       manifestPath: '/x/manifest.json',
       includeList: {}
-    } as any).apply({
-      hooks: {thisCompilation: {tap: (_: string, fn: any) => fn(compilation)}}
-    } as any)
+    }).apply(
+      asCompiler({
+        hooks: {
+          thisCompilation: {
+            tap: (_: string, fn: TapCallback) => fn(compilation)
+          }
+        }
+      })
+    )
 
     expect(names).toEqual(['html:emit-html-file'])
   })

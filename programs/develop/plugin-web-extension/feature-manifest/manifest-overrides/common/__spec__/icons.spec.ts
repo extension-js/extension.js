@@ -1,12 +1,16 @@
 import {describe, expect, it} from 'vitest'
+import type {Manifest} from '../../../../../types'
 import {action} from '../../mv3/action'
 import {icons} from '../icons'
+
+// @types/chrome has no icon_variants on the action key, which the override rewrites.
+type ActionVariants = {action?: {icon_variants?: unknown}}
 
 describe('icons manifest override, output path matches the icon emitter', () => {
   it('preserves in-project relative icon paths as declared', () => {
     const out = icons({
       icons: {16: 'images/i16.png', 32: 'i32.png'}
-    } as any) as any
+    } as Manifest) as Manifest
     expect(out.icons).toEqual({
       16: 'images/i16.png',
       32: 'i32.png'
@@ -16,14 +20,14 @@ describe('icons manifest override, output path matches the icon emitter', () => 
   it('preserves distinct same-basename icons living in different folders', () => {
     const out = icons({
       icons: {48: 'icons-dev/icon48.png'}
-    } as any) as any
+    } as Manifest) as Manifest
     expect(out.icons).toEqual({48: 'icons-dev/icon48.png'})
   })
 
   it('treats leading-slash (extension-root) icon paths as project-relative', () => {
     const out = icons({
       icons: {16: '/images/get_started16.png', 32: '/images/get_started32.png'}
-    } as any) as any
+    } as Manifest) as Manifest
     expect(out.icons).toEqual({
       16: 'images/get_started16.png',
       32: 'images/get_started32.png'
@@ -33,7 +37,7 @@ describe('icons manifest override, output path matches the icon emitter', () => 
   it('gives paths that escape the project a unique slot under icons/', () => {
     const out = icons({
       icons: {16: '../shared/i16.png', 32: '../other/i16.png'}
-    } as any) as any
+    } as Manifest) as Manifest
     expect(out.icons).toEqual({
       16: 'icons/_/shared/i16.png',
       32: 'icons/_/other/i16.png'
@@ -47,7 +51,7 @@ describe('icons manifest override, output path matches the icon emitter', () => 
         32: 'public/p32.png',
         48: './public/p48.png'
       }
-    } as any) as any
+    } as Manifest) as Manifest
     expect(out.icons).toEqual({
       16: 'images/p.png',
       32: 'p32.png',
@@ -58,13 +62,13 @@ describe('icons manifest override, output path matches the icon emitter', () => 
   it('applies the same rule to action.default_icon (object and string)', () => {
     const obj = action({
       action: {default_icon: {16: '/images/a16.png'}}
-    } as any) as any
-    expect(obj.action.default_icon).toEqual({16: 'images/a16.png'})
+    } as Manifest) as Manifest
+    expect(obj.action?.default_icon).toEqual({16: 'images/a16.png'})
 
     const str = action({
       action: {default_icon: 'icons-dev/a.png'}
-    } as any) as any
-    expect(str.action.default_icon).toBe('icons-dev/a.png')
+    } as Manifest) as Manifest
+    expect(str.action?.default_icon).toBe('icons-dev/a.png')
   })
 
   it('rewrites icon_variants paths by the icons rule and leaves color_schemes alone', () => {
@@ -78,14 +82,17 @@ describe('icons manifest override, output path matches the icon emitter', () => 
     ]
 
     expect(
-      (icons({icon_variants: variants} as any) as any).icon_variants
+      (icons({icon_variants: variants} as Manifest) as Manifest).icon_variants
     ).toEqual(expected)
 
     expect(
-      (action({action: {icon_variants: variants}} as any) as any).action
-        .icon_variants
+      (
+        action({
+          action: {icon_variants: variants}
+        } as Manifest) as ActionVariants
+      ).action?.icon_variants
     ).toEqual(expected)
 
-    expect(icons({} as any)).toBeFalsy()
+    expect(icons({} as Manifest)).toBeFalsy()
   })
 })

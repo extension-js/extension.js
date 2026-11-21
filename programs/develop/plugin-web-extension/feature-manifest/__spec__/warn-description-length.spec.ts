@@ -1,5 +1,10 @@
 import {Compilation} from '@rspack/core'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {
+  asCompilation,
+  asCompiler,
+  type TapCallback
+} from '../../__spec__/helpers/rspack-fakes'
 import {setOriginalManifestContent} from '../manifest-lib/manifest'
 import * as messages from '../messages'
 import {
@@ -9,24 +14,25 @@ import {
   findDescriptionLimitHit,
   WarnDescriptionLength
 } from '../steps/warn-description-length'
+import type {StepDiagnostic} from './helpers/manifest-fakes'
 
 function makeCompiler(
   browser: string,
   mode: 'development' | 'production' = 'production'
 ) {
-  let thisCompilationFn: ((compilation: any) => void) | undefined
+  let thisCompilationFn: TapCallback | undefined
   let tapStage: number | undefined
 
-  const compiler: any = {
+  const compiler = asCompiler({
     options: {mode},
     hooks: {
       thisCompilation: {
-        tap: (_n: string, fn: any) => {
+        tap: (_n: string, fn: TapCallback) => {
           thisCompilationFn = fn
         }
       }
     }
-  }
+  })
 
   new WarnDescriptionLength({browser: browser as never}).apply(compiler)
 
@@ -34,23 +40,23 @@ function makeCompiler(
     manifest: Record<string, unknown> | string,
     authored?: Record<string, unknown>
   ) => {
-    const warnings: any[] = []
+    const warnings: StepDiagnostic[] = []
     let processAssetsFn: (() => void) | undefined
     const text =
       typeof manifest === 'string' ? manifest : JSON.stringify(manifest)
-    const compilation: any = {
+    const compilation = asCompilation({
       warnings,
       getAsset: (name: string) =>
         name === 'manifest.json' ? {source: {source: () => text}} : undefined,
       hooks: {
         processAssets: {
-          tap: (opts: any, cb: any) => {
+          tap: (opts: {stage?: number}, cb: TapCallback) => {
             tapStage = opts.stage
             processAssetsFn = cb
           }
         }
       }
-    }
+    })
 
     if (authored) {
       setOriginalManifestContent(compilation, JSON.stringify(authored))
