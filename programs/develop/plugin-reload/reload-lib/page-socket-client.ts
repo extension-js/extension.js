@@ -40,7 +40,10 @@ export default class PageSocketClient {
 
     // The stock client's own logger, so `client.logging` still decides.
     this.client.onerror = (error) => {
-      log.error(error)
+      log.error(
+        'Extension.js W_DEV_SERVER_SOCKET: the page lost its dev server socket, so edits show after the page is reloaded.',
+        error
+      )
     }
   }
 
