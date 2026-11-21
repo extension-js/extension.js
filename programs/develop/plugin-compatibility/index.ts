@@ -54,7 +54,7 @@ export class CompatibilityPlugin {
 
   constructor(
     options: PluginInterface & {
-      polyfill: DevOptions['polyfill']
+      polyfill?: DevOptions['polyfill']
       command?: 'dev' | 'start' | 'build'
     }
   ) {

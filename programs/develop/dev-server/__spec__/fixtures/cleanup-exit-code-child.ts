@@ -1,10 +1,11 @@
+import {portManagerFake} from '../../../__spec__/helpers/port-manager-fake'
 import {setupCleanupHandlers} from '../../cleanup'
 import {createLifecycleStream} from '../../lifecycle-stream'
 import type {PortManager} from '../../port-manager'
 
-const portManager = {
+const portManager = portManagerFake({
   terminateCurrentInstance: async () => {}
-} as unknown as PortManager
+})
 
 const mode = process.argv[2]
 
