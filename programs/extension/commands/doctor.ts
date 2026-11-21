@@ -371,6 +371,8 @@ export function resolveDoctorBrowser(
 // when it reads, or when no file is there.
 function packageJsonParseFailure(file: string): string | undefined {
   try {
+    if (fs.statSync(file).isDirectory()) return 'it is a folder, not a file'
+
     JSON.parse(fs.readFileSync(file, 'utf8'))
 
     return undefined

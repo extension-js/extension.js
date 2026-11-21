@@ -11,7 +11,11 @@ import * as path from 'node:path'
 import {codedError} from './coded-error'
 import * as messages from './messages'
 import {CODES, humanLine, isDebug} from './messaging'
-import {findNearestPackageJsonSync, validatePackageJson} from './package-json'
+import {
+  findNearestPackageJsonSync,
+  refuseNonFilePackageJson,
+  validatePackageJson
+} from './package-json'
 import {type ParsedJson, parseJsonSafe} from './parse-json-safe'
 import {rememberAskedPath} from './paths'
 import {findNearestDenoConfigSync, validateDenoConfig} from './project-manifest'
@@ -870,6 +874,9 @@ export function resolveProjectStructureSync(
       )
     }
   }
+
+  refuseNonFilePackageJson(projectPath)
+  refuseNonFilePackageJson(path.dirname(manifestPath))
 
   // Find nearest package.json and deno.json(c); web-only mode only applies
   // when neither is present or valid.
