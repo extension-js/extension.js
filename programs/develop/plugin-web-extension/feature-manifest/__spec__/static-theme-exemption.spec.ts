@@ -4,7 +4,7 @@ import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 
 import {isStaticTheme, isStaticThemeSource} from '../../../lib/manifest-utils'
-import type {DevOptions, Manifest} from '../../../types'
+import type {BrowserType, Manifest} from '../../../types'
 import {
   asCompilation,
   asCompiler,
@@ -98,7 +98,7 @@ describe('isStaticThemeSource', () => {
 // manifest asset was rewritten with the dev instrumentation.
 function runApplyDevDefaults(
   manifestPath: string,
-  browser: string,
+  browser: BrowserType,
   // The manifest this compile read at its start, when the disk has moved on.
   readAtStart?: unknown
 ) {
@@ -135,7 +135,7 @@ function runApplyDevDefaults(
 
   new ApplyDevDefaults({
     manifestPath,
-    browser: browser as DevOptions['browser']
+    browser
   }).apply(compiler)
 
   return {updated, compilation}
@@ -161,7 +161,7 @@ describe('ApplyDevDefaults theme exemption, both targets', () => {
 
   // Chromium already skipped a theme; Firefox did not. Pinning both keeps the
   // two dev targets from drifting on what a theme is again.
-  for (const browser of ['chrome', 'firefox']) {
+  for (const browser of ['chrome', 'firefox'] as const) {
     it(`leaves a static theme untouched on ${browser}`, () => {
       const {updated} = runApplyDevDefaults(writeManifest(THEME), browser)
       expect(updated).toBeUndefined()
