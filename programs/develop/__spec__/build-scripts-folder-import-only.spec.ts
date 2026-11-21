@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import {describe, expect, it, vi} from 'vitest'
 import {buildProject} from './helpers/build-project'
 import {trackTempFolders} from './helpers/temp-folders'
+import {writeProjectFiles} from './helpers/extension-project'
 
 // Every file in the scripts folder is an entry. A helper kept there for the
 // scripts that import it ships as a file nothing loads, and the build says so.
@@ -26,11 +27,7 @@ function project(files: Record<string, string>) {
     ...files
   }
 
-  for (const [name, content] of Object.entries(all)) {
-    const file = path.join(root, name)
-    fs.mkdirSync(path.dirname(file), {recursive: true})
-    fs.writeFileSync(file, content)
-  }
+  writeProjectFiles(root, all)
 
   return root
 }

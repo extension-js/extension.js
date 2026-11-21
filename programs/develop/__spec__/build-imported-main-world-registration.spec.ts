@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
 import {trackTempFolders} from './helpers/temp-folders'
+import {writeProjectFiles} from './helpers/extension-project'
 
 // A registration is read where it is written: in a module the entry
 // imports, or through a constant of the same file.
@@ -47,11 +48,7 @@ function project(files: Record<string, string>) {
     ...files
   }
 
-  for (const [name, contents] of Object.entries(all)) {
-    const file = path.join(root, name)
-    fs.mkdirSync(path.dirname(file), {recursive: true})
-    fs.writeFileSync(file, contents)
-  }
+  writeProjectFiles(root, all)
 
   return root
 }

@@ -4,6 +4,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {buildSummaryPath, readyContractPath} from '../lib/session-paths'
 import {buildProject} from './helpers/build-project'
 import {trackTempFolders} from './helpers/temp-folders'
+import {writeExtensionProject} from './helpers/extension-project'
 
 const promote = vi.hoisted(() => ({fails: false}))
 
@@ -73,24 +74,13 @@ const PROBE_CONFIG = [
 function project() {
   const root = fs.realpathSync(tempFolder('extjs-ready-after-promote-'))
 
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({
-      private: true,
-      name: 'ready-after-promote',
-      version: '0.0.0'
-    })
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
+  writeExtensionProject(root, {
+    manifest: {
       name: 'Ready after promote',
-      version: '1.0.0',
       action: {default_popup: 'popup.html'}
-    })
-  )
+    },
+    packageJson: {name: 'ready-after-promote'}
+  })
 
   fs.writeFileSync(
     path.join(root, 'popup.html'),

@@ -4,25 +4,16 @@ import {describe, expect, it} from 'vitest'
 import type {BuildSummary} from '../lib/build-summary'
 import {buildProject} from './helpers/build-project'
 import {trackTempFolders} from './helpers/temp-folders'
+import {writeExtensionProject} from './helpers/extension-project'
 
 const tempFolder = trackTempFolders()
 
 function project(background: string): string {
   const root = tempFolder('extjs-tabs-by-read-')
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'tabsbyread', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'tabsbyread',
-      version: '1.0.0',
-      background: {service_worker: 'background.ts'}
-    })
-  )
+  writeExtensionProject(root, {
+    name: 'tabsbyread',
+    manifest: {background: {service_worker: 'background.ts'}}
+  })
 
   fs.writeFileSync(path.join(root, 'background.ts'), background)
 

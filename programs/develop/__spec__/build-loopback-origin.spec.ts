@@ -3,25 +3,16 @@ import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
 import {trackTempFolders} from './helpers/temp-folders'
+import {writeExtensionProject} from './helpers/extension-project'
 
 const tempFolder = trackTempFolders()
 
 function project(matches: string[]) {
   const root = tempFolder('extjs-loopback-')
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'loopback', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'loopback',
-      version: '1.0.0',
-      content_scripts: [{matches, js: ['content.js']}]
-    })
-  )
+  writeExtensionProject(root, {
+    name: 'loopback',
+    manifest: {content_scripts: [{matches, js: ['content.js']}]}
+  })
 
   fs.writeFileSync(path.join(root, 'content.js'), 'console.log(1)\n')
 

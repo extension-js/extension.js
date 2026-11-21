@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
 import {trackTempFolders} from './helpers/temp-folders'
+import {writeProjectFiles} from './helpers/extension-project'
 
 const tempFolder = trackTempFolders()
 
@@ -30,12 +31,7 @@ function project(files: Record<string, string>, script: boolean) {
     ...files
   }
 
-  for (const [relative, contents] of Object.entries(all)) {
-    const abs = path.join(root, relative)
-
-    fs.mkdirSync(path.dirname(abs), {recursive: true})
-    fs.writeFileSync(abs, contents)
-  }
+  writeProjectFiles(root, all)
 
   return root
 }

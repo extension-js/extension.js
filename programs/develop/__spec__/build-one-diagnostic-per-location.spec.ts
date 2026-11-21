@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {buildProject} from './helpers/build-project'
 import {trackTempFolders} from './helpers/temp-folders'
+import {writeProjectFiles} from './helpers/extension-project'
 
 // A scripts/ folder entry is compiled in a layer of its own, so a module it
 // shares with the background is built twice and reports twice.
@@ -43,11 +44,7 @@ function project(files: Record<string, string>) {
     ...files
   }
 
-  for (const [name, source] of Object.entries(all)) {
-    const file = path.join(root, name)
-    fs.mkdirSync(path.dirname(file), {recursive: true})
-    fs.writeFileSync(file, source)
-  }
+  writeProjectFiles(root, all)
 
   return root
 }

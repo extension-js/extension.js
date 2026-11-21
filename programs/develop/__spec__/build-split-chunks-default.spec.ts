@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
 import {trackTempFolders} from './helpers/temp-folders'
+import {writeExtensionProject} from './helpers/extension-project'
 
 // HTML pages share code by default: the framework runtime lands in
 // shared/framework.js and a module two pages import in shared/commons.js.
@@ -15,28 +16,16 @@ const ONLY_POPUP_MARK = 'ONLY_POPUP_MARK_2b8e'
 
 function project(extensionConfig?: string) {
   const root = tempFolder('extjs-split-default-')
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({
-      private: true,
-      name: 'split-default',
-      version: '0.0.0',
-      dependencies: {react: '0.0.0'}
-    })
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'split-default',
-      version: '1.0.0',
+  writeExtensionProject(root, {
+    name: 'split-default',
+    manifest: {
       action: {default_popup: 'popup.html'},
       options_ui: {page: 'options.html'},
       background: {service_worker: 'background.js'},
       content_scripts: [{matches: ['<all_urls>'], js: ['content.js']}]
-    })
-  )
+    },
+    packageJson: {dependencies: {react: '0.0.0'}}
+  })
 
   const reactDir = path.join(root, 'node_modules', 'react')
   fs.mkdirSync(reactDir, {recursive: true})
@@ -210,28 +199,16 @@ describe('default page-only split chunks', () => {
 // single-file surface: whatever the default groups hoist out of it is lost.
 function userScriptProject() {
   const root = tempFolder('extjs-split-us-')
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({
-      private: true,
-      name: 'split-user-scripts',
-      version: '0.0.0',
-      dependencies: {react: '0.0.0'}
-    })
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'split-user-scripts',
-      version: '1.0.0',
+  writeExtensionProject(root, {
+    name: 'split-user-scripts',
+    manifest: {
       permissions: ['userScripts'],
       action: {default_popup: 'popup.html'},
       options_ui: {page: 'options.html'},
       user_scripts: {api_script: 'api.js'}
-    })
-  )
+    },
+    packageJson: {dependencies: {react: '0.0.0'}}
+  })
 
   const reactDir = path.join(root, 'node_modules', 'react')
   fs.mkdirSync(reactDir, {recursive: true})

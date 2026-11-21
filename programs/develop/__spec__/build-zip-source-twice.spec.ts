@@ -4,25 +4,16 @@ import {unzipSync} from 'fflate'
 import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
 import {trackTempFolders} from './helpers/temp-folders'
+import {writeExtensionProject} from './helpers/extension-project'
 
 const tempFolder = trackTempFolders()
 
 function project() {
   const root = tempFolder('extjs-zip-twice-')
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'src-probe', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'Src Probe',
-      version: '1.0.0',
-      action: {default_popup: 'popup.html'}
-    })
-  )
+  writeExtensionProject(root, {
+    manifest: {name: 'Src Probe', action: {default_popup: 'popup.html'}},
+    packageJson: {name: 'src-probe'}
+  })
 
   fs.writeFileSync(
     path.join(root, 'popup.html'),

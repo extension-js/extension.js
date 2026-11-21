@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import {describe, expect, it, vi} from 'vitest'
 import {buildProject} from './helpers/build-project'
 import {trackTempFolders} from './helpers/temp-folders'
+import {writeExtensionProject} from './helpers/extension-project'
 
 const tempFolder = trackTempFolders()
 
@@ -11,21 +12,14 @@ const LOCALES = ['en', 'de', 'fr', 'pt_BR']
 function project(config: string) {
   const root = tempFolder('extjs-hook-context-')
 
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'hook-context', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
+  writeExtensionProject(root, {
+    manifest: {
       name: '__MSG_hookContextName__',
-      version: '1.0.0',
       default_locale: 'en',
       background: {service_worker: 'background.js'}
-    })
-  )
+    },
+    packageJson: {name: 'hook-context'}
+  })
 
   fs.writeFileSync(path.join(root, 'background.js'), "console.log('bg')\n")
 

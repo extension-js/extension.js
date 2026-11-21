@@ -3,27 +3,20 @@ import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
 import {trackTempFolders} from './helpers/temp-folders'
+import {writeExtensionProject} from './helpers/extension-project'
 
 const tempFolder = trackTempFolders()
 
 function project() {
   const root = tempFolder('extjs-browser-global-')
 
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'browser-global', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'browser-global',
-      version: '1.0.0',
+  writeExtensionProject(root, {
+    name: 'browser-global',
+    manifest: {
       permissions: ['storage'],
       background: {service_worker: 'background.js'}
-    })
-  )
+    }
+  })
 
   fs.writeFileSync(
     path.join(root, 'background.js'),

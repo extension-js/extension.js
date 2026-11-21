@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
 import {trackTempFolders} from './helpers/temp-folders'
+import {writeExtensionProject} from './helpers/extension-project'
 
 const tempFolder = trackTempFolders()
 
@@ -10,20 +11,10 @@ function project() {
   const root = tempFolder('extjs-root-refs-')
   fs.mkdirSync(path.join(root, 'views', 'about'), {recursive: true})
   fs.mkdirSync(path.join(root, 'assets', 'vendor'), {recursive: true})
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'root-refs', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'root-refs',
-      version: '1.0.0',
-      action: {default_popup: '/views/about/about.html'}
-    })
-  )
+  writeExtensionProject(root, {
+    name: 'root-refs',
+    manifest: {action: {default_popup: '/views/about/about.html'}}
+  })
 
   fs.writeFileSync(path.join(root, 'assets', 'arrows.gif'), 'GIF89a')
   fs.writeFileSync(

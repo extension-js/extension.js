@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {buildProject} from './helpers/build-project'
 import {trackTempFolders} from './helpers/temp-folders'
+import {writeProjectFiles} from './helpers/extension-project'
 
 // A vendor wasm runtime (onnxruntime-web, ffmpeg) is fetched when a page or
 // a worker runs the model and cannot be split, so its 26 MB must not turn
@@ -73,11 +74,7 @@ function project(kind: 'page-and-worker' | 'content-script', config?: string) {
   files['manifest.json'] = JSON.stringify(manifest)
   if (config) files['extension.config.js'] = config
 
-  for (const [rel, content] of Object.entries(files)) {
-    const abs = path.join(root, rel)
-    fs.mkdirSync(path.dirname(abs), {recursive: true})
-    fs.writeFileSync(abs, content)
-  }
+  writeProjectFiles(root, files)
 
   return root
 }

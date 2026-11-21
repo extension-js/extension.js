@@ -5,6 +5,7 @@ import {describe, expect, it} from 'vitest'
 import {readTakeBlock} from '../lib/extension-base-from-stack'
 import {buildProject} from './helpers/build-project'
 import {trackTempFolders} from './helpers/temp-folders'
+import {writeProjectFiles} from './helpers/extension-project'
 
 // An injected MAIN world file reads the extension base off the page on
 // Gecko, so the caller's bundle runs the bridge ahead of the injection.
@@ -51,11 +52,7 @@ function project(files: Record<string, string>) {
     ...files
   }
 
-  for (const [name, contents] of Object.entries(all)) {
-    const file = path.join(root, name)
-    fs.mkdirSync(path.dirname(file), {recursive: true})
-    fs.writeFileSync(file, contents)
-  }
+  writeProjectFiles(root, all)
 
   return root
 }

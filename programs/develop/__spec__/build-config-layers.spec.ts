@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
 import {trackTempFolders} from './helpers/temp-folders'
+import {writeExtensionProject} from './helpers/extension-project'
 
 // One specificity ladder for every key that can live in more than one
 // place: a top-level value is the weakest layer, browser.<vendor> beats it,
@@ -11,20 +12,10 @@ const tempFolder = trackTempFolders()
 
 function project(config: string) {
   const root = tempFolder('extjs-config-layers-')
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'layers', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'layers',
-      version: '1.0.0',
-      background: {service_worker: 'background.js'}
-    })
-  )
+  writeExtensionProject(root, {
+    name: 'layers',
+    manifest: {background: {service_worker: 'background.js'}}
+  })
 
   fs.writeFileSync(
     path.join(root, 'background.js'),

@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
 import {trackTempFolders} from './helpers/temp-folders'
+import {writeProjectFiles} from './helpers/extension-project'
 
 // One Chromium-first side panel project, built for each engine. The panel
 // page is written at the root and ships as sidebar/index.html, its script
@@ -75,11 +76,7 @@ function project(manifest: Record<string, unknown> = {}) {
     'scripts/built.js': 'console.log("built")\n'
   }
 
-  for (const [name, contents] of Object.entries(files)) {
-    const file = path.join(root, name)
-    fs.mkdirSync(path.dirname(file), {recursive: true})
-    fs.writeFileSync(file, contents)
-  }
+  writeProjectFiles(root, files)
 
   return root
 }

@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
 import {trackTempFolders} from './helpers/temp-folders'
+import {writeExtensionProject} from './helpers/extension-project'
 
 // A user cache group that spans every chunk is narrowed to the page chunks,
 // and the emitted HTML loads every sibling file, so the build stays quiet.
@@ -14,22 +15,14 @@ type Selector = 'all' | 'async' | 'every-chunk'
 
 function project(selector: Selector) {
   const root = tempFolder('extjs-split-chunks-')
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'split-chunks', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'split-chunks',
-      version: '1.0.0',
+  writeExtensionProject(root, {
+    name: 'split-chunks',
+    manifest: {
       action: {default_popup: 'popup.html'},
       options_ui: {page: 'options.html'},
       background: {service_worker: 'background.js'}
-    })
-  )
+    }
+  })
 
   fs.writeFileSync(
     path.join(root, 'shared.js'),

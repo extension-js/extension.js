@@ -4,6 +4,7 @@ import * as vm from 'node:vm'
 import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
 import {trackTempFolders} from './helpers/temp-folders'
+import {writeProjectFiles} from './helpers/extension-project'
 
 // A file under public/ ships as authored. A script `include` declares is
 // minified in production, in a way that keeps the value the file ends on.
@@ -71,11 +72,7 @@ function project() {
     all[path.join('public', name)] = contents
   }
 
-  for (const [name, contents] of Object.entries(all)) {
-    const file = path.join(root, name)
-    fs.mkdirSync(path.dirname(file), {recursive: true})
-    fs.writeFileSync(file, contents)
-  }
+  writeProjectFiles(root, all)
 
   return root
 }

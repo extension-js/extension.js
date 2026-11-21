@@ -3,29 +3,22 @@ import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
 import {trackTempFolders} from './helpers/temp-folders'
+import {writeExtensionProject} from './helpers/extension-project'
 
 const tempFolder = trackTempFolders()
 
 function project() {
   const root = tempFolder('extjs-runtime-chunk-')
 
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'runtime-chunk', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'runtime-chunk',
-      version: '1.0.0',
+  writeExtensionProject(root, {
+    name: 'runtime-chunk',
+    manifest: {
       action: {default_popup: 'popup.html'},
       options_ui: {page: 'options.html'},
       background: {service_worker: 'background.js'},
       content_scripts: [{matches: ['<all_urls>'], js: ['content.js']}]
-    })
-  )
+    }
+  })
 
   fs.writeFileSync(
     path.join(root, 'shared.js'),
