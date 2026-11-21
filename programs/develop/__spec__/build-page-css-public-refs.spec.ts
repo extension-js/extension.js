@@ -1,17 +1,13 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // A page stylesheet's root-absolute url() to a file public/ owns must keep
 // naming the copier's root path: the page resolves it against the extension
 // origin, and a second hashed copy under assets/ is the same bytes twice.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 const PAGE_CSS =
   '.public { background: url("/img/bg.png") }\n' +
@@ -19,8 +15,7 @@ const PAGE_CSS =
   '.remote { background: url("https://cdn.example/x.png") }\n'
 
 function project() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-page-public-'))
-  roots.push(root)
+  const root = tempFolder('extjs-page-public-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'page-public', version: '0.0.0'})

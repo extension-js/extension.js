@@ -1,20 +1,15 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {PruneRemovedPublicFiles} from '../prune-removed-public-files'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 type Asset = {name: string; copied?: boolean}
 
 function createProject() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-prune-public-'))
-  roots.push(root)
+  const root = tempFolder('extjs-prune-public-')
   const publicDir = path.join(root, 'public')
   const outputPath = path.join(root, 'dist', 'chrome')
   fs.mkdirSync(publicDir, {recursive: true})

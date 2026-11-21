@@ -4,6 +4,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {rspack} from '@rspack/core'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {writeProjectFiles} from '../../../__spec__/helpers/extension-project'
 import {
   findPostCssConfig,
   maybeUsePostCss,
@@ -22,11 +23,7 @@ function createProject(files: Record<string, string>) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-postcss-config-'))
   tempDirs.push(dir)
 
-  for (const [name, content] of Object.entries(files)) {
-    const file = path.join(dir, name)
-    fs.mkdirSync(path.dirname(file), {recursive: true})
-    fs.writeFileSync(file, content, 'utf8')
-  }
+  writeProjectFiles(dir, files)
 
   return dir
 }

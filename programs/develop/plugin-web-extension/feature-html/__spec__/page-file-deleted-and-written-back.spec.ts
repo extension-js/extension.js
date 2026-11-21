@@ -7,6 +7,7 @@ import {
   openDevWatchSession,
   waitUntil
 } from '../../../__spec__/helpers/dev-watch-session'
+import {writeExtensionProject} from '../../../__spec__/helpers/extension-project'
 import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {outputHolding} from './helpers/private-files-project'
 
@@ -61,20 +62,10 @@ const CASES = [
 function makeProject(files: Record<string, string>): string {
   const root = fs.realpathSync(tempFolder('extjs-page-file-back-'))
 
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'page-file-back', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'page-file-back',
-      version: '1.0.0',
-      action: {default_popup: 'popup.html'}
-    })
-  )
+  writeExtensionProject(root, {
+    name: 'page-file-back',
+    manifest: {action: {default_popup: 'popup.html'}}
+  })
 
   for (const [name, contents] of Object.entries(files)) {
     fs.writeFileSync(path.join(root, name), contents)

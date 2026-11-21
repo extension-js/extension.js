@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import {writeProjectFiles} from '../../../../__spec__/helpers/extension-project'
 import {rememberBuildResolve} from '../../../shared/script-graph'
 import {
   findBridgePairingPages,
@@ -21,11 +22,7 @@ function project(files: Record<string, string>) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-rt-main-find-'))
   roots.push(root)
 
-  for (const [name, contents] of Object.entries(files)) {
-    const file = path.join(root, name)
-    fs.mkdirSync(path.dirname(file), {recursive: true})
-    fs.writeFileSync(file, contents, 'utf8')
-  }
+  writeProjectFiles(root, files)
 
   const at = (name: string) => path.join(root, name)
   const find = (

@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import {buildProject} from '../../__spec__/helpers/build-project'
 import {workspacePackage} from '../../__spec__/helpers/workspace-package'
 import deadCssUrlLoader from '../dead-css-url-loader'
 import {cssProjects} from './helpers/css-project'
@@ -143,31 +144,18 @@ describe.skipIf(!VUE_PACKAGE || !VUE_SCOPE || process.platform === 'win32')(
         'dir'
       )
 
-      const {extensionBuild} = await import('../../command-build')
-      const previous = process.env.VITEST
-
-      process.env.VITEST = 'true'
-
-      try {
-        const summary = (await extensionBuild(root, {
-          browser: 'chrome',
-          silent: true,
-          install: false,
-          mode: 'production',
-          exitOnError: false
-        } as never)) as {
-          errors_count: number
-          warnings_count: number
-          warnings?: string[]
-        }
-
-        expect(summary.warnings ?? []).toEqual([])
-        expect(summary.errors_count).toBe(0)
-        expect(summary.warnings_count).toBe(0)
-      } finally {
-        if (previous === undefined) delete process.env.VITEST
-        else process.env.VITEST = previous
+      const summary = (await buildProject(root, {
+        mode: 'production',
+        exitOnError: false
+      })) as {
+        errors_count: number
+        warnings_count: number
+        warnings?: string[]
       }
+
+      expect(summary.warnings ?? []).toEqual([])
+      expect(summary.errors_count).toBe(0)
+      expect(summary.warnings_count).toBe(0)
 
       const dist = path.join(root, 'dist', 'chrome')
 
@@ -302,26 +290,13 @@ describe.skipIf(
       )
     }
 
-    const {extensionBuild} = await import('../../command-build')
-    const previous = process.env.VITEST
+    const summary = (await buildProject(root, {
+      mode: 'production',
+      exitOnError: false
+    })) as {errors_count: number; warnings?: string[]}
 
-    process.env.VITEST = 'true'
-
-    try {
-      const summary = (await extensionBuild(root, {
-        browser: 'chrome',
-        silent: true,
-        install: false,
-        mode: 'production',
-        exitOnError: false
-      } as never)) as {errors_count: number; warnings?: string[]}
-
-      expect(summary.warnings ?? []).toEqual([])
-      expect(summary.errors_count).toBe(0)
-    } finally {
-      if (previous === undefined) delete process.env.VITEST
-      else process.env.VITEST = previous
-    }
+    expect(summary.warnings ?? []).toEqual([])
+    expect(summary.errors_count).toBe(0)
 
     const dist = path.join(root, 'dist', 'chrome')
     const scripts = (fs.readdirSync(dist, {recursive: true}) as string[])

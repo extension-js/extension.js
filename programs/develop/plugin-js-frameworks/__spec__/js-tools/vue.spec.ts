@@ -2,6 +2,7 @@ import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import {rspack} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
+import type {JsFrameworkLoaderRule} from '../../../types'
 import {
   maybeUseVue,
   resolveVueBundlerEntry,
@@ -159,7 +160,7 @@ describe('maybeUseVue', () => {
         "export default {compilerOptions: {whitespace: 'preserve'}}\n"
     })
     const result = await maybeUseVue(root, 'development')
-    const rule = result?.loaders?.[0] as {options: Record<string, unknown>}
+    const rule = result?.loaders?.[0] as JsFrameworkLoaderRule
 
     expect(rule.options).toEqual({
       experimentalInlineMatchResource: true,

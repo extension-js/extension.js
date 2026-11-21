@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {writeProjectFiles} from '../../__spec__/helpers/extension-project'
 import {rememberSpecialFoldersConfig} from '../../lib/special-folders/folders-config'
 import {
   getSpecialFoldersDataForCompiler,
@@ -28,11 +29,7 @@ function project(files: Record<string, string>): string {
   )
   tempDirs.push(root)
 
-  for (const [relative, contents] of Object.entries(files)) {
-    const target = path.join(root, relative)
-    fs.mkdirSync(path.dirname(target), {recursive: true})
-    fs.writeFileSync(target, contents, 'utf8')
-  }
+  writeProjectFiles(root, files)
 
   return root
 }

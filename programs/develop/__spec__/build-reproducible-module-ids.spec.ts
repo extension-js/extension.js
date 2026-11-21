@@ -5,6 +5,7 @@ import {fileURLToPath} from 'node:url'
 import {afterAll, describe, expect, it} from 'vitest'
 import {stripAnsi} from '../lib/strip-ansi'
 import {buildProject} from './helpers/build-project'
+import {writeExtensionProject} from './helpers/extension-project'
 
 // A hashed module id follows where every loader sits. Here extension-develop
 // is a symlink (npm link, pnpm) and a configResolved rule names a loader
@@ -36,17 +37,9 @@ function project(...nested: string[]) {
     'dir'
   )
 
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'ids', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'ids',
-      version: '1.0.0',
+  writeExtensionProject(root, {
+    name: 'ids',
+    manifest: {
       background: {service_worker: 'src/background.ts'},
       action: {default_popup: 'popup/index.html'},
       content_scripts: [
@@ -56,8 +49,8 @@ function project(...nested: string[]) {
           css: ['src/content.css']
         }
       ]
-    })
-  )
+    }
+  })
 
   fs.writeFileSync(
     path.join(root, 'src', 'shared.ts'),

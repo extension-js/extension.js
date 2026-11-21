@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import {writeProjectFiles} from '../../../__spec__/helpers/extension-project'
 import {resolveCompanionExtensionDirs} from '../resolve-dirs'
 import {isDirExactCase} from '../utils'
 
@@ -13,11 +14,7 @@ function project(layout: Record<string, string>) {
   )
   created.push(root)
 
-  for (const [rel, content] of Object.entries(layout)) {
-    const abs = path.join(root, rel)
-    fs.mkdirSync(path.dirname(abs), {recursive: true})
-    fs.writeFileSync(abs, content)
-  }
+  writeProjectFiles(root, layout)
 
   return root
 }

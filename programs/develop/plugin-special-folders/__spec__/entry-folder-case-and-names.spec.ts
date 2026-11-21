@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {stripVTControlCharacters as stripAnsi} from 'node:util'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {buildProject} from '../../__spec__/helpers/build-project'
 import {
   foldersRoots,
   miscasedEntryFolders,
@@ -161,18 +162,12 @@ describe('an entry folder spelled Pages/ or Scripts/', () => {
       'background.js': 'self.ready = 1\n',
       'Scripts/cs.js': 'document.title = "cs"'
     })
-    const {extensionBuild} = await import('../../command-build')
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     try {
-      const summary = await extensionBuild(root, {
-        browser: 'chrome',
-        silent: true,
-        install: false,
-        mode: 'production'
-      } as never)
+      const summary = await buildProject(root, {mode: 'production'})
 
       expect(summary.errors_count).toBe(0)
       expect(

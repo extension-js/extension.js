@@ -1,21 +1,16 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // A project with no background gets a dev-only reload background. Safari
 // never starts an MV3 service worker, so on a Safari dev build that injected
 // background has to be listed under scripts or the dev bridge never connects.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-safari-bg-'))
-  roots.push(root)
+  const root = tempFolder('extjs-dev-safari-bg-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'no-background', version: '0.0.0'})

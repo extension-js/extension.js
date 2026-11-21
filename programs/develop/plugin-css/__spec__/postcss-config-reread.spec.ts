@@ -15,7 +15,7 @@ async function marker(root: string, file: string): Promise<unknown> {
     'development'
   )
 
-  return config?.marker
+  return (config as {marker?: unknown} | undefined)?.marker
 }
 
 function configSource(file: string, value: string): string {
