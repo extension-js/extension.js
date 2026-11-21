@@ -34,15 +34,9 @@ const lastRequested = new Map<string, string>()
 // taken back inside it leaves the session on the compiler it already has.
 export const MAIN_WORLD_SETTLE_MS = DEV_SESSION_RESTART_DEBOUNCE_MS
 
-export type {
-  MainWorldRestartOptions,
-  MainWorldScriptChange,
-  NoteMainWorldSet
-} from '../lib/session-restart-signal'
-
 // The steps that build a MAIN world file take their list once, when the
 // compiler is made, so a set changed mid-session restarts the session.
-export function trackMainWorldRestart(
+function trackMainWorldRestart(
   compiler: Compiler,
   options: MainWorldRestartOptions
 ): NoteMainWorldSet {

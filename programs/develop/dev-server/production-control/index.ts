@@ -168,7 +168,7 @@ function controlledPagesPolicy(
   return buildPolicy(csp)
 }
 
-export function patchControlledManifest(
+function patchControlledManifest(
   manifest: Record<string, unknown>,
   controlSource: string,
   addPolicySources: ControlledBuildParts['addPolicySources']
@@ -252,7 +252,7 @@ export function declaredBackgroundFiles(
   }
 }
 
-export function prepareControlledBuild(input: {
+function prepareControlledBuild(input: {
   parts: ControlledBuildParts
   distPath: string
   controlledPath: string

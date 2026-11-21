@@ -38,7 +38,7 @@ export interface ControlServer {
   close(): Promise<void>
 }
 
-export interface StartControlServerOptions {
+interface StartControlServerOptions {
   broker: BridgeBroker
   host?: string
   port?: number

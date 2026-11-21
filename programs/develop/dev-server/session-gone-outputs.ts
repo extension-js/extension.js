@@ -10,7 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler, Configuration} from '@rspack/core'
 
-export interface SessionGoneOutputsOptions {
+interface SessionGoneOutputsOptions {
   isRestart: boolean
   distPath: string
   // The files this session's compilers wrote, shared by every one of them.
@@ -38,7 +38,7 @@ function removeWrittenFile(root: string, name: string): void {
 // A restart compiles a new entry set and reloads the extension, so what the
 // earlier compilers wrote and this one does not belongs to an entry that is
 // gone. Only names this session wrote are removed, never a file it found.
-export class PruneGoneEntryOutputs {
+class PruneGoneEntryOutputs {
   public static readonly name: string = 'dev-server:prune-gone-entry-outputs'
 
   private readonly isRestart: boolean

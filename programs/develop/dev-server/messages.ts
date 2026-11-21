@@ -366,7 +366,7 @@ function errorText(error: unknown) {
   return String((error as Error)?.message || error)
 }
 
-export type RestartFailureOutcome = 'previous-build' | 'no-server' | 'unknown'
+type RestartFailureOutcome = 'previous-build' | 'no-server' | 'unknown'
 
 // Says what the session is left with: the build it had, nothing at all, or
 // no claim when the failure came from a step that reports neither.

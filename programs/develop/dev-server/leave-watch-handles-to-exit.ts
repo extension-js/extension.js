@@ -18,7 +18,7 @@ interface FolderWatcher {
   emit: (event: string) => boolean
 }
 
-export interface LeaveWatchHandlesOptions {
+interface LeaveWatchHandlesOptions {
   platform?: NodeJS.Platform
   activeHandles?: () => unknown[]
 }

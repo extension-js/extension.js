@@ -28,9 +28,9 @@ import {readyContractErrorCode} from './ready-contract-codes'
 // Machine output is opt-in: the command layer sets EXTENSION_OUTPUT to json or
 // ndjson. Both stream here, because one frame cannot describe a session.
 
-export type LifecycleCommand = 'dev' | 'start' | 'preview'
+type LifecycleCommand = 'dev' | 'start' | 'preview'
 
-export type LifecycleStatus =
+type LifecycleStatus =
   | 'starting'
   | 'compiled'
   | 'recompiled'
@@ -128,7 +128,7 @@ function toFiniteNumber(value: unknown): number | null {
   return null
 }
 
-export interface LifecycleStreamOptions {
+interface LifecycleStreamOptions {
   command: LifecycleCommand
   browser: string
   distPath: string
