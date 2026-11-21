@@ -14,20 +14,32 @@ import {type RenameRetryOptions, renameSyncWithRetry} from './rename-with-retry'
 // own bundle, so it imports node builtins and its two leaf neighbors only.
 export type ReadyRecord = Record<string, unknown>
 
-// The object ready.json holds, or undefined when it is missing or is not
-// one: a half-written file is read as no record.
-export function readReadyRecord(readyPath: string): ReadyRecord | undefined {
+export interface ReadyRead {
+  record?: ReadyRecord
+  // Why a file that is there gave no record: it was read while half written.
+  error?: Error
+}
+
+// One read of ready.json for a poller that reports why a read gave nothing.
+// A missing file and a file that holds no object answer neither field.
+export function tryReadReadyRecord(readyPath: string): ReadyRead {
   try {
-    if (!fs.existsSync(readyPath)) return undefined
+    if (!fs.existsSync(readyPath)) return {}
 
     const value = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
 
     return value && typeof value === 'object'
-      ? (value as ReadyRecord)
-      : undefined
-  } catch {
-    return undefined
+      ? {record: value as ReadyRecord}
+      : {}
+  } catch (error) {
+    return {error: error instanceof Error ? error : new Error(String(error))}
   }
+}
+
+// The object ready.json holds, or undefined when it is missing or is not
+// one: a half-written file is read as no record.
+export function readReadyRecord(readyPath: string): ReadyRecord | undefined {
+  return tryReadReadyRecord(readyPath).record
 }
 
 // Automation polls ready.json while it is stamped, so an in-place write can

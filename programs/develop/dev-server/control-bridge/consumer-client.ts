@@ -6,8 +6,8 @@
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as fs from 'node:fs'
 import {WebSocket} from 'ws'
+import {readReadyRecord} from '../../lib/ready-contract-writer'
 import {readyContractPath} from '../../lib/session-paths'
 import type {ReadyContract} from '../../types'
 import {
@@ -74,17 +74,11 @@ export function readReadyContractDocument(
 ): ReadyContractDocument | null {
   const readyPath = readyContractPath(projectPath, browser)
 
-  try {
-    const parsed = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+  const parsed = readReadyRecord(readyPath)
 
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return null
-    }
-
-    return parsed as ReadyContractDocument
-  } catch {
-    return null
-  }
+  return parsed && !Array.isArray(parsed)
+    ? (parsed as ReadyContractDocument)
+    : null
 }
 
 // The refusal the launcher stamped on this run's contract, as the browser
@@ -114,8 +108,8 @@ export function readReadyContract(
   const readyPath = readyContractPath(projectPath, browser)
 
   try {
-    const c = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-    if (typeof c.controlPort !== 'number' || !c.instanceId) return null
+    const c = readReadyRecord(readyPath)
+    if (!c || typeof c.controlPort !== 'number' || !c.instanceId) return null
 
     return {
       controlPort: c.controlPort,
@@ -124,8 +118,8 @@ export function readReadyContract(
       schemaVersion:
         typeof c.schemaVersion === 'number' ? c.schemaVersion : undefined,
       schema: typeof c.schema === 'number' ? c.schema : undefined,
-      logsPath: c.logsPath,
-      status: c.status,
+      logsPath: c.logsPath as ReadyContractInfo['logsPath'],
+      status: c.status as ReadyContractInfo['status'],
       command: typeof c.command === 'string' ? c.command : undefined,
       engine: typeof c.engine === 'string' ? c.engine : undefined,
       pid: typeof c.pid === 'number' ? c.pid : undefined,

@@ -62,6 +62,7 @@ import {
   getDistPath
 } from './lib/paths'
 import {getProjectStructure, type RemoteArchiveTarget} from './lib/project'
+import {readReadyRecord} from './lib/ready-contract-writer'
 import {linkFreePath} from './lib/real-path'
 import {
   recordedBuildBrowser,
@@ -142,13 +143,9 @@ function readReadyField(
   readyPath: string,
   field: 'runId' | 'status'
 ): string | undefined {
-  try {
-    const parsed = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+  const value = readReadyRecord(readyPath)?.[field]
 
-    return typeof parsed?.[field] === 'string' ? parsed[field] : undefined
-  } catch {
-    return undefined
-  }
+  return typeof value === 'string' ? value : undefined
 }
 
 // One exit listener for every session this process opened, keyed by ready

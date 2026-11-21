@@ -8,11 +8,11 @@
 
 import * as nodeFs from 'node:fs'
 import * as path from 'node:path'
-import {resolveManagedBinaryIn} from '../../browsers-lib/output-binaries-resolver'
 import {
   type RenameRetryOptions,
   renameSyncWithRetry
-} from '../../browsers-lib/rename-with-retry'
+} from '../../../../develop/lib/rename-with-retry'
+import {resolveManagedBinaryIn} from '../../browsers-lib/output-binaries-resolver'
 
 // Current Firefox ignores the app.update.enabled pref. The enterprise policy is
 // the supported switch, so a managed build cannot update and relaunch itself.

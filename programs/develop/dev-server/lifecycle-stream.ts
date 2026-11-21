@@ -6,7 +6,6 @@
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as fs from 'node:fs'
 import {takeCodedWarnings} from '../lib/coded-warnings'
 import {compilationDiagnostics} from '../lib/compilation-diagnostics'
 import {isUsageLaunchCode} from '../lib/launch-codes'
@@ -19,6 +18,7 @@ import {
   type ErrorCode,
   isMachineOutput
 } from '../lib/messaging'
+import {readReadyRecord} from '../lib/ready-contract-writer'
 import {stripAnsi} from '../lib/strip-ansi'
 import {shouldWarnPortConflict} from './messages'
 import {readyContractErrorCode} from './ready-contract-codes'
@@ -64,15 +64,7 @@ export function isLifecycleStreamEnabled(): boolean {
 function readReadyContract(readyPath?: string): Record<string, unknown> | null {
   if (!readyPath) return null
 
-  try {
-    const parsed = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-
-    return parsed && typeof parsed === 'object'
-      ? (parsed as Record<string, unknown>)
-      : null
-  } catch {
-    return null
-  }
+  return readReadyRecord(readyPath) ?? null
 }
 
 // The profile-lock stamp is owned by the launcher and may be absent; every

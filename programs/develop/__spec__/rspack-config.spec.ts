@@ -752,10 +752,11 @@ describe('webpack-config MV2 on chromium warning', () => {
 describe('ready contract carries the control-bridge bind reason', () => {
   const bindReason = 'listen EADDRNOTAVAIL 10.0.0.9:0'
 
-  function findReadyContractPlugin(config: any) {
+  function findReadyContractPlugin(config: {plugins?: unknown[]}) {
     const plugin = (config.plugins ?? []).find(
-      (candidate: any) => candidate instanceof ReadyContractPlugin
-    ) as any
+      (candidate): candidate is ReadyContractPlugin =>
+        candidate instanceof ReadyContractPlugin
+    )
 
     expect(plugin).toBeDefined()
 
