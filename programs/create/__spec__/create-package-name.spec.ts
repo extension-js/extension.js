@@ -11,10 +11,8 @@ import {
 } from './examples-catalog-fixture'
 import {fakeSpawn} from './fake-spawn'
 
-// These rows read the names create writes, never the repository. Git runs
-// about six real calls per scaffold, which a Windows runner has taken past
-// 5 s, so every git call answers at once. The npm version comes from the
-// user agent vitest.config.ts sets, so no npm starts either.
+// The rows never read the repository, so git answers at once: real git has
+// taken past 5 s on a Windows runner.
 const quickSeams: CreateSeams = {
   git: {spawn: fakeSpawn(() => ({exit: 0})).spawn}
 }
