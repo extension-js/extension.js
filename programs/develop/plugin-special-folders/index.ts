@@ -19,6 +19,17 @@ import {
 import {rememberPublicRoots} from '../lib/public-roots'
 import {isInsidePath} from '../lib/real-path'
 import {requestSessionRestart} from '../lib/session-restart-signal'
+import {
+  excludedFiles,
+  miscasedEntryFolders,
+  publicFolderSetting,
+  rememberExcludedFiles,
+  rememberSpecialFoldersConfig
+} from '../lib/special-folders/folders-config'
+import {
+  inspectPublicFolders,
+  publicFolderExists
+} from '../lib/special-folders/resolve-public-folder'
 import {emitRootAbsoluteRefs} from '../plugin-web-extension/feature-html/steps/emit-root-absolute-refs'
 import {localeDirsWithoutMessages} from '../plugin-web-extension/feature-locales/get-locales'
 import {htmlPageEntries} from '../plugin-web-extension/shared/html-page-entries'
@@ -35,13 +46,6 @@ import {
   publicFilesShadowedByEntries
 } from './check-public-output-collision'
 import {
-  excludedFiles,
-  miscasedEntryFolders,
-  publicFolderSetting,
-  rememberExcludedFiles,
-  rememberSpecialFoldersConfig
-} from './folders-config'
-import {
   getSpecialFoldersDataForCompiler,
   walkedEntriesLeftOut,
   walkedEntryCollisions
@@ -50,7 +54,6 @@ import {HintImportOnlyScripts} from './hint-import-only-scripts'
 import {IncludeFiles} from './include-files'
 import * as messages from './messages'
 import {PruneRemovedPublicFiles} from './prune-removed-public-files'
-import {inspectPublicFolders, publicFolderExists} from './resolve-public-folder'
 import {WarnUponFolderChanges} from './warn-upon-folder-changes'
 
 // The env files a watch session already named, by public folder. It

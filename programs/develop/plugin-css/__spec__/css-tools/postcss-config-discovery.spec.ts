@@ -4,12 +4,12 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {rspack} from '@rspack/core'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {writeProjectFiles} from '../../../__spec__/helpers/extension-project'
 import {
   findPostCssConfig,
   maybeUsePostCss,
   postCssConfigSearchPlaces
 } from '../../css-tools/postcss'
-import {writeProjectFiles} from '../../../__spec__/helpers/extension-project'
 
 const tempDirs: string[] = []
 

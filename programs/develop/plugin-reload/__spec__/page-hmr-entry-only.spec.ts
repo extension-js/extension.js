@@ -2,9 +2,9 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compiler, rspack} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {HtmlPlugin} from '../../plugin-web-extension/feature-html'
 import {SetupPageReload} from '../steps/setup-page-reload'
-import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
 const PRELUDE_MARK = 'Error clearing HTML containers'
 const tempFolder = trackTempFolders()

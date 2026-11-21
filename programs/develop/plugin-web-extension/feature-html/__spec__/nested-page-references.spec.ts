@@ -7,6 +7,7 @@ import {
   openDevWatchSession,
   waitUntil
 } from '../../../__spec__/helpers/dev-watch-session'
+import {writeExtensionProject} from '../../../__spec__/helpers/extension-project'
 import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {
   build,
@@ -15,7 +16,6 @@ import {
   notFoundPaths,
   outputHolding
 } from './helpers/private-files-project'
-import {writeExtensionProject} from '../../../__spec__/helpers/extension-project'
 
 // A real rspack watch over a popup that embeds a second page. The second
 // page names a script, a stylesheet and an image, which ship as plain copies.

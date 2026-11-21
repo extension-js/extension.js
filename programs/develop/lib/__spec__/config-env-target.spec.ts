@@ -3,13 +3,13 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {pathToFileURL} from 'node:url'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {
   loadBrowserConfig,
   loadCommandConfig,
   loadConfigResolvedHook,
   loadProjectConfigDefaults
 } from '../config-loader'
-import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
 // A config is read under the env files of the mode and browser that asked,
 // whichever loader ran first, and runs again only when those files differ.

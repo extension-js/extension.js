@@ -1,6 +1,6 @@
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
-import {rememberSpecialFoldersConfig} from '../../plugin-special-folders/folders-config'
+import {rememberSpecialFoldersConfig} from '../../lib/special-folders/folders-config'
 import type {DevOptions} from '../../types'
 import {
   callable,

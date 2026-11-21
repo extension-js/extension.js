@@ -3,11 +3,11 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {writeProjectFiles} from '../../../__spec__/helpers/extension-project'
 import {
   declaredResourceSource,
   resolveUserDeclaredWAR
 } from '../web-resources-lib/resolve-war'
-import {writeProjectFiles} from '../../../__spec__/helpers/extension-project'
 
 const created: string[] = []
 

@@ -1,8 +1,8 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
-import {PruneRemovedPublicFiles} from '../prune-removed-public-files'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+import {PruneRemovedPublicFiles} from '../prune-removed-public-files'
 
 const tempFolder = trackTempFolders()
 

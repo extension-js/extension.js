@@ -5,8 +5,8 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {readyContractErrorCode} from '../dev-server/ready-contract-codes'
 import {resetPerfBudgetNotices} from '../plugin-perf-budgets'
 import {buildProject} from './helpers/build-project'
-import {trackTempFolders} from './helpers/temp-folders'
 import {writeProjectFiles} from './helpers/extension-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // An overrun is a warning unless the author asks for a failed build, and a
 // CI job that gates on size needs the exit code and the code to agree.

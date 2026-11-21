@@ -3,8 +3,8 @@ import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {readyContractPath} from '../lib/session-paths'
 import {buildProject} from './helpers/build-project'
-import {trackTempFolders} from './helpers/temp-folders'
 import {writeExtensionProject} from './helpers/extension-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // A build can fail after its compile passed. The receipt then says failed,
 // and the output folder is as the build found it.

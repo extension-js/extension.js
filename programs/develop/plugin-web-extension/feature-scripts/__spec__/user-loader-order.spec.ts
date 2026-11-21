@@ -3,10 +3,10 @@ import * as path from 'node:path'
 import * as vm from 'node:vm'
 import {rspack} from '@rspack/core'
 import {describe, expect, it, vi} from 'vitest'
-import {getProjectStructure} from '../../../lib/project'
-import webpackConfig from '../../../rspack-config'
 import {buildProject} from '../../../__spec__/helpers/build-project'
 import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
+import {getProjectStructure} from '../../../lib/project'
+import webpackConfig from '../../../rspack-config'
 
 // What a loader added through the config hook of extension.config.js is
 // handed for a content script, read from whole builds with a recording loader.

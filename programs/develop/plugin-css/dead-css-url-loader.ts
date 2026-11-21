@@ -11,14 +11,14 @@ import * as path from 'node:path'
 import {WebpackError} from '@rspack/core'
 import {canonicalizeDir, canonicalizeResourcePath} from '../lib/resource-path'
 import {
+  publicContainmentRoot,
+  resolvePublicFolder
+} from '../lib/special-folders/resolve-public-folder'
+import {
   noteWithheldCssRef,
   WITHHELD_CSS_REF,
   type WithheldKind
 } from '../lib/withheld-file'
-import {
-  publicContainmentRoot,
-  resolvePublicFolder
-} from '../plugin-special-folders/resolve-public-folder'
 import {
   cssUrlRefFiles,
   extractCssUrlRefs,

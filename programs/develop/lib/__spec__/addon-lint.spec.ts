@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {describe, expect, it, vi} from 'vitest'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {
   ADDON_LINT_DEFAULT,
   ADDON_LINT_MAX_PRINTED,
@@ -19,7 +20,6 @@ import {
   shouldRunAddonLint,
   summarizeAddonLint
 } from '../addon-lint'
-import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
 function stripAnsi(value: string): string {
   // eslint-disable-next-line no-control-regex
