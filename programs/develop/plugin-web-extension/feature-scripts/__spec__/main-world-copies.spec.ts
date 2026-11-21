@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import {asCompiler} from '../../__spec__/helpers/rspack-fakes'
 import {buildMainWorldBridgePairingSource} from '../scripts-lib/main-world-bridge-pairing'
 import {MAIN_WORLD_COPY_ROUTING_MARK} from '../scripts-lib/main-world-copy-routing'
 import {
@@ -266,16 +267,18 @@ describe('a call that leaves the world to the running code', () => {
     new WarnUnknownRegistrationWorld({
       manifestPath: at('manifest.json'),
       includeList: options.includeList
-    }).apply({
-      options: {mode: 'production', context: root},
-      hooks: {
-        thisCompilation: {
-          tap: (_name: string, callback: typeof compile) => {
-            compile = callback
+    }).apply(
+      asCompiler({
+        options: {mode: 'production', context: root},
+        hooks: {
+          thisCompilation: {
+            tap: (_name: string, callback: typeof compile) => {
+              compile = callback
+            }
           }
         }
-      }
-    } as any)
+      })
+    )
 
     const compilation = {warnings: [] as Array<Error & {file?: string}>}
     compile?.(compilation)
@@ -346,15 +349,17 @@ describe('the routing a build prepends', () => {
     new RouteMainWorldCopies({
       manifestPath: at('manifest.json'),
       includeList: withMainWorldCopyEntries(options)
-    }).apply({
-      options: {mode: 'production', context: root},
-      hooks: {
-        thisCompilation: {
-          tap: (_name: string, callback: (value: unknown) => void) =>
-            callback(compilation)
+    }).apply(
+      asCompiler({
+        options: {mode: 'production', context: root},
+        hooks: {
+          thisCompilation: {
+            tap: (_name: string, callback: (value: unknown) => void) =>
+              callback(compilation)
+          }
         }
-      }
-    } as any)
+      })
+    )
 
     run()
 

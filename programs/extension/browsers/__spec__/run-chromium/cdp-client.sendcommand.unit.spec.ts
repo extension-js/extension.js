@@ -1,4 +1,3 @@
-import {EventEmitter} from 'node:events'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import WebSocket from 'ws'
 
@@ -14,24 +13,18 @@ vi.mock('../../run-chromium/cdp/ws', () => ({
 }))
 
 import {CDPClient} from '../../run-chromium/cdp/cdp-client'
+import {clientInternals, type FakeSocket, fakeSocket} from '../cdp-client-fakes'
 
 describe('CDPClient.sendCommand', () => {
   let client: CDPClient
-  let mockWs: any
+  let mockWs: FakeSocket
 
   beforeEach(() => {
     vi.useFakeTimers()
     client = new CDPClient(9222, '127.0.0.1')
 
-    mockWs = new EventEmitter()
-    mockWs.readyState = WebSocket.OPEN
-    mockWs.close = vi.fn(() => {
-      mockWs.readyState = WebSocket.CLOSED
-    })
-
-    mockWs.send = vi.fn()
-
-    ;(client as any).ws = mockWs
+    mockWs = fakeSocket(WebSocket.OPEN, WebSocket.CLOSED)
+    clientInternals(client).ws = mockWs
   })
 
   afterEach(() => {
@@ -51,7 +44,7 @@ describe('CDPClient.sendCommand', () => {
     const sent = JSON.parse(mockWs.send.mock.calls[0][0])
     expect(sent.method).toBe('Target.getTargets')
 
-    ;(client as any).handleMessage(
+    clientInternals(client).handleMessage(
       JSON.stringify({id: sent.id, result: {targetInfos: [{type: 'page'}]}})
     )
 
@@ -88,7 +81,7 @@ describe('CDPClient.sendCommand', () => {
 
     const sent = JSON.parse(mockWs.send.mock.calls[0][0])
 
-    ;(client as any).handleMessage(
+    clientInternals(client).handleMessage(
       JSON.stringify({id: sent.id, result: {frameId: 'frame-1'}})
     )
 
@@ -104,7 +97,7 @@ describe('CDPClient.sendCommand', () => {
 
     const sent = JSON.parse(mockWs.send.mock.calls[0][0])
 
-    ;(client as any).handleMessage(
+    clientInternals(client).handleMessage(
       JSON.stringify({
         id: sent.id,
         error: {code: -32000, message: 'Extension not found'}
@@ -134,10 +127,11 @@ describe('CDPClient.sendCommand', () => {
     expect(sent1.method).toBe('Target.getTargets')
     expect(sent2.method).toBe('Browser.getVersion')
 
-    ;(client as any).handleMessage(
+    clientInternals(client).handleMessage(
       JSON.stringify({id: sent2.id, result: {product: 'Chrome/120'}})
     )
-    ;(client as any).handleMessage(
+
+    clientInternals(client).handleMessage(
       JSON.stringify({id: sent1.id, result: {targetInfos: []}})
     )
 
@@ -161,7 +155,7 @@ describe('CDPClient.sendCommand', () => {
     )
 
     expect(() => {
-      ;(client as any).handleMessage(
+      clientInternals(client).handleMessage(
         JSON.stringify({id: sent.id, result: {value: 42}})
       )
     }).not.toThrow()
@@ -183,6 +177,6 @@ describe('CDPClient.sendCommand', () => {
       'write after end'
     )
 
-    expect((client as any).pendingRequests.size).toBe(0)
+    expect(clientInternals(client).pendingRequests.size).toBe(0)
   })
 })

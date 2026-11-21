@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import vm from 'node:vm'
 import {rspack} from '@rspack/core'
-import {Parser} from 'acorn'
+import {Parser, type Program} from 'acorn'
 import {afterAll, describe, expect, it, vi} from 'vitest'
 import {diagnosticCode} from '../../../lib/diagnostic-code'
 import {readDefaultExport} from '../scripts-lib/default-export'
@@ -65,7 +65,7 @@ function wrap(
           manifestPath: path.join(root, 'manifest.json'),
           mode
         })
-      } as any,
+      } as unknown as ThisParameterType<typeof contentScriptWrapper>,
       source
     )
   )
@@ -93,7 +93,7 @@ function asJavaScript(text: string, file: string) {
 
 // How many default exports acorn finds, or the reason it reads no module.
 function defaultExports(text: string, file: string) {
-  let body: any[]
+  let body: Program['body']
 
   try {
     body = Parser.parse(asJavaScript(text, file), {
@@ -104,7 +104,8 @@ function defaultExports(text: string, file: string) {
     return String((error as Error).message)
   }
 
-  const named = (node: any) => node?.name ?? node?.value
+  const named = (node: {name?: unknown; value?: unknown} | null | undefined) =>
+    node?.name ?? node?.value
 
   return body.filter(
     (node) =>
@@ -112,7 +113,7 @@ function defaultExports(text: string, file: string) {
       (node.type === 'ExportAllDeclaration' &&
         named(node.exported) === 'default') ||
       (node.type === 'ExportNamedDeclaration' &&
-        node.specifiers.some((one: any) => named(one.exported) === 'default'))
+        node.specifiers.some((one) => named(one.exported) === 'default'))
   ).length
 }
 

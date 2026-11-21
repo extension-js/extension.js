@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import type {Manifest} from '../../../../../types'
 import {sidePanel} from '../side_panel'
 
 const tempDirs: string[] = []
@@ -33,7 +34,7 @@ describe('sidePanel (MV3 override)', () => {
         default_path: 'src/sidebar/index.html',
         default_title: 'Panel'
       }
-    } as any)
+    } as Manifest)
 
     expect(result).toEqual({
       side_panel: {
@@ -44,7 +45,7 @@ describe('sidePanel (MV3 override)', () => {
   })
 
   it('returns undefined when manifest has no side_panel', () => {
-    const result = sidePanel({manifest_version: 3} as any)
+    const result = sidePanel({manifest_version: 3} as Manifest)
     expect(result).toBeUndefined()
   })
 
@@ -55,7 +56,7 @@ describe('sidePanel (MV3 override)', () => {
         default_path: 'pages/panel.html',
         default_title: 'My Panel'
       }
-    } as any)
+    } as Manifest)
 
     expect(result?.side_panel?.default_path).toBe('sidebar/index.html')
     expect(result?.side_panel?.default_title).toBe('My Panel')
@@ -67,7 +68,7 @@ describe('sidePanel (MV3 override)', () => {
       {
         manifest_version: 3,
         side_panel: {default_path: 'public/sidebar/panel.html'}
-      } as any,
+      } as Manifest,
       manifestPath
     )
 
@@ -80,7 +81,7 @@ describe('sidePanel (MV3 override)', () => {
       {
         manifest_version: 3,
         side_panel: {default_path: '/panel.html'}
-      } as any,
+      } as Manifest,
       manifestPath
     )
 
@@ -93,7 +94,7 @@ describe('sidePanel (MV3 override)', () => {
       {
         manifest_version: 3,
         side_panel: {default_path: '/panel.html'}
-      } as any,
+      } as Manifest,
       manifestPath
     )
 

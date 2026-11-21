@@ -5,27 +5,31 @@ import {
   writeProject
 } from '../../../__spec__/helpers/real-compiler'
 import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
+import {asCompiler, type TapCallback} from '../../__spec__/helpers/rspack-fakes'
 import {ValidateEmittedScriptSyntax} from '../steps/validate-emitted-script-syntax'
+
+// A diagnostic as the step under test reports it.
+type Reported = Error & {file?: string}
 
 const makeTempFolder = trackTempFolders()
 
 function makeCompilation(assets: Record<string, string>) {
-  const compilation: any = {
-    errors: [],
+  const compilation = {
+    errors: [] as Reported[],
     getAssets: () =>
       Object.entries(assets).map(([name, src]) => ({
         name,
         source: {source: () => src}
       })),
     hooks: {
-      processAssets: {tap: (_opts: any, fn: any) => fn()}
+      processAssets: {tap: (_opts: unknown, fn: TapCallback) => fn()}
     }
   }
-  const compiler: any = {
+  const compiler = asCompiler({
     hooks: {
-      thisCompilation: {tap: (_n: string, fn: any) => fn(compilation)}
+      thisCompilation: {tap: (_n: string, fn: TapCallback) => fn(compilation)}
     }
-  }
+  })
 
   return {compiler, compilation}
 }
@@ -62,7 +66,7 @@ describe('ValidateEmittedScriptSyntax', () => {
     new ValidateEmittedScriptSyntax().apply(compiler)
 
     expect(compilation.errors).toHaveLength(2)
-    const files = compilation.errors.map((error: any) => error.file).sort()
+    const files = compilation.errors.map((error) => error.file).sort()
     expect(files).toEqual(['action/index.js', 'background/service_worker.js'])
     expect(String(compilation.errors[0].message)).toContain('dead on arrival')
   })

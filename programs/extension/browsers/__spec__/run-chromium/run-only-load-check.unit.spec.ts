@@ -53,8 +53,10 @@ vi.mock('../../../helpers/extension-develop-runtime', () => ({
 import {runWaitMode} from '../../../commands/dev-wait'
 import * as banner from '../../browsers-lib/banner'
 import {holdRefusalPredictions} from '../../browsers-lib/manifest-refusal'
+import type {CompilationLike} from '../../browsers-types'
 import {browserConfig} from '../../run-chromium/chromium-launch/browser-config'
 import {verifyGuestLoadAfterLaunch} from '../../run-chromium/chromium-launch/setup-cdp-after-launch'
+import type {ChromiumPluginRuntime} from '../../run-chromium/chromium-types'
 
 const tempDirs: string[] = []
 
@@ -117,14 +119,15 @@ const readReady = (readyPath: string) =>
   JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
 
 describe('run-only launch flags', () => {
-  const compilation = (outPath: string) =>
-    ({options: {mode: 'production', output: {path: outPath}}}) as any
+  const compilation = (outPath: string): CompilationLike => ({
+    options: {mode: 'production', output: {path: outPath}}
+  })
 
   it('opens the debugging wire for a production launch that asks for it', () => {
     const {outPath} = makeStartSession()
     const flags = browserConfig(
       compilation(outPath),
-      {browser: 'chrome', extension: [outPath], profile: false} as any,
+      {browser: 'chrome', extension: [outPath], profile: false},
       {provision: false, cdp: true}
     )
 
@@ -138,7 +141,7 @@ describe('run-only launch flags', () => {
     const {outPath} = makeStartSession()
     const flags = browserConfig(
       compilation(outPath),
-      {browser: 'chrome', extension: [outPath], profile: false} as any,
+      {browser: 'chrome', extension: [outPath], profile: false},
       {provision: false}
     )
 
@@ -157,8 +160,8 @@ describe('verifyGuestLoadAfterLaunch (run-only load evidence)', () => {
     evaluateInBackgroundSpy.mockReset()
     releaseSessionSpy.mockClear()
     openBackgroundSessionSpy.mockClear()
-    ;(banner.printDevBannerOnce as any).mockClear()
-    ;(banner.printProdBannerOnce as any).mockClear()
+    vi.mocked(banner.printDevBannerOnce).mockClear()
+    vi.mocked(banner.printProdBannerOnce).mockClear()
     errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
@@ -170,10 +173,11 @@ describe('verifyGuestLoadAfterLaunch (run-only load evidence)', () => {
     }
   })
 
-  const runCheck = (outPath: string, plugin: Record<string, unknown>) =>
+  // The rows set only the runtime fields the load check reads.
+  const runCheck = (outPath: string, plugin: Partial<ChromiumPluginRuntime>) =>
     verifyGuestLoadAfterLaunch(
-      {options: {mode: 'production', output: {path: outPath}}} as any,
-      plugin as any,
+      {options: {mode: 'production', output: {path: outPath}}},
+      plugin as ChromiumPluginRuntime,
       runOnlyArgs(outPath),
       undefined
     )

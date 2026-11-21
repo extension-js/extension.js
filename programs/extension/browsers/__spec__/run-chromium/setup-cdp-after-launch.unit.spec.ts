@@ -26,7 +26,7 @@ vi.mock('../../run-chromium/cdp/cdp-extension-controller', async () => {
   )) as Record<string, unknown>
 
   class CDPExtensionController {
-    constructor(args: any) {
+    constructor(args: unknown) {
       ctorSpy(args)
     }
     connect = connectSpy
@@ -76,8 +76,23 @@ import {claimCardKey} from '../../../helpers/messaging'
 import * as banner from '../../browsers-lib/banner'
 import {setInstancePorts} from '../../browsers-lib/instance-registry'
 import {readyPathFor} from '../../browsers-lib/ready-stamp'
+import type {CompilationLike} from '../../browsers-types'
 import * as controllerModule from '../../run-chromium/cdp/cdp-extension-controller'
 import {setupCdpAfterLaunch} from '../../run-chromium/chromium-launch/setup-cdp-after-launch'
+import type {ChromiumPluginRuntime} from '../../run-chromium/chromium-types'
+
+// The specs drive only the fields the post-launch flow reads, so the runtime
+// is built partial once here instead of at every call.
+function runtime(
+  fields: Partial<ChromiumPluginRuntime>
+): ChromiumPluginRuntime {
+  return fields as ChromiumPluginRuntime
+}
+
+type ControllerModuleWithReal = typeof controllerModule & {
+  __realController?: {prototype?: Record<string, unknown>}
+  CDPExtensionController: new (args: unknown) => Record<string, unknown>
+}
 
 // Folders of the spec's own: /workspace and /tmp/extension-profile can exist
 // on a shared machine, and the code under test reads and writes a profile.
@@ -146,12 +161,12 @@ describe('setupCdpAfterLaunch', () => {
   it('prints development banner early using best-effort info lookup', async () => {
     const printDevBannerOnceSpy = vi.mocked(banner.printDevBannerOnce)
 
-    const plugin: any = {
+    const plugin = runtime({
       browser: 'chromium',
       port: 9333,
       instanceId: 'test-instance',
       browserVersionLine: 'Chromium 123'
-    }
+    })
 
     const userExtensionPath = `${WORKSPACE}/templates/react/dist/chromium`
     const chromiumArgs = [
@@ -160,7 +175,7 @@ describe('setupCdpAfterLaunch', () => {
       `--user-data-dir=${PROFILE}`
     ]
 
-    const compilation: any = {
+    const compilation: CompilationLike = {
       options: {mode: 'development', output: {path: userExtensionPath}}
     }
 
@@ -206,13 +221,13 @@ describe('setupCdpAfterLaunch', () => {
 
       ensureLoadedSpy.mockImplementationOnce(() => new Promise(() => {}))
 
-      const plugin: any = {
+      const plugin = runtime({
         browser: 'chromium',
         port: 9333,
         instanceId: 'test-instance',
         launchRunId: 'run-A'
-      }
-      const compilation: any = {
+      })
+      const compilation: CompilationLike = {
         options: {mode: 'development', output: {path: outPath}}
       }
 
@@ -244,7 +259,7 @@ describe('setupCdpAfterLaunch', () => {
     try {
       arrange()
 
-      const compilation: any = {
+      const compilation: CompilationLike = {
         options: {
           mode: 'development',
           output: {path: `${WORKSPACE}/dist/chromium`}
@@ -253,7 +268,7 @@ describe('setupCdpAfterLaunch', () => {
 
       await setupCdpAfterLaunch(
         compilation,
-        {browser: 'chromium', port: 9333, instanceId: 'test-instance'} as any,
+        runtime({browser: 'chromium', port: 9333, instanceId: 'test-instance'}),
         [
           `--load-extension=${WORKSPACE}/dist/chromium`,
           '--remote-debugging-port=9333'
@@ -268,11 +283,11 @@ describe('setupCdpAfterLaunch', () => {
   })
 
   it('turns developer mode on for the profile it launched', async () => {
-    const plugin: any = {
+    const plugin = runtime({
       browser: 'chromium',
       port: 9333,
       instanceId: 'dev-mode'
-    }
+    })
     const profileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dev-mode-'))
     tempDirs.push(profileDir)
 
@@ -282,7 +297,7 @@ describe('setupCdpAfterLaunch', () => {
           mode: 'development',
           output: {path: `${WORKSPACE}/dist/chromium`}
         }
-      } as any,
+      } satisfies CompilationLike,
       plugin,
       ['--remote-debugging-port=9333', `--user-data-dir=${profileDir}`]
     )
@@ -291,11 +306,11 @@ describe('setupCdpAfterLaunch', () => {
   })
 
   it('leaves the toggle alone for a profile that already carries it', async () => {
-    const plugin: any = {
+    const plugin = runtime({
       browser: 'chromium',
       port: 9333,
       instanceId: 'dev-mode'
-    }
+    })
     const profileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dev-mode-'))
     tempDirs.push(profileDir)
     fs.mkdirSync(path.join(profileDir, 'Default'), {recursive: true})
@@ -310,7 +325,7 @@ describe('setupCdpAfterLaunch', () => {
           mode: 'development',
           output: {path: `${WORKSPACE}/dist/chromium`}
         }
-      } as any,
+      } satisfies CompilationLike,
       plugin,
       ['--remote-debugging-port=9333', `--user-data-dir=${profileDir}`]
     )
@@ -319,12 +334,12 @@ describe('setupCdpAfterLaunch', () => {
   })
 
   it('never touches the user own profile or a windowless park', async () => {
-    const plugin: any = {
+    const plugin = runtime({
       browser: 'chromium',
       port: 9333,
       instanceId: 'dev-mode'
-    }
-    const compilation: any = {
+    })
+    const compilation: CompilationLike = {
       options: {
         mode: 'development',
         output: {path: `${WORKSPACE}/dist/chromium`}
@@ -350,14 +365,14 @@ describe('setupCdpAfterLaunch', () => {
   })
 
   describe('the startup choice of a profile that outlives the session', () => {
-    const compilation: any = {
+    const compilation: CompilationLike = {
       options: {
         mode: 'development',
         output: {path: `${WORKSPACE}/dist/chromium`}
       }
     }
     const plugin = () =>
-      ({browser: 'chromium', port: 9333, instanceId: 'startup'}) as any
+      runtime({browser: 'chromium', port: 9333, instanceId: 'startup'})
 
     function profile(files: Record<string, unknown>) {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'startup-choice-'))
@@ -412,7 +427,7 @@ describe('setupCdpAfterLaunch', () => {
       ensureStartupNewTabSpy.mockResolvedValueOnce('unavailable' as never)
 
       await setupCdpAfterLaunch(
-        {options: {mode: 'development', output: {path: outPath}}} as any,
+        {options: {mode: 'development', output: {path: outPath}}},
         plugin(),
         ['--remote-debugging-port=9333', `--user-data-dir=${dir}`]
       )
@@ -480,12 +495,12 @@ describe('setupCdpAfterLaunch', () => {
   })
 
   it('passes only selected user extension path to controller from --load-extension', async () => {
-    const plugin: any = {
+    const plugin = runtime({
       browser: 'chromium',
       port: 9333,
       instanceId: 'test-instance',
       browserVersionLine: 'Chromium 123'
-    }
+    })
 
     const userExtensionPath = `${WORKSPACE}/templates/react/dist/chromium`
     const chromiumArgs = [
@@ -494,7 +509,7 @@ describe('setupCdpAfterLaunch', () => {
       `--user-data-dir=${PROFILE}`
     ]
 
-    const compilation: any = {
+    const compilation: CompilationLike = {
       options: {mode: 'development', output: {path: userExtensionPath}}
     }
 
@@ -518,14 +533,16 @@ describe('setupCdpAfterLaunch', () => {
   it('dials the port recorded for its own instance when no flag names one', async () => {
     setInstancePorts('port-moved-instance', {cdpPort: 9555})
     setInstancePorts('another-instance', {cdpPort: 9666})
-    const plugin: any = {
+    const plugin = runtime({
       browser: 'chromium',
       port: 9333,
       instanceId: 'port-moved-instance'
-    }
+    })
 
     await setupCdpAfterLaunch(
-      {options: {mode: 'development', output: {path: WORKSPACE}}} as any,
+      {
+        options: {mode: 'development', output: {path: WORKSPACE}}
+      } satisfies CompilationLike,
       plugin,
       [`--user-data-dir=${PROFILE}`]
     )
@@ -551,13 +568,13 @@ describe('setupCdpAfterLaunch', () => {
       '--remote-debugging-port=9333',
       `--user-data-dir=${PROFILE}`
     ]
-    const compilation: any = {
+    const compilation: CompilationLike = {
       options: {mode: 'development', output: {path: userDir}}
     }
 
     await setupCdpAfterLaunch(
       compilation,
-      {browser: 'yandex', port: 9333, instanceId: 'i'} as any,
+      runtime({browser: 'yandex', port: 9333, instanceId: 'i'}),
       chromiumArgs
     )
 
@@ -579,14 +596,14 @@ describe('setupCdpAfterLaunch', () => {
       '--remote-debugging-port=9333',
       `--user-data-dir=${PROFILE}`
     ]
-    const compilation: any = {
+    const compilation: CompilationLike = {
       options: {mode: 'development', output: {path: userDir}}
     }
 
-    for (const browser of ['chromium', 'chrome', 'edge', 'opera']) {
+    for (const browser of ['chromium', 'chrome', 'edge', 'opera'] as const) {
       await setupCdpAfterLaunch(
         compilation,
-        {browser, port: 9333, instanceId: 'i'} as any,
+        runtime({browser, port: 9333, instanceId: 'i'}),
         chromiumArgs
       )
     }
@@ -600,13 +617,13 @@ describe('setupCdpAfterLaunch', () => {
       name: 'NewTab Ext',
       chrome_url_overrides: {newtab: 'newtab/index.html'}
     })
-    const plugin: any = {browser: 'chromium', port: 9333, instanceId: 'i'}
+    const plugin = runtime({browser: 'chromium', port: 9333, instanceId: 'i'})
     const chromiumArgs = [
       `--load-extension=${extDir}`,
       '--remote-debugging-port=9333',
       `--user-data-dir=${PROFILE}`
     ]
-    const compilation: any = {
+    const compilation: CompilationLike = {
       options: {mode: 'development', output: {path: extDir}}
     }
 
@@ -621,13 +638,13 @@ describe('setupCdpAfterLaunch', () => {
       name: 'Plain Ext',
       action: {default_popup: 'popup.html'}
     })
-    const plugin: any = {browser: 'chromium', port: 9333, instanceId: 'i'}
+    const plugin = runtime({browser: 'chromium', port: 9333, instanceId: 'i'})
     const chromiumArgs = [
       `--load-extension=${extDir}`,
       '--remote-debugging-port=9333',
       `--user-data-dir=${PROFILE}`
     ]
-    const compilation: any = {
+    const compilation: CompilationLike = {
       options: {mode: 'development', output: {path: extDir}}
     }
 
@@ -654,13 +671,13 @@ describe('setupCdpAfterLaunch', () => {
     })
 
     await setupCdpAfterLaunch(
-      {options: {mode: 'development', output: {path: extDir}}} as any,
-      {
+      {options: {mode: 'development', output: {path: extDir}}},
+      runtime({
         browser: 'chromium',
         port: 9333,
         instanceId: 'i',
         startingUrl: 'https://example.com/'
-      } as any,
+      }),
       [
         `--load-extension=${extDir}`,
         '--remote-debugging-port=9333',
@@ -690,14 +707,14 @@ describe('setupCdpAfterLaunch', () => {
     })
 
     await setupCdpAfterLaunch(
-      {options: {mode: 'development', output: {path: extDir}}} as any,
-      {
+      {options: {mode: 'development', output: {path: extDir}}},
+      runtime({
         browser: 'chromium',
         port: 9333,
         instanceId: 'i',
         startingUrl: 'https://example.com/',
         awaitBootRegistrations
-      } as any,
+      }),
       [`--load-extension=${extDir}`, '--remote-debugging-port=9333']
     )
 
@@ -710,15 +727,15 @@ describe('setupCdpAfterLaunch', () => {
     const awaitBootRegistrations = vi.fn(async () => 'settled' as const)
 
     await setupCdpAfterLaunch(
-      {options: {mode: 'development', output: {path: extDir}}} as any,
-      {
+      {options: {mode: 'development', output: {path: extDir}}},
+      runtime({
         browser: 'chromium',
         port: 9333,
         instanceId: 'i',
         startingUrl: 'https://example.com/',
         noOpen: true,
         awaitBootRegistrations
-      } as any,
+      }),
       [`--load-extension=${extDir}`, '--remote-debugging-port=9333']
     )
 
@@ -729,14 +746,14 @@ describe('setupCdpAfterLaunch', () => {
     const extDir = makeExtensionDir({manifest_version: 3, name: 'Plain Ext'})
 
     await setupCdpAfterLaunch(
-      {options: {mode: 'development', output: {path: extDir}}} as any,
-      {
+      {options: {mode: 'development', output: {path: extDir}}},
+      runtime({
         browser: 'chromium',
         port: 9333,
         instanceId: 'i',
         startingUrl: 'https://example.com/',
         noOpen: true
-      } as any,
+      }),
       [`--load-extension=${extDir}`, '--remote-debugging-port=9333']
     )
 
@@ -754,18 +771,18 @@ describe('setupCdpAfterLaunch', () => {
       '--remote-debugging-port=9333',
       `--user-data-dir=${PROFILE}`
     ]
-    const compilation: any = {
+    const compilation: CompilationLike = {
       options: {mode: 'development', output: {path: extDir}}
     }
 
     await setupCdpAfterLaunch(
       compilation,
-      {
+      runtime({
         browser: 'chromium',
         port: 9333,
         instanceId: 'i',
         startingUrl: 'https://example.com'
-      } as any,
+      }),
       chromiumArgs
     )
 
@@ -773,7 +790,7 @@ describe('setupCdpAfterLaunch', () => {
 
     await setupCdpAfterLaunch(
       compilation,
-      {browser: 'chromium', port: 9333, instanceId: 'i', noOpen: true} as any,
+      runtime({browser: 'chromium', port: 9333, instanceId: 'i', noOpen: true}),
       chromiumArgs
     )
 
@@ -795,13 +812,13 @@ describe('setupCdpAfterLaunch', () => {
     fs.mkdirSync(path.dirname(readyPath), {recursive: true})
     fs.writeFileSync(readyPath, JSON.stringify(record))
 
-    const plugin: any = {
+    const plugin = runtime({
       browser: 'chromium',
       port: 9333,
       instanceId: 'test-instance',
       launchRunId: 'run-A'
-    }
-    const compilation: any = {
+    })
+    const compilation: CompilationLike = {
       options: {mode: 'development', output: {path: outPath}}
     }
 
@@ -856,8 +873,11 @@ describe('setupCdpAfterLaunch', () => {
   })
 
   it('keeps the mock in step with the controller the launch really builds', () => {
-    const real = (controllerModule as any).__realController
-    const mocked = new (controllerModule as any).CDPExtensionController({})
+    const real = (controllerModule as unknown as ControllerModuleWithReal)
+      .__realController
+    const mocked = new (
+      controllerModule as unknown as ControllerModuleWithReal
+    ).CDPExtensionController({})
 
     expect(typeof real?.prototype?.ensurePageTarget).toBe('function')
     expect(typeof mocked.ensurePageTarget).toBe('function')
@@ -870,13 +890,13 @@ describe('setupCdpAfterLaunch', () => {
   it('gives a headless session a page target, on the companion welcome page', async () => {
     const companionDir = makeCompanionDir()
     const userDir = makeExtensionDir({manifest_version: 3, name: 'User'})
-    const compilation: any = {
+    const compilation: CompilationLike = {
       options: {mode: 'development', output: {path: userDir}}
     }
 
     await setupCdpAfterLaunch(
       compilation,
-      {browser: 'yandex', port: 9333, instanceId: 'i'} as any,
+      runtime({browser: 'yandex', port: 9333, instanceId: 'i'}),
       [
         `--load-extension=${[companionDir, userDir].join()}`,
         '--remote-debugging-port=9333',
@@ -893,14 +913,14 @@ describe('setupCdpAfterLaunch', () => {
 
   it('never reaches for a page target on a headed launch', async () => {
     const userDir = makeExtensionDir({manifest_version: 3, name: 'User'})
-    const compilation: any = {
+    const compilation: CompilationLike = {
       options: {mode: 'development', output: {path: userDir}}
     }
 
-    for (const browser of ['yandex', 'chrome', 'edge', 'vivaldi']) {
+    for (const browser of ['yandex', 'chrome', 'edge', 'vivaldi'] as const) {
       await setupCdpAfterLaunch(
         compilation,
-        {browser, port: 9333, instanceId: 'i'} as any,
+        runtime({browser, port: 9333, instanceId: 'i'}),
         [
           `--load-extension=${userDir}`,
           '--remote-debugging-port=9333',
@@ -914,13 +934,13 @@ describe('setupCdpAfterLaunch', () => {
 
   it('leaves a headless --no-open session with no page, as asked', async () => {
     const userDir = makeExtensionDir({manifest_version: 3, name: 'User'})
-    const compilation: any = {
+    const compilation: CompilationLike = {
       options: {mode: 'development', output: {path: userDir}}
     }
 
     await setupCdpAfterLaunch(
       compilation,
-      {browser: 'yandex', port: 9333, instanceId: 'i', noOpen: true} as any,
+      runtime({browser: 'yandex', port: 9333, instanceId: 'i', noOpen: true}),
       [
         `--load-extension=${userDir}`,
         '--remote-debugging-port=9333',
@@ -935,18 +955,18 @@ describe('setupCdpAfterLaunch', () => {
   it('puts the requested starting url on the page it has to recreate', async () => {
     const companionDir = makeCompanionDir()
     const userDir = makeExtensionDir({manifest_version: 3, name: 'User'})
-    const compilation: any = {
+    const compilation: CompilationLike = {
       options: {mode: 'development', output: {path: userDir}}
     }
 
     await setupCdpAfterLaunch(
       compilation,
-      {
+      runtime({
         browser: 'yandex',
         port: 9333,
         instanceId: 'i',
         startingUrl: 'https://example.com/'
-      } as any,
+      }),
       [
         `--load-extension=${[companionDir, userDir].join()}`,
         '--remote-debugging-port=9333',
@@ -960,7 +980,7 @@ describe('setupCdpAfterLaunch', () => {
 
   it('warns once when the browser will not take a replacement page', async () => {
     const userDir = makeExtensionDir({manifest_version: 3, name: 'User'})
-    const compilation: any = {
+    const compilation: CompilationLike = {
       options: {mode: 'development', output: {path: userDir}}
     }
     ensurePageTargetSpy.mockResolvedValueOnce('refused')
@@ -970,7 +990,7 @@ describe('setupCdpAfterLaunch', () => {
     try {
       await setupCdpAfterLaunch(
         compilation,
-        {browser: 'yandex', port: 9333, instanceId: 'i'} as any,
+        runtime({browser: 'yandex', port: 9333, instanceId: 'i'}),
         [
           `--load-extension=${userDir}`,
           '--remote-debugging-port=9333',
@@ -1009,8 +1029,8 @@ describe('setupCdpAfterLaunch', () => {
 
     try {
       await setupCdpAfterLaunch(
-        {options: {mode: 'development', output: {path: extDir}}} as any,
-        {browser: 'chromium', port: 9333, instanceId: 'i'} as any,
+        {options: {mode: 'development', output: {path: extDir}}},
+        runtime({browser: 'chromium', port: 9333, instanceId: 'i'}),
         [
           `--load-extension=${extDir}`,
           '--remote-debugging-port=9333',
@@ -1048,8 +1068,8 @@ describe('setupCdpAfterLaunch', () => {
 
     try {
       await setupCdpAfterLaunch(
-        {options: {mode: 'development', output: {path: extDir}}} as any,
-        {browser: 'chromium', port: 9333, instanceId: 'i'} as any,
+        {options: {mode: 'development', output: {path: extDir}}},
+        runtime({browser: 'chromium', port: 9333, instanceId: 'i'}),
         [
           `--load-extension=${extDir}`,
           '--remote-debugging-port=9333',

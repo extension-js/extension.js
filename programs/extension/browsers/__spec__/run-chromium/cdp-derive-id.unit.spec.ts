@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {deriveExtensionIdFromTargetsHelper} from '../../run-chromium/cdp/cdp-extension-controller/derive-id'
+import {asCdpClient} from '../cdp-client-fakes'
 
 describe('deriveExtensionIdFromTargetsHelper', () => {
   const createdDirs: string[] = []
@@ -55,7 +56,7 @@ describe('deriveExtensionIdFromTargetsHelper', () => {
       manifest_version: 3
     })
 
-    const cdp: any = {
+    const cdp = asCdpClient({
       getTargets: vi.fn(async () => [
         {
           targetId: 'target-manager',
@@ -87,7 +88,7 @@ describe('deriveExtensionIdFromTargetsHelper', () => {
           manifestVersion: 3
         }
       })
-    }
+    })
 
     const id = await deriveExtensionIdFromTargetsHelper(cdp, outPath)
     expect(id).toBe('userid')
@@ -106,7 +107,7 @@ describe('deriveExtensionIdFromTargetsHelper', () => {
       }
     )
 
-    const cdp: any = {
+    const cdp = asCdpClient({
       getTargets: vi.fn(async () => [
         {
           targetId: 'target-user',
@@ -122,7 +123,7 @@ describe('deriveExtensionIdFromTargetsHelper', () => {
         version: '2.0.0',
         manifestVersion: 3
       }))
-    }
+    })
 
     const id = await deriveExtensionIdFromTargetsHelper(cdp, outPath)
     expect(id).toBe('userid')
@@ -162,7 +163,7 @@ describe('deriveExtensionIdFromTargetsHelper', () => {
       'utf-8'
     )
 
-    const cdp: any = {
+    const cdp = asCdpClient({
       getTargets: vi.fn(async () => [
         {
           targetId: 'target-manager',
@@ -194,7 +195,7 @@ describe('deriveExtensionIdFromTargetsHelper', () => {
           manifestVersion: 3
         }
       })
-    }
+    })
 
     const id = await deriveExtensionIdFromTargetsHelper(
       cdp,
@@ -214,7 +215,7 @@ describe('deriveExtensionIdFromTargetsHelper', () => {
       manifest_version: 3
     })
 
-    const cdp: any = {
+    const cdp = asCdpClient({
       getTargets: vi.fn(async () => [
         {
           targetId: 'target-companion',
@@ -246,7 +247,7 @@ describe('deriveExtensionIdFromTargetsHelper', () => {
           manifestVersion: 3
         }
       })
-    }
+    })
 
     const id = await deriveExtensionIdFromTargetsHelper(cdp, outPath)
     expect(id).toBe('userid')
@@ -260,7 +261,7 @@ describe('deriveExtensionIdFromTargetsHelper', () => {
     })
 
     let targetCall = 0
-    const cdp: any = {
+    const cdp = asCdpClient({
       getTargets: vi.fn(async () => {
         targetCall += 1
 
@@ -306,7 +307,7 @@ describe('deriveExtensionIdFromTargetsHelper', () => {
           manifestVersion: 3
         }
       })
-    }
+    })
 
     const id = await deriveExtensionIdFromTargetsHelper(cdp, outPath, 2, 1)
     expect(id).toBe('userid')

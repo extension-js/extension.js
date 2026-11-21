@@ -1,4 +1,3 @@
-import {EventEmitter} from 'node:events'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 const lifecycleMocks = vi.hoisted(() => ({
@@ -16,18 +15,9 @@ vi.mock('../../run-chromium/cdp/ws', () => ({
 }))
 
 import {CDPClient} from '../../run-chromium/cdp/cdp-client'
+import {clientInternals, fakeSocket} from '../cdp-client-fakes'
 
-function createMockWs() {
-  const ws: any = new EventEmitter()
-  ws.readyState = 1
-  ws.close = vi.fn(() => {
-    ws.readyState = 3
-  })
-
-  ws.send = vi.fn()
-
-  return ws
-}
+const createMockWs = () => fakeSocket()
 
 describe('CDPClient lifecycle', () => {
   beforeEach(() => {
@@ -127,7 +117,7 @@ describe('CDPClient lifecycle', () => {
     const events: unknown[] = []
     client.onProtocolEvent((msg) => events.push(msg))
 
-    ;(client as any).handleMessage(
+    clientInternals(client).handleMessage(
       JSON.stringify({method: 'Target.targetCreated', params: {targetId: 't1'}})
     )
 
@@ -146,11 +136,11 @@ describe('CDPClient lifecycle', () => {
     const events: unknown[] = []
     const unsubscribe = client.onProtocolEvent((msg) => events.push(msg))
 
-    ;(client as any).handleMessage(JSON.stringify({method: 'event-1'}))
+    clientInternals(client).handleMessage(JSON.stringify({method: 'event-1'}))
 
     unsubscribe()
 
-    ;(client as any).handleMessage(JSON.stringify({method: 'event-2'}))
+    clientInternals(client).handleMessage(JSON.stringify({method: 'event-2'}))
 
     expect(events).toHaveLength(1)
     expect(events[0]).toMatchObject({method: 'event-1'})
@@ -170,7 +160,7 @@ describe('CDPClient lifecycle', () => {
     const promise = client.sendCommand('Target.getTargets')
     const sent = JSON.parse(mockWs.send.mock.calls[0][0])
 
-    ;(client as any).handleMessage(
+    clientInternals(client).handleMessage(
       JSON.stringify({id: sent.id, result: {targetInfos: []}})
     )
 
@@ -188,7 +178,7 @@ describe('CDPClient lifecycle', () => {
     await client.connect()
 
     expect(() => {
-      ;(client as any).handleMessage('{not valid json')
+      clientInternals(client).handleMessage('{not valid json')
     }).not.toThrow()
   })
 
@@ -203,7 +193,9 @@ describe('CDPClient lifecycle', () => {
     const promise = client.getTargets()
     const sent = JSON.parse(mockWs.send.mock.calls[0][0])
 
-    ;(client as any).handleMessage(JSON.stringify({id: sent.id, result: {}}))
+    clientInternals(client).handleMessage(
+      JSON.stringify({id: sent.id, result: {}})
+    )
 
     const targets = await promise
     expect(targets).toEqual([])
@@ -220,7 +212,9 @@ describe('CDPClient lifecycle', () => {
     const promise = client.attachToTarget('target-1')
     const sent = JSON.parse(mockWs.send.mock.calls[0][0])
 
-    ;(client as any).handleMessage(JSON.stringify({id: sent.id, result: {}}))
+    clientInternals(client).handleMessage(
+      JSON.stringify({id: sent.id, result: {}})
+    )
 
     const sessionId = await promise
     expect(sessionId).toBe('')

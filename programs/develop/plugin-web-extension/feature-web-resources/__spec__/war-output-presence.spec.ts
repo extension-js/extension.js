@@ -1,8 +1,8 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import type {Compilation} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {asCompilation} from '../../__spec__/helpers/rspack-fakes'
 import {generateManifestPatches} from '../web-resources-lib/generate-manifest'
 
 describe('web_accessible_resources: public-root presence checks', () => {
@@ -35,7 +35,7 @@ describe('web_accessible_resources: public-root presence checks', () => {
     }
     const manifestSource = {source: () => JSON.stringify(manifest)}
     const updateAsset = vi.fn()
-    const compilation: any = {
+    const compilation = {
       getAsset: vi.fn((name: string) => {
         if (name === 'manifest.json') return {name, source: manifestSource}
 
@@ -51,7 +51,7 @@ describe('web_accessible_resources: public-root presence checks', () => {
       options
     }
 
-    generateManifestPatches(compilation as Compilation, manifestPath, {})
+    generateManifestPatches(asCompilation(compilation), manifestPath, {})
 
     const written = updateAsset.mock.calls.at(-1)?.[1]
     const groups = written
@@ -78,7 +78,7 @@ describe('web_accessible_resources: public-root presence checks', () => {
       web_accessible_resources: [{matches: ['<all_urls>'], resources: [rel]}]
     }
     const manifestSource = {source: () => JSON.stringify(manifest)}
-    const compilation: any = {
+    const compilation = {
       getAsset: vi.fn(() => ({
         name: 'manifest.json',
         source: manifestSource
@@ -90,9 +90,11 @@ describe('web_accessible_resources: public-root presence checks', () => {
       options: {mode: 'development'}
     }
 
-    generateManifestPatches(compilation as Compilation, manifestPath, {})
+    generateManifestPatches(asCompilation(compilation), manifestPath, {})
 
-    expect(compilation.warnings?.length || 0).toBe(0)
+    expect((compilation as {warnings?: unknown[]}).warnings?.length || 0).toBe(
+      0
+    )
   })
 
   // A copy an earlier build left in the output folder is not the file.
@@ -154,7 +156,7 @@ describe('web_accessible_resources: public-root presence checks', () => {
       return undefined
     })
 
-    const compilation: any = {
+    const compilation = {
       getAsset,
       assets: {'manifest.json': manifestSource},
       updateAsset: vi.fn(),
@@ -163,8 +165,10 @@ describe('web_accessible_resources: public-root presence checks', () => {
       options: {mode: 'development'}
     }
 
-    generateManifestPatches(compilation as Compilation, manifestPath, {})
+    generateManifestPatches(asCompilation(compilation), manifestPath, {})
 
-    expect(compilation.warnings?.length || 0).toBe(0)
+    expect((compilation as {warnings?: unknown[]}).warnings?.length || 0).toBe(
+      0
+    )
   })
 })

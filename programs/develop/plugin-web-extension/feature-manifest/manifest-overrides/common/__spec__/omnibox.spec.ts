@@ -1,11 +1,12 @@
 import {describe, expect, it} from 'vitest'
+import type {Manifest} from '../../../../../types'
 import {omnibox} from '../omnibox'
 
 describe('omnibox (default_icon override)', () => {
   it('keeps the manifest-relative location the icons emitter uses', () => {
     const result = omnibox({
       omnibox: {keyword: 'ex', default_icon: 'images/omni.png'}
-    } as any)
+    } as Manifest)
     expect(result?.omnibox.default_icon).toBe('images/omni.png')
   })
 
@@ -15,7 +16,7 @@ describe('omnibox (default_icon override)', () => {
         keyword: 'ex',
         default_icon: {'16': 'public/omni16.png', '32': '/omni32.png'}
       }
-    } as any)
+    } as Manifest)
     expect(result?.omnibox.default_icon).toEqual({
       '16': 'omni16.png',
       '32': 'omni32.png'

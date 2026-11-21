@@ -6,6 +6,7 @@ import {
   normalizeProfileOption,
   resolveProfileConfig
 } from '../../browsers-lib/resolve-profile'
+import type {CompilationLike} from '../../browsers-types'
 import {browserConfig as chromiumConfig} from '../../run-chromium/chromium-launch/browser-config'
 import {browserConfig as firefoxConfig} from '../../run-firefox/firefox-launch/browser-config'
 
@@ -15,8 +16,15 @@ function distFor(browser: 'chrome' | 'firefox') {
   return path.join(SCRATCH, 'project', 'dist', browser)
 }
 
-function makeCompilation(out: string) {
-  return {options: {output: {path: out}}} as any
+type FirefoxOptions = Parameters<typeof firefoxConfig>[1]
+
+// The launcher reads only the fields a row names, so the rest stay unset.
+function firefoxOptions(options: Partial<FirefoxOptions>): FirefoxOptions {
+  return options as FirefoxOptions
+}
+
+function makeCompilation(out: string): CompilationLike {
+  return {options: {output: {path: out}}}
 }
 
 function chromiumUserDataDir(flags: string[]): string | null {
@@ -57,7 +65,7 @@ describe('profile-options contract (both launchers)', () => {
       extension: '/ext',
       browser: 'chrome',
       profile: false
-    } as any)
+    })
 
     expect(chromiumUserDataDir(flags)).toBeNull()
     const profilesRoot = path.join(
@@ -70,11 +78,14 @@ describe('profile-options contract (both launchers)', () => {
 
   it('firefox: profile false uses the default profile, no managed dir, no --profile', async () => {
     const out = distFor('firefox')
-    const args = await firefoxConfig(makeCompilation(out), {
-      extension: '/ext',
-      browser: 'firefox',
-      profile: false
-    } as any)
+    const args = await firefoxConfig(
+      makeCompilation(out),
+      firefoxOptions({
+        extension: '/ext',
+        browser: 'firefox',
+        profile: false
+      })
+    )
 
     expect(firefoxProfileDir(args)).toBeNull()
     const profilesRoot = path.join(
@@ -91,13 +102,13 @@ describe('profile-options contract (both launchers)', () => {
     const envFlags = chromiumConfig(makeCompilation(out), {
       extension: '/ext',
       browser: 'chrome'
-    } as any)
+    })
     vi.stubEnv('EXTENSION_USE_SYSTEM_PROFILE', undefined)
     const falseFlags = chromiumConfig(makeCompilation(out), {
       extension: '/ext',
       browser: 'chrome',
       profile: false
-    } as any)
+    })
 
     expect(chromiumUserDataDir(envFlags)).toBeNull()
     expect(chromiumUserDataDir(falseFlags)).toBeNull()
@@ -109,17 +120,20 @@ describe('profile-options contract (both launchers)', () => {
       extension: '/ext',
       browser: 'chrome',
       profile: explicit
-    } as any)
+    })
     expect(chromiumUserDataDir(flags)).toBe(explicit)
   })
 
   it('firefox: explicit profile path launches against exactly that directory', async () => {
     const explicit = fs.mkdtempSync(path.join(SCRATCH, 'explicit-fx-'))
-    const args = await firefoxConfig(makeCompilation(distFor('firefox')), {
-      extension: '/ext',
-      browser: 'firefox',
-      profile: explicit
-    } as any)
+    const args = await firefoxConfig(
+      makeCompilation(distFor('firefox')),
+      firefoxOptions({
+        extension: '/ext',
+        browser: 'firefox',
+        profile: explicit
+      })
+    )
     expect(firefoxProfileDir(args)).toBe(explicit)
   })
 
@@ -128,7 +142,7 @@ describe('profile-options contract (both launchers)', () => {
     const flags = chromiumConfig(makeCompilation(out), {
       extension: '/ext',
       browser: 'chrome'
-    } as any)
+    })
     const dir = chromiumUserDataDir(flags)
     expect(dir).toBeTruthy()
     expect(dir).toContain(
@@ -140,10 +154,13 @@ describe('profile-options contract (both launchers)', () => {
 
   it('firefox: nothing gives a managed throwaway profile (marked for cleanup)', async () => {
     const out = distFor('firefox')
-    const args = await firefoxConfig(makeCompilation(out), {
-      extension: '/ext',
-      browser: 'firefox'
-    } as any)
+    const args = await firefoxConfig(
+      makeCompilation(out),
+      firefoxOptions({
+        extension: '/ext',
+        browser: 'firefox'
+      })
+    )
     const dir = firefoxProfileDir(args)
     expect(dir).toBeTruthy()
     expect(dir).toContain(
@@ -158,7 +175,7 @@ describe('profile-options contract (both launchers)', () => {
       extension: '/ext',
       browser: 'chrome',
       profile: ''
-    } as any)
+    })
     expect(chromiumUserDataDir(flags)).toBeTruthy()
   })
 
@@ -167,16 +184,19 @@ describe('profile-options contract (both launchers)', () => {
       extension: '/ext',
       browser: 'chrome',
       profile: '   '
-    } as any)
+    })
     expect(chromiumUserDataDir(flags)).toBeTruthy()
   })
 
   it('firefox: empty string is NOT false, a managed profile is still created', async () => {
-    const args = await firefoxConfig(makeCompilation(distFor('firefox')), {
-      extension: '/ext',
-      browser: 'firefox',
-      profile: ''
-    } as any)
+    const args = await firefoxConfig(
+      makeCompilation(distFor('firefox')),
+      firefoxOptions({
+        extension: '/ext',
+        browser: 'firefox',
+        profile: ''
+      })
+    )
     expect(firefoxProfileDir(args)).toBeTruthy()
   })
 
@@ -190,7 +210,7 @@ describe('profile-options contract (both launchers)', () => {
       extension: '/ext',
       browser: 'chrome',
       copyFromProfile: source
-    } as any)
+    })
 
     const dir = String(chromiumUserDataDir(flags))
     expect(fs.readFileSync(path.join(dir, 'marker.txt'), 'utf8')).toBe(
@@ -206,11 +226,14 @@ describe('profile-options contract (both launchers)', () => {
     const source = fs.mkdtempSync(path.join(SCRATCH, 'src-fx-'))
     fs.writeFileSync(path.join(source, 'marker.txt'), 'firefox seed')
 
-    const args = await firefoxConfig(makeCompilation(distFor('firefox')), {
-      extension: '/ext',
-      browser: 'firefox',
-      copyFromProfile: source
-    } as any)
+    const args = await firefoxConfig(
+      makeCompilation(distFor('firefox')),
+      firefoxOptions({
+        extension: '/ext',
+        browser: 'firefox',
+        copyFromProfile: source
+      })
+    )
 
     const dir = String(firefoxProfileDir(args))
     expect(fs.readFileSync(path.join(dir, 'marker.txt'), 'utf8')).toBe(
@@ -224,7 +247,7 @@ describe('profile-options contract (both launchers)', () => {
       extension: '/ext',
       browser: 'chrome',
       keepProfileChanges: true
-    } as any)
+    })
     const dir1 = String(chromiumUserDataDir(run1))
 
     expect(fs.existsSync(path.join(dir1, MANAGED_MARKER))).toBe(false)
@@ -235,7 +258,7 @@ describe('profile-options contract (both launchers)', () => {
       extension: '/ext',
       browser: 'chrome',
       keepProfileChanges: true
-    } as any)
+    })
     const dir2 = String(chromiumUserDataDir(run2))
 
     expect(dir2).toBe(dir1)
@@ -246,21 +269,27 @@ describe('profile-options contract (both launchers)', () => {
 
   it('firefox: keepProfileChanges keeps the managed dir and its changes across runs', async () => {
     const out = distFor('firefox')
-    const run1 = await firefoxConfig(makeCompilation(out), {
-      extension: '/ext',
-      browser: 'firefox',
-      keepProfileChanges: true
-    } as any)
+    const run1 = await firefoxConfig(
+      makeCompilation(out),
+      firefoxOptions({
+        extension: '/ext',
+        browser: 'firefox',
+        keepProfileChanges: true
+      })
+    )
     const dir1 = String(firefoxProfileDir(run1))
 
     expect(fs.existsSync(path.join(dir1, MANAGED_MARKER))).toBe(false)
     fs.writeFileSync(path.join(dir1, 'my-change.txt'), 'survives')
 
-    const run2 = await firefoxConfig(makeCompilation(out), {
-      extension: '/ext',
-      browser: 'firefox',
-      keepProfileChanges: true
-    } as any)
+    const run2 = await firefoxConfig(
+      makeCompilation(out),
+      firefoxOptions({
+        extension: '/ext',
+        browser: 'firefox',
+        keepProfileChanges: true
+      })
+    )
     const dir2 = String(firefoxProfileDir(run2))
 
     expect(dir2).toBe(dir1)
@@ -279,7 +308,7 @@ describe('profile-options contract (both launchers)', () => {
       browser: 'chrome',
       keepProfileChanges: true,
       copyFromProfile: source
-    } as any)
+    })
     const dir1 = String(chromiumUserDataDir(run1))
     expect(fs.readFileSync(path.join(dir1, 'seeded.txt'), 'utf8')).toBe(
       'v1-from-source'
@@ -293,7 +322,7 @@ describe('profile-options contract (both launchers)', () => {
       browser: 'chrome',
       keepProfileChanges: true,
       copyFromProfile: source
-    } as any)
+    })
     const dir2 = String(chromiumUserDataDir(run2))
 
     expect(dir2).toBe(dir1)
@@ -311,12 +340,15 @@ describe('profile-options contract (both launchers)', () => {
     const source = fs.mkdtempSync(path.join(SCRATCH, 'src-once-fx-'))
     fs.writeFileSync(path.join(source, 'seeded.txt'), 'v1-from-source')
 
-    const run1 = await firefoxConfig(makeCompilation(out), {
-      extension: '/ext',
-      browser: 'firefox',
-      keepProfileChanges: true,
-      copyFromProfile: source
-    } as any)
+    const run1 = await firefoxConfig(
+      makeCompilation(out),
+      firefoxOptions({
+        extension: '/ext',
+        browser: 'firefox',
+        keepProfileChanges: true,
+        copyFromProfile: source
+      })
+    )
     const dir1 = String(firefoxProfileDir(run1))
     expect(fs.readFileSync(path.join(dir1, 'seeded.txt'), 'utf8')).toBe(
       'v1-from-source'
@@ -324,12 +356,15 @@ describe('profile-options contract (both launchers)', () => {
 
     fs.writeFileSync(path.join(dir1, 'seeded.txt'), 'user-edited')
 
-    const run2 = await firefoxConfig(makeCompilation(out), {
-      extension: '/ext',
-      browser: 'firefox',
-      keepProfileChanges: true,
-      copyFromProfile: source
-    } as any)
+    const run2 = await firefoxConfig(
+      makeCompilation(out),
+      firefoxOptions({
+        extension: '/ext',
+        browser: 'firefox',
+        keepProfileChanges: true,
+        copyFromProfile: source
+      })
+    )
     const dir2 = String(firefoxProfileDir(run2))
 
     expect(dir2).toBe(dir1)
@@ -363,7 +398,7 @@ describe('session-root ignore guard', () => {
     chromiumConfig(makeCompilation(out), {
       extension: '/ext',
       browser: 'chrome'
-    } as any)
+    })
 
     const content = fs.readFileSync(ignoreFileFor(out), 'utf8')
     expect(content).toContain('*')
@@ -379,7 +414,7 @@ describe('session-root ignore guard', () => {
     chromiumConfig(makeCompilation(out), {
       extension: '/ext',
       browser: 'chrome'
-    } as any)
+    })
 
     expect(fs.readFileSync(ignoreFile, 'utf8')).toBe('profiles/\n')
   })
@@ -392,7 +427,7 @@ describe('session-root ignore guard', () => {
       extension: '/ext',
       browser: 'chrome',
       profile: explicit
-    } as any)
+    })
 
     expect(fs.existsSync(ignoreFileFor(out))).toBe(false)
   })
