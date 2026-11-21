@@ -9,7 +9,9 @@ import {
   sources
 } from '@rspack/core'
 import {describe, expect, it} from 'vitest'
+import {ageProjectFiles} from '../../../__spec__/helpers/dev-watch-session'
 import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
+import {watchBuilds} from '../../../__spec__/helpers/watch-builds'
 import {diagnosticCode} from '../../../lib/diagnostic-code'
 import {getProjectStructure} from '../../../lib/project'
 import webpackConfig from '../../../rspack-config'
@@ -236,17 +238,15 @@ describe('a dev rebuild', () => {
 
   it('reads the manifest from disk once, when it is emitted', async () => {
     const root = project()
+    // A fixture as new as the first build makes the watcher build once more.
+    ageProjectFiles(root)
+
     const manifestPath = path.join(root, 'manifest.json')
     const {config} = await configure(root, 'development')
     const compiler: Compiler = rspack(config)
     const readers: string[] = []
     const realRead = cjsFs.readFileSync
     let counting = false
-    let finished: (() => void) | undefined
-    const nextBuild = () =>
-      new Promise<void>((resolve) => {
-        finished = resolve
-      })
 
     cjsFs.readFileSync = function (this: unknown, ...args: unknown[]) {
       if (counting && args[0] === manifestPath) {
@@ -261,22 +261,18 @@ describe('a dev rebuild', () => {
     syncBuiltinESMExports()
 
     try {
-      const first = nextBuild()
-      const watching = compiler.watch({aggregateTimeout: 20}, () => {
-        const done = finished
-        finished = undefined
-        done?.()
-      })
-      await first
+      const watch = watchBuilds(compiler, {aggregateTimeout: 20})
+      await watch.first
       await new Promise((resolve) => setTimeout(resolve, 300))
 
       counting = true
-      const second = nextBuild()
-      fs.writeFileSync(path.join(root, 'background.js'), 'console.log(2)\n')
-      await second
+      await watch.after(['background.js'], () =>
+        fs.writeFileSync(path.join(root, 'background.js'), 'console.log(2)\n')
+      )
+
       counting = false
 
-      await new Promise<void>((resolve) => watching.close(() => resolve()))
+      await watch.close()
     } finally {
       cjsFs.readFileSync = realRead
       syncBuiltinESMExports()

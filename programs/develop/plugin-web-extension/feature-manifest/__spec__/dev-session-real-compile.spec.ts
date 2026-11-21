@@ -3,7 +3,9 @@ import {createRequire, syncBuiltinESMExports} from 'node:module'
 import * as path from 'node:path'
 import {type Compiler, rspack, type Stats} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
+import {ageProjectFiles} from '../../../__spec__/helpers/dev-watch-session'
 import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
+import {watchBuilds} from '../../../__spec__/helpers/watch-builds'
 import {appendDevAdditions, devAdditionsOf} from '../../../lib/dev-additions'
 import {getProjectStructure} from '../../../lib/project'
 import webpackConfig from '../../../rspack-config'
@@ -45,6 +47,9 @@ async function devSession(
   root: string,
   tap: (compiler: Compiler) => void = () => {}
 ): Promise<DevSession> {
+  // A fixture as new as the first build makes the watcher build once more.
+  ageProjectFiles(root)
+
   const distPath = path.join(root, 'dist', 'chrome')
   const config = webpackConfig(await getProjectStructure(root), {
     browser: 'chrome',
@@ -64,18 +69,8 @@ async function devSession(
   const release = writeOutputAsADevSessionDoes(compiler, distPath)
   tap(compiler)
 
-  let finished: ((stats: Stats) => void) | undefined
-  const nextBuild = () =>
-    new Promise<Stats>((resolve) => {
-      finished = resolve
-    })
-  const firstBuild = nextBuild()
-  const watching = compiler.watch({aggregateTimeout: 20}, (_error, stats) => {
-    const done = finished
-    finished = undefined
-    if (stats) done?.(stats)
-  })
-  const first = await firstBuild
+  const watch = watchBuilds(compiler, {aggregateTimeout: 20})
+  const first = await watch.first
   // The watcher needs its baseline before a save counts as a change.
   await new Promise((resolve) => setTimeout(resolve, 300))
 
@@ -83,13 +78,12 @@ async function devSession(
     distPath,
     first,
     save(file, text) {
-      const build = nextBuild()
-      fs.writeFileSync(path.join(root, file), text)
-
-      return build
+      return watch.after([file], () =>
+        fs.writeFileSync(path.join(root, file), text)
+      )
     },
     async close() {
-      await new Promise<void>((resolve) => watching.close(() => resolve()))
+      await watch.close()
       release()
     }
   }
