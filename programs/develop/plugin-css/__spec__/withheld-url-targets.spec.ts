@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {buildProject} from '../../__spec__/helpers/build-project'
 import {workspacePackage} from '../../__spec__/helpers/workspace-package'
 import {cssProjects, expectNoWorkspaceAbove} from './helpers/css-project'
 
@@ -146,23 +147,10 @@ const inlined = (text: string) =>
   Buffer.from(text).toString('base64').slice(0, 16)
 
 async function build(app: string) {
-  const {extensionBuild} = await import('../../command-build')
-  const previous = process.env.VITEST
-
-  process.env.VITEST = 'true'
-
-  try {
-    return (await extensionBuild(app, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      mode: 'production',
-      exitOnError: false
-    } as never)) as {errors_count: number; warnings?: string[]}
-  } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
-  }
+  return (await buildProject(app, {
+    mode: 'production',
+    exitOnError: false
+  })) as {errors_count: number; warnings?: string[]}
 }
 
 function readDist(app: string) {
@@ -326,25 +314,12 @@ describe('a url() that names a file the build withholds, built', () => {
       'shared/.env': 'MARKER_SIBLING_ENV=seven\n'
     })
     const app = path.join(root, 'app')
-    const {extensionBuild} = await import('../../command-build')
-    const previous = process.env.VITEST
-
-    process.env.VITEST = 'true'
-
     let summary: {errors_count: number; warnings?: string[]}
 
-    try {
-      summary = (await extensionBuild(app, {
-        browser: 'chrome',
-        silent: true,
-        install: false,
-        mode: 'production',
-        exitOnError: false
-      } as never)) as typeof summary
-    } finally {
-      if (previous === undefined) delete process.env.VITEST
-      else process.env.VITEST = previous
-    }
+    summary = (await buildProject(app, {
+      mode: 'production',
+      exitOnError: false
+    })) as typeof summary
 
     const dist = path.join(app, 'dist', 'chrome')
     const shipped = (fs.readdirSync(dist, {recursive: true}) as string[])

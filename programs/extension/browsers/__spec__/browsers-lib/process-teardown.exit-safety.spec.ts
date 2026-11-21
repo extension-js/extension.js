@@ -1,4 +1,23 @@
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import type {ChildProcess} from 'node:child_process'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type Mock,
+  vi
+} from 'vitest'
+
+interface FakeChildFields {
+  killed: boolean
+  kill: Mock<(signal?: NodeJS.Signals | number) => boolean | undefined>
+}
+
+// The teardown reads only killed and kill, so the rest of the child stays unset.
+function fakeChild(fields: FakeChildFields): FakeChildFields & ChildProcess {
+  return fields as unknown as FakeChildFields & ChildProcess
+}
 
 // The fakes carry no pid: on Windows the teardown hands it to taskkill,
 // and a made-up number can name a real process.
@@ -11,16 +30,16 @@ describe('process-teardown shared module', () => {
     )
     // Windows asks the tree instead of signaling, a row of its own covers it.
     const deps = {...teardownDefaults, platform: 'linux' as const}
-    const child: any = {killed: false, kill: vi.fn()}
-    gracefulTerminateChild(child, 'chrome' as any, undefined, deps)
+    const child = fakeChild({killed: false, kill: vi.fn()})
+    gracefulTerminateChild(child, 'chrome', undefined, deps)
     expect(child.kill).toHaveBeenCalledWith('SIGTERM')
 
-    const killed: any = {killed: true, kill: vi.fn()}
-    gracefulTerminateChild(killed, 'chrome' as any, undefined, deps)
+    const killed = fakeChild({killed: true, kill: vi.fn()})
+    gracefulTerminateChild(killed, 'chrome', undefined, deps)
     expect(killed.kill).not.toHaveBeenCalled()
 
     expect(() =>
-      gracefulTerminateChild(null, 'chrome' as any, undefined, deps)
+      gracefulTerminateChild(null, 'chrome', undefined, deps)
     ).not.toThrow()
   })
 
@@ -28,11 +47,11 @@ describe('process-teardown shared module', () => {
     const {forceKillChildOnExit} = await import(
       '../../browsers-lib/process-teardown'
     )
-    const child: any = {killed: false, kill: vi.fn()}
-    forceKillChildOnExit(child, 'firefox' as any)
+    const child = fakeChild({killed: false, kill: vi.fn()})
+    forceKillChildOnExit(child, 'firefox')
     expect(child.kill).toHaveBeenCalledWith('SIGKILL')
 
-    const gone: any = {
+    const gone = fakeChild({
       killed: false,
       kill: vi.fn(() => {
         const e: NodeJS.ErrnoException = new Error('no such process')
@@ -40,9 +59,9 @@ describe('process-teardown shared module', () => {
 
         throw e
       })
-    }
-    expect(() => forceKillChildOnExit(gone, 'firefox' as any)).not.toThrow()
-    expect(() => forceKillChildOnExit(null, 'firefox' as any)).not.toThrow()
+    })
+    expect(() => forceKillChildOnExit(gone, 'firefox')).not.toThrow()
+    expect(() => forceKillChildOnExit(null, 'firefox')).not.toThrow()
   })
 })
 
@@ -61,16 +80,18 @@ describe('windowsTaskkillPath', () => {
   })
 })
 
+type ProcessHandler = (...args: unknown[]) => void
+
 function withCapturedProcessOn() {
-  const registered = new Map<string, Function[]>()
+  const registered = new Map<string, ProcessHandler[]>()
   const original = process.on
-  ;(process as any).on = vi.fn((event: string, handler: Function) => {
+  process.on = vi.fn((event: string, handler: ProcessHandler) => {
     const existing = registered.get(event) || []
     existing.push(handler)
     registered.set(event, existing)
 
     return process
-  })
+  }) as unknown as typeof process.on
 
   return {
     registered,
@@ -99,7 +120,7 @@ describe('chromium exit handler force-kills a stubborn child', () => {
     const {setupProcessSignalHandlers} = await import(
       '../../run-chromium/chromium-launch/process-handlers'
     )
-    const child: any = {killed: false, kill: vi.fn()}
+    const child = fakeChild({killed: false, kill: vi.fn()})
     setupProcessSignalHandlers('chrome', child, vi.fn())
 
     cap.registered.get('SIGINT')?.forEach((h) => {
@@ -138,7 +159,7 @@ describe('firefox exit handler force-kills a stubborn child', () => {
     const {setupFirefoxProcessHandlers} = await import(
       '../../run-firefox/firefox-launch/process-handlers'
     )
-    const child: any = {killed: false, kill: vi.fn()}
+    const child = fakeChild({killed: false, kill: vi.fn()})
     setupFirefoxProcessHandlers(
       'firefox',
       () => child,

@@ -12,13 +12,13 @@ function asLoaderContext(ctx: Record<string, unknown>): LoaderInterface {
   return ctx as unknown as LoaderInterface
 }
 
-function makeLoaderCtx(options: any) {
+function makeLoaderCtx(options: Record<string, unknown>) {
   return {
     getOptions: () => options
-  } as any
+  }
 }
 
-function runLoader(ctx: any, src: string): Promise<string> {
+function runLoader(ctx: Record<string, unknown>, src: string): Promise<string> {
   return new Promise((resolve, reject) => {
     let wentAsync = false
 
@@ -29,7 +29,7 @@ function runLoader(ctx: any, src: string): Promise<string> {
         err ? reject(err) : resolve(result as string)
     }
 
-    const out = ensureHMRForScripts.call(ctx, src)
+    const out = ensureHMRForScripts.call(asLoaderContext(ctx), src)
     if (!wentAsync) resolve(out as string)
   })
 }

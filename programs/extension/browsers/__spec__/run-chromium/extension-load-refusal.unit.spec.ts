@@ -8,20 +8,21 @@ import {
   declaresBackgroundContext,
   loadUnpacked
 } from '../../run-chromium/cdp/cdp-extension-controller/ensure'
+import {asCdpClient} from '../cdp-client-fakes'
 
 // The CDP client rejects a failed command with Error(JSON.stringify(error)).
 const cdpThatFailsWith = (error: {code?: number; message: string}) =>
-  ({
+  asCdpClient({
     sendCommand: vi.fn(async () => {
       throw new Error(JSON.stringify(error))
     })
-  }) as any
+  })
 
 describe('loadUnpacked verdict classification', () => {
   it('reports the browser id when Chrome accepts the dist', async () => {
-    const cdp = {
+    const cdp = asCdpClient({
       sendCommand: vi.fn(async () => ({id: 'abcdefghijklmnop'}))
-    } as any
+    })
 
     await expect(loadUnpacked(cdp, '/dist/chrome')).resolves.toEqual({
       status: 'loaded',
@@ -47,11 +48,11 @@ describe('loadUnpacked verdict classification', () => {
   })
 
   it('treats a transport failure as unknown, never as a refusal', async () => {
-    const cdp = {
+    const cdp = asCdpClient({
       sendCommand: vi.fn(async () => {
         throw new Error('CDP pipe closed')
       })
-    } as any
+    })
 
     await expect(loadUnpacked(cdp, '/dist/chrome')).resolves.toEqual({
       status: 'unknown',
@@ -60,11 +61,11 @@ describe('loadUnpacked verdict classification', () => {
   })
 
   it('treats a timeout as unknown, never as a refusal', async () => {
-    const cdp = {
+    const cdp = asCdpClient({
       sendCommand: vi.fn(async () => {
         throw new Error('CDP command timed out: Extensions.loadUnpacked')
       })
-    } as any
+    })
 
     await expect(loadUnpacked(cdp, '/dist/chrome')).resolves.toEqual({
       status: 'unknown',
@@ -103,7 +104,7 @@ describe('loadUnpacked verdict classification', () => {
         new Error(JSON.stringify({code: -32602, message: 'Invalid parameters'}))
       )
       .mockResolvedValueOnce({id: 'secondshapeworked'})
-    const cdp = {sendCommand} as any
+    const cdp = asCdpClient({sendCommand})
 
     await expect(loadUnpacked(cdp, '/dist/chrome')).resolves.toEqual({
       status: 'loaded',

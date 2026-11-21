@@ -3,18 +3,15 @@ import os from 'node:os'
 import path from 'node:path'
 import vm from 'node:vm'
 import {rspack} from '@rspack/core'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import contentScriptWrapper from '../../plugin-web-extension/feature-scripts/steps/add-content-script-wrapper/content-script-wrapper'
 import {contentScriptReinject} from '../reload-lib/content-script-reinject'
 import {wrapsForDevSession} from '../steps/add-content-script-reinject'
 
 // A dev session injects a content script again after each edit. These rows
 // inject a second copy while the first still waits on a top-level await.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 // Each copy takes a number, waits on its own gate, and then mounts.
 const MOUNTS_AFTER_AWAIT = [
@@ -50,10 +47,7 @@ async function bundled(
   mode: 'development' | 'production',
   runAt = 'document_idle'
 ) {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-pending-await-'))
-  )
-  roots.push(root)
+  const root = fs.realpathSync(tempFolder('extjs-pending-await-'))
 
   const at = (...parts: string[]) => path.join(root, ...parts)
 
@@ -85,7 +79,7 @@ async function bundled(
             ? [contentScriptReinject]
             : []
         })
-      } as any,
+      } as unknown as ThisParameterType<typeof contentScriptWrapper>,
       source
     )
   )

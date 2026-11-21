@@ -1,26 +1,21 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 import {workspacePackage} from './helpers/workspace-package'
 
 // Firefox theme_experiment: the built manifest names a stylesheet under
 // theme_experiment/ and that file must exist there, compiled, whatever
 // dialect it was authored in.
-const roots: string[] = []
+const tempFolder = trackTempFolders()
 
 // The sass package is the project's own optional dependency and exports no
 // package.json, so it is found by directory rather than resolved.
 const sassDir = workspacePackage('sass')
 
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
-
 function project(stylesheetName: string, source: string) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-theme-exp-'))
-  roots.push(root)
+  const root = tempFolder('extjs-theme-exp-')
   const usesSass = /\.s[ac]ss$/.test(stylesheetName)
   fs.writeFileSync(
     path.join(root, 'package.json'),

@@ -2,15 +2,28 @@ import {EventEmitter} from 'node:events'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {evaluate} from '../../../../run-firefox/rdp/remote-firefox/evaluate'
 
+type RdpClient = Parameters<typeof evaluate>[0]
+
+// The request fields these fake clients read.
+interface EvalRequest {
+  type?: string
+  to?: string
+  text?: string
+}
+
+function asClient(client: EventEmitter): RdpClient {
+  return client as unknown as RdpClient
+}
+
 class MockRdpClient extends EventEmitter {
-  async request(payload: any): Promise<unknown> {
+  async request(payload: EvalRequest): Promise<unknown> {
     if (payload.type === 'evaluateJSAsync') {
       const resultID = `result-${String(payload.text).length}`
       queueMicrotask(() => {
         this.emit('message', {
           type: 'evaluationResult',
           resultID,
-          result: payload.text.includes('outerHTML')
+          result: String(payload.text).includes('outerHTML')
             ? '<html><body>ok</body></html>'
             : 'async-value'
         })
@@ -32,7 +45,7 @@ describe('remote-firefox evaluate helpers', () => {
     const client = new MockRdpClient()
 
     await expect(
-      evaluate(client as any, 'console-actor', 'location.href')
+      evaluate(asClient(client), 'console-actor', 'location.href')
     ).resolves.toBe('async-value')
   })
 
@@ -40,9 +53,9 @@ describe('remote-firefox evaluate helpers', () => {
     vi.useFakeTimers()
 
     class TimeoutFallbackClient extends EventEmitter {
-      requests: any[] = []
+      requests: EvalRequest[] = []
 
-      async request(payload: any): Promise<unknown> {
+      async request(payload: EvalRequest): Promise<unknown> {
         this.requests.push(payload)
 
         if (payload.type === 'evaluateJSAsync') {
@@ -51,7 +64,7 @@ describe('remote-firefox evaluate helpers', () => {
 
         if (payload.type === 'evalWithOptions') {
           return {
-            result: payload.text.includes('outerHTML')
+            result: String(payload.text).includes('outerHTML')
               ? '<html><body>ok</body></html>'
               : 'fallback-value'
           }
@@ -63,7 +76,7 @@ describe('remote-firefox evaluate helpers', () => {
 
     const client = new TimeoutFallbackClient()
     const valuePromise = evaluate(
-      client as any,
+      asClient(client),
       'console-actor',
       'location.href'
     )

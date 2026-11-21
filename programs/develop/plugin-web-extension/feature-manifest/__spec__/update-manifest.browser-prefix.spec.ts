@@ -1,18 +1,24 @@
 import {describe, expect, it} from 'vitest'
+import {
+  asCompilation,
+  asCompiler,
+  type TapCallback
+} from '../../__spec__/helpers/rspack-fakes'
 import {UpdateManifest} from '../steps/update-manifest'
+import {asBrowser, type FakeSource} from './helpers/manifest-fakes'
 
 function runUpdateManifest(opts: {
   mode: 'development' | 'production'
   browser: string
-  manifest: any
+  manifest: unknown
   warnings?: Error[]
   errors?: Error[]
 }) {
-  const assets: Record<string, any> = {
+  const assets: Record<string, FakeSource> = {
     'manifest.json': {source: () => JSON.stringify(opts.manifest)}
   }
   const updated: Record<string, string> = {}
-  const compilation: any = {
+  const compilation = asCompilation({
     errors: opts.errors ?? [],
     warnings: opts.warnings ?? [],
     options: {mode: opts.mode},
@@ -20,23 +26,23 @@ function runUpdateManifest(opts: {
     getAsset: (n: string) =>
       assets[n] ? {source: assets[n].source} : undefined,
     hooks: {
-      processAssets: {tap: (_opts: any, fn: any) => fn()}
+      processAssets: {tap: (_opts: unknown, fn: TapCallback) => fn()}
     },
-    updateAsset: (name: string, src: any) => {
+    updateAsset: (name: string, src: FakeSource) => {
       updated[name] = src.source().toString()
     }
-  }
-  const compiler: any = {
+  })
+  const compiler = asCompiler({
     options: {mode: opts.mode},
     hooks: {
-      thisCompilation: {tap: (_n: string, fn: any) => fn(compilation)}
+      thisCompilation: {tap: (_n: string, fn: TapCallback) => fn(compilation)}
     }
-  }
+  })
 
   new UpdateManifest({
     manifestPath: '/m',
-    browser: opts.browser
-  } as any).apply(compiler)
+    browser: asBrowser(opts.browser)
+  }).apply(compiler)
 
   return JSON.parse(updated['manifest.json'])
 }

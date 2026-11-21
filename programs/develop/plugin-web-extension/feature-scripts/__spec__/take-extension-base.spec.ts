@@ -1,16 +1,17 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {Compilation, sources} from '@rspack/core'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {
   extensionBaseGlobal,
   takeBlockOpen
 } from '../../../lib/extension-base-from-stack'
+import {asCompiler} from '../../__spec__/helpers/rspack-fakes'
 import {getCanonicalContentScriptEntryName} from '../contracts'
 import {TakeExtensionBase} from '../steps/take-extension-base'
 
-const roots: string[] = []
+const tempFolder = trackTempFolders()
 const MANIFEST = {
   manifest_version: 3,
   name: 'take-base',
@@ -21,15 +22,8 @@ const MANIFEST = {
   ]
 }
 
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
-
 function project() {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-take-base-'))
-  )
-  roots.push(root)
+  const root = fs.realpathSync(tempFolder('extjs-take-base-'))
 
   fs.writeFileSync(path.join(root, 'manifest.json'), JSON.stringify(MANIFEST))
 
@@ -68,15 +62,17 @@ function emit(browser: string, assets: Record<string, string>, runs = 1) {
   new TakeExtensionBase({
     manifestPath: path.join(root, 'manifest.json'),
     browser
-  } as any).apply({
-    options: {context: root},
-    hooks: {
-      thisCompilation: {
-        tap: (_name: string, tapped: (compilation: unknown) => void) =>
-          tapped(compilation)
+  } as ConstructorParameters<typeof TakeExtensionBase>[0]).apply(
+    asCompiler({
+      options: {context: root},
+      hooks: {
+        thisCompilation: {
+          tap: (_name: string, tapped: (compilation: unknown) => void) =>
+            tapped(compilation)
+        }
       }
-    }
-  } as any)
+    })
+  )
 
   for (let run = 0; run < runs; run++) {
     for (const pass of passes) pass()

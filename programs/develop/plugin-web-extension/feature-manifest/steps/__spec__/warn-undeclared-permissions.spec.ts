@@ -11,6 +11,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
+import {asCompiler} from '../../../__spec__/helpers/rspack-fakes'
 import * as messages from '../../messages'
 import {WarnUndeclaredPermissions} from '../warn-undeclared-permissions'
 
@@ -58,19 +59,19 @@ describe('WarnUndeclaredPermissions', () => {
       assets: {'manifest.json': {source: () => JSON.stringify(manifest)}},
       hooks: {processAssets: {tap: (_o: unknown, fn: () => void) => fn()}}
     } as unknown as Compilation
-    const compiler = {
+    const compiler = asCompiler({
       options: {mode: 'production'},
       hooks: {
         thisCompilation: {
           tap: (_n: string, fn: (c: Compilation) => void) => fn(compilation)
         }
       }
-    } as any
+    })
 
     new WarnUndeclaredPermissions({
       manifestPath: path.join(dir, 'manifest.json'),
       browser: 'chrome'
-    } as any).apply(compiler)
+    }).apply(compiler)
 
     return warnings.filter(
       (w) =>

@@ -2,6 +2,8 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {rspack, type Stats} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {sessionOf} from '../../../__spec__/helpers/dev-session'
+import {writeExtensionProject} from '../../../__spec__/helpers/extension-project'
 import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {getProjectStructure} from '../../../lib/project'
 import webpackConfig from '../../../rspack-config'
@@ -28,23 +30,15 @@ afterEach(() => {
 function project() {
   const root = fs.realpathSync(makeTempFolder('extjs-session-host-'))
 
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'session-host', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'session-host',
-      version: '1.0.0',
+  writeExtensionProject(root, {
+    name: 'session-host',
+    manifest: {
       action: {default_popup: 'popup.html'},
       content_security_policy: {
         extension_pages: "script-src 'self'; connect-src 'self'"
       }
-    })
-  )
+    }
+  })
 
   fs.writeFileSync(
     path.join(root, 'popup.html'),
@@ -74,7 +68,8 @@ async function compileSession(session: {
     mode: 'development',
     metadataCommand: 'dev',
     silent: true,
-    ...session,
+    // A config built by no session carries no record at all.
+    ...(Object.keys(session).length > 0 ? {session: sessionOf(session)} : {}),
     output: {clean: false, path: distPath}
   } as never)
   config.plugins = (config.plugins || []).filter(

@@ -9,7 +9,7 @@ const FIREFOX_BASE = 'moz-extension://305a8e3f-2f12-4c62-8198-89ee682bd857/'
 const FIREFOX_DEMO = `${FIREFOX_BASE}pages/demo.html`
 
 const session = {
-  result: {ok: false, error: {}} as any,
+  result: {ok: false, error: {}} as unknown,
   readyDocument: {} as Record<string, unknown> | null,
   tabs: [] as Array<Record<string, unknown>>
 }

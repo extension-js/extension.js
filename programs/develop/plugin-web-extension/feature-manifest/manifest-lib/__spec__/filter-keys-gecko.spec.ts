@@ -1,4 +1,5 @@
 import {describe, expect, it} from 'vitest'
+import {asManifest} from '../../__spec__/helpers/manifest-fakes'
 import * as messages from '../../messages'
 import {
   dropGeckoUnsupportedKeys,
@@ -10,21 +11,21 @@ const strip = (value: string) =>
   // eslint-disable-next-line no-control-regex
   value.replace(/\u001b\[[0-9;]*m/g, '')
 
-const source = {
+const source = asManifest({
   name: 'x',
   version: '1.0.0',
   manifest_version: 3,
   permissions: ['sidePanel', 'debugger', 'storage', 'scripting'],
   optional_permissions: ['offscreen', 'userScripts'],
   incognito: 'split'
-} as any
+})
 
 describe('dropGeckoUnsupportedKeys', () => {
   it('drops the permission strings Firefox rejects, from both lists', () => {
     const {manifest, dropped} = dropGeckoUnsupportedKeys(source, 'firefox')
 
-    expect((manifest as any).permissions).toEqual(['storage', 'scripting'])
-    expect((manifest as any).optional_permissions).toEqual(['userScripts'])
+    expect(manifest.permissions).toEqual(['storage', 'scripting'])
+    expect(manifest.optional_permissions).toEqual(['userScripts'])
     expect(dropped).toEqual([
       {
         path: 'permissions.sidePanel',
@@ -56,7 +57,7 @@ describe('dropGeckoUnsupportedKeys', () => {
       'firefox'
     )
 
-    expect((manifest as any).incognito).toBe('split')
+    expect(manifest.incognito).toBe('split')
     expect(reinterpreted).toEqual([
       {path: 'incognito', declared: 'split', effective: 'not_allowed'}
     ])
@@ -72,14 +73,12 @@ describe('dropGeckoUnsupportedKeys', () => {
   })
 
   it('applies to every gecko target and to no other engine', () => {
-    for (const browser of ['gecko-based', 'firefox-based', 'zen']) {
-      expect(
-        dropGeckoUnsupportedKeys(source, browser as any).dropped
-      ).toHaveLength(3)
+    for (const browser of ['gecko-based', 'firefox-based', 'zen'] as const) {
+      expect(dropGeckoUnsupportedKeys(source, browser).dropped).toHaveLength(3)
     }
 
-    for (const browser of ['chrome', 'edge', 'safari']) {
-      const result = dropGeckoUnsupportedKeys(source, browser as any)
+    for (const browser of ['chrome', 'edge', 'safari'] as const) {
+      const result = dropGeckoUnsupportedKeys(source, browser)
 
       expect(result.manifest).toBe(source)
       expect(result.dropped).toEqual([])
@@ -138,7 +137,7 @@ describe('buildCanonicalManifestWithOverrides on a firefox build', () => {
       '/p/manifest.json',
       source,
       'firefox'
-    ).manifest as any
+    ).manifest
 
     expect(result.permissions).toEqual(['storage', 'scripting'])
     expect(result.optional_permissions).toEqual(['userScripts'])
@@ -150,7 +149,7 @@ describe('buildCanonicalManifestWithOverrides on a firefox build', () => {
       '/p/manifest.json',
       source,
       'chrome'
-    ).manifest as any
+    ).manifest
 
     expect(result.permissions).toEqual(source.permissions)
     expect(result.optional_permissions).toEqual(source.optional_permissions)

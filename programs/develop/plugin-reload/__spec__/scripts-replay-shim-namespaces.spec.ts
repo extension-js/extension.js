@@ -18,7 +18,7 @@ function firefoxBackground() {
   const engine = fakeEngine()
   const chrome = engine.namespace('callback-only')
   const browser = engine.namespace('promise')
-  const fakeGlobal: Record<string, any> = {
+  const fakeGlobal = {
     chrome: {
       ...chrome,
       tabs: {
@@ -35,9 +35,15 @@ function firefoxBackground() {
 
   new Function('globalThis', SCRIPTS_REPLAY_SHIM_SOURCE)(fakeGlobal)
 
-  const replay = (): Promise<
-    Array<{ok: boolean; tabId: number; files: string[]; error?: string}>
-  > => fakeGlobal.__extjsScriptsReplay(['scripts/hook.js'])
+  // The shim installs its replay on the global it was handed.
+  const installed = fakeGlobal as typeof fakeGlobal & {
+    __extjsScriptsReplay(
+      files: string[]
+    ): Promise<
+      Array<{ok: boolean; tabId: number; files: string[]; error?: string}>
+    >
+  }
+  const replay = () => installed.__extjsScriptsReplay(['scripts/hook.js'])
 
   return {engine, fakeGlobal, replay}
 }

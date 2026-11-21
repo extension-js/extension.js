@@ -1,23 +1,18 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // The env step templates $EXTENSION_PUBLIC_* in emitted .html and .json at
 // the same processAssets stage the html step rewrites the page in. The page
 // must keep both: the templated values and the injected script tags.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 const SHARED_MARK = 'SHARED_MODULE_MARK_51e2'
 
 function project(options: {sharedPages?: boolean} = {}) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-html-env-'))
-  roots.push(root)
+  const root = tempFolder('extjs-html-env-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'html-env', version: '0.0.0'})
@@ -78,7 +73,7 @@ function read(root: string, file: string) {
 describe('build: env templating survives the html update step', () => {
   it('templates the popup title and keeps the page script tag (chrome production)', async () => {
     const root = project()
-    const summary: any = await build(root, 'production')
+    const summary = await build(root, 'production')
     expect(summary.errors_count).toBe(0)
 
     const html = read(root, 'action/index.html')
@@ -95,7 +90,7 @@ describe('build: env templating survives the html update step', () => {
 
   it('templates every page that loads a shared sibling chunk', async () => {
     const root = project({sharedPages: true})
-    const summary: any = await build(root, 'production')
+    const summary = await build(root, 'production')
     expect(summary.errors_count).toBe(0)
 
     for (const [page, entry] of [
@@ -115,7 +110,7 @@ describe('build: env templating survives the html update step', () => {
 
   it('templates the popup title in a development build too', async () => {
     const root = project()
-    const summary: any = await build(root, 'development')
+    const summary = await build(root, 'development')
     expect(summary.errors_count).toBe(0)
 
     const html = read(root, 'action/index.html')
@@ -130,8 +125,7 @@ describe('build: env templating survives the html update step', () => {
 // page reached by a root-absolute link. Each must be filled like its siblings.
 describe('build: env templating reaches every copied .json and .html', () => {
   function copiedProject() {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-copied-env-'))
-    roots.push(root)
+    const root = tempFolder('extjs-copied-env-')
 
     const files: Record<string, string> = {
       'package.json': JSON.stringify({private: true, name: 'copied-env'}),
@@ -169,7 +163,7 @@ describe('build: env templating reaches every copied .json and .html', () => {
   for (const mode of ['production', 'development'] as const) {
     it(`fills the late copies the way it fills a page (${mode})`, async () => {
       const root = copiedProject()
-      const summary: any = await build(root, mode)
+      const summary = await build(root, mode)
       expect(summary.errors_count).toBe(0)
 
       for (const file of ['war.json', 'runtime.json']) {

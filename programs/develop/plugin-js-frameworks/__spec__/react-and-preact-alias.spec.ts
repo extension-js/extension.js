@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import type {Compiler} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {JsFrameworksPlugin} from '../index'
 import {getJsxImportSource} from '../js-frameworks-lib/jsx-transform'
@@ -24,7 +25,7 @@ function writePackage(root: string, name: string, files: string[]) {
 }
 
 function createCompiler(projectPath: string) {
-  const beforeRun: any = {
+  const beforeRun: {tapPromise: unknown; _cb?: () => Promise<void>} = {
     tapPromise: vi.fn((_name: string, cb: () => Promise<void>) => {
       beforeRun._cb = cb
     })
@@ -39,7 +40,10 @@ function createCompiler(projectPath: string) {
       module: {rules: [] as unknown[]}
     },
     hooks: {beforeRun, watchRun: {tapPromise: vi.fn()}}
-  } as any
+  } as unknown as Compiler & {
+    // Set by the plugin's beforeRun tap, which apply() adds.
+    hooks: {beforeRun: {_cb: () => Promise<void>}}
+  }
 }
 
 describe('a project that declares both React and Preact', () => {

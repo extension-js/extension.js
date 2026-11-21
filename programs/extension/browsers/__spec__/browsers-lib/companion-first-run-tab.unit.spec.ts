@@ -4,12 +4,19 @@ import {decideRepoint} from '../../../../../extensions/extension-js-devtools/src
 
 type Tab = {id: number; url: string; pendingUrl?: string}
 
+// The tabs.onUpdated arguments the stand-in fires: tab id, change and tab.
+type OnUpdatedListener = (
+  tabId: number,
+  change: {status?: string},
+  tab: Tab
+) => void
+
 const START_TAB: Tab = {id: 1, url: 'chrome://newtab/'}
 const AUTOMATION_TAB: Tab = {id: 2, url: 'https://example.com/'}
 
 let activeQueries: Tab[]
 let updates: Array<{tabId: number; url?: string}>
-let onUpdatedListeners: Array<(...args: any[]) => void>
+let onUpdatedListeners: Array<OnUpdatedListener>
 
 function later(fn: () => void) {
   setTimeout(fn, 0)
@@ -59,9 +66,8 @@ function installChrome() {
       move: (_id: number, _props: unknown, cb?: () => void) =>
         later(() => cb?.()),
       onUpdated: {
-        addListener: (fn: (...args: any[]) => void) =>
-          onUpdatedListeners.push(fn),
-        removeListener: (fn: (...args: any[]) => void) => {
+        addListener: (fn: OnUpdatedListener) => onUpdatedListeners.push(fn),
+        removeListener: (fn: OnUpdatedListener) => {
           onUpdatedListeners = onUpdatedListeners.filter((l) => l !== fn)
         }
       }

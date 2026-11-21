@@ -1,4 +1,5 @@
 import {beforeEach, describe, expect, it, vi} from 'vitest'
+import {asCompiler} from '../../../__spec__/helpers/rspack-fakes'
 
 // The files that exist, by the exact path the step asks about, so the same
 // project can be spelled with either separator on any machine.
@@ -58,7 +59,7 @@ async function errorsAfterSave(style: (typeof styles)[keyof typeof styles]) {
   new ThrowIfRecompileIsNeeded({
     manifestPath: style.manifest,
     includeList: {'action/index': style.page}
-  } as any).apply(compiler as any)
+  }).apply(asCompiler(compiler))
 
   // The script is deleted and the page saved, in one watch batch.
   present.delete(style.gone)

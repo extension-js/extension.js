@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import type {Manifest} from '../../../../../types'
 import {storage} from '../storage'
 
 const tempDirs: string[] = []
@@ -32,7 +33,7 @@ describe('storage (managed_schema override)', () => {
   it('rewrites in-project schema paths to the canonical output path', () => {
     const result = storage({
       storage: {managed_schema: 'src/schema.json'}
-    } as any)
+    } as Manifest)
 
     expect(result).toEqual({
       storage: {managed_schema: 'storage/managed_schema.json'}
@@ -42,7 +43,7 @@ describe('storage (managed_schema override)', () => {
   it('keeps public/ schema paths at the output root', () => {
     const result = storage({
       storage: {managed_schema: 'public/schema.json'}
-    } as any)
+    } as Manifest)
 
     expect(result).toEqual({
       storage: {managed_schema: 'schema.json'}
@@ -52,7 +53,7 @@ describe('storage (managed_schema override)', () => {
   it('keeps a leading-slash schema that public/ owns at the output root', () => {
     const manifestPath = createProject(['public/schema.json'])
     const result = storage(
-      {storage: {managed_schema: '/schema.json'}} as any,
+      {storage: {managed_schema: '/schema.json'}} as Manifest,
       manifestPath
     )
 
@@ -64,7 +65,7 @@ describe('storage (managed_schema override)', () => {
   it('rewrites a leading-slash schema at the project root to the canonical path', () => {
     const manifestPath = createProject(['schema.json'])
     const result = storage(
-      {storage: {managed_schema: '/schema.json'}} as any,
+      {storage: {managed_schema: '/schema.json'}} as Manifest,
       manifestPath
     )
 
@@ -76,7 +77,7 @@ describe('storage (managed_schema override)', () => {
   it('keeps a plain-spelled schema that public/ owns at the output root', () => {
     const manifestPath = createProject(['public/schema.json'])
     const result = storage(
-      {storage: {managed_schema: 'schema.json'}} as any,
+      {storage: {managed_schema: 'schema.json'}} as Manifest,
       manifestPath
     )
 
@@ -90,7 +91,7 @@ describe('storage (managed_schema override)', () => {
     const root = path.dirname(manifestPath)
     fs.mkdirSync(path.join(root, 'src'), {recursive: true})
     const result = storage(
-      {storage: {managed_schema: 'schema.json'}} as any,
+      {storage: {managed_schema: 'schema.json'}} as Manifest,
       path.join(root, 'src', 'manifest.json'),
       root
     )
@@ -103,7 +104,7 @@ describe('storage (managed_schema override)', () => {
   it('keeps a plain-spelled schema beside the manifest at the canonical path', () => {
     const manifestPath = createProject(['schema.json', 'public/schema.json'])
     const result = storage(
-      {storage: {managed_schema: 'schema.json'}} as any,
+      {storage: {managed_schema: 'schema.json'}} as Manifest,
       manifestPath
     )
 
@@ -113,6 +114,6 @@ describe('storage (managed_schema override)', () => {
   })
 
   it('returns undefined when manifest has no storage', () => {
-    expect(storage({} as any)).toBeUndefined()
+    expect(storage({} as Manifest)).toBeUndefined()
   })
 })

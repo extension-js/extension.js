@@ -2,11 +2,16 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {writeProjectFiles} from '../../../../__spec__/helpers/extension-project'
 import {noteWithheldCssRef} from '../../../../lib/withheld-file'
+import {asCompilation} from '../../../__spec__/helpers/rspack-fakes'
 import {
   emitRootAbsoluteRefs,
   planRootAbsoluteRef
 } from '../../steps/emit-root-absolute-refs'
+import type {BuildIssue, FakeSource} from '../helpers/html-fakes'
+
+type EmittedAsset = {name: string; source: FakeSource}
 
 // The bundler is not reachable from a unit fixture, so the compile step is
 // observed through the requests it receives.
@@ -35,32 +40,28 @@ function createProject(files: Record<string, string>) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-root-abs-'))
   tempDirs.push(root)
 
-  for (const [rel, content] of Object.entries(files)) {
-    const abs = path.join(root, rel)
-    fs.mkdirSync(path.dirname(abs), {recursive: true})
-    fs.writeFileSync(abs, content, 'utf8')
-  }
+  writeProjectFiles(root, files)
 
   return {root, publicDir: path.join(root, 'public')}
 }
 
 function makeCompilation(assets: Record<string, string>) {
-  const emitted = new Map(
+  const emitted = new Map<string, EmittedAsset>(
     Object.entries(assets).map(([name, src]) => [
       name,
       {name, source: {source: () => src}}
     ])
   )
-  const compilation: any = {
-    warnings: [],
-    errors: [],
+  const compilation = {
+    warnings: [] as BuildIssue[],
+    errors: [] as BuildIssue[],
     fileDependencies: new Set<string>(),
     getAsset: (name: string) => emitted.get(name),
     getAssets: () => Array.from(emitted.values()),
-    emitAsset: (name: string, source: any) => {
+    emitAsset: (name: string, source: FakeSource) => {
       emitted.set(name, {name, source})
     },
-    updateAsset: (name: string, source: any) => {
+    updateAsset: (name: string, source: FakeSource) => {
       emitted.set(name, {name, source})
     }
   }
@@ -68,7 +69,7 @@ function makeCompilation(assets: Record<string, string>) {
   return {compilation, emitted}
 }
 
-const text = (emitted: Map<string, any>, name: string) =>
+const text = (emitted: Map<string, EmittedAsset>, name: string) =>
   emitted.get(name)?.source.source().toString()
 
 describe('planRootAbsoluteRef', () => {
@@ -454,7 +455,7 @@ describe('emitRootAbsoluteRefs for a path that is not project content', () => {
       'style.css': '.a{background:url(/.npmrc)}.b{background:url(/.npmrc)}'
     })
 
-    await emitRootAbsoluteRefs(compilation, root, publicDir)
+    await emitRootAbsoluteRefs(asCompilation(compilation), root, publicDir)
 
     expect([...emitted.keys()].sort()).toEqual([
       'data/ok.json',
@@ -506,7 +507,7 @@ describe('emitRootAbsoluteRefs for a path that is not project content', () => {
       new Error('Update the /.env reference to point to a file that exists.')
     )
 
-    await emitRootAbsoluteRefs(compilation, root, publicDir)
+    await emitRootAbsoluteRefs(asCompilation(compilation), root, publicDir)
 
     expect([...emitted.keys()]).toEqual(['page.html'])
     expect(compilation.warnings).toHaveLength(1)
@@ -521,7 +522,7 @@ describe('emitRootAbsoluteRefs for a path that is not project content', () => {
     // The step names the sheet by its source and the ref as written.
     noteWithheldCssRef(compilation, '/.env?v=1', 'injected.css')
 
-    await emitRootAbsoluteRefs(compilation, root, publicDir)
+    await emitRootAbsoluteRefs(asCompilation(compilation), root, publicDir)
 
     expect(
       compilation.warnings.map((warning: Error) => [
@@ -539,7 +540,7 @@ describe('emitRootAbsoluteRefs for a path that is not project content', () => {
     vi.stubEnv('EXTENSION_STRICT_REFS', 'true')
 
     try {
-      await emitRootAbsoluteRefs(compilation, root, publicDir)
+      await emitRootAbsoluteRefs(asCompilation(compilation), root, publicDir)
     } finally {
       vi.unstubAllEnvs()
     }
@@ -568,7 +569,7 @@ describe('emitRootAbsoluteRefs', () => {
       'scripts/util.js': 'console.log("compiled by the main pipeline")'
     })
 
-    await emitRootAbsoluteRefs(compilation, root, publicDir)
+    await emitRootAbsoluteRefs(asCompilation(compilation), root, publicDir)
 
     expect(text(emitted, 'styles/page.css')).toBe(
       'body { background: url(/data/x.json); }\n'
@@ -609,7 +610,7 @@ describe('emitRootAbsoluteRefs', () => {
         "<div id=root></div><script type='module' src='/src/app.jsx'></script>"
     })
 
-    await emitRootAbsoluteRefs(compilation, root, publicDir)
+    await emitRootAbsoluteRefs(asCompilation(compilation), root, publicDir)
 
     expect(text(emitted, 'index.html')).toContain(
       "<script type='module' src='/src/app.js'></script>"
@@ -634,7 +635,7 @@ describe('emitRootAbsoluteRefs', () => {
       'styles/page.css': 'a { cursor: url(/lib/widget.js); }'
     })
 
-    await emitRootAbsoluteRefs(compilation, root, publicDir)
+    await emitRootAbsoluteRefs(asCompilation(compilation), root, publicDir)
 
     expect(compileRuntimeLoadedFiles).toHaveBeenCalledTimes(1)
     const [, , requests] = compileRuntimeLoadedFiles.mock

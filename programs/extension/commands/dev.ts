@@ -678,7 +678,8 @@ export function registerDevCommand(
         const noBrowser = await resolveNoBrowser(
           pathOrRemoteUrl || process.cwd(),
           'dev',
-          loadDevelop
+          loadDevelop,
+          list[0]
         )
 
         // Tells develop to route human lines to stderr, so stdout carries only

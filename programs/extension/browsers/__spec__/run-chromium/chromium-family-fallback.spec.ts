@@ -3,8 +3,10 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {resolveChromiumFamilyFallback} from '../../browsers-lib/output-binaries-resolver'
+import type {CompilationLike} from '../../browsers-types'
 
-const compilation = {} as any
+// An empty compilation: the fallback must answer without an output path.
+const compilation = {} as CompilationLike
 
 const isWin = process.platform === 'win32'
 const platformDir = isWin

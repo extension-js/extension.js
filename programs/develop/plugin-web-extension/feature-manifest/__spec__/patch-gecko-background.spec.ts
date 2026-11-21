@@ -78,8 +78,8 @@ describe('patchGeckoBackground', () => {
   it('translates for gecko-based targets too and drops `type`', () => {
     const out = patchGeckoBackground(sw({type: 'module'}), 'gecko-based')
     expect(out.background).toEqual({scripts: ['background/service_worker.js']})
-    expect((out.background as any).service_worker).toBeUndefined()
-    expect((out.background as any).type).toBeUndefined()
+    expect(out.background?.service_worker).toBeUndefined()
+    expect(out.background?.type).toBeUndefined()
   })
 
   it('is a no-op for Chromium targets', () => {

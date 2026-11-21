@@ -10,8 +10,37 @@ import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import * as messages from '../../browsers-lib/messages'
-import {createFirefoxContext} from '../../run-firefox/firefox-context'
-import {FirefoxLaunchPlugin} from '../../run-firefox/firefox-launch'
+import type {BrowserLogger, CompilationLike} from '../../browsers-types'
+import {
+  createFirefoxContext,
+  type FirefoxContext
+} from '../../run-firefox/firefox-context'
+import {
+  FirefoxLaunchPlugin,
+  type LaunchOptions
+} from '../../run-firefox/firefox-launch'
+import type {FirefoxPluginRuntime} from '../../run-firefox/firefox-types'
+
+// The private members these rows drive or read, reached through one cast.
+interface LaunchInternals {
+  ctx: FirefoxContext
+  child: unknown
+  extensionOutputPath?: string
+  launchRunId?: string
+  launch: unknown
+  reportReady: unknown
+  onBrowserGone: unknown
+  wireChildLifecycle(): void
+  adoptLivePid(pid: number): void
+  liveExitWatcher?: NodeJS.Timeout
+  livePid: number | null
+}
+
+function internals(plugin: FirefoxLaunchPlugin): LaunchInternals {
+  return plugin as unknown as LaunchInternals
+}
+
+type DoneHandler = (stats: unknown, done: () => void) => Promise<void>
 
 const dirs: string[] = []
 let tmp: string
@@ -23,8 +52,8 @@ function logger() {
 
 function makePlugin() {
   return new FirefoxLaunchPlugin(
-    {browser: 'firefox', extension: [tmp]} as any,
-    createFirefoxContext() as any
+    {browser: 'firefox', extension: [tmp]} as FirefoxPluginRuntime,
+    createFirefoxContext()
   )
 }
 
@@ -52,12 +81,12 @@ describe('a Firefox launch that fails inside the compiler done hook', () => {
   it('stamps the coded failure, logs it and hands the compile back without exiting', async () => {
     const plugin = makePlugin()
     const log = logger()
-    let doneHandler: any = null
-    const compiler: any = {
+    let doneHandler = null as DoneHandler | null
+    const compiler = {
       getInfrastructureLogger: () => log,
       hooks: {
         done: {
-          tapAsync: (_name: string, fn: any) => {
+          tapAsync: (_name: string, fn: DoneHandler) => {
             doneHandler = fn
           }
         }
@@ -70,9 +99,10 @@ describe('a Firefox launch that fails inside the compiler done hook', () => {
       readyPath,
       JSON.stringify({command: 'dev', status: 'starting', runId: 'run-1'})
     )
-    ;(plugin as any).extensionOutputPath = join(tmp, 'dist', 'firefox')
-    ;(plugin as any).launchRunId = 'run-1'
-    ;(plugin as any).launch = vi.fn().mockRejectedValueOnce(
+
+    internals(plugin).extensionOutputPath = join(tmp, 'dist', 'firefox')
+    internals(plugin).launchRunId = 'run-1'
+    internals(plugin).launch = vi.fn().mockRejectedValueOnce(
       Object.assign(new Error('no debugger greeting'), {
         code: 'E_BROWSER_START_TIMEOUT'
       })
@@ -82,7 +112,7 @@ describe('a Firefox launch that fails inside the compiler done hook', () => {
     expect(typeof doneHandler).toBe('function')
 
     const done = vi.fn()
-    await doneHandler(
+    await doneHandler?.(
       {
         hasErrors: () => false,
         compilation: {options: {mode: 'development', output: {path: tmp}}}
@@ -107,19 +137,19 @@ describe('a failing recompile once Firefox is up', () => {
   it('skips the launch quietly, the skip line belongs before the first launch', async () => {
     const plugin = makePlugin()
     const log = logger()
-    let doneHandler: any = null
-    const compiler: any = {
+    let doneHandler = null as DoneHandler | null
+    const compiler = {
       getInfrastructureLogger: () => log,
       hooks: {
         done: {
-          tapAsync: (_name: string, fn: any) => {
+          tapAsync: (_name: string, fn: DoneHandler) => {
             doneHandler = fn
           }
         }
       }
     }
-    ;(plugin as any).launch = vi.fn().mockResolvedValue(undefined)
-    ;(plugin as any).reportReady = vi.fn()
+    internals(plugin).launch = vi.fn().mockResolvedValue(undefined)
+    internals(plugin).reportReady = vi.fn()
 
     plugin.apply(compiler)
 
@@ -132,11 +162,11 @@ describe('a failing recompile once Firefox is up', () => {
         /Skipping the browser launch/.test(String(call[0] || ''))
       )
 
-    await doneHandler(failing, vi.fn())
+    await doneHandler?.(failing, vi.fn())
     expect(skipped()).toHaveLength(1)
-    expect((plugin as any).launch).not.toHaveBeenCalled()
+    expect(internals(plugin).launch).not.toHaveBeenCalled()
 
-    await doneHandler(
+    await doneHandler?.(
       {
         hasErrors: () => false,
         compilation: {options: {mode: 'development', output: {path: tmp}}}
@@ -144,13 +174,13 @@ describe('a failing recompile once Firefox is up', () => {
       vi.fn()
     )
 
-    expect((plugin as any).launch).toHaveBeenCalledTimes(1)
+    expect(internals(plugin).launch).toHaveBeenCalledTimes(1)
 
     const done = vi.fn()
-    await doneHandler(failing, done)
+    await doneHandler?.(failing, done)
     expect(done).toHaveBeenCalledTimes(1)
     expect(skipped()).toHaveLength(1)
-    expect((plugin as any).launch).toHaveBeenCalledTimes(1)
+    expect(internals(plugin).launch).toHaveBeenCalledTimes(1)
   })
 })
 
@@ -158,18 +188,18 @@ describe('a run-only Firefox launch handed a compile that failed', () => {
   it('starts no browser, prints no ready line and leaves the session unlaunched', async () => {
     const ctx = createFirefoxContext()
     const log = logger()
-    ctx.logger = log as any
+    ctx.logger = log as BrowserLogger
     const plugin = new FirefoxLaunchPlugin(
-      {browser: 'firefox', extension: [tmp]} as any,
-      ctx as any
+      {browser: 'firefox', extension: [tmp]} as FirefoxPluginRuntime,
+      ctx
     )
 
     await plugin.runOnce(
       {
         errors: [new Error("Module not found: Can't resolve './missing'")],
         options: {mode: 'development', output: {path: tmp}}
-      } as any,
-      {browser: 'firefox', mode: 'development'} as any
+      } as CompilationLike,
+      {browser: 'firefox', mode: 'development'} as LaunchOptions
     )
 
     expect(log.info.mock.calls).toEqual([
@@ -188,13 +218,13 @@ describe('a Firefox child process that errors after it spawned', () => {
   it('is logged and left to its close handler instead of ending the process', () => {
     const plugin = makePlugin()
     const log = logger()
-    ;(plugin as any).ctx.logger = log
+    internals(plugin).ctx.logger = log
     const child = Object.assign(new EventEmitter(), {
       stdout: null,
       stderr: null
     })
-    ;(plugin as any).child = child
-    ;(plugin as any).wireChildLifecycle()
+    internals(plugin).child = child
+    internals(plugin).wireChildLifecycle()
 
     expect(() =>
       child.emit('error', new Error('EPIPE after spawn'))
@@ -209,18 +239,18 @@ describe('a Firefox child process that errors after it spawned', () => {
 describe('a Firefox that hands the session to a relaunched process', () => {
   it('keeps the event loop on the adopted pid until that process is gone', async () => {
     const plugin = makePlugin()
-    ;(plugin as any).ctx.logger = logger()
-    ;(plugin as any).onBrowserGone = vi.fn()
+    internals(plugin).ctx.logger = logger()
+    internals(plugin).onBrowserGone = vi.fn()
 
     // A refused add-on leaves no RDP socket, so after the spawned child exits
     // this probe is the only handle on the browser the session still owns.
-    ;(plugin as any).adoptLivePid(process.pid)
-    const watcher = (plugin as any).liveExitWatcher
+    internals(plugin).adoptLivePid(process.pid)
+    const watcher = internals(plugin).liveExitWatcher
 
     try {
       expect(watcher).toBeDefined()
-      expect(watcher.hasRef()).toBe(true)
-      expect((plugin as any).livePid).toBe(process.pid)
+      expect(watcher?.hasRef()).toBe(true)
+      expect(internals(plugin).livePid).toBe(process.pid)
     } finally {
       clearInterval(watcher)
     }
@@ -228,25 +258,25 @@ describe('a Firefox that hands the session to a relaunched process', () => {
 
   it('reports the adopted process gone once its pid stops answering', async () => {
     const plugin = makePlugin()
-    ;(plugin as any).ctx.logger = logger()
+    internals(plugin).ctx.logger = logger()
     const gone = vi.fn()
-    ;(plugin as any).onBrowserGone = gone
+    internals(plugin).onBrowserGone = gone
 
     vi.useFakeTimers()
 
     try {
       // Larger than any pid the OS hands out, so the probe finds nothing.
-      ;(plugin as any).adoptLivePid(2 ** 30)
+      internals(plugin).adoptLivePid(2 ** 30)
 
       // The probe runs once a second, so nothing is reported before that.
       vi.advanceTimersByTime(999)
       expect(gone).not.toHaveBeenCalled()
-      expect((plugin as any).liveExitWatcher).toBeDefined()
+      expect(internals(plugin).liveExitWatcher).toBeDefined()
 
       vi.advanceTimersByTime(1)
       expect(gone).toHaveBeenCalledTimes(1)
       expect(gone).toHaveBeenCalledWith(null, false)
-      expect((plugin as any).liveExitWatcher).toBeUndefined()
+      expect(internals(plugin).liveExitWatcher).toBeUndefined()
 
       vi.advanceTimersByTime(5000)
       expect(gone).toHaveBeenCalledTimes(1)
@@ -257,20 +287,21 @@ describe('a Firefox that hands the session to a relaunched process', () => {
 
   it('stamps when the adopted process started, and no time for a launcher the table lost', () => {
     const plugin = makePlugin()
-    ;(plugin as any).ctx.logger = logger()
-    ;(plugin as any).onBrowserGone = vi.fn()
+    internals(plugin).ctx.logger = logger()
+    internals(plugin).onBrowserGone = vi.fn()
     const readyDir = join(tmp, 'dist', 'extension-js', 'firefox')
     mkdirSync(readyDir, {recursive: true})
     writeFileSync(
       join(readyDir, 'ready.json'),
       JSON.stringify({command: 'dev', status: 'ready', runId: 'run-1'})
     )
-    ;(plugin as any).extensionOutputPath = join(tmp, 'dist', 'firefox')
-    ;(plugin as any).launchRunId = 'run-1'
+
+    internals(plugin).extensionOutputPath = join(tmp, 'dist', 'firefox')
+    internals(plugin).launchRunId = 'run-1'
     // The spawned launcher has exited by the time the handoff is noticed, so
     // its pid is dated by nothing. 2 ** 30 is such a pid.
-    ;(plugin as any).child = {pid: 2 ** 30}
-    ;(plugin as any).adoptLivePid(process.pid)
+    internals(plugin).child = {pid: 2 ** 30}
+    internals(plugin).adoptLivePid(process.pid)
 
     try {
       const ready = JSON.parse(
@@ -285,7 +316,7 @@ describe('a Firefox that hands the session to a relaunched process', () => {
       expect(ready.launcherPid).toBe(2 ** 30)
       expect('launcherStartedAt' in ready).toBe(false)
     } finally {
-      clearInterval((plugin as any).liveExitWatcher)
+      clearInterval(internals(plugin).liveExitWatcher)
     }
   })
 })

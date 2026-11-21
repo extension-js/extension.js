@@ -2,6 +2,13 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import type {StyleLoaderOptions} from '../../common-style-loaders'
+import type {PostCssOptions} from '../../css-tools/postcss'
+
+// The resolved plugin list the rows read back.
+type PluginsView =
+  | (PostCssOptions & {plugins: Array<{postcssPlugin?: string}>})
+  | undefined
 
 describe('project-first postcss plugin resolution', () => {
   let tmp: string
@@ -47,9 +54,11 @@ describe('project-first postcss plugin resolution', () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const {maybeUsePostCss} = await import('../../css-tools/postcss')
-    const rule = await maybeUsePostCss(tmp, {mode: 'production'} as any)
+    const rule = await maybeUsePostCss(tmp, {
+      mode: 'production'
+    } as StyleLoaderOptions)
 
-    const opts = rule.options?.postcssOptions
+    const opts = rule.options?.postcssOptions as PluginsView
     expect(opts?.config).toBe(false)
     expect(Array.isArray(opts?.plugins)).toBe(true)
     expect(opts?.plugins).toHaveLength(1)
@@ -73,9 +82,11 @@ describe('project-first postcss plugin resolution', () => {
     writeFakePlugin(tmp, 'fake-postcss-plugin')
 
     const {maybeUsePostCss} = await import('../../css-tools/postcss')
-    const rule = await maybeUsePostCss(tmp, {mode: 'production'} as any)
+    const rule = await maybeUsePostCss(tmp, {
+      mode: 'production'
+    } as StyleLoaderOptions)
 
-    const opts = rule.options?.postcssOptions
+    const opts = rule.options?.postcssOptions as PluginsView
     expect(opts?.config).toBe(false)
     expect(opts?.plugins).toHaveLength(1)
     expect(opts?.plugins[0]).toMatchObject({
@@ -100,9 +111,11 @@ describe('project-first postcss plugin resolution', () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const {maybeUsePostCss} = await import('../../css-tools/postcss')
-    const rule = await maybeUsePostCss(tmp, {mode: 'production'} as any)
+    const rule = await maybeUsePostCss(tmp, {
+      mode: 'production'
+    } as StyleLoaderOptions)
 
-    const opts = rule.options?.postcssOptions
+    const opts = rule.options?.postcssOptions as PluginsView
     expect(opts?.plugins).toHaveLength(1)
     expect(opts?.plugins[0].postcssPlugin).toBe('fake-postcss-plugin')
     expect(errorSpy).not.toHaveBeenCalled()
@@ -140,8 +153,10 @@ describe('project-first postcss plugin resolution', () => {
     }
 
     const {maybeUsePostCss} = await import('../../css-tools/postcss')
-    const rule = await maybeUsePostCss(tmp, {mode: 'production'} as any)
-    const opts = rule.options?.postcssOptions
+    const rule = await maybeUsePostCss(tmp, {
+      mode: 'production'
+    } as StyleLoaderOptions)
+    const opts = rule.options?.postcssOptions as PluginsView
 
     expect(opts?.plugins).toHaveLength(1)
     expect(opts?.parser).toEqual({from: 'fake-parser'})

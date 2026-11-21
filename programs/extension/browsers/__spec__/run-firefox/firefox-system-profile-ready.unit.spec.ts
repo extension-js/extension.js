@@ -2,10 +2,33 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import {buildBrowserLaunchRequest} from '../../browsers-lib/runtime-options'
+import {
+  type BrowserLaunchRequestSource,
+  buildBrowserLaunchRequest
+} from '../../browsers-lib/runtime-options'
+import type {CompilationLike} from '../../browsers-types'
+import type {FirefoxContext} from '../../run-firefox/firefox-context'
 import {FirefoxLaunchPlugin} from '../../run-firefox/firefox-launch'
-import {resolveFirefoxLaunchConfig} from '../../run-firefox/firefox-launch/browser-config'
+import {
+  type BrowserConfigOptions,
+  resolveFirefoxLaunchConfig
+} from '../../run-firefox/firefox-launch/browser-config'
+import type {FirefoxPluginRuntime} from '../../run-firefox/firefox-types'
 import {type FakeFirefox, fakeFirefox} from '../fake-browser'
+
+type LaunchFailure = (Error & {code?: string}) | null
+
+// The private members these rows drive, reached through one cast.
+interface LaunchInternals {
+  launch(compilation: unknown, request: unknown): Promise<void>
+  reportReady(mode: 'development' | 'production'): void
+}
+
+function internals(plugin: FirefoxLaunchPlugin): LaunchInternals {
+  return plugin as unknown as LaunchInternals
+}
+
+const noLoggerContext = () => ({logger: undefined}) as FirefoxContext
 
 describe('firefox on its own profile', () => {
   let scratch: string
@@ -32,30 +55,39 @@ describe('firefox on its own profile', () => {
           context: project,
           output: {path: path.join(project, 'dist', 'firefox')}
         }
-      } as any,
-      {extension: '/ext', browser: 'firefox', profile: false} as any
+      } as CompilationLike,
+      {
+        extension: '/ext',
+        browser: 'firefox',
+        profile: false
+      } as BrowserConfigOptions
     )
 
     expect(launch.profilePath).toBeFalsy()
   })
 
   // The request is built off the host, the way every production caller does.
-  const launchWith = async (options: Record<string, unknown>) => {
+  const launchWith = async (
+    options: Record<string, unknown>
+  ): Promise<LaunchFailure> => {
     const host = {extension: fake.project.out, browser: 'firefox', ...options}
     const plugin = new FirefoxLaunchPlugin(
-      host as any,
-      {logger: undefined} as any,
+      host as FirefoxPluginRuntime,
+      noLoggerContext(),
       fake.deps
     )
 
-    return (plugin as any)
+    return internals(plugin)
       .launch(
         fake.project.compilation('development'),
-        buildBrowserLaunchRequest(host as any, 'development')
+        buildBrowserLaunchRequest(
+          host as BrowserLaunchRequestSource,
+          'development'
+        )
       )
       .then(
         () => null,
-        (error: unknown) => error
+        (error: unknown) => error as LaunchFailure
       )
   }
 
@@ -78,13 +110,13 @@ describe('firefox on its own profile', () => {
     const error = await launchWith(host)
 
     expect(error).toBeInstanceOf(Error)
-    expect(error.code).toBe('E_FLAG_NOT_SUPPORTED_HERE')
-    expect(error.message).toContain(
+    expect(error?.code).toBe('E_FLAG_NOT_SUPPORTED_HERE')
+    expect(error?.message).toContain(
       "Firefox can't load the add-on in its own profile, so it was not launched."
     )
 
-    expect(error.message).toContain(`SET BY ${named}`)
-    expect(error.message).toContain('--profile=<path>')
+    expect(error?.message).toContain(`SET BY ${named}`)
+    expect(error?.message).toContain('--profile=<path>')
     expect(fake.spawns).toEqual([])
     expect(fake.claims).toEqual([])
   })
@@ -94,11 +126,11 @@ describe('firefox on its own profile', () => {
 
     const error = await launchWith({profile: false, profileSource: 'flag'})
 
-    expect(error.message).toContain(
+    expect(error?.message).toContain(
       'SET BY --profile=false, EXTENSION_USE_SYSTEM_PROFILE=true'
     )
 
-    expect(error.message).toContain(
+    expect(error?.message).toContain(
       'drop --profile=false and unset EXTENSION_USE_SYSTEM_PROFILE'
     )
   })
@@ -134,10 +166,10 @@ describe('firefox on its own profile', () => {
   it('still prints the ready line when the add-on was installed', () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
     const plugin = new FirefoxLaunchPlugin(
-      {browser: 'firefox'} as any,
-      {logger: undefined} as any
+      {browser: 'firefox'} as FirefoxPluginRuntime,
+      noLoggerContext()
     )
-    ;(plugin as any).reportReady('development')
+    internals(plugin).reportReady('development')
 
     expect(log.mock.calls.map((call) => String(call[0])).join('\n')).toMatch(
       /ready for development/

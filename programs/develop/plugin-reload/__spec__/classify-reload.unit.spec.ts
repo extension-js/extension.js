@@ -466,7 +466,7 @@ describe('buildSourceFeatureIndex', () => {
   function fakeCompilation(
     chunks: Array<{name: string; identifiers: string[]}>
   ) {
-    const byChunk = new Map<any, string[]>()
+    const byChunk = new Map<object, string[]>()
     const chunkObjs = chunks.map((c) => {
       const chunk = {name: c.name}
       byChunk.set(chunk, c.identifiers)
@@ -477,7 +477,7 @@ describe('buildSourceFeatureIndex', () => {
     return {
       chunks: chunkObjs,
       chunkGraph: {
-        getChunkModulesIterable(chunk: any) {
+        getChunkModulesIterable(chunk: object) {
           return (byChunk.get(chunk) || []).map((id) => ({
             identifier: () => id
           }))
@@ -606,19 +606,19 @@ describe('scripts/ bundle edits carry changedScriptFiles for the SW replay', () 
       {name: 'scripts/panel', identifiers: ['/proj/scripts/panel.js']},
       {name: 'action/index', identifiers: ['/proj/popup/popup.js']}
     ]
-    const byChunk = new Map<any, string[]>()
+    const byChunk = new Map<object, string[]>()
     const chunkObjs = chunks.map(({identifiers, ...chunk}) => {
       byChunk.set(chunk, identifiers)
 
       return chunk
     })
-    const compilation: any = {
+    const compilation = {
       chunks: chunkObjs,
       chunkGraph: {
-        getChunkModulesIterable: (chunk: any) =>
+        getChunkModulesIterable: (chunk: object) =>
           (byChunk.get(chunk) || []).map((id) => ({identifier: () => id}))
       }
-    }
+    } as unknown as Compilation
 
     const idx = buildSourceFeatureIndex(compilation, '/proj')
 

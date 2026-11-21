@@ -29,12 +29,18 @@ function project(options: ExtensionProject = {}): string {
   return writeExtensionProject(tempFolder('extjs-command-dev-'), options)
 }
 
-function devServerOptions(): any {
-  return devServer.mock.calls[0]?.[1]
+type Options = Record<string, unknown>
+
+function devServerOptions() {
+  return devServer.mock.calls[0]?.[1] as Options
 }
 
-function pluginBrowserOptions(): any {
-  return devServerOptions()?.browsersPlugin?.options?.browserOptions
+function pluginBrowserOptions() {
+  const plugin = devServerOptions()?.browsersPlugin as
+    | {options?: {browserOptions?: Options}}
+    | undefined
+
+  return plugin?.options?.browserOptions as Options
 }
 
 describe('extensionDev', () => {
@@ -62,7 +68,7 @@ describe('extensionDev', () => {
       }
     })
 
-    await extensionDev(root, {browser: undefined, port: 0} as any)
+    await extensionDev(root, {browser: undefined, port: 0})
 
     expect(
       fs.readFileSync(path.join(root, 'extension-env.d.ts'), 'utf8')
@@ -88,7 +94,7 @@ describe('extensionDev', () => {
       files: {'background.js': 'console.log("started")\n'}
     })
 
-    await extensionDev(root, {browser: undefined, port: 0} as any)
+    await extensionDev(root, {browser: undefined, port: 0})
 
     expect(fs.existsSync(path.join(root, 'extension-env.d.ts'))).toBe(false)
     expect(fs.existsSync(path.join(root, 'tsconfig.json'))).toBe(false)
@@ -110,7 +116,7 @@ describe('extensionDev', () => {
       files: {'background.ts': 'export const started: boolean = true\n'}
     })
 
-    await extensionDev(root, {browser: undefined, port: 0} as any)
+    await extensionDev(root, {browser: undefined, port: 0})
 
     expect(fs.existsSync(path.join(root, 'tsconfig.json'))).toBe(scaffolds)
   })
@@ -133,7 +139,7 @@ describe('extensionDev', () => {
       }
     })
 
-    await extensionDev(root, {browser: undefined, port: 0} as any)
+    await extensionDev(root, {browser: undefined, port: 0})
 
     expect(fs.existsSync(path.join(root, 'tsconfig.json'))).toBe(scaffolds)
   })
@@ -143,7 +149,7 @@ describe('extensionDev', () => {
       browser: undefined,
       port: 0,
       install: false
-    } as any)
+    })
 
     expect(
       ensureArtifactsMod.ensureUserProjectDependencies
@@ -153,7 +159,11 @@ describe('extensionDev', () => {
   it('hands the caller onReady to the dev server', async () => {
     const onReady = vi.fn()
 
-    await extensionDev(project(), {browser: 'chrome', port: 0, onReady} as any)
+    await extensionDev(project(), {
+      browser: 'chrome',
+      port: 0,
+      onReady
+    })
 
     expect(devServer).toHaveBeenCalledWith(
       expect.any(Object),
@@ -181,7 +191,11 @@ describe('extensionDev', () => {
       close: vi.fn(async () => {})
     }))
 
-    await extensionDev(root, {browser: 'chrome', port: 0, launcher} as any)
+    await extensionDev(root, {
+      browser: 'chrome',
+      port: 0,
+      launcher
+    })
 
     expect(pluginBrowserOptions()).toMatchObject({
       profile: '/explicit/profile',
@@ -204,7 +218,7 @@ describe('extensionDev', () => {
       port: 0,
       profile: '/from/cli',
       launcher: vi.fn()
-    } as any)
+    })
 
     expect(pluginBrowserOptions().profile).toBe('/from/cli')
   })
@@ -215,7 +229,7 @@ describe('extensionDev', () => {
         browser: 'chrome',
         port: 0,
         launcher: vi.fn()
-      } as any)
+      })
 
       expect(pluginBrowserOptions()).toMatchObject({
         noOpen: false,
@@ -250,7 +264,7 @@ describe('extensionDev', () => {
         browser: 'chrome',
         port: 0,
         launcher: vi.fn()
-      } as any)
+      })
 
       expect(pluginBrowserOptions()).toMatchObject({
         startingUrl: 'https://from-commands-dev.example',
@@ -273,7 +287,7 @@ describe('extensionDev', () => {
         browser: 'chrome',
         port: 0,
         launcher: vi.fn()
-      } as any)
+      })
 
       expect(pluginBrowserOptions().startingUrl).toBe(
         'https://from-browser.example'
@@ -295,7 +309,7 @@ describe('extensionDev', () => {
         browser: undefined,
         port: 0,
         launcher: vi.fn()
-      } as any)
+      })
 
       expect(pluginBrowserOptions().browser).toBe('firefox')
       expect(devServerOptions().browser).toBe('firefox')
@@ -309,7 +323,7 @@ describe('extensionDev', () => {
       const root = project({config: `{commands: {dev: {browser: 'netscape'}}}`})
 
       await expect(
-        extensionDev(root, {browser: undefined, port: 0} as any)
+        extensionDev(root, {browser: undefined, port: 0})
       ).rejects.toMatchObject({
         code: 'E_UNSUPPORTED_BROWSER',
         message: expect.stringContaining('commands.dev.browser: netscape')
@@ -320,14 +334,15 @@ describe('extensionDev', () => {
 
     it('refuses a browser option it does not know, with a code', async () => {
       await expect(
-        extensionDev(project(), {browser: 'netscape', port: 0} as any)
+        // @ts-expect-error a browser outside the union, to prove the run-time refusal
+        extensionDev(project(), {browser: 'netscape', port: 0})
       ).rejects.toMatchObject({code: 'E_UNSUPPORTED_BROWSER'})
 
       expect(devServer).not.toHaveBeenCalled()
     })
 
     it('targets chromium when neither the call nor the config names a browser', async () => {
-      await extensionDev(project(), {port: 0, launcher: vi.fn()} as any)
+      await extensionDev(project(), {port: 0, launcher: vi.fn()})
 
       expect(pluginBrowserOptions().browser).toBe('chromium')
       expect(devServerOptions().browser).toBe('chromium')
@@ -338,7 +353,7 @@ describe('extensionDev', () => {
         port: 0,
         geckoBinary: '/opt/gecko/firefox',
         launcher: vi.fn()
-      } as any)
+      })
 
       expect(devServerOptions().browser).toBe('gecko-based')
     })
@@ -350,7 +365,7 @@ describe('extensionDev', () => {
         browser: 'edge',
         port: 0,
         launcher: vi.fn()
-      } as any)
+      })
 
       expect(pluginBrowserOptions().browser).toBe('edge')
       expect(devServerOptions().browser).toBe('edge')
@@ -380,7 +395,7 @@ describe('extensionDev', () => {
         polyfill: true,
         logColor: true,
         launcher: vi.fn()
-      } as any)
+      })
 
       expect(pluginBrowserOptions()).toMatchObject({
         startingUrl: 'https://from-cli.example',
@@ -399,7 +414,7 @@ describe('extensionDev', () => {
         polyfill: true,
         logFormat: 'ndjson',
         launcher: vi.fn()
-      } as any)
+      })
 
       expect(pluginBrowserOptions()).toMatchObject({
         logFormat: 'ndjson',
@@ -435,7 +450,7 @@ describe('extensionDev', () => {
         browserFlags: ['--from-cli'],
         preferences: {a: 99, nested: {x: 3}},
         launcher: vi.fn()
-      } as any)
+      })
 
       expect(pluginBrowserOptions()).toMatchObject({
         browserFlags: [
@@ -455,7 +470,7 @@ describe('extensionDev', () => {
         browser: 'chrome',
         port: 0,
         launcher: vi.fn()
-      } as any)
+      })
 
       expect(pluginBrowserOptions().browserFlags).toEqual([
         '--force-dark-mode',
@@ -469,7 +484,7 @@ describe('extensionDev', () => {
         port: 0,
         excludeBrowserFlags: ['--force-dark-mode'],
         launcher: vi.fn()
-      } as any)
+      })
 
       expect(pluginBrowserOptions().browserFlags || []).not.toContain(
         '--force-dark-mode'
@@ -496,7 +511,10 @@ describe('extensionDev', () => {
     })
 
     await expect(
-      extensionDev(project(), {browser: 'chrome', exitOnError: true} as any)
+      extensionDev(project(), {
+        browser: 'chrome',
+        exitOnError: true
+      })
     ).rejects.toThrow('exit 1')
 
     expect(exitSpy).toHaveBeenCalledWith(1)
@@ -516,7 +534,7 @@ describe('extensionDev', () => {
       config: `{config: (config) => config} // loads '@rspack/core'`
     })
 
-    await extensionDev(root, {browser: 'chrome', port: 0} as any)
+    await extensionDev(root, {browser: 'chrome', port: 0})
 
     expect(devServerOptions()).toBeDefined()
     expect(devServer.mock.calls[0][0]).toMatchObject({
@@ -544,9 +562,9 @@ describe('extensionDev', () => {
 
     // Library contract: no exitOnError means reject, never process.exit; the
     // CLI wrapper opts into exiting on its pretty path.
-    await expect(
-      extensionDev(project(), {browser: 'firefox'} as any)
-    ).rejects.toThrow('boom')
+    await expect(extensionDev(project(), {browser: 'firefox'})).rejects.toThrow(
+      'boom'
+    )
 
     expect(exitSpy).not.toHaveBeenCalled()
     // The caller holds the rejection, so printing it here would show it twice.
@@ -565,9 +583,9 @@ describe('extensionDev', () => {
       throw new Error('boom')
     })
 
-    await expect(
-      extensionDev(root, {browser: 'firefox'} as any)
-    ).rejects.toThrow('boom')
+    await expect(extensionDev(root, {browser: 'firefox'})).rejects.toThrow(
+      'boom'
+    )
 
     expect(printed).toHaveBeenCalledTimes(1)
     expect(String(printed.mock.calls[0][0])).toContain('boom')
@@ -576,9 +594,9 @@ describe('extensionDev', () => {
     // A project that is not found is the whole answer, and the frame has it.
     printed.mockClear()
 
-    await expect(
-      extensionDev(nowhere, {browser: 'firefox'} as any)
-    ).rejects.toThrow(/manifest/i)
+    await expect(extensionDev(nowhere, {browser: 'firefox'})).rejects.toThrow(
+      /manifest/i
+    )
 
     expect(printed).not.toHaveBeenCalled()
     expect(devServer).toHaveBeenCalledTimes(1)
@@ -598,7 +616,7 @@ describe('extensionDev', () => {
     })
 
     await expect(
-      extensionDev(root, {browser: 'firefox', onExitError} as any)
+      extensionDev(root, {browser: 'firefox', onExitError})
     ).rejects.toThrow('boom')
 
     expect(onExitError).not.toHaveBeenCalled()
@@ -610,7 +628,7 @@ describe('extensionDev', () => {
         browser: 'firefox',
         exitOnError: true,
         onExitError
-      } as any)
+      })
     ).rejects.toThrow('exit 1')
 
     expect(onExitError).toHaveBeenCalledTimes(1)

@@ -9,7 +9,7 @@ import {
 } from 'vitest'
 import {registerDevCommand} from '../commands/dev'
 import {WaitModeError} from '../commands/dev-wait'
-import {CODES} from '../helpers/messaging'
+import {CODES, type Envelope} from '../helpers/messaging'
 import {
   makeProgram,
   runCli,
@@ -59,7 +59,7 @@ function run(argv: string[]) {
   )
 }
 
-function frames(): any[] {
+function frames(): Envelope[] {
   return logSpy.mock.calls.map((call) => JSON.parse(String(call[0])))
 }
 
@@ -119,7 +119,7 @@ describe('extension dev --output json', () => {
       error: {code: CODES.E_UNSUPPORTED_BROWSER}
     })
 
-    expect(String(emitted[0].error.message)).toContain('netscape')
+    expect(String(emitted[0].error?.message)).toContain('netscape')
     expect(extensionDev).not.toHaveBeenCalled()
   })
 
@@ -414,7 +414,7 @@ describe('extension dev --output json', () => {
       await run(['dev', '.', '--browser', 'nope', '--output', 'json'])
     ).toBe(1)
 
-    expect(frames().map((frame) => frame.error.code)).toEqual([
+    expect(frames().map((frame) => frame.error?.code)).toEqual([
       CODES.E_UNSUPPORTED_BROWSER
     ])
 

@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import type {Compiler} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {PruneUnreachableChunks} from '../steps/prune-unreachable-chunks'
 
@@ -27,7 +28,7 @@ describe('PruneUnreachableChunks', () => {
         }
       }
     }
-    new PruneUnreachableChunks().apply(compiler as any)
+    new PruneUnreachableChunks().apply(compiler as unknown as Compiler)
 
     const compileWith = (assetNames: string[], errors: unknown[] = []) => {
       doneFn!({

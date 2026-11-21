@@ -1,34 +1,24 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {type Compiler, rspack} from '@rspack/core'
-import {afterAll, beforeEach, describe, expect, it} from 'vitest'
+import {beforeEach, describe, expect, it} from 'vitest'
 import {devWatchOptions} from '../../__spec__/helpers/dev-watch-options'
+import {writeExtensionProject} from '../../__spec__/helpers/extension-project'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {getProjectStructure} from '../../lib/project'
 import {eventsPath, readyContractPath} from '../../lib/session-paths'
 import webpackConfig from '../../rspack-config'
 import {skipWithoutDevelopDist} from './helpers/develop-dist'
 
-const roots: string[] = []
+const tempFolder = trackTempFolders()
 
 function scaffold() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-restart-ready-'))
-  roots.push(root)
+  const root = tempFolder('extjs-restart-ready-')
 
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'restart-ready', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'restart-ready',
-      version: '0.0.0',
-      action: {default_popup: 'popup.html'}
-    })
-  )
+  writeExtensionProject(root, {
+    name: 'restart-ready',
+    manifest: {version: '0.0.0', action: {default_popup: 'popup.html'}}
+  })
 
   fs.writeFileSync(
     path.join(root, 'popup.html'),
@@ -83,10 +73,6 @@ function readEvents(root: string) {
     .filter(Boolean)
     .map((line) => JSON.parse(line) as Record<string, unknown>)
 }
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
 
 beforeEach(skipWithoutDevelopDist)
 

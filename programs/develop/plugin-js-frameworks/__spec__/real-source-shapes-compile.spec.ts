@@ -8,6 +8,7 @@ import {
   type Stats
 } from '@rspack/core'
 import {afterAll, describe, expect, it} from 'vitest'
+import {writeProjectFiles} from '../../__spec__/helpers/extension-project'
 import {getProjectStructure} from '../../lib/project'
 import webpackConfig from '../../rspack-config'
 
@@ -70,11 +71,7 @@ function scaffold(
 
   mirrorWorkspaceModules(root)
 
-  for (const [relative, contents] of Object.entries(files)) {
-    const target = path.join(root, relative)
-    fs.mkdirSync(path.dirname(target), {recursive: true})
-    fs.writeFileSync(target, contents)
-  }
+  writeProjectFiles(root, files)
 
   return root
 }
@@ -97,7 +94,7 @@ async function compileDev(root: string, options: CompileOptions = {}) {
     silent: true,
     define: options.define,
     output: {clean: false, path: path.join(root, 'dist', 'chrome')}
-  } as any)
+  } as Parameters<typeof webpackConfig>[1])
   config.plugins = [
     ...(config.plugins || []).filter(
       (plugin) =>
@@ -120,7 +117,7 @@ async function compileDev(root: string, options: CompileOptions = {}) {
 
   const distPath = path.join(root, 'dist', 'chrome')
   const entries = fs.existsSync(distPath)
-    ? (fs.readdirSync(distPath, {recursive: true} as any) as unknown[])
+    ? (fs.readdirSync(distPath, {recursive: true}) as unknown[])
     : []
   const emitted = entries
     .map((entry) => String(entry))

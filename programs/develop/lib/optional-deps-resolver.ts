@@ -96,10 +96,9 @@ type EnsureResolveInput = {
   contract?: OptionalDependencyContract
 }
 
-// Optionally installed modules have caller-defined shapes; the default T is
-// the loosest view so existing call sites keep their dynamic contract.
-// biome-ignore lint/suspicious/noExplicitAny: dynamic module loading boundary, adapters narrow per call site
-export type AnyModule = any
+// An optionally installed module has the shape its caller expects, so a
+// reader narrows it where it reads a field, and an adapter names the shape.
+export type AnyModule = unknown
 
 type EnsureLoadInput<T = AnyModule> = EnsureResolveInput & {
   moduleAdapter?: (loaded: AnyModule) => T
@@ -462,7 +461,8 @@ function adaptLoadedModule<T>(
   loaded: AnyModule,
   copy: string
 ): T {
-  if (!input.moduleAdapter) return loaded
+  // With no adapter the caller names the shape it loads.
+  if (!input.moduleAdapter) return loaded as T
 
   try {
     return input.moduleAdapter(loaded)

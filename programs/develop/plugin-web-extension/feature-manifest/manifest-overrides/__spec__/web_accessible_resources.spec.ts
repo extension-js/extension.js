@@ -1,11 +1,12 @@
 import {describe, expect, it} from 'vitest'
+import type {Manifest} from '../../../../types'
 import {webAccessibleResources} from '../common/web_accessible_resources'
 
 describe('webAccessibleResources override', () => {
   it('drops malformed mv3 entries without resources', () => {
     const manifest = {
       web_accessible_resources: [{matches: ['<all_urls>']}]
-    } as any
+    } as Manifest
 
     const result = webAccessibleResources(manifest)
     expect(result).toBeUndefined()
@@ -17,11 +18,11 @@ describe('webAccessibleResources override', () => {
         {matches: ['<all_urls>'], resources: ['/public/fonts/font.woff2']},
         {matches: ['<all_urls>']}
       ]
-    } as any
+    } as Manifest
 
-    const result = webAccessibleResources(manifest) as any
+    const result = webAccessibleResources(manifest) as Manifest
     expect(result.web_accessible_resources).toHaveLength(1)
-    expect(result.web_accessible_resources[0].resources).toEqual([
+    expect(result.web_accessible_resources?.[0].resources).toEqual([
       'fonts/font.woff2'
     ])
   })
@@ -31,10 +32,10 @@ describe('webAccessibleResources override', () => {
       web_accessible_resources: [
         {matches: ['<all_urls>'], resources: ['/*.json', 'assets/*.svg']}
       ]
-    } as any
+    } as Manifest
 
-    const result = webAccessibleResources(manifest) as any
-    expect(result.web_accessible_resources[0].resources).toEqual([
+    const result = webAccessibleResources(manifest) as Manifest
+    expect(result.web_accessible_resources?.[0].resources).toEqual([
       '/*.json',
       'assets/*.svg'
     ])

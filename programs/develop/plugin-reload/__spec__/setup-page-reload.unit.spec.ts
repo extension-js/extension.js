@@ -1,8 +1,8 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {type Compiler, rspack} from '@rspack/core'
 import {afterAll, afterEach, describe, expect, it, vi} from 'vitest'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../../plugin-web-extension/feature-scripts/contracts'
 import {
   type HtmlPage,
@@ -57,18 +57,13 @@ function importsOf(compiler: Compiler, entry: string): string[] {
 
 // Scratch projects live under the OS temp dir, so a crashed run leaves no
 // litter in the source tree.
-const tmpRoots: string[] = []
+const tempFolder = trackTempFolders()
 
 function makeTmp(prefix: string) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `${prefix}-`))
-  tmpRoots.push(dir)
+  const dir = tempFolder(`${prefix}-`)
 
   return dir
 }
-
-afterAll(() => {
-  for (const dir of tmpRoots) fs.rmSync(dir, {recursive: true, force: true})
-})
 
 // A project with one page that names one script, the smallest shape that
 // earns the page HMR rule.
@@ -96,14 +91,27 @@ function writePageProject(prefix: string, manifest: Record<string, unknown>) {
   return {tmp, manifestPath, pagePath, page}
 }
 
-function pageHmrRuleOf(compiler: Compiler): any {
-  return (compiler.options.module.rules as any[]).find((rule: any) =>
+// The fields of the page HMR rule these specs read.
+interface PageHmrRule {
+  use: Array<{loader?: string}>
+  issuerLayer?: unknown
+  issuer(resource: string): boolean
+  include(resource: string): boolean
+  exclude?: unknown[]
+}
+
+function pageHmrRuleOf(compiler: Compiler): PageHmrRule | undefined {
+  const rules = compiler.options.module.rules as Array<
+    {use?: unknown} | null | undefined
+  >
+
+  return rules.find((rule) =>
     Array.isArray(rule?.use)
-      ? rule.use.some((entry: any) =>
+      ? rule.use.some((entry: {loader?: unknown} | null | undefined) =>
           String(entry?.loader || '').includes('ensure-hmr-for-scripts')
         )
       : false
-  )
+  ) as PageHmrRule | undefined
 }
 
 describe('the page HMR rule', () => {

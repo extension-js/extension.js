@@ -3,6 +3,7 @@ import {createRequire} from 'node:module'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import type {JsFramework, JsFrameworkLoaderRule} from '../../../types'
 
 // The Babel pieces are not in the fixture, so they resolve from Extension.js
 // the same way the optional-deps resolver finds them.
@@ -10,6 +11,14 @@ const fromDevelop = createRequire(
   path.join(__dirname, '..', '..', '..', 'x.js')
 )
 const babelLoader = fromDevelop.resolve('babel-loader')
+
+// Every Solid rule names Babel or the gate loader, with options, and keeps
+// out the dependencies it does not transpile.
+type SolidRule = JsFrameworkLoaderRule &
+  Required<Pick<JsFrameworkLoaderRule, 'exclude' | 'options'>>
+
+const rulesOf = (result: Pick<JsFramework, 'loaders'> | undefined) =>
+  (result?.loaders || []) as SolidRule[]
 const solidPreset = fromDevelop.resolve('babel-preset-solid')
 const typescriptPreset = fromDevelop.resolve('@babel/preset-typescript')
 
@@ -146,7 +155,7 @@ describe('solid tools', () => {
 
     const {maybeUseSolid} = await loadSolidTools()
     const result = await maybeUseSolid(projectPath, 'production')
-    const loaders = (result?.loaders || []) as any[]
+    const loaders = rulesOf(result)
 
     expect(loaders).toHaveLength(3)
 
@@ -159,9 +168,9 @@ describe('solid tools', () => {
       ).toBe(true)
     }
 
-    const jsx = loaders.find((rule) => rule.test.test('a.jsx'))
-    const tsx = loaders.find((rule) => rule.test.test('a.tsx'))
-    const js = loaders.find((rule) => rule.test.test('a.js'))
+    const jsx = loaders.find((rule) => rule.test.test('a.jsx')) as SolidRule
+    const tsx = loaders.find((rule) => rule.test.test('a.tsx')) as SolidRule
+    const js = loaders.find((rule) => rule.test.test('a.js')) as SolidRule
 
     for (const rule of [jsx, tsx]) {
       expect(rule.loader).toBe(babelLoader)
@@ -196,8 +205,8 @@ describe('solid tools', () => {
 
     const {maybeUseSolid} = await loadSolidTools()
     const result = await maybeUseSolid(projectPath, 'production')
-    const loaders = (result?.loaders || []) as any[]
-    const tsx = loaders.find((rule) => rule.test.test('a.tsx'))
+    const loaders = rulesOf(result)
+    const tsx = loaders.find((rule) => rule.test.test('a.tsx')) as SolidRule
 
     expect(tsx.test.test('a.ts')).toBe(false)
 
@@ -211,8 +220,8 @@ describe('solid tools', () => {
 
     const {maybeUseSolid} = await loadSolidTools()
     const result = await maybeUseSolid(projectPath, 'production')
-    const loaders = (result?.loaders || []) as any[]
-    const js = loaders.find((rule) => rule.test.test('a.js'))
+    const loaders = rulesOf(result)
+    const js = loaders.find((rule) => rule.test.test('a.js')) as SolidRule
 
     expect(js.loader).toContain('solid-jsx-gate-loader')
     expect(js.options.babelLoader).toBe(babelLoader)
@@ -228,7 +237,7 @@ describe('solid tools', () => {
     const {maybeUseSolid} = await loadSolidTools()
     const result = await maybeUseSolid(projectPath)
 
-    const presets = (result?.loaders as any[])[0].options.presets
+    const presets = rulesOf(result)[0].options.presets as unknown[]
     expect(presets[0]).toEqual([solidPreset, {development: true}])
   })
 
@@ -273,7 +282,7 @@ describe('solid tools', () => {
     const {maybeUseSolid} = await loadSolidTools()
     const result = await maybeUseSolid(projectPath, 'development', [transpiled])
 
-    for (const rule of (result?.loaders || []) as any[]) {
+    for (const rule of rulesOf(result)) {
       expect(rule.exclude(path.join(transpiled, 'Button.jsx'))).toBe(false)
       expect(
         rule.exclude(

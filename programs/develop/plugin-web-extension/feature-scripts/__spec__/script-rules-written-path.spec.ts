@@ -1,23 +1,16 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {rspack} from '@rspack/core'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {ScriptsPlugin} from '../index'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 // A project reached through a link, the way a Windows short folder name
 // such as RUNNER~1 reaches it: the path as written is not the real one.
 function linkedProject() {
-  const real = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-written-path-'))
-  )
-  roots.push(real)
+  const real = fs.realpathSync(tempFolder('extjs-written-path-'))
 
   const files: Record<string, string> = {
     'manifest.json': JSON.stringify({
@@ -74,19 +67,27 @@ describe('script rules on a project path as written', () => {
         })
       ]
     })
-    const wrapperRules = (compiler.options.module.rules as any[]).filter(
+    const rules = compiler.options.module.rules as unknown as Array<{
+      use?: Array<{loader?: unknown}>
+      include?: unknown
+      issuer?: {not: RegExp}
+    } | null>
+    const wrapperRules = rules.filter(
       (rule) =>
-        Array.isArray(rule?.use) &&
-        rule.use.some((use: any) =>
+        rule !== null &&
+        Array.isArray(rule.use) &&
+        rule.use.some((use) =>
           String(use.loader).includes('content-script-wrapper')
         )
     )
 
     await new Promise<void>((resolve) => compiler.close(() => resolve()))
 
-    const plain = wrapperRules.find((rule) => rule.issuer?.not)
+    const plain = wrapperRules.find((rule) => rule?.issuer?.not)
 
     expect(plain).toBeDefined()
+    if (!plain?.issuer) throw new Error('no wrapper rule with an issuer')
+
     expect(matches(plain.include, at('content/isolated.js'))).toBe(true)
     expect(plain.issuer.not.test(at('content/main.js'))).toBe(true)
   })

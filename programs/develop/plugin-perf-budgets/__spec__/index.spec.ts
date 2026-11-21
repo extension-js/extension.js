@@ -1,3 +1,4 @@
+import type {Compiler} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
 import {
   ASSET_CATEGORIES,
@@ -7,6 +8,12 @@ import {
   ignorePatternToRegExp,
   PerfBudgetsPlugin
 } from '../index'
+
+// The fake graph stands in for the chunk graph slice the reader walks.
+type ReferrerSource = Parameters<typeof collectAssetReferrers>[0]
+
+// A warning or error as the plugin reports it, by the fields these specs read.
+type Issue = {name?: unknown; message?: unknown}
 
 type FakeChunk = {
   name?: string | null
@@ -229,7 +236,7 @@ describe('collectAssetReferrers', () => {
     const referrers = collectAssetReferrers({
       chunks: graph.chunks,
       chunkGraph: fakeChunkGraph(graph)
-    } as any)
+    } as unknown as ReferrerSource)
 
     expect([...(referrers.get(ORT_WASM) || [])]).toEqual(['page'])
     expect([...(referrers.get('assets/model.wasm') || [])]).toEqual(['page'])
@@ -267,7 +274,7 @@ describe('collectAssetReferrers', () => {
         chunks: [page, worker],
         chunkModules: new Map([[page, [concatenated]]])
       })
-    } as any)
+    } as unknown as ReferrerSource)
 
     expect([...(referrers.get('assets/core.19e703a7.wasm') || [])]).toEqual([
       'page'
@@ -319,14 +326,14 @@ describe('PerfBudgetsPlugin', () => {
     copied: string[] = [],
     graph?: FakeGraph
   ): {
-    warnings: any[]
-    errors: any[]
-    assets: Record<string, any>
+    warnings: Issue[]
+    errors: Issue[]
+    assets: Record<string, {size: () => number}>
     chunks: FakeChunk[]
     chunkGraph: ReturnType<typeof fakeChunkGraph>
     getAsset: (name: string) => {info: {copied?: boolean}} | undefined
   } {
-    const built: Record<string, any> = {}
+    const built: Record<string, {size: () => number}> = {}
 
     for (const [name, size] of Object.entries(assets)) {
       built[name] = {size: () => size}
@@ -352,7 +359,8 @@ describe('PerfBudgetsPlugin', () => {
     copied: string[] = [],
     graph?: FakeGraph
   ) {
-    const compilation: any = fakeCompilation(assets, copied, graph)
+    const compilation: ReturnType<typeof fakeCompilation> & {hooks?: unknown} =
+      fakeCompilation(assets, copied, graph)
 
     let processAssetsCb: () => void = () => {}
 
@@ -364,18 +372,18 @@ describe('PerfBudgetsPlugin', () => {
       }
     }
 
-    const compiler: any = {
+    const compiler = {
       options: {mode},
       hooks: {
         thisCompilation: {
-          tap: (_name: string, fn: (c: any) => void) => fn(compilation)
+          tap: (_name: string, fn: (c: unknown) => void) => fn(compilation)
         }
       },
       rspack: {
         WebpackError: class extends Error {},
         Compilation: {PROCESS_ASSETS_STAGE_REPORT: 5000}
       }
-    }
+    } as unknown as Compiler
     plugin.apply(compiler)
     processAssetsCb()
 

@@ -152,9 +152,8 @@ describe.each([
           clean: true,
           filename: '[name].js'
         },
-        module: {rules: rules as any},
-        experiments: {layers: true}
-      } as any)
+        module: {rules}
+      })
       compiler.run((err, stats) => {
         if (err) return reject(err)
 

@@ -1,8 +1,8 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // A build compiles for one engine, so only that engine's declared floor may
 // downlevel it. The worker below uses syntax a Firefox 42 or Chrome 30
@@ -23,15 +23,10 @@ boot()
 `
 const GECKO = {gecko: {id: 'probe@ext', strict_min_version: '42.0'}}
 const MODERN_MAX = 1000
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project(extra: Record<string, unknown>) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-swc-targets-'))
-  roots.push(root)
+  const root = tempFolder('extjs-swc-targets-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'targets', version: '0.0.0'})

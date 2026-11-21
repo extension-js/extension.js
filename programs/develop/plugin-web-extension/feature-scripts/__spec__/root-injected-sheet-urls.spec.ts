@@ -1,5 +1,6 @@
 import {Compilation, sources} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
+import {asCompiler} from '../../__spec__/helpers/rspack-fakes'
 import {
   CHROMIUM_EXTENSION_ROOT,
   GECKO_EXTENSION_ROOT,
@@ -58,17 +59,21 @@ function emit(
   }
 
   new RootInjectedSheetUrls({
-    browser: (options.browser || 'chrome') as any,
+    browser: (options.browser || 'chrome') as ConstructorParameters<
+      typeof RootInjectedSheetUrls
+    >[0]['browser'],
     includeList: {'scripts/hook': '/project/scripts/hook.js'}
-  }).apply({
-    options: {context: '/project', mode: 'production'},
-    hooks: {
-      thisCompilation: {
-        tap: (_name: string, tapped: (compilation: unknown) => void) =>
-          tapped(compilation)
+  }).apply(
+    asCompiler({
+      options: {context: '/project', mode: 'production'},
+      hooks: {
+        thisCompilation: {
+          tap: (_name: string, tapped: (compilation: unknown) => void) =>
+            tapped(compilation)
+        }
       }
-    }
-  } as any)
+    })
+  )
 
   for (let run = 0; run < (options.runs || 1); run++) {
     for (const pass of passes) pass()

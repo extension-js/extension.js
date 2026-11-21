@@ -4,7 +4,7 @@ import {quietBroker} from '../../__spec__/helpers/quiet-broker'
 import {reloadEachBuild} from '../../plugin-reload'
 import {attachUnlaunchedSession, createReadyAnnouncer} from '../start-bundler'
 
-type Tap = (...args: any[]) => unknown
+type Tap = (...args: unknown[]) => unknown
 
 const ROOT = path.join(path.sep, 'project')
 

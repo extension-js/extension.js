@@ -27,7 +27,9 @@ export const NO_OPEN_FLAG_DESCRIPTION =
 export async function resolveNoBrowser(
   projectPath: string,
   command: 'dev' | 'start' | 'preview',
-  loadDevelop: () => Promise<DevelopFor> = loadExtensionDevelopModule
+  loadDevelop: () => Promise<DevelopFor> = loadExtensionDevelopModule,
+  // The browser the run launches, whose env files the config reads.
+  browser?: string
 ): Promise<boolean> {
   if (process.env.EXTENSION_CLI_NO_BROWSER === '1') return true
 
@@ -35,7 +37,9 @@ export async function resolveNoBrowser(
     const develop: DevelopFor = await loadDevelop()
     if (typeof develop.loadCommandConfig !== 'function') return false
 
-    const config = await develop.loadCommandConfig(projectPath, command)
+    const config = await develop.loadCommandConfig(projectPath, command, {
+      browser
+    })
 
     return config.noBrowser === true
   } catch {

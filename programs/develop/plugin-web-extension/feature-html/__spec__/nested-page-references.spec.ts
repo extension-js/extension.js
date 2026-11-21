@@ -7,6 +7,7 @@ import {
   openDevWatchSession,
   waitUntil
 } from '../../../__spec__/helpers/dev-watch-session'
+import {writeExtensionProject} from '../../../__spec__/helpers/extension-project'
 import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {
   build,
@@ -90,20 +91,10 @@ beforeAll(async () => {
   root = fs.realpathSync(tempFolder('extjs-nested-refs-'))
   fs.mkdirSync(path.join(root, 'popup'))
 
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'nested-refs', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'nested-refs',
-      version: '1.0.0',
-      action: {default_popup: 'popup/index.html'}
-    })
-  )
+  writeExtensionProject(root, {
+    name: 'nested-refs',
+    manifest: {action: {default_popup: 'popup/index.html'}}
+  })
 
   write('index.html', popupPage('one'))
   write('main.js', "console.log('popup')\n")

@@ -1,8 +1,8 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import type {Compilation} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {asCompilation} from '../../__spec__/helpers/rspack-fakes'
 import {generateManifestPatches} from '../web-resources-lib/generate-manifest'
 
 describe('web_accessible_resources: files a content-script stylesheet names', () => {
@@ -50,7 +50,7 @@ describe('web_accessible_resources: files a content-script stylesheet names', ()
       assets[key] = {source: () => 'binary'}
     }
 
-    const compilation: any = {
+    const compilation = {
       getAsset: vi.fn((name: string) =>
         name === 'manifest.json'
           ? {name: 'manifest.json', source: manifestSource}
@@ -65,7 +65,7 @@ describe('web_accessible_resources: files a content-script stylesheet names', ()
       options: {mode: 'production', output: {path: outputPath}}
     }
 
-    generateManifestPatches(compilation as Compilation, manifestPath, {})
+    generateManifestPatches(asCompilation(compilation), manifestPath, {})
 
     const patched = JSON.parse(updateAsset.mock.calls[0][1].source().toString())
 

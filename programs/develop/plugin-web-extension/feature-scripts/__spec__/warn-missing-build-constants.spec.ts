@@ -2,14 +2,11 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {rspack} from '@rspack/core'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {WarnMissingBuildConstants} from '../steps/warn-missing-build-constants'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 // A real build of one background worker with the step applied, written to a
 // temp folder. Returns the warnings as the step pushed them.
@@ -21,10 +18,7 @@ async function build(
     define?: Record<string, unknown>
   } = {}
 ) {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-missing-constant-'))
-  )
-  roots.push(root)
+  const root = fs.realpathSync(tempFolder('extjs-missing-constant-'))
 
   fs.writeFileSync(
     path.join(root, 'manifest.json'),

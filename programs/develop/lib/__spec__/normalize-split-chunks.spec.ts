@@ -17,9 +17,36 @@ type Selector = (chunk: {
   canBeInitial?: () => boolean
 }) => boolean
 
+// The fields of a split chunks option the rows read back.
+interface CacheGroupView {
+  chunks?: unknown
+  filename?: string
+  name?: string
+  minChunks?: number
+  minSize?: number
+  maxSize?: number
+  priority: number
+  test: RegExp
+}
+
+interface SplitView {
+  chunks?: unknown
+  minSize?: number
+  maxSize?: number
+  cacheGroups: Record<string, CacheGroupView>
+}
+
+const splitView = (value: unknown) => value as SplitView
+
+type RuntimeChunk = NonNullable<Configuration['optimization']>['runtimeChunk']
+
 function selectorAt(config: Configuration, path: string[]): Selector {
-  let node: any = config.optimization?.splitChunks
-  for (const key of path) node = node?.[key]
+  let node: unknown = config.optimization?.splitChunks
+
+  for (const key of path) {
+    node = (node as Record<string, unknown> | undefined)?.[key]
+  }
+
   expect(typeof node).toBe('function')
 
   return node as Selector
@@ -77,7 +104,7 @@ describe('defaultSplitChunks', () => {
   })
 
   it('names two stable sibling files and turns the stock groups off', () => {
-    const config = defaultSplitChunks() as any
+    const config = splitView(defaultSplitChunks())
     expect(config.chunks).toBe(pageInitialChunks)
     expect(config.cacheGroups.default).toBe(false)
     expect(config.cacheGroups.defaultVendors).toBe(false)
@@ -110,7 +137,7 @@ describe('defaultSplitChunks', () => {
 
   it('caps page chunks for a Gecko target only', () => {
     for (const browser of ['firefox', 'gecko-based', 'firefox-based']) {
-      const config = defaultSplitChunks(browser) as any
+      const config = splitView(defaultSplitChunks(browser))
       expect(config.cacheGroups.commons.maxSize).toBe(GECKO_MAX_CHUNK_BYTES)
       // A fixed file name would make every numbered part overwrite the last.
       expect(config.cacheGroups.commons.filename).toBe('[name].js')
@@ -144,13 +171,13 @@ describe('defaultSplitChunks', () => {
 
     for (const browser of ['chrome', 'edge', 'chromium-based', 'safari']) {
       expect(defaultSplitChunks(browser)).toEqual(defaultSplitChunks())
-      expect((defaultSplitChunks(browser) as any).maxSize).toBeUndefined()
+      expect(splitView(defaultSplitChunks(browser)).maxSize).toBeUndefined()
       expect(
-        (defaultSplitChunks(browser) as any).cacheGroups.commons.maxSize
+        splitView(defaultSplitChunks(browser)).cacheGroups.commons.maxSize
       ).toBeUndefined()
 
       expect(
-        (defaultSplitChunks(browser) as any).cacheGroups.lazy
+        splitView(defaultSplitChunks(browser)).cacheGroups.lazy
       ).toBeUndefined()
     }
   })
@@ -236,7 +263,7 @@ describe('normalizeSplitChunks', () => {
       'splitChunks.cacheGroups.shared.chunks'
     ])
 
-    const split = config.optimization?.splitChunks as any
+    const split = splitView(config.optimization?.splitChunks)
     expect(split.chunks).toBe('async')
     expect(split.minSize).toBe(0)
     expect(split.cacheGroups.vendors.name).toBe('vendors')
@@ -254,7 +281,7 @@ describe('normalizeSplitChunks', () => {
 
     // The input is never mutated and the untouched branches are shared.
     expect(
-      (input.optimization?.splitChunks as any).cacheGroups.vendors.chunks
+      splitView(input.optimization?.splitChunks).cacheGroups.vendors.chunks
     ).toBe('all')
 
     expect(config.mode).toBe('production')
@@ -341,7 +368,10 @@ describe('applySplitChunksGuard', () => {
 
     for (const runtimeChunk of ['single', 'multiple', true, {name: 'rt'}]) {
       const next = applySplitChunksGuard({
-        optimization: {runtimeChunk: runtimeChunk as any, minimize: true}
+        optimization: {
+          runtimeChunk: runtimeChunk as RuntimeChunk,
+          minimize: true
+        }
       })
       expect(next.optimization?.runtimeChunk).toBe(false)
       expect(next.optimization?.minimize).toBe(true)

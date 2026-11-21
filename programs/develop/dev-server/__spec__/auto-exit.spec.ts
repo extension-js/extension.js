@@ -15,12 +15,12 @@ describe('auto-exit', () => {
   afterEach(() => {
     vi.useRealTimers()
     console.log = originalLog
-    process.exit = originalExit as any
+    process.exit = originalExit
   })
 
   it('returns no-op when auto-exit is disabled', () => {
     const onCleanup = vi.fn().mockResolvedValue(undefined)
-    const cancel = setupAutoExit(undefined, undefined as any, onCleanup)
+    const cancel = setupAutoExit(undefined, undefined, onCleanup)
     expect(typeof cancel).toBe('function')
     vi.advanceTimersByTime(10_000)
     expect(onCleanup).not.toHaveBeenCalled()
@@ -36,7 +36,7 @@ describe('auto-exit', () => {
     ''
   ])('reads %j as no auto-exit at all, not as a one millisecond one', async (value) => {
     const onCleanup = vi.fn(async () => {})
-    const cancel = setupAutoExit(value, undefined as any, onCleanup)
+    const cancel = setupAutoExit(value, undefined, onCleanup)
 
     await vi.advanceTimersByTimeAsync(200_000)
     expect(onCleanup).not.toHaveBeenCalled()
@@ -71,7 +71,7 @@ describe('auto-exit', () => {
 
   it('computes default force-kill timeout as autoExit+4000', () => {
     const onCleanup = vi.fn().mockResolvedValue(undefined)
-    setupAutoExit(500, undefined as any, onCleanup)
+    setupAutoExit(500, undefined, onCleanup)
     vi.advanceTimersByTime(500)
     expect(onCleanup).toHaveBeenCalledTimes(1)
     vi.advanceTimersByTime(4000)
@@ -130,13 +130,13 @@ describe('auto-exit', () => {
 
   it('caps the auto-exit and the default backstop near the limit', () => {
     const onCleanup = vi.fn().mockResolvedValue(undefined)
-    setupAutoExit(2147483647, undefined as any, onCleanup)
+    setupAutoExit(2147483647, undefined, onCleanup)
     vi.advanceTimersByTime(60_000)
     expect(onCleanup).not.toHaveBeenCalled()
     expect(process.exit).not.toHaveBeenCalled()
 
     const later = vi.fn().mockResolvedValue(undefined)
-    setupAutoExit('9007199254740993', undefined as any, later)
+    setupAutoExit('9007199254740993', undefined, later)
     vi.advanceTimersByTime(60_000)
     expect(later).not.toHaveBeenCalled()
     expect(process.exit).not.toHaveBeenCalled()

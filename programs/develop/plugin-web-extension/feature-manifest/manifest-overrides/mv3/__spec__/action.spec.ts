@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import type {Manifest} from '../../../../../types'
 import {action} from '../action'
 
 describe('action (MV3 override)', () => {
@@ -14,9 +15,9 @@ describe('action (MV3 override)', () => {
           {light: 'public/l32.png', dark: '../design/light/logo.png', size: 32}
         ]
       }
-    } as any) as any
-    expect(out.action.default_popup).toBe('action/index.html')
-    expect(out.action.theme_icons).toEqual([
+    } as Manifest) as Manifest
+    expect(out.action?.default_popup).toBe('action/index.html')
+    expect(out.action?.theme_icons).toEqual([
       {
         light: 'action/icons/light.png',
         dark: 'action/_/design/dark/logo.png',
@@ -27,9 +28,11 @@ describe('action (MV3 override)', () => {
   })
 
   it('leaves an action without theme_icons untouched', () => {
-    const out = action({action: {default_icon: 'icons/a.png'}} as any) as any
-    expect(out.action.theme_icons).toBeUndefined()
-    expect(out.action.default_icon).toBe('icons/a.png')
+    const out = action({
+      action: {default_icon: 'icons/a.png'}
+    } as Manifest) as Manifest
+    expect(out.action?.theme_icons).toBeUndefined()
+    expect(out.action?.default_icon).toBe('icons/a.png')
   })
 })
 
@@ -61,11 +64,11 @@ describe('action popup hosted in public/', () => {
       'public/app/popups/not-found.html'
     ])
     const out = action(
-      {action: {default_popup: 'app/popups/not-found.html'}} as any,
+      {action: {default_popup: 'app/popups/not-found.html'}} as Manifest,
       manifestPath,
       root
-    ) as any
-    expect(out.action.default_popup).toBe('app/popups/not-found.html')
+    ) as Manifest
+    expect(out.action?.default_popup).toBe('app/popups/not-found.html')
   })
 
   it('compiles a popup that lives beside the manifest', () => {
@@ -74,10 +77,10 @@ describe('action popup hosted in public/', () => {
       'src/popup.html'
     ])
     const out = action(
-      {action: {default_popup: 'popup.html'}} as any,
+      {action: {default_popup: 'popup.html'}} as Manifest,
       manifestPath,
       root
-    ) as any
-    expect(out.action.default_popup).toBe('action/index.html')
+    ) as Manifest
+    expect(out.action?.default_popup).toBe('action/index.html')
   })
 })

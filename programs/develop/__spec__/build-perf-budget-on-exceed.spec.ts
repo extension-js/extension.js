@@ -5,6 +5,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {readyContractErrorCode} from '../dev-server/ready-contract-codes'
 import {resetPerfBudgetNotices} from '../plugin-perf-budgets'
 import {buildProject} from './helpers/build-project'
+import {writeProjectFiles} from './helpers/extension-project'
 import {trackTempFolders} from './helpers/temp-folders'
 
 // An overrun is a warning unless the author asks for a failed build, and a
@@ -53,11 +54,7 @@ function project(configSource?: string, extra: Record<string, string> = {}) {
 
   if (configSource) files['extension.config.js'] = configSource
 
-  for (const [rel, content] of Object.entries(files)) {
-    const abs = path.join(root, rel)
-    fs.mkdirSync(path.dirname(abs), {recursive: true})
-    fs.writeFileSync(abs, content)
-  }
+  writeProjectFiles(root, files)
 
   return root
 }
