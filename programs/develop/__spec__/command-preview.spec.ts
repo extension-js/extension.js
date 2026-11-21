@@ -11,6 +11,7 @@ import type {
   ProductionControlSession
 } from '../dev-server/production-control'
 import type {PreviewOptions} from '../types'
+import {bridgeBrokerFake} from './helpers/bridge-broker-fake'
 import {
   type ExtensionProject,
   type ProjectFile,
@@ -142,7 +143,7 @@ function armControlSession(attachAfter?: number | 'held') {
       logsPath: 'dist/extension-js/chrome/logs.ndjson',
       backgroundAssets: ['background/service_worker.js'],
       // Preview never reaches the broker in these rows.
-      broker: {} as ProductionControlSession['broker'],
+      broker: bridgeBrokerFake({}),
       close: async () => {}
     }
   }

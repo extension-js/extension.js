@@ -29,7 +29,7 @@ export class IconsPlugin {
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
-    this.browser = (options.browser as DevOptions['browser']) || 'chrome'
+    this.browser = options.browser || 'chrome'
   }
   public apply(compiler: Compiler): void {
     // Normalize include keys so downstream steps can consistently
