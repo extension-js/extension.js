@@ -151,6 +151,42 @@ test('every pull request workflow cancels the run a new push supersedes', () => 
   }
 })
 
+// A cancelled run marks a main commit as failed although nothing failed.
+// Outside pull requests a run keeps its own group, since a newer pending run
+// cancels an older pending one in the same group even without cancel-in-progress.
+test('a run of main is never cancelled by a later one', () => {
+  for (const file of fs.readdirSync(workflowsDir)) {
+    if (!file.endsWith('.yml')) continue
+
+    const workflow = readWorkflow(file)
+    const on = workflow.on ?? workflow['true']
+    if (!on || typeof on !== 'object' || !workflow.concurrency) continue
+
+    const onMain = 'push' in on || 'schedule' in on
+    if (!onMain) continue
+
+    const cancel = workflow.concurrency['cancel-in-progress']
+    assert.ok(
+      cancel === false ||
+        cancel === expr("github.event_name == 'pull_request'"),
+      `${file} cancels a run of main`
+    )
+
+    // The README sync writes to npm, so its runs stay in one ordered group.
+    if ('push' in on && file !== 'sync-npm-readme.yml') {
+      assert.match(workflow.concurrency.group, /github\.sha/, file)
+    }
+  }
+})
+
+test('the release gates issue closes once both pins are at their heads', () => {
+  const gates = readWorkflow('bump-release-gates.yml')
+  const settle = job(gates, 'settle')
+  assert.equal(settle.if, expr("needs.resolve.outputs.behind == 'false'"))
+  assert.equal(settle.permissions.issues, 'write')
+  assert.match(step(settle, 'Close the issue').run, /gh issue close/)
+})
+
 // A path filter on a folder the repo does not have can never match a change.
 test('every workflow path filter starts at a path the repo has', () => {
   for (const file of fs.readdirSync(workflowsDir)) {

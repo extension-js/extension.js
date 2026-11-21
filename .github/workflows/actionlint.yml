@@ -15,7 +15,7 @@ permissions:
 
 # A new push to a pull request supersedes its lint run, a run of main always reports.
 concurrency:
-  group: actionlint-${{ github.event.pull_request.number || github.ref }}
+  group: actionlint-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:

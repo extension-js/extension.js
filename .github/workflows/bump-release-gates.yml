@@ -14,7 +14,7 @@ permissions:
 
 concurrency:
   group: release-gates-freshness
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   resolve:
@@ -75,4 +75,25 @@ jobs:
             gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --body "$BODY"
           else
             gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body "$BODY"
+          fi
+
+  # Once a pull request moves the pins, the next reading closes the issue.
+  settle:
+    needs: resolve
+    if: ${{ needs.resolve.outputs.behind == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Close the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          TITLE="Release gates are behind their repositories"
+          NUMBER=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"${TITLE}\" in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$NUMBER" ]; then
+            gh issue close "$NUMBER" --repo "$GITHUB_REPOSITORY" --comment "Both pins are at their heads ([run](${RUN_URL}))."
           fi
