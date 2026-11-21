@@ -93,7 +93,11 @@ describe('a module shared by a scripts/ entry and another entry', () => {
 
     const result = await build(root)
 
-    expect(count(result.raw, 'Critical dependency')).toBe(1)
+    // Rspack renamed this diagnostic, but both titles must print only once.
+    expect(
+      result.raw.match(/(?:Critical dependency|Dynamic module path):/g)
+    ).toHaveLength(1)
+
     expect(result.warnings).toBe(1)
     // Both entries were built, so the single block is not a missing entry.
     expect(fs.existsSync(path.join(root, 'dist/chrome/scripts/inj.js'))).toBe(
