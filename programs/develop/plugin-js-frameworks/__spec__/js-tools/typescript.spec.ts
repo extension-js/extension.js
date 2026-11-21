@@ -190,9 +190,7 @@ describe('defaultTypeScriptConfig', () => {
     const root = makeProject({
       'package.json': {dependencies: {[dependency]: '*'}}
     })
-    const {compilerOptions} = defaultTypeScriptConfig(root) as {
-      compilerOptions: Record<string, unknown>
-    }
+    const {compilerOptions} = defaultTypeScriptConfig(root)
 
     expect(compilerOptions.jsx).toBe('react-jsx')
     expect(compilerOptions.jsxImportSource).toBe(source)
@@ -201,7 +199,7 @@ describe('defaultTypeScriptConfig', () => {
   it('leaves jsxImportSource out without a JS framework', () => {
     const {compilerOptions} = defaultTypeScriptConfig(
       makeProject({'package.json': {}})
-    ) as {compilerOptions: Record<string, unknown>}
+    )
 
     expect(compilerOptions.jsx).toBe('preserve')
     expect(compilerOptions.jsxImportSource).toBeUndefined()
