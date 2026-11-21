@@ -1,16 +1,12 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // An extension page registers MAIN world files through the same scripting
 // API as the background, so its registration gets the same build lane.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 const page = (...scripts: string[]) =>
   `<!doctype html><html><head><meta charset="utf-8"></head><body>${scripts
@@ -18,8 +14,7 @@ const page = (...scripts: string[]) =>
     .join('')}</body></html>\n`
 
 function project(options: {classicPair?: boolean} = {}) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-page-main-reg-'))
-  roots.push(root)
+  const root = tempFolder('extjs-page-main-reg-')
 
   const write = (name: string, contents: string | Buffer) => {
     const file = path.join(root, name)

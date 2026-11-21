@@ -1,24 +1,19 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {
   CHROMIUM_EXTENSION_ROOT,
   GECKO_EXTENSION_ROOT
 } from '../plugin-web-extension/feature-scripts/scripts-lib/injected-sheet-urls'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // Chromium resolves a url() in a sheet it injects against the visited page,
 // so the sheet a declared content script ships names its file by extension.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-sheet-url-'))
-  roots.push(root)
+  const root = tempFolder('extjs-sheet-url-')
 
   const files: Record<string, string | Buffer> = {
     'package.json': JSON.stringify({

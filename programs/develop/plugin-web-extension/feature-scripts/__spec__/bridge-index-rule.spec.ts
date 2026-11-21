@@ -1,7 +1,8 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import type {Manifest} from '../../../types'
 import {buildContentScriptsMeta} from '../../feature-chunk-loading/content-scripts-meta'
 import {contentScripts} from '../../feature-manifest/manifest-overrides/common/content_scripts'
@@ -12,15 +13,10 @@ import {getMainWorldBridgePairs} from '../steps/add-content-script-wrapper/get-b
 // the emitted manifest and the chunk loader. Each is read as main -> bridge.
 type Pairs = Array<[number, number]>
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function fromBuild(manifest: Manifest): Pairs {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-bridge-index-'))
-  roots.push(root)
+  const root = tempFolder('extjs-bridge-index-')
 
   const manifestPath = path.join(root, 'manifest.json')
   fs.writeFileSync(manifestPath, JSON.stringify(manifest))

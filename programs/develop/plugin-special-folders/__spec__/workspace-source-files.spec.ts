@@ -1,8 +1,10 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, beforeAll, describe, expect, it} from 'vitest'
+import {beforeAll, describe, expect, it} from 'vitest'
+import {writeProjectFiles} from '../../__spec__/helpers/extension-project'
 import {expectNoWorkspaceAboveTemp} from '../../__spec__/helpers/private-files-project'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {
   sourceFileMayShip,
   workspaceRootOf
@@ -11,16 +13,10 @@ import {
 // The predicate on its own, for a project two folders below a workspace
 // root. A row is a path from the project and whether each ask may ship it.
 
-const holders: string[] = []
+const tempFolder = trackTempFolders()
 
 beforeAll(expectNoWorkspaceAboveTemp)
 const canLink = process.platform !== 'win32'
-
-afterAll(() => {
-  for (const holder of holders) {
-    fs.rmSync(holder, {recursive: true, force: true})
-  }
-})
 
 const FILES = [
   'apps/ext/data/ok.json',
@@ -42,10 +38,7 @@ const FILES = [
 ]
 
 function layout(marker: Record<string, string>) {
-  const holder = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-workspace-source-'))
-  )
-  holders.push(holder)
+  const holder = fs.realpathSync(tempFolder('extjs-workspace-source-'))
 
   const ws = path.join(holder, 'ws')
   const root = path.join(ws, 'apps', 'ext')
@@ -169,16 +162,9 @@ describe('sourceFileMayShip for a project inside a workspace', () => {
 // sits above and below it. Nothing is read or written outside it.
 function tree(files: Record<string, string>) {
   // Spelled as the walk spells its answer, or a row fails on Windows.
-  const holder = fs.realpathSync.native(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-workspace-root-'))
-  )
-  holders.push(holder)
+  const holder = fs.realpathSync.native(tempFolder('extjs-workspace-root-'))
 
-  for (const [relative, contents] of Object.entries(files)) {
-    const file = path.join(holder, relative)
-    fs.mkdirSync(path.dirname(file), {recursive: true})
-    fs.writeFileSync(file, contents)
-  }
+  writeProjectFiles(holder, files)
 
   return holder
 }

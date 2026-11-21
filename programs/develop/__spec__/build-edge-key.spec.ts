@@ -1,24 +1,19 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {unzipSync} from 'fflate'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // Edge Add-ons refuses a package whose manifest carries `key`, so the store
 // zip leaves it out and says so once. dist/edge keeps it: an unpacked install
 // gets the id the key pins, which an OAuth redirect allow-list depends on.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 const KEY = 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA'
 
 function project() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-edge-key-'))
-  roots.push(root)
+  const root = tempFolder('extjs-edge-key-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'edge-key', version: '0.0.0'})

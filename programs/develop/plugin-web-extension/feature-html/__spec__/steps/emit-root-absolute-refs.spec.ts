@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {writeProjectFiles} from '../../../../__spec__/helpers/extension-project'
 import {noteWithheldCssRef} from '../../../../lib/withheld-file'
 import {asCompilation} from '../../../__spec__/helpers/rspack-fakes'
 import {
@@ -39,11 +40,7 @@ function createProject(files: Record<string, string>) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-root-abs-'))
   tempDirs.push(root)
 
-  for (const [rel, content] of Object.entries(files)) {
-    const abs = path.join(root, rel)
-    fs.mkdirSync(path.dirname(abs), {recursive: true})
-    fs.writeFileSync(abs, content, 'utf8')
-  }
+  writeProjectFiles(root, files)
 
   return {root, publicDir: path.join(root, 'public')}
 }

@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, afterEach, describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {writeExtensionProject} from './helpers/extension-project'
 
 // A config that re-points output.path is resolved by the bundler against the
 // compiler context. The CLI's wipe, receipt and summary must resolve it the
@@ -29,20 +30,10 @@ function tmp(prefix: string) {
 
 function fixture(config: string, pageName = 'one') {
   const root = tmp('extjs-repoint-')
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'repoint', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'repoint',
-      version: '1.0.0',
-      background: {service_worker: 'background.js'}
-    })
-  )
+  writeExtensionProject(root, {
+    name: 'repoint',
+    manifest: {background: {service_worker: 'background.js'}}
+  })
 
   fs.writeFileSync(path.join(root, 'background.js'), 'console.log("bg")\n')
   fs.mkdirSync(path.join(root, 'pages'), {recursive: true})

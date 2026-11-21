@@ -1,9 +1,9 @@
 import {spawnSync} from 'node:child_process'
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {pathToFileURL} from 'node:url'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..', '..', '..')
 const CLI_DIST = path.join(
@@ -15,7 +15,7 @@ const CLI_DIST = path.join(
 )
 const TYPELESS_WARNING = 'MODULE_TYPELESS_PACKAGE_JSON'
 
-const roots: string[] = []
+const tempFolder = trackTempFolders()
 
 function ensureCliBuilt(): boolean {
   if (fs.existsSync(CLI_DIST)) return true
@@ -36,10 +36,7 @@ function ensureCliBuilt(): boolean {
 // A package.json without "type" and an ESM config that reads import.meta.env:
 // the shape every example project ships with.
 function scaffold() {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-typeless-config-'))
-  )
-  roots.push(root)
+  const root = fs.realpathSync(tempFolder('extjs-typeless-config-'))
 
   const files: Record<string, string> = {
     'package.json': JSON.stringify({name: 'typeless-config', private: true}),
@@ -66,12 +63,6 @@ function scaffold() {
 
   return root
 }
-
-afterAll(() => {
-  for (const root of roots) {
-    fs.rmSync(root, {recursive: true, force: true})
-  }
-})
 
 describe('loading an ESM extension.config.js from a typeless package', () => {
   it('prints no MODULE_TYPELESS_PACKAGE_JSON warning on a build', () => {

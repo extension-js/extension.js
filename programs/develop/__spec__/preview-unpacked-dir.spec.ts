@@ -8,6 +8,7 @@ import {
   previewArchiveTarget
 } from '../command-preview'
 import {remoteArchiveCacheRoot} from '../lib/remote-archive'
+import {writeProjectFiles} from './helpers/extension-project'
 
 const created: string[] = []
 
@@ -17,11 +18,7 @@ function tree(layout: Record<string, string>) {
   )
   created.push(root)
 
-  for (const [rel, content] of Object.entries(layout)) {
-    const abs = path.join(root, rel)
-    fs.mkdirSync(path.dirname(abs), {recursive: true})
-    fs.writeFileSync(abs, content)
-  }
+  writeProjectFiles(root, layout)
 
   return root
 }

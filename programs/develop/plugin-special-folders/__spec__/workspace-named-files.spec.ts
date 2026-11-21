@@ -1,7 +1,6 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, beforeAll, describe, expect, it} from 'vitest'
+import {beforeAll, describe, expect, it} from 'vitest'
 import {
   build,
   canLink,
@@ -10,19 +9,14 @@ import {
   MARKER,
   PAGE
 } from '../../__spec__/helpers/private-files-project'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
 // Whole production builds of a project two folders below a workspace root:
 // each route names files of the workspace, and a row says where each landed.
 
-const holders: string[] = []
+const tempFolder = trackTempFolders()
 
 beforeAll(expectNoWorkspaceAboveTemp)
-
-afterAll(() => {
-  for (const holder of holders) {
-    fs.rmSync(holder, {recursive: true, force: true})
-  }
-})
 
 // A file is found in the output by the token it alone holds.
 const token = (relative: string) => `TOKEN:${relative}`
@@ -87,10 +81,7 @@ function fixture(
   marker: Record<string, string>,
   project: Record<string, string>
 ): Fixture {
-  const holder = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-workspace-named-'))
-  )
-  holders.push(holder)
+  const holder = fs.realpathSync(tempFolder('extjs-workspace-named-'))
 
   const ws = path.join(holder, 'ws')
   const root = path.join(ws, 'apps', 'ext')
