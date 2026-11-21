@@ -10,18 +10,21 @@ import {
 } from '../../browsers-lib/resolve-profile'
 import type {CompilationLike} from '../../browsers-types'
 import {browserConfig as chromiumConfig} from '../../run-chromium/chromium-launch/browser-config'
-import {resolveFirefoxLaunchConfig} from '../../run-firefox/firefox-launch/browser-config'
+import {
+  type BrowserConfigOptions,
+  resolveFirefoxLaunchConfig
+} from '../../run-firefox/firefox-launch/browser-config'
 
 function stripAnsi(value: string): string {
   // eslint-disable-next-line no-control-regex
   return value.replace(/\u001b\[[0-9;]*m/g, '')
 }
 
-type FirefoxOptions = Parameters<typeof resolveFirefoxLaunchConfig>[1]
-
 // The launch reads only the fields a row names, so the rest stay unset.
-function firefoxOptions(options: Partial<FirefoxOptions>): FirefoxOptions {
-  return options as FirefoxOptions
+function firefoxOptions(
+  options: Partial<BrowserConfigOptions>
+): BrowserConfigOptions {
+  return options as BrowserConfigOptions
 }
 
 describe('a configured profile under the project', () => {

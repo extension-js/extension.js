@@ -91,14 +91,27 @@ function writePageProject(prefix: string, manifest: Record<string, unknown>) {
   return {tmp, manifestPath, pagePath, page}
 }
 
-function pageHmrRuleOf(compiler: Compiler): any {
-  return (compiler.options.module.rules as any[]).find((rule: any) =>
+// The fields of the page HMR rule these specs read.
+interface PageHmrRule {
+  use: Array<{loader?: string}>
+  issuerLayer?: unknown
+  issuer(resource: string): boolean
+  include(resource: string): boolean
+  exclude?: unknown[]
+}
+
+function pageHmrRuleOf(compiler: Compiler): PageHmrRule | undefined {
+  const rules = compiler.options.module.rules as Array<
+    {use?: unknown} | null | undefined
+  >
+
+  return rules.find((rule) =>
     Array.isArray(rule?.use)
-      ? rule.use.some((entry: any) =>
+      ? rule.use.some((entry: {loader?: unknown} | null | undefined) =>
           String(entry?.loader || '').includes('ensure-hmr-for-scripts')
         )
       : false
-  )
+  ) as PageHmrRule | undefined
 }
 
 describe('the page HMR rule', () => {

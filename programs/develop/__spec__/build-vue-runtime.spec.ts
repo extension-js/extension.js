@@ -135,7 +135,7 @@ async function build(root: string) {
   const distDir = path.join(root, 'dist', 'chrome')
   const readAll = (ext: string) =>
     fs
-      .readdirSync(distDir, {recursive: true} as any)
+      .readdirSync(distDir, {recursive: true})
       .map((entry) => String(entry))
       .filter((entry) => entry.endsWith(ext))
       .map((entry) => fs.readFileSync(path.join(distDir, entry), 'utf8'))

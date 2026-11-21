@@ -140,7 +140,7 @@ describe('build: .env injection (real rspack)', () => {
 
 describe('getEnvFileCandidates', () => {
   it('mirrors the manifest-prefix family contract', () => {
-    const chromium = getEnvFileCandidates('chromium' as any, 'production')
+    const chromium = getEnvFileCandidates('chromium', 'production')
     expect(chromium.indexOf('.env.chromium')).toBeLessThan(
       chromium.indexOf('.env.chrome')
     )
@@ -150,12 +150,12 @@ describe('getEnvFileCandidates', () => {
     expect(chromium).toContain('.env.chromium-based')
     expect(chromium[chromium.length - 1]).toBe('.env')
 
-    const firefox = getEnvFileCandidates('firefox' as any, 'development')
+    const firefox = getEnvFileCandidates('firefox', 'development')
     expect(firefox).toContain('.env.firefox.development')
     expect(firefox).toContain('.env.gecko-based')
     expect(firefox).not.toContain('.env.chrome')
 
-    expect(getEnvFileCandidates('safari' as any, 'production')).toContain(
+    expect(getEnvFileCandidates('safari', 'production')).toContain(
       '.env.chrome'
     )
   })

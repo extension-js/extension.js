@@ -81,7 +81,10 @@ describe('a url() the bundler resolves to nothing', () => {
 
   it('fails the build under strict refs, with the dead reference code', async () => {
     process.env.EXTENSION_STRICT_REFS = 'true'
-    const error: any = await build(project()).catch((caught) => caught)
+    const error: {
+      code?: string
+      diagnostics?: Array<{code?: string; message: string}>
+    } = await build(project()).catch((caught) => caught)
 
     expect(error?.code).toBe('E_COMPILE')
 

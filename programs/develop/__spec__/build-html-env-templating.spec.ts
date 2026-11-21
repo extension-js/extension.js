@@ -73,7 +73,7 @@ function read(root: string, file: string) {
 describe('build: env templating survives the html update step', () => {
   it('templates the popup title and keeps the page script tag (chrome production)', async () => {
     const root = project()
-    const summary: any = await build(root, 'production')
+    const summary = await build(root, 'production')
     expect(summary.errors_count).toBe(0)
 
     const html = read(root, 'action/index.html')
@@ -90,7 +90,7 @@ describe('build: env templating survives the html update step', () => {
 
   it('templates every page that loads a shared sibling chunk', async () => {
     const root = project({sharedPages: true})
-    const summary: any = await build(root, 'production')
+    const summary = await build(root, 'production')
     expect(summary.errors_count).toBe(0)
 
     for (const [page, entry] of [
@@ -110,7 +110,7 @@ describe('build: env templating survives the html update step', () => {
 
   it('templates the popup title in a development build too', async () => {
     const root = project()
-    const summary: any = await build(root, 'development')
+    const summary = await build(root, 'development')
     expect(summary.errors_count).toBe(0)
 
     const html = read(root, 'action/index.html')
@@ -163,7 +163,7 @@ describe('build: env templating reaches every copied .json and .html', () => {
   for (const mode of ['production', 'development'] as const) {
     it(`fills the late copies the way it fills a page (${mode})`, async () => {
       const root = copiedProject()
-      const summary: any = await build(root, mode)
+      const summary = await build(root, mode)
       expect(summary.errors_count).toBe(0)
 
       for (const file of ['war.json', 'runtime.json']) {

@@ -1,6 +1,6 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {rspack} from '@rspack/core'
+import {rspack, type Stats} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
 import {getProjectStructure} from '../lib/project'
 import webpackConfig from '../rspack-config'
@@ -79,8 +79,10 @@ async function devCompile(background: string) {
   config.stats = false
 
   const compiler = rspack(config)
-  const stats = await new Promise<any>((resolve, reject) =>
-    compiler.run((error, result) => (error ? reject(error) : resolve(result)))
+  const stats = await new Promise<Stats>((resolve, reject) =>
+    compiler.run((error, result) =>
+      error ? reject(error) : resolve(result as Stats)
+    )
   )
   await new Promise<void>((resolve) => compiler.close(() => resolve()))
 

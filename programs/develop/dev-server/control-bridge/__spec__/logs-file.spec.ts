@@ -25,7 +25,13 @@ function event(seq: number, message: string): LogEvent {
   }
 }
 
-function lines(file: string): any[] {
+// A row read back from an NDJSON file: a header, an action or a log event.
+interface Row {
+  messageParts: unknown[]
+  [field: string]: unknown
+}
+
+function lines(file: string): Row[] {
   if (!fs.existsSync(file)) return []
 
   return fs

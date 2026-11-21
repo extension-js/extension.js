@@ -102,12 +102,15 @@ import {
 const DRY_RUN_NO_BROWSER =
   'a dry run prints the Firefox launch plan and starts no browser'
 
-type LaunchOptions = {
+export type LaunchOptions = {
   browser: BrowserType
   mode: 'development' | 'production' | 'none'
   browserFlags?: string[]
   excludeBrowserFlags?: string[]
   profile?: string | false
+  persistProfile?: boolean
+  keepProfileChanges?: boolean
+  copyFromProfile?: string
   preferences?: Record<string, unknown>
   startingUrl?: string
   port?: number | string
@@ -235,7 +238,7 @@ export class FirefoxLaunchPlugin {
 
     // A skipped launch is not a launch: no ready line, and a later call may
     // still start the browser.
-    if ((compilation as {errors?: unknown[]})?.errors?.length) {
+    if (compilation?.errors?.length) {
       this.ctx.logger?.info?.(
         messages.skippingBrowserLaunchDueToCompileErrors()
       )

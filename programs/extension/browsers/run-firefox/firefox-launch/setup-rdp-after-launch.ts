@@ -82,14 +82,8 @@ export async function setupRdpAfterLaunch(
       await retry(() => controller.ensureLoaded(compilation))
       plugin.rdpController = controller
     } else {
-      await retry(
-        () =>
-          (
-            plugin.rdpController as {
-              ensureLoaded?: (compilation: CompilationLike) => Promise<void>
-            }
-          ).ensureLoaded?.(compilation) || Promise.resolve()
-      )
+      const existing = plugin.rdpController
+      await retry(() => existing.ensureLoaded(compilation))
     }
   } catch (error) {
     controller.disconnect()
@@ -103,13 +97,7 @@ export async function setupRdpAfterLaunch(
     const startingUrl = resolveStartingUrl(plugin)
 
     if (startingUrl) {
-      const live = (plugin.rdpController || controller) as {
-        openStartingUrl?: (
-          url: string,
-          beforeNavigate?: () => void
-        ) => Promise<boolean>
-        openBackgroundSession?: () => Promise<BackgroundSession | undefined>
-      }
+      const live = plugin.rdpController || controller
 
       const hold = await holdFirstPage(
         plugin,
@@ -146,9 +134,7 @@ export async function setupRdpAfterLaunch(
       !plugin.noOpen &&
       manifestDeclaresNewtabOverride(outPath)
     ) {
-      const live = (plugin.rdpController || controller) as {
-        openNewTab?: () => Promise<boolean>
-      }
+      const live = plugin.rdpController || controller
       const opened = await live.openNewTab?.()
 
       if (!opened && isDebug()) {

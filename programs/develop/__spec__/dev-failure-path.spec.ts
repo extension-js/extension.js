@@ -57,7 +57,7 @@ describe('a dev session that cannot start', () => {
         install: false,
         exitOnError: true,
         onExitError
-      } as any)
+      } as Parameters<typeof extensionDev>[1])
     ).rejects.toThrow('exit 1')
 
     expect(exit).toHaveBeenCalledWith(1)
@@ -80,7 +80,7 @@ describe('a dev session that cannot start', () => {
         browser: 'chromium',
         install: false,
         onExitError
-      } as any)
+      } as Parameters<typeof extensionDev>[1])
     ).rejects.toMatchObject({code: 'E_MANIFEST_NOT_FOUND'})
 
     expect(exit).not.toHaveBeenCalled()

@@ -3,7 +3,7 @@ import {describe, expect, it, vi} from 'vitest'
 import {quietBroker} from '../../__spec__/helpers/quiet-broker'
 import {createReloadSession, reloadEachBuild} from '../reload-session'
 
-type Tap = (...args: any[]) => unknown
+type Tap = (...args: unknown[]) => unknown
 
 // The hooks a reload session taps, fired in registration order.
 function watchingCompiler(context: string) {

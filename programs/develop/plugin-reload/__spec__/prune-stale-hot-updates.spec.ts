@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import type {Compiler} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {PruneStaleHotUpdates} from '../steps/prune-stale-hot-updates'
 
@@ -30,7 +31,7 @@ describe('PruneStaleHotUpdates (bug 34)', () => {
         }
       }
     }
-    new PruneStaleHotUpdates().apply(compiler as any)
+    new PruneStaleHotUpdates().apply(compiler as unknown as Compiler)
 
     const compileWith = (assetNames: string[]) => {
       doneFn!({

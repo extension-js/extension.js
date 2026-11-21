@@ -22,7 +22,10 @@ import {
 } from '../../run-chromium/chromium-launch/browser-config'
 import {createFirefoxContext} from '../../run-firefox/firefox-context'
 import {FirefoxLaunchPlugin} from '../../run-firefox/firefox-launch'
-import {browserConfig as firefoxBrowserConfig} from '../../run-firefox/firefox-launch/browser-config'
+import {
+  type BrowserConfigOptions,
+  browserConfig as firefoxBrowserConfig
+} from '../../run-firefox/firefox-launch/browser-config'
 import {
   composeConverterArgs,
   resolveSafariBuildConfig
@@ -30,13 +33,11 @@ import {
 import type {SafariPluginLike} from '../../run-safari/safari-types'
 import {fakeChromium, fakeFirefox} from '../fake-browser'
 
-type FirefoxConfigOptions = Parameters<typeof firefoxBrowserConfig>[1]
-
 // The rows set only the launch fields the URL decision reads.
 function firefoxOptions(
-  fields: Partial<FirefoxConfigOptions>
-): FirefoxConfigOptions {
-  return fields as FirefoxConfigOptions
+  fields: Partial<BrowserConfigOptions>
+): BrowserConfigOptions {
+  return fields as BrowserConfigOptions
 }
 
 // --no-open means open nothing at all, so no family may put the starting URL

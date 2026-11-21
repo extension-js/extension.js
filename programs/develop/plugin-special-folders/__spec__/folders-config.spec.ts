@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import type {Compiler} from '@rspack/core'
 import {afterEach, describe, expect, it} from 'vitest'
 import {
   excludedFiles,
@@ -213,7 +214,8 @@ describe('development-only entries', () => {
       keys(development.pages)
     )
 
-    const compiler = (mode: string) => ({options: {context: root, mode}}) as any
+    const compiler = (mode: string) =>
+      ({options: {context: root, mode}}) as unknown as Compiler
     expect(
       keys(getSpecialFoldersDataForCompiler(compiler('production')).pages)
     ).toEqual(['pages/engine'])
@@ -304,7 +306,9 @@ describe('excluded entries', () => {
       expect(keys(data.scripts)).toEqual(['scripts/content'])
     }
 
-    const compiler = {options: {context: root, mode: 'development'}} as any
+    const compiler = {
+      options: {context: root, mode: 'development'}
+    } as unknown as Compiler
     expect(keys(getSpecialFoldersDataForCompiler(compiler).pages)).toEqual([
       'pages/settings'
     ])

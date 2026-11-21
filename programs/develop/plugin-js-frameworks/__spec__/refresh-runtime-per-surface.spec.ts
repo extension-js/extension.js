@@ -64,7 +64,7 @@ async function compileDev(root: string) {
     metadataCommand: 'dev',
     silent: true,
     output: {clean: false, path: path.join(root, 'dist', 'chrome')}
-  } as any)
+  } as Parameters<typeof webpackConfig>[1])
   config.plugins = (config.plugins || []).filter(
     (plugin) =>
       plugin?.constructor.name !== 'plugin-browsers' &&
@@ -96,7 +96,7 @@ async function compileDev(root: string) {
   // A page loads its entry chunk plus the shared ones, so the page side is
   // the whole set; a content script is always one file.
   const pageSide = fs
-    .readdirSync(distPath, {recursive: true} as any)
+    .readdirSync(distPath, {recursive: true})
     .map(String)
     .filter((name) => name.endsWith('.js') && !name.includes('content_scripts'))
     .map((name) => read(name))

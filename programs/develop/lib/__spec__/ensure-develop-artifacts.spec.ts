@@ -8,23 +8,27 @@ const execInstallCommand = vi.fn()
 const resolvePackageManager = vi.fn()
 
 vi.mock('../package-manager', async (importOriginal) => {
-  const actual = (await importOriginal()) as any
+  const actual = await importOriginal<typeof import('../package-manager')>()
 
   return {
     ...actual,
-    execInstallCommand: (...args: any[]) => execInstallCommand(...args),
-    resolvePackageManager: (...args: any[]) => resolvePackageManager(...args)
+    execInstallCommand: (...args: unknown[]) => execInstallCommand(...args),
+    resolvePackageManager: (...args: unknown[]) =>
+      resolvePackageManager(...args)
   }
 })
 
 vi.mock('../paths', async (importOriginal) => {
-  const actual = (await importOriginal()) as any
+  const actual = await importOriginal<typeof import('../paths')>()
 
   return {...actual, needsInstall: vi.fn(() => true)}
 })
 
 import {ensureUserProjectDependencies} from '../ensure-develop-artifacts'
+import type {AbsolutePath} from '../paths'
 import {CAPTURED_INSTALL_FAILURES} from './install-failure-captures'
+
+type InstallError = Error & {code?: string}
 
 function installFailure(output: string) {
   return Object.assign(new Error('Install failed with exit code 1'), {
@@ -34,9 +38,9 @@ function installFailure(output: string) {
 }
 
 function warnings(): string[] {
-  return (console.warn as any).mock.calls.map((call: any[]) =>
-    stripVTControlCharacters(String(call[0]))
-  )
+  return vi
+    .mocked(console.warn)
+    .mock.calls.map((call) => stripVTControlCharacters(String(call[0])))
 }
 
 describe('ensureUserProjectDependencies', () => {
@@ -55,8 +59,8 @@ describe('ensureUserProjectDependencies', () => {
     resolvePackageManager.mockReturnValue({name: manager})
     execInstallCommand.mockRejectedValue(installFailure('Segmentation fault'))
 
-    const error: any = await ensureUserProjectDependencies(
-      '/project' as any
+    const error: InstallError = await ensureUserProjectDependencies(
+      '/project' as AbsolutePath
     ).catch((caught) => caught)
 
     expect(execInstallCommand).toHaveBeenCalledTimes(1)
@@ -91,8 +95,8 @@ describe('ensureUserProjectDependencies', () => {
       Object.assign(new Error(`spawn ${manager} ENOENT`), {code: 'ENOENT'})
     )
 
-    const error: any = await ensureUserProjectDependencies(
-      '/project' as any
+    const error: InstallError = await ensureUserProjectDependencies(
+      '/project' as AbsolutePath
     ).catch((caught) => caught)
 
     expect(execInstallCommand).toHaveBeenCalledTimes(1)
@@ -112,8 +116,8 @@ describe('ensureUserProjectDependencies', () => {
       Object.assign(new Error('spawn pnpm EACCES'), {code: 'EACCES'})
     )
 
-    const error: any = await ensureUserProjectDependencies(
-      '/project' as any
+    const error: InstallError = await ensureUserProjectDependencies(
+      '/project' as AbsolutePath
     ).catch((caught) => caught)
 
     expect(stripVTControlCharacters(error.message)).toBe(
@@ -154,9 +158,12 @@ describe('ensureUserProjectDependencies', () => {
       installFailure(CAPTURED_INSTALL_FAILURES[capture])
     )
 
-    const error: any = await ensureUserProjectDependencies('/project' as any, {
-      sleep: async () => {}
-    }).catch((caught) => caught)
+    const error: InstallError = await ensureUserProjectDependencies(
+      '/project' as AbsolutePath,
+      {
+        sleep: async () => {}
+      }
+    ).catch((caught) => caught)
 
     expect(execInstallCommand).toHaveBeenCalledTimes(1)
     expect(error.code).toBe('E_DEPENDENCY_INSTALL')
@@ -189,8 +196,8 @@ describe('ensureUserProjectDependencies', () => {
     })
 
     async function framed(): Promise<string[]> {
-      const error: any = await ensureUserProjectDependencies(
-        project as any
+      const error: InstallError = await ensureUserProjectDependencies(
+        project as AbsolutePath
       ).catch((caught) => caught)
 
       expect(error.code).toBe('E_DEPENDENCY_INSTALL')
@@ -257,7 +264,7 @@ describe('ensureUserProjectDependencies', () => {
       vi.stubEnv('EXTENSION_SKIP_INSTALL', value)
 
       try {
-        await ensureUserProjectDependencies('/project' as any)
+        await ensureUserProjectDependencies('/project' as AbsolutePath)
       } finally {
         vi.unstubAllEnvs()
       }
@@ -274,7 +281,7 @@ describe('ensureUserProjectDependencies', () => {
       vi.stubEnv('EXTENSION_SKIP_INSTALL', value)
 
       try {
-        await ensureUserProjectDependencies('/project' as any)
+        await ensureUserProjectDependencies('/project' as AbsolutePath)
       } finally {
         vi.unstubAllEnvs()
       }
@@ -287,7 +294,7 @@ describe('ensureUserProjectDependencies', () => {
     resolvePackageManager.mockReturnValue({name: 'pnpm'})
     execInstallCommand.mockResolvedValueOnce(undefined)
 
-    await ensureUserProjectDependencies('/nonexistent-project' as any)
+    await ensureUserProjectDependencies('/nonexistent-project' as AbsolutePath)
 
     const [, args] = execInstallCommand.mock.calls[0]
     expect(args).toEqual(['install', '--ignore-scripts', '--ignore-workspace'])
@@ -312,7 +319,7 @@ describe('ensureUserProjectDependencies', () => {
       resolvePackageManager.mockReturnValue({name: 'pnpm'})
       execInstallCommand.mockResolvedValueOnce(undefined)
 
-      await ensureUserProjectDependencies(member as any)
+      await ensureUserProjectDependencies(member as AbsolutePath)
 
       expect(resolvePackageManager).toHaveBeenCalledWith({cwd: root})
       const [, args, options] = execInstallCommand.mock.calls[0]
@@ -324,8 +331,9 @@ describe('ensureUserProjectDependencies', () => {
       ])
 
       expect(options.cwd).toBe(root)
-      const warned = (console.warn as any).mock.calls
-        .map((call: any[]) => String(call[0]))
+      const warned = vi
+        .mocked(console.warn)
+        .mock.calls.map((call) => String(call[0]))
         .join('\n')
       expect(warned).toContain(root)
       expect(warned).toContain('workspace root')
@@ -361,14 +369,15 @@ describe('ensureUserProjectDependencies', () => {
       resolvePackageManager.mockReturnValue({name: manager})
       execInstallCommand.mockResolvedValueOnce(undefined)
 
-      await ensureUserProjectDependencies(member as any)
+      await ensureUserProjectDependencies(member as AbsolutePath)
 
       expect(resolvePackageManager).toHaveBeenCalledWith({cwd: root})
       const [, args, options] = execInstallCommand.mock.calls[0]
       expect(args).not.toContain('--ignore-workspace')
       expect(options.cwd).toBe(root)
-      const warned = (console.warn as any).mock.calls
-        .map((call: any[]) => String(call[0]))
+      const warned = vi
+        .mocked(console.warn)
+        .mock.calls.map((call) => String(call[0]))
         .join('\n')
       expect(warned).toContain(`${manager} workspace member`)
     } finally {
@@ -380,7 +389,7 @@ describe('ensureUserProjectDependencies', () => {
     resolvePackageManager.mockReturnValue({name: 'npm'})
     execInstallCommand.mockResolvedValueOnce(undefined)
 
-    await ensureUserProjectDependencies('/nonexistent-project' as any)
+    await ensureUserProjectDependencies('/nonexistent-project' as AbsolutePath)
 
     const [, args] = execInstallCommand.mock.calls[0]
     expect(args).toContain('--ignore-scripts')
@@ -393,7 +402,9 @@ describe('ensureUserProjectDependencies', () => {
     vi.stubEnv('EXTENSION_OUTPUT', 'json')
 
     try {
-      await ensureUserProjectDependencies('/nonexistent-project' as any)
+      await ensureUserProjectDependencies(
+        '/nonexistent-project' as AbsolutePath
+      )
     } finally {
       vi.unstubAllEnvs()
     }
@@ -402,7 +413,7 @@ describe('ensureUserProjectDependencies', () => {
     expect(machineOptions.tee.stdout).toBe(process.stderr)
     expect(machineOptions.tee.stderr).toBe(process.stderr)
 
-    await ensureUserProjectDependencies('/nonexistent-project' as any)
+    await ensureUserProjectDependencies('/nonexistent-project' as AbsolutePath)
 
     const [, , prettyOptions] = execInstallCommand.mock.calls[1]
     expect(prettyOptions.tee.stdout).toBe(process.stdout)
@@ -413,7 +424,7 @@ describe('ensureUserProjectDependencies', () => {
     resolvePackageManager.mockReturnValue({name: 'yarn'})
     execInstallCommand.mockResolvedValueOnce(undefined)
 
-    await ensureUserProjectDependencies('/nonexistent-project' as any)
+    await ensureUserProjectDependencies('/nonexistent-project' as AbsolutePath)
 
     const [, args, options] = execInstallCommand.mock.calls[0]
     expect(args).not.toContain('--ignore-scripts')
@@ -430,7 +441,9 @@ describe('ensureUserProjectDependencies', () => {
       resolvePackageManager.mockReturnValue({name: 'npm'})
       execInstallCommand.mockResolvedValueOnce(undefined)
 
-      await ensureUserProjectDependencies('/nonexistent-project' as any)
+      await ensureUserProjectDependencies(
+        '/nonexistent-project' as AbsolutePath
+      )
 
       const [, args, options] = execInstallCommand.mock.calls[0]
       expect(args).not.toContain('--ignore-scripts')
@@ -461,9 +474,12 @@ describe('ensureUserProjectDependencies', () => {
         )
         .mockResolvedValueOnce(undefined)
 
-      await ensureUserProjectDependencies('/nonexistent-project' as any, {
-        sleep
-      })
+      await ensureUserProjectDependencies(
+        '/nonexistent-project' as AbsolutePath,
+        {
+          sleep
+        }
+      )
 
       expect(execInstallCommand).toHaveBeenCalledTimes(3)
       expect(sleep.mock.calls).toEqual([[5000], [10000]])
@@ -486,8 +502,8 @@ describe('ensureUserProjectDependencies', () => {
         installFailure(CAPTURED_INSTALL_FAILURES['pnpm10-tarball-404'])
       )
 
-      const error: any = await ensureUserProjectDependencies(
-        '/nonexistent-project' as any,
+      const error: InstallError = await ensureUserProjectDependencies(
+        '/nonexistent-project' as AbsolutePath,
         {sleep}
       ).catch((caught) => caught)
 
@@ -510,8 +526,8 @@ describe('ensureUserProjectDependencies', () => {
         installFailure(CAPTURED_INSTALL_FAILURES['npm-version-transitive'])
       )
 
-      const error: any = await ensureUserProjectDependencies(
-        '/nonexistent-project' as any,
+      const error: InstallError = await ensureUserProjectDependencies(
+        '/nonexistent-project' as AbsolutePath,
         {sleep, delaysMs: [1000]}
       ).catch((caught) => caught)
 
@@ -532,8 +548,8 @@ describe('ensureUserProjectDependencies', () => {
         installFailure(CAPTURED_INSTALL_FAILURES['bun-tarball-503'])
       )
 
-      const error: any = await ensureUserProjectDependencies(
-        '/nonexistent-project' as any,
+      const error: InstallError = await ensureUserProjectDependencies(
+        '/nonexistent-project' as AbsolutePath,
         {sleep}
       ).catch((caught) => caught)
 
@@ -558,7 +574,7 @@ describe('ensureUserProjectDependencies', () => {
         )
 
         await expect(
-          ensureUserProjectDependencies(project as any, {sleep})
+          ensureUserProjectDependencies(project as AbsolutePath, {sleep})
         ).rejects.toThrow(
           'npm exited with code 1. The npm error is printed above.'
         )
@@ -580,7 +596,9 @@ describe('ensureUserProjectDependencies', () => {
       )
 
       await expect(
-        ensureUserProjectDependencies('/nonexistent-project' as any, {sleep})
+        ensureUserProjectDependencies('/nonexistent-project' as AbsolutePath, {
+          sleep
+        })
       ).rejects.toThrow(
         'npm exited with code 1. The npm error is printed above.'
       )
@@ -636,8 +654,8 @@ describe('ensureUserProjectDependencies', () => {
         installFailure(CAPTURED_INSTALL_FAILURES[capture])
       )
 
-      const error: any = await ensureUserProjectDependencies(
-        '/nonexistent-project' as any,
+      const error: InstallError = await ensureUserProjectDependencies(
+        '/nonexistent-project' as AbsolutePath,
         {sleep}
       ).catch((caught) => caught)
 
@@ -653,8 +671,8 @@ describe('ensureUserProjectDependencies', () => {
         installFailure(CAPTURED_INSTALL_FAILURES['pnpm-missing-package'])
       )
 
-      const error: any = await ensureUserProjectDependencies(
-        '/nonexistent-project' as any,
+      const error: InstallError = await ensureUserProjectDependencies(
+        '/nonexistent-project' as AbsolutePath,
         {sleep}
       ).catch((caught) => caught)
 

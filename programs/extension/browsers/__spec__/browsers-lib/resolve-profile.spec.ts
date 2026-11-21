@@ -8,7 +8,10 @@ import {
 } from '../../browsers-lib/resolve-profile'
 import type {CompilationLike} from '../../browsers-types'
 import {browserConfig as chromiumConfig} from '../../run-chromium/chromium-launch/browser-config'
-import {browserConfig as firefoxConfig} from '../../run-firefox/firefox-launch/browser-config'
+import {
+  type BrowserConfigOptions,
+  browserConfig as firefoxConfig
+} from '../../run-firefox/firefox-launch/browser-config'
 
 let SCRATCH: string
 
@@ -16,11 +19,11 @@ function distFor(browser: 'chrome' | 'firefox') {
   return path.join(SCRATCH, 'project', 'dist', browser)
 }
 
-type FirefoxOptions = Parameters<typeof firefoxConfig>[1]
-
 // The launcher reads only the fields a row names, so the rest stay unset.
-function firefoxOptions(options: Partial<FirefoxOptions>): FirefoxOptions {
-  return options as FirefoxOptions
+function firefoxOptions(
+  options: Partial<BrowserConfigOptions>
+): BrowserConfigOptions {
+  return options as BrowserConfigOptions
 }
 
 function makeCompilation(out: string): CompilationLike {

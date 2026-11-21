@@ -1,5 +1,6 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import type {Compiler} from '@rspack/core'
 import {strFromU8, unzipSync} from 'fflate'
 import {ZipPlugin} from '../../zip'
 
@@ -11,13 +12,22 @@ export function readZip(zipPath: string): Record<string, string> {
   )
 }
 
-function makeCompiler(ctx: string, outPath: string) {
-  let doneCb: any
-  const compiler: any = {
+// The done stats the zip plugin reads: its compilation, where it reports
+// warnings and records the archives it wrote.
+export interface ZipDoneStats {
+  compilation: {warnings: Error[]}
+}
+
+type DoneTap = (stats: ZipDoneStats) => Promise<unknown>
+
+// A compiler with only the options and the done hook the zip plugin taps.
+export function makeCompiler(ctx: string, outPath: string) {
+  let doneCb: DoneTap | undefined
+  const compiler = {
     options: {context: ctx, output: {path: outPath}},
     hooks: {
       done: {
-        tapPromise: (_name: string, cb: any) => {
+        tapPromise: (_name: string, cb: DoneTap) => {
           doneCb = cb
         }
       }
@@ -25,8 +35,12 @@ function makeCompiler(ctx: string, outPath: string) {
   }
 
   return {
-    compiler,
-    emitDone: async (stats: any = {compilation: {warnings: []}}) => {
+    compiler: compiler as unknown as Compiler,
+    emitDone: async (
+      stats: ZipDoneStats = {compilation: {warnings: []}}
+    ): Promise<ZipDoneStats> => {
+      if (!doneCb) throw new Error('The zip plugin never tapped done')
+
       await doneCb(stats)
 
       return stats
