@@ -414,6 +414,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "pageActionDroppedForBrowserAction: function(1)",
     "pageActionNotSupportedByBrowser: function(1)",
     "pageKeptAtAuthoredPath: function(4)",
+    "permissionItemsCarryBrowserPrefix: function(3)",
     "safariBookmarksUnsupported: function(1)",
     "safariDownloadsUnsupported: function(1)",
     "safariHistoryUnsupported: function(1)",
