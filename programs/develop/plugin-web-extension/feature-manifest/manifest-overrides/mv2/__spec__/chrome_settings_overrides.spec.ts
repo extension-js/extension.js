@@ -1,4 +1,5 @@
 import {describe, expect, it} from 'vitest'
+import type {Manifest} from '../../../../../types'
 import {chromeSettingsOverrides} from '../chrome_settings_overrides'
 
 describe('chrome_settings_overrides override', () => {
@@ -13,7 +14,7 @@ describe('chrome_settings_overrides override', () => {
           favicon_url: '//cdn.example/fav.png'
         }
       }
-    } as any) as any
+    } as Manifest) as Manifest
     expect(out.chrome_settings_overrides).toEqual({
       homepage: 'https://example.com/',
       startup_pages: ['https://example.com/start', 'about:blank'],
@@ -31,12 +32,12 @@ describe('chrome_settings_overrides override', () => {
         startup_pages: ['pages/start.html'],
         search_provider: {name: 'X', favicon_url: 'icons/fav.png'}
       }
-    } as any) as any
-    expect(out.chrome_settings_overrides.startup_pages).toEqual([
+    } as Manifest) as Manifest
+    expect(out.chrome_settings_overrides?.startup_pages).toEqual([
       'chrome_settings_overrides/startup-0.html'
     ])
 
-    expect(out.chrome_settings_overrides.search_provider.favicon_url).toBe(
+    expect(out.chrome_settings_overrides?.search_provider?.favicon_url).toBe(
       'chrome_settings_overrides/fav.png'
     )
   })

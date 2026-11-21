@@ -1,4 +1,5 @@
 import {describe, expect, it} from 'vitest'
+import type {Manifest} from '../../../../../types'
 import {dropMv2HostKeys, hostPermissions} from '../host_permissions'
 
 describe('mv2 host_permissions override', () => {
@@ -7,7 +8,7 @@ describe('mv2 host_permissions override', () => {
       manifest_version: 2,
       permissions: ['storage', '<all_urls>'],
       host_permissions: ['<all_urls>', 'https://api.example.com/*']
-    } as any) as any
+    } as Manifest) as Manifest
 
     expect(result.permissions).toEqual([
       'storage',
@@ -23,7 +24,7 @@ describe('mv2 host_permissions override', () => {
       manifest_version: 2,
       optional_permissions: ['tabs'],
       optional_host_permissions: ['https://opt.example.com/*']
-    } as any) as any
+    } as Manifest) as Manifest
 
     expect(result.optional_permissions).toEqual([
       'tabs',
@@ -37,7 +38,7 @@ describe('mv2 host_permissions override', () => {
     const result = hostPermissions({
       manifest_version: 2,
       host_permissions: ['https://a.example.com/*']
-    } as any) as any
+    } as Manifest) as Manifest
 
     expect(result.permissions).toEqual(['https://a.example.com/*'])
   })
@@ -48,13 +49,16 @@ describe('mv2 host_permissions override', () => {
         manifest_version: 3,
         permissions: ['storage'],
         host_permissions: ['<all_urls>']
-      } as any)
+      } as Manifest)
     ).toBeUndefined()
   })
 
   it('returns undefined for MV2 without host keys', () => {
     expect(
-      hostPermissions({manifest_version: 2, permissions: ['storage']} as any)
+      hostPermissions({
+        manifest_version: 2,
+        permissions: ['storage']
+      } as Manifest)
     ).toBeUndefined()
   })
 })

@@ -1,7 +1,11 @@
 import {describe, expect, it} from 'vitest'
 import {classifyEntrySurface} from '../../../lib/split-chunks'
+import {asCompiler, type TapCallback} from '../../__spec__/helpers/rspack-fakes'
 import {entryOwnJsFile, initialJsFiles} from '../../shared/initial-files'
 import {WarnSplitInitialChunks} from '../steps/warn-split-initial-chunks'
+
+// A diagnostic as the step under test reports it.
+type Reported = Error & {file?: string}
 
 type FakeEntry = {
   files: string[]
@@ -22,18 +26,18 @@ function makeCompilation(entries: Record<string, FakeEntry>) {
       }
     ])
   )
-  const compilation: any = {
-    warnings: [],
+  const compilation = {
+    warnings: [] as Reported[],
     entrypoints,
     hooks: {
-      processAssets: {tap: (_opts: any, fn: any) => fn()}
+      processAssets: {tap: (_opts: unknown, fn: TapCallback) => fn()}
     }
   }
-  const compiler: any = {
+  const compiler = asCompiler({
     hooks: {
-      thisCompilation: {tap: (_n: string, fn: any) => fn(compilation)}
+      thisCompilation: {tap: (_n: string, fn: TapCallback) => fn(compilation)}
     }
-  }
+  })
 
   return {compiler, compilation}
 }

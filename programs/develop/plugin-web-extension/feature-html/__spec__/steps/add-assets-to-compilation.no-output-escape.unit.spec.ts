@@ -2,21 +2,30 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import {
+  asCompiler,
+  type TapCallback
+} from '../../../__spec__/helpers/rspack-fakes'
 import {joinEmittedAssetName} from '../../html-lib/utils'
 import {AddAssetsToCompilation} from '../../steps/add-assets-to-compilation'
+import {
+  type BuildIssue,
+  type FakeAsset,
+  readSource
+} from '../helpers/html-fakes'
 
 function makeCompilation(contextDir: string = process.cwd()) {
-  const assets: Record<string, any> = {}
-  const compilationObj: any = {
+  const assets: Record<string, FakeAsset> = {}
+  const compilationObj = {
     options: {mode: 'production', output: {path: '/out'}},
     getAsset: (name: string) => assets[name],
     assets,
-    errors: [],
-    warnings: [] as any[],
-    hooks: {processAssets: {tap: (_: any, cb: any) => cb()}},
-    emitAsset: (name: string, src: any) => {
+    errors: [] as BuildIssue[],
+    warnings: [] as BuildIssue[],
+    hooks: {processAssets: {tap: (_: unknown, cb: TapCallback) => cb()}},
+    emitAsset: (name: string, src: unknown) => {
       assets[name] = {
-        source: {source: () => (src.source ? src.source() : src)}
+        source: {source: () => readSource(src)}
       }
     }
   }
@@ -24,10 +33,12 @@ function makeCompilation(contextDir: string = process.cwd()) {
   return {
     options: {context: contextDir},
     hooks: {
-      thisCompilation: {tap: (_: any, fn: any) => fn(compilationObj)}
+      thisCompilation: {
+        tap: (_: unknown, fn: TapCallback) => fn(compilationObj)
+      }
     },
     compilationObj
-  } as any
+  }
 }
 
 describe('joinEmittedAssetName (URL-clamped asset names)', () => {
@@ -85,7 +96,7 @@ describe('AddAssetsToCompilation (no output-dir escape)', () => {
         'utf8'
       )
 
-      const compiler: any = makeCompilation(tmpDirectoryPath)
+      const compiler = makeCompilation(tmpDirectoryPath)
       compiler.compilationObj.assets[path.basename(htmlFilePath)] = {
         source: {source: () => fs.readFileSync(htmlFilePath, 'utf8')}
       }
@@ -93,7 +104,7 @@ describe('AddAssetsToCompilation (no output-dir escape)', () => {
       new AddAssetsToCompilation({
         manifestPath: manifestFilePath,
         includeList: {'action/index': htmlFilePath}
-      } as any).apply(compiler as any)
+      }).apply(asCompiler(compiler))
 
       const emittedAssetNames = Object.keys(compiler.compilationObj.assets)
 

@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
+import type {Manifest} from '../../../types'
 import {patchDevContentScriptManifestPaths} from '../steps/patch-dev-content-script-manifest-paths'
 
 describe('patchDevContentScriptManifestPaths: stale CSS chunk purge', () => {
@@ -29,7 +30,7 @@ describe('patchDevContentScriptManifestPaths: stale CSS chunk purge', () => {
   // the build by hand the way the bundler does once the files are written.
   function makeCompilation(emittedNames: string[], errors: unknown[] = []) {
     const sources = Object.fromEntries(
-      emittedNames.map((name) => [name, {source: () => `/* ${name} */`} as any])
+      emittedNames.map((name) => [name, {source: () => `/* ${name} */`}])
     )
     const doneTaps: Array<(stats: {compilation: unknown}) => void> = []
     const compilation = {
@@ -58,7 +59,7 @@ describe('patchDevContentScriptManifestPaths: stale CSS chunk purge', () => {
 
   function patchAndFinish(
     emittedNames: string[],
-    manifest: any,
+    manifest: Manifest,
     errors: unknown[] = []
   ) {
     const {compilation, finish} = makeCompilation(emittedNames, errors)
@@ -80,7 +81,7 @@ describe('patchDevContentScriptManifestPaths: stale CSS chunk purge', () => {
       content_scripts: [
         {matches: ['<all_urls>'], js: ['content_scripts/content-0.js']}
       ]
-    } as any)
+    })
 
     expect(fs.existsSync(path.join(csDir, stale))).toBe(true)
 
@@ -113,7 +114,7 @@ describe('patchDevContentScriptManifestPaths: stale CSS chunk purge', () => {
     fs.writeFileSync(path.join(csDir, stale), '/* stale */')
     fs.writeFileSync(path.join(csDir, fresh), '/* fresh */')
 
-    const manifest: any = {
+    const manifest: Manifest = {
       manifest_version: 3,
       content_scripts: [
         {matches: ['<all_urls>'], js: ['content_scripts/content-0.js']}
@@ -135,7 +136,7 @@ describe('patchDevContentScriptManifestPaths: stale CSS chunk purge', () => {
     fs.writeFileSync(path.join(csDir, userFile), 'plain')
     fs.writeFileSync(path.join(csDir, plainCss), '/* plain */')
 
-    const manifest: any = {
+    const manifest: Manifest = {
       manifest_version: 3,
       content_scripts: [
         {matches: ['<all_urls>'], js: ['content_scripts/content-0.js']}
@@ -159,7 +160,7 @@ describe('patchDevContentScriptManifestPaths: stale CSS chunk purge', () => {
     fs.writeFileSync(path.join(csDir, fresh0), '/* fresh 0 */')
     fs.writeFileSync(path.join(csDir, fresh1), '/* fresh 1 */')
 
-    const manifest: any = {
+    const manifest: Manifest = {
       manifest_version: 3,
       content_scripts: [
         {matches: ['<all_urls>'], js: ['content_scripts/content-0.js']},
@@ -199,7 +200,7 @@ describe('patchDevContentScriptManifestPaths: stale CSS chunk purge', () => {
       fs.writeFileSync(path.join(csDir, name), '/* last-entry-leftover */')
     }
 
-    const manifest: any = {manifest_version: 3, name: 'no-entry-left'}
+    const manifest: Manifest = {manifest_version: 3, name: 'no-entry-left'}
     const result = patchAndFinish(['background/service_worker.js'], manifest)
 
     expect(result).toBe(manifest)
@@ -226,7 +227,7 @@ describe('patchDevContentScriptManifestPaths: stale CSS chunk purge', () => {
     patchAndFinish([`content_scripts/${emitted}`], {
       manifest_version: 3,
       name: 'no-entry-left'
-    } as any)
+    })
 
     expect(fs.readdirSync(csDir).sort()).toEqual([...kept].sort())
   })

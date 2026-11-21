@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {sources} from '@rspack/core'
 import {afterEach, describe, expect, it} from 'vitest'
+import {asCompiler} from '../../__spec__/helpers/rspack-fakes'
 import {PlaceRuntimeScriptSheets} from '../steps/place-runtime-script-sheets'
 
 const roots: string[] = []
@@ -50,19 +51,21 @@ function session(mode: 'development' | 'production' = 'development') {
   new PlaceRuntimeScriptSheets({
     browser: 'chrome',
     includeList: {'scripts/hook': '/project/scripts/hook.js'}
-  }).apply({
-    options: {context: '/project', mode, output: {path: outputPath}},
-    hooks: {
-      thisCompilation: {
-        tap: (_name: string, tapped: (compilation: unknown) => void) =>
-          tapped(compilation)
-      },
-      done: {
-        tap: (_name: string, tapped: (stats: unknown) => void) =>
-          finished.push(tapped)
+  }).apply(
+    asCompiler({
+      options: {context: '/project', mode, output: {path: outputPath}},
+      hooks: {
+        thisCompilation: {
+          tap: (_name: string, tapped: (compilation: unknown) => void) =>
+            tapped(compilation)
+        },
+        done: {
+          tap: (_name: string, tapped: (stats: unknown) => void) =>
+            finished.push(tapped)
+        }
       }
-    }
-  } as any)
+    })
+  )
 
   const at = (name: string) => path.join(outputPath, ...name.split('/'))
 

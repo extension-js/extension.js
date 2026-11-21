@@ -101,24 +101,35 @@ async function made(
   const taps = hookTaps(compiler)
     .filter((tap) => !known.has(tap))
     .sort()
-  const loaders = (compiler.options.module.rules as any[]).flatMap((rule) =>
-    [rule, ...(rule?.oneOf || [])].flatMap((one: any) =>
-      (Array.isArray(one?.use) ? one.use : []).map((use: any) => ({
+  const rules = compiler.options.module.rules as unknown as Array<Rule | null>
+  const loaders = rules.flatMap((rule) =>
+    [rule, ...(rule?.oneOf || [])].flatMap((one) =>
+      (Array.isArray(one?.use) ? (one.use as RuleUse[]) : []).map((use) => ({
         // The stem alone: a built dist adds .js or .mjs, a fresh tree adds none.
         loader: path.basename(String(use.loader)).replace(/\.m?js$/, ''),
-        options: use.options
+        options: use.options as Record<string, unknown>
       }))
     )
   )
 
-  const conditions = (compiler.options.module.rules as any[]).flatMap((rule) =>
-    functionConditions(rule)
-  )
+  const conditions = rules.flatMap((rule) => functionConditions(rule))
 
   await close(bare)
   await close(compiler)
 
   return {root, taps, loaders, conditions}
+}
+
+// The fields of a rule this file reads, as the bundler hands them back.
+interface Rule {
+  use?: unknown
+  oneOf?: Rule[]
+  [key: string]: unknown
+}
+
+interface RuleUse {
+  loader?: unknown
+  options?: unknown
 }
 
 const CONDITION_KEYS = [
@@ -133,12 +144,12 @@ const CONDITION_KEYS = [
 
 // The keys of every condition that calls back into JavaScript, where the
 // bundler pays a call for each module it resolves.
-function functionConditions(rule: any, at = 'rule'): string[] {
+function functionConditions(rule: Rule | null, at = 'rule'): string[] {
   if (!rule || typeof rule !== 'object') return []
 
   const found: string[] = []
 
-  const visit = (value: any, where: string) => {
+  const visit = (value: unknown, where: string): void => {
     if (typeof value === 'function') found.push(where)
     else if (Array.isArray(value)) {
       for (const one of value) visit(one, where)
@@ -148,7 +159,9 @@ function functionConditions(rule: any, at = 'rule'): string[] {
       !(value instanceof RegExp)
     ) {
       for (const key of ['not', 'and', 'or']) {
-        if (key in value) visit(value[key], `${where}.${key}`)
+        if (key in value) {
+          visit((value as Record<string, unknown>)[key], `${where}.${key}`)
+        }
       }
     }
   }
