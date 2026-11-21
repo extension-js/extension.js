@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import type {Compiler} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {
   bindDevSessionRestart,
@@ -13,6 +14,21 @@ import {WarnUponFolderChanges} from '../warn-upon-folder-changes'
 const ESC = String.fromCharCode(27)
 const plain = (text: unknown) =>
   String(text).replace(new RegExp(`${ESC}\\[[0-9;]*m`, 'g'), '')
+
+// A warning or error as the step reports it, by the fields these specs read.
+type Issue = {
+  message?: unknown
+  name?: unknown
+  file?: unknown
+  details?: unknown
+}
+
+interface FakeCompilation {
+  warnings: Issue[]
+  errors: Issue[]
+  contextDependencies: Set<string>
+  missingDependencies: Set<string>
+}
 
 // The facts a restart notice must carry: what changed, in which folder, and
 // that the dev server needs a restart.
@@ -41,9 +57,9 @@ const createFakeCompiler = () => {
     path.join(os.tmpdir(), 'extensionjs-special-folders-')
   )
   const watchRunCallbacks: Array<() => void> = []
-  const doneCallbacks: Array<(stats: any) => void> = []
-  const thisCompilationCallbacks: Array<(c: any) => void> = []
-  const hooks: any = {
+  const doneCallbacks: Array<(stats: unknown) => void> = []
+  const thisCompilationCallbacks: Array<(c: unknown) => void> = []
+  const hooks = {
     watchRun: {
       tap: (_name: string, callback: () => void) => {
         watchRunCallbacks.push(callback)
@@ -53,24 +69,24 @@ const createFakeCompiler = () => {
       }
     },
     done: {
-      tap: (_name: unknown, callback: (stats: any) => void) => {
+      tap: (_name: unknown, callback: (stats: unknown) => void) => {
         doneCallbacks.push(callback)
       },
-      __invokeAll: (compilationInstance: any) => {
+      __invokeAll: (compilationInstance: unknown) => {
         for (const cb of doneCallbacks) cb({compilation: compilationInstance})
       }
     },
     thisCompilation: {
-      tap: (_name: string, callback: (c: any) => void) => {
+      tap: (_name: string, callback: (c: unknown) => void) => {
         thisCompilationCallbacks.push(callback)
       },
-      __invokeAll: (compilationInstance: any) => {
+      __invokeAll: (compilationInstance: unknown) => {
         for (const cb of thisCompilationCallbacks) cb(compilationInstance)
       }
     }
   }
 
-  const compiler: any = {
+  const compiler = {
     options: {
       mode: 'development',
       watchOptions: {},
@@ -86,25 +102,17 @@ const createFakeCompiler = () => {
   return {compiler, projectRoot}
 }
 
-const runCycle = (
-  compiler: any,
-  compilation: {
-    warnings: any[]
-    errors: any[]
-    contextDependencies: Set<string>
-    missingDependencies: Set<string>
-  }
-) => {
-  ;(compiler.hooks.watchRun as any).__invokeAll()
-  ;(compiler.hooks.thisCompilation as any).__invokeAll(compilation)
+type FakeCompiler = ReturnType<typeof createFakeCompiler>['compiler']
+
+// The step reads only what the fake carries, so it is widened in one place.
+const asCompiler = (compiler: FakeCompiler) => compiler as unknown as Compiler
+
+const runCycle = (compiler: FakeCompiler, compilation: FakeCompilation) => {
+  compiler.hooks.watchRun.__invokeAll()
+  compiler.hooks.thisCompilation.__invokeAll(compilation)
 }
 
-let compilation: {
-  warnings: any[]
-  errors: any[]
-  contextDependencies: Set<string>
-  missingDependencies: Set<string>
-}
+let compilation: FakeCompilation
 const tempDirs = new Set<string>()
 const toPosix = (value: string) => value.split(path.sep).join('/')
 
@@ -139,7 +147,7 @@ describe('WarnUponFolderChanges', () => {
     const {compiler, projectRoot} = createFakeCompiler()
     tempDirs.add(projectRoot)
     fs.mkdirSync(path.join(projectRoot, 'pages'), {recursive: true})
-    new WarnUponFolderChanges().apply(compiler as any)
+    new WarnUponFolderChanges().apply(asCompiler(compiler))
 
     const page = path.join(projectRoot, 'pages', 'foo.html')
     compiler.modifiedFiles = new Set([page])
@@ -173,7 +181,7 @@ describe('WarnUponFolderChanges', () => {
     const {compiler, projectRoot} = createFakeCompiler()
     tempDirs.add(projectRoot)
     fs.mkdirSync(path.join(projectRoot, 'scripts'), {recursive: true})
-    new WarnUponFolderChanges().apply(compiler as any)
+    new WarnUponFolderChanges().apply(asCompiler(compiler))
 
     const script = path.join(projectRoot, 'scripts', 'content.ts')
     compiler.modifiedFiles = new Set([
@@ -210,7 +218,7 @@ describe('WarnUponFolderChanges', () => {
     const {compiler, projectRoot} = createFakeCompiler()
     tempDirs.add(projectRoot)
     fs.mkdirSync(path.join(projectRoot, 'pages'), {recursive: true})
-    new WarnUponFolderChanges().apply(compiler as any)
+    new WarnUponFolderChanges().apply(asCompiler(compiler))
 
     compiler.modifiedFiles = new Set([
       path.join(projectRoot, 'pages', 'readme.txt')
@@ -231,7 +239,7 @@ describe('WarnUponFolderChanges', () => {
     tempDirs.add(projectRoot)
     fs.mkdirSync(path.join(projectRoot, 'pages'), {recursive: true})
     fs.mkdirSync(path.join(projectRoot, 'scripts'), {recursive: true})
-    new WarnUponFolderChanges().apply(compiler as any)
+    new WarnUponFolderChanges().apply(asCompiler(compiler))
     runCycle(compiler, compilation)
 
     const deps = Array.from(compilation.contextDependencies).map((p) =>
@@ -250,7 +258,7 @@ describe('WarnUponFolderChanges', () => {
     const existingFile = path.join(projectRoot, 'scripts', 'script-one.js')
     fs.writeFileSync(existingFile, '// pre-existing', 'utf8')
 
-    new WarnUponFolderChanges().apply(compiler as any)
+    new WarnUponFolderChanges().apply(asCompiler(compiler))
 
     compiler.modifiedFiles = new Set([existingFile])
     compiler.removedFiles = new Set()
@@ -265,7 +273,7 @@ describe('WarnUponFolderChanges', () => {
     tempDirs.add(projectRoot)
     fs.mkdirSync(path.join(projectRoot, 'scripts'), {recursive: true})
 
-    new WarnUponFolderChanges().apply(compiler as any)
+    new WarnUponFolderChanges().apply(asCompiler(compiler))
 
     const newFile = path.join(projectRoot, 'scripts', 'script-new.js')
     compiler.modifiedFiles = new Set([newFile])
@@ -292,7 +300,7 @@ describe('WarnUponFolderChanges', () => {
     const {compiler, projectRoot} = createFakeCompiler()
     tempDirs.add(projectRoot)
     fs.mkdirSync(path.join(projectRoot, 'pages'), {recursive: true})
-    new WarnUponFolderChanges().apply(compiler as any)
+    new WarnUponFolderChanges().apply(asCompiler(compiler))
 
     const page = path.join(projectRoot, 'pages', 'extra.html')
     const superseded = {...compilation, warnings: [], errors: []}
@@ -320,7 +328,7 @@ describe('WarnUponFolderChanges', () => {
     const {compiler, projectRoot} = createFakeCompiler()
     tempDirs.add(projectRoot)
     fs.mkdirSync(path.join(projectRoot, 'pages'), {recursive: true})
-    new WarnUponFolderChanges().apply(compiler as any)
+    new WarnUponFolderChanges().apply(asCompiler(compiler))
 
     const pageScript = path.join(projectRoot, 'pages', 'extra.js')
     compiler.modifiedFiles = new Set()
@@ -347,7 +355,7 @@ describe('WarnUponFolderChanges', () => {
     const {compiler, projectRoot} = createFakeCompiler()
     tempDirs.add(projectRoot)
 
-    new WarnUponFolderChanges().apply(compiler as any)
+    new WarnUponFolderChanges().apply(asCompiler(compiler))
     runCycle(compiler, compilation)
 
     expect(Array.from(compilation.contextDependencies)).toEqual([])
@@ -367,7 +375,7 @@ describe('WarnUponFolderChanges', () => {
     const {compiler, projectRoot} = createFakeCompiler()
     tempDirs.add(projectRoot)
     fs.mkdirSync(path.join(projectRoot, 'scripts'), {recursive: true})
-    new WarnUponFolderChanges().apply(compiler as any)
+    new WarnUponFolderChanges().apply(asCompiler(compiler))
 
     compiler.modifiedFiles = new Set([
       path.join(projectRoot, 'scripts', 'extra.js')
@@ -410,7 +418,7 @@ describe('WarnUponFolderChanges', () => {
     tempDirs.add(projectRoot)
     fs.mkdirSync(path.join(projectRoot, 'pages'), {recursive: true})
     fs.writeFileSync(path.join(projectRoot, 'pages', 'old.html'), '<html>')
-    new WarnUponFolderChanges().apply(compiler as any)
+    new WarnUponFolderChanges().apply(asCompiler(compiler))
 
     compiler.modifiedFiles = new Set()
     compiler.removedFiles = new Set()
@@ -445,7 +453,7 @@ describe('WarnUponFolderChanges', () => {
     const {compiler, projectRoot} = createFakeCompiler()
     tempDirs.add(projectRoot)
     fs.mkdirSync(path.join(projectRoot, 'pages'), {recursive: true})
-    new WarnUponFolderChanges().apply(compiler as any)
+    new WarnUponFolderChanges().apply(asCompiler(compiler))
 
     const page = path.join(projectRoot, 'pages', 'extra.html')
     const pageScript = path.join(projectRoot, 'pages', 'extra.js')
@@ -475,7 +483,7 @@ describe('WarnUponFolderChanges', () => {
     const {compiler, projectRoot} = createFakeCompiler()
     tempDirs.add(projectRoot)
     fs.mkdirSync(path.join(projectRoot, 'scripts'), {recursive: true})
-    new WarnUponFolderChanges().apply(compiler as any)
+    new WarnUponFolderChanges().apply(asCompiler(compiler))
 
     compiler.modifiedFiles = new Set()
     compiler.removedFiles = new Set([
@@ -517,7 +525,7 @@ describe('WarnUponFolderChanges', () => {
       tempDirs.add(projectRoot)
       rememberSpecialFoldersConfig(projectRoot, folders)
       fs.mkdirSync(path.join(projectRoot, scriptsDir), {recursive: true})
-      new WarnUponFolderChanges().apply(compiler as any)
+      new WarnUponFolderChanges().apply(asCompiler(compiler))
       compilation = {
         warnings: [],
         errors: [],
@@ -555,7 +563,7 @@ describe('WarnUponFolderChanges', () => {
     tempDirs.add(projectRoot)
     rememberSpecialFoldersConfig(projectRoot, {pages: 'src/pages'})
     fs.mkdirSync(path.join(projectRoot, 'src', 'pages'), {recursive: true})
-    new WarnUponFolderChanges().apply(compiler as any)
+    new WarnUponFolderChanges().apply(asCompiler(compiler))
 
     const fresh = path.join(projectRoot, 'src', 'pages', 'fresh.html')
     compiler.modifiedFiles = new Set([fresh])
@@ -578,7 +586,7 @@ describe('WarnUponFolderChanges', () => {
     rememberSpecialFoldersConfig(projectRoot, {pages: false, scripts: false})
     fs.mkdirSync(path.join(projectRoot, 'pages'), {recursive: true})
     fs.mkdirSync(path.join(projectRoot, 'scripts'), {recursive: true})
-    new WarnUponFolderChanges().apply(compiler as any)
+    new WarnUponFolderChanges().apply(asCompiler(compiler))
 
     compiler.modifiedFiles = new Set([
       path.join(projectRoot, 'pages', 'another.html'),
@@ -610,7 +618,7 @@ describe('WarnUponFolderChanges', () => {
     tempDirs.add(projectRoot)
     compiler.options.resolve.extensions = ['.js', '.ts', '.json']
     fs.mkdirSync(path.join(projectRoot, 'scripts'), {recursive: true})
-    new WarnUponFolderChanges().apply(compiler as any)
+    new WarnUponFolderChanges().apply(asCompiler(compiler))
 
     const rules = path.join(projectRoot, 'scripts', 'rules.json')
     compiler.modifiedFiles = new Set([rules])
@@ -632,7 +640,7 @@ describe('WarnUponFolderChanges', () => {
     const {compiler, projectRoot} = createFakeCompiler()
     tempDirs.add(projectRoot)
     fs.mkdirSync(path.join(projectRoot, 'scripts'), {recursive: true})
-    new WarnUponFolderChanges().apply(compiler as any)
+    new WarnUponFolderChanges().apply(asCompiler(compiler))
 
     for (const name of ['a.jsx', 'b.mjsx', 'c.mtsx']) {
       const fresh = path.join(projectRoot, 'scripts', name)
@@ -662,7 +670,7 @@ describe('WarnUponFolderChanges', () => {
 
         return true
       }
-    }).apply(compiler as any)
+    }).apply(asCompiler(compiler))
 
     const page = path.join(projectRoot, 'pages', 'added.html')
     compiler.modifiedFiles = new Set([page])
@@ -685,7 +693,7 @@ describe('WarnUponFolderChanges', () => {
     tempDirs.add(projectRoot)
     fs.mkdirSync(path.join(projectRoot, 'scripts'), {recursive: true})
     new WarnUponFolderChanges({requestRestart: () => false}).apply(
-      compiler as any
+      asCompiler(compiler)
     )
 
     const script = path.join(projectRoot, 'scripts', 'late.ts')
@@ -720,7 +728,7 @@ describe('WarnUponFolderChanges', () => {
 
         return true
       }
-    }).apply(compiler as any)
+    }).apply(asCompiler(compiler))
 
     runCycle(compiler, compilation)
     runCycle(compiler, compilation)

@@ -380,7 +380,12 @@ describe('extension start flag forwarding', () => {
 
   it('reads the project config for the start command before it picks a browser', async () => {
     expect(await run(['start', PROJECT])).toBe(0)
-    expect(configReads[0]).toEqual([PROJECT, 'start'])
+    // No browser is known yet, so the probe reads as the stock one would.
+    expect(configReads[0]).toEqual([
+      PROJECT,
+      'start',
+      {mode: undefined, browser: 'chromium'}
+    ])
   })
 
   it('says what --port and --host bind in start --help', () => {

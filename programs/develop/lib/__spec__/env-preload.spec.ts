@@ -11,6 +11,10 @@ import {
   loadProjectConfigDefaults
 } from '../config-loader'
 
+type BuildOptions = Parameters<
+  typeof import('../../command-build')['extensionBuild']
+>[1]
+
 // Env files reach the config in the usual layers: .env.defaults only fills
 // gaps, .env is the base, .env.local overrides it, and a value the shell
 // exported beats every file.
@@ -154,7 +158,7 @@ describe('env preload layering at config time', () => {
         install: false,
         mode: 'production',
         exitOnError: false
-      } as any)
+      } as BuildOptions)
       expect(summary.errors_count).toBe(0)
     } finally {
       if (previous === undefined) delete process.env.VITEST
@@ -286,7 +290,7 @@ describe('env preload follows the running mode', () => {
         silent: true,
         install: false,
         exitOnError: false
-      } as any)
+      } as BuildOptions)
       expect(summary.errors_count).toBe(0)
     } finally {
       if (previous === undefined) delete process.env.VITEST
@@ -495,7 +499,7 @@ describe('env preload keeps two projects apart', () => {
         silent: true,
         install: false,
         exitOnError: false
-      } as any)
+      } as BuildOptions)
       expect(summary.errors_count).toBe(0)
     } finally {
       if (previous === undefined) delete process.env.VITEST
@@ -677,7 +681,7 @@ require('node:fs').writeFileSync(require('node:path').join(__dirname, 'seen.txt'
           silent: true,
           install: false,
           exitOnError: false
-        } as any)
+        } as BuildOptions)
         expect(summary.errors_count).toBe(0)
       } finally {
         if (previous === undefined) delete process.env.VITEST

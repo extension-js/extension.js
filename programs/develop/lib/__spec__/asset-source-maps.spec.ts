@@ -1,4 +1,4 @@
-import {sources} from '@rspack/core'
+import {type Compilation, sources} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
 import {prependToEmittedAsset} from '../asset-source-maps'
 import {TAKE_BLOCK_OPEN} from '../extension-base-from-stack'
@@ -21,6 +21,16 @@ function fakeCompilation(assets: Record<string, string>) {
   }
 }
 
+function emitted(
+  compilation: ReturnType<typeof fakeCompilation>,
+  name: string
+) {
+  const asset = compilation.getAsset(name)
+  if (!asset?.source) throw new Error(`The fake emitted no ${name}`)
+
+  return {name, source: asset.source}
+}
+
 describe('prependToEmittedAsset', () => {
   it('prepends the text and pads the emitted map by the same lines', () => {
     const compilation = fakeCompilation({
@@ -32,8 +42,8 @@ describe('prependToEmittedAsset', () => {
       })
     })
     prependToEmittedAsset(
-      compilation as any,
-      compilation.getAsset('background/service_worker.js') as any,
+      compilation as unknown as Compilation,
+      emitted(compilation, 'background/service_worker.js'),
       'r1\nr2\n'
     )
 
@@ -50,8 +60,8 @@ describe('prependToEmittedAsset', () => {
   it('leaves an asset without a map untouched apart from the prefix', () => {
     const compilation = fakeCompilation({'content.js': 'x'})
     prependToEmittedAsset(
-      compilation as any,
-      compilation.getAsset('content.js') as any,
+      compilation as unknown as Compilation,
+      emitted(compilation, 'content.js'),
       'p\n'
     )
 
@@ -69,8 +79,8 @@ describe('prependToEmittedAsset', () => {
       })
     })
     prependToEmittedAsset(
-      compilation as any,
-      compilation.getAsset('content_scripts/content-0.js') as any,
+      compilation as unknown as Compilation,
+      emitted(compilation, 'content_scripts/content-0.js'),
       'r1\nr2\n'
     )
 

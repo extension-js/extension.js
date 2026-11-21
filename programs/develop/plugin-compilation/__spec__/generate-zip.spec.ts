@@ -51,7 +51,7 @@ describe('ZipPlugin', () => {
     new ZipPlugin({
       browser: 'chrome',
       zipData: {zip: true, zipSource: true}
-    }).apply(compiler as any)
+    }).apply(compiler)
 
     await new Promise<void>((resolve, reject) =>
       compiler.run((err) => (err ? reject(err) : resolve()))

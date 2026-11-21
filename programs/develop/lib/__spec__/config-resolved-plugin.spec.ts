@@ -74,10 +74,12 @@ function stubCompiler() {
   return {compiler, taps, construct, minimizer}
 }
 
+type StubOptions = ReturnType<typeof stubCompiler>['compiler']['options']
+
 describe('ConfigResolvedPlugin', () => {
   it('hands the hook the final options and folds the answer back', async () => {
     const {compiler, taps} = stubCompiler()
-    const hook = vi.fn((config: any, _context: unknown) => ({
+    const hook = vi.fn((config: StubOptions, _context: unknown) => ({
       ...config,
       module: {rules: [...config.module.rules, {test: /\.graphql$/}]},
       resolve: {extensions: ['.ts', '.graphql']}
@@ -106,7 +108,7 @@ describe('ConfigResolvedPlugin', () => {
     const {compiler, taps} = stubCompiler()
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     new ConfigResolvedPlugin(
-      ((config: any) => ({
+      ((config: StubOptions) => ({
         ...config,
         entry: {'x/y': {import: ['/p/y.js']}},
         plugins: []
@@ -127,7 +129,7 @@ describe('ConfigResolvedPlugin', () => {
 
   it('runs once across beforeRun and watchRun and accepts a hook that returns nothing', async () => {
     const {compiler, taps} = stubCompiler()
-    const hook = vi.fn((config: any) => {
+    const hook = vi.fn((config: StubOptions) => {
       config.module.rules.push({test: /\.svg$/})
     })
     new ConfigResolvedPlugin(hook as never, context).apply(compiler as never)
@@ -143,7 +145,7 @@ describe('ConfigResolvedPlugin', () => {
   it('holds the minimizers back so the hook can switch them off', async () => {
     const {compiler, taps, construct, minimizer} = stubCompiler()
     new ConfigResolvedPlugin(
-      ((config: any) => {
+      ((config: StubOptions) => {
         config.optimization.minimize = false
       }) as never,
       context
@@ -162,7 +164,7 @@ describe('ConfigResolvedPlugin', () => {
     const {compiler, taps, construct, minimizer} = stubCompiler()
     const added = {apply: vi.fn()}
     new ConfigResolvedPlugin(
-      ((config: any) => ({
+      ((config: StubOptions) => ({
         ...config,
         optimization: {
           ...config.optimization,
@@ -188,7 +190,7 @@ describe('ConfigResolvedPlugin', () => {
 
     try {
       new ConfigResolvedPlugin(
-        ((config: any) => {
+        ((config: StubOptions) => {
           config.plugins.push('late')
           config.mode = 'development'
           config.output.path = '/elsewhere'
@@ -241,7 +243,7 @@ describe('ConfigResolvedPlugin', () => {
 
     try {
       new ConfigResolvedPlugin(
-        ((config: any) => {
+        ((config: StubOptions) => {
           config.devtool = 'source-map'
           config.target = 'node'
           config.resolve.extensions.push('.mjs')
@@ -275,7 +277,7 @@ describe('ConfigResolvedPlugin', () => {
 
     try {
       new ConfigResolvedPlugin(
-        ((config: any) => {
+        ((config: StubOptions) => {
           config.optimization.splitChunks.cacheGroups.mine = {name: 'mine'}
           config.entry['action/index'].import.push('/p/extra.js')
         }) as never,
@@ -306,7 +308,7 @@ describe('ConfigResolvedPlugin', () => {
     try {
       // A merge helper hands back clones of what it left alone.
       new ConfigResolvedPlugin(
-        ((config: any) => ({
+        ((config: StubOptions) => ({
           ...config,
           entry: JSON.parse(JSON.stringify(config.entry)),
           plugins: [...config.plugins],

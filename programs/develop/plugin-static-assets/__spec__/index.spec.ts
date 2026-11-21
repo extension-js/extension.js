@@ -1,10 +1,26 @@
+import type {Compiler} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
 import {StaticAssetsPlugin} from '../index'
+
+// The fields of a rule these specs read, on the plugin's rules and the
+// project's own.
+interface AssetRule {
+  test: RegExp
+  type?: string
+  use?: unknown
+  resourceQuery?: {not?: unknown}
+  oneOf?: unknown
+  parser?: {dataUrlCondition?: {maxSize?: number}}
+  generator?: {filename?: string}
+}
+
+const rulesOf = (compiler: Compiler) =>
+  compiler.options.module.rules as unknown as AssetRule[]
 
 function createCompiler() {
   return {
     options: {
-      module: {rules: [] as any[]},
+      module: {rules: [] as AssetRule[]},
       resolve: {alias: {} as Record<string, string>}
     },
     hooks: {
@@ -12,11 +28,11 @@ function createCompiler() {
       compilation: {tap() {}},
       done: {tap() {}}
     }
-  } as any
+  } as unknown as Compiler
 }
 
 // The default rules are the ones typed `asset` that carry the output name.
-function defaultRulesOf(rules: any[]) {
+function defaultRulesOf(rules: AssetRule[]) {
   return rules.filter(
     (r) =>
       r?.type === 'asset' &&
@@ -24,8 +40,9 @@ function defaultRulesOf(rules: any[]) {
   )
 }
 
-function defaultRuleFor(rules: any[], sample: string) {
-  return defaultRulesOf(rules).find((r) => r.test.test(sample))
+// A rule the row expects to find: a missing one fails at the read.
+function defaultRuleFor(rules: AssetRule[], sample: string) {
+  return defaultRulesOf(rules).find((r) => r.test.test(sample)) as AssetRule
 }
 
 describe('StaticAssetsPlugin', () => {
@@ -33,7 +50,7 @@ describe('StaticAssetsPlugin', () => {
     const compiler = createCompiler()
     new StaticAssetsPlugin().apply(compiler)
 
-    const defaults = defaultRulesOf(compiler.options.module.rules)
+    const defaults = defaultRulesOf(rulesOf(compiler))
 
     expect(defaults).toHaveLength(1)
     expect(String(defaults[0].test)).toBe(
@@ -56,7 +73,7 @@ describe('StaticAssetsPlugin', () => {
 
     new StaticAssetsPlugin().apply(compiler)
 
-    const rules = compiler.options.module.rules as any[]
+    const rules = rulesOf(compiler)
     const svgRules = rules.filter(
       (r) => r?.test instanceof RegExp && String(r.test) === String(/\.svg$/i)
     )
@@ -74,7 +91,7 @@ describe('StaticAssetsPlugin', () => {
 
     new StaticAssetsPlugin().apply(compiler)
 
-    const rules = compiler.options.module.rules as any[]
+    const rules = rulesOf(compiler)
     const fontRules = rules.filter(
       (r) =>
         r?.test instanceof RegExp &&
@@ -100,7 +117,7 @@ describe('StaticAssetsPlugin', () => {
 
     new StaticAssetsPlugin().apply(compiler)
 
-    const rules = compiler.options.module.rules as any[]
+    const rules = rulesOf(compiler)
     const defaultImages = rules.filter(
       (r) =>
         r?.test instanceof RegExp &&
@@ -128,7 +145,7 @@ describe('StaticAssetsPlugin', () => {
 
     new StaticAssetsPlugin().apply(compiler)
 
-    const rules = compiler.options.module.rules as any[]
+    const rules = rulesOf(compiler)
     const pdfRules = rules.filter(
       (r) => r?.test instanceof RegExp && r.test.test('.pdf')
     )
@@ -139,7 +156,7 @@ describe('StaticAssetsPlugin', () => {
         r?.test instanceof RegExp &&
         r.generator?.filename === 'assets/[name].[contenthash:8][ext]' &&
         r.test.test('.csv')
-    )
+    ) as AssetRule
     expect(defaultFiles).toBeTruthy()
     expect(defaultFiles.test.test('.pdf')).toBe(false)
   })
@@ -153,7 +170,7 @@ describe('StaticAssetsPlugin', () => {
 
     new StaticAssetsPlugin().apply(compiler)
 
-    const rules = compiler.options.module.rules as any[]
+    const rules = rulesOf(compiler)
     const svgRules = rules.filter(
       (r) => r?.test instanceof RegExp && String(r.test) === String(/\.svg$/i)
     )
@@ -171,7 +188,7 @@ describe('StaticAssetsPlugin', () => {
 
     new StaticAssetsPlugin().apply(compiler)
 
-    const rules = compiler.options.module.rules as any[]
+    const rules = rulesOf(compiler)
     const defaultSvg = defaultRuleFor(rules, 'icon.svg')
 
     // The scoped SVGR rule only claims ?react imports, so plain imports still
@@ -195,7 +212,7 @@ describe('StaticAssetsPlugin', () => {
 
     new StaticAssetsPlugin().apply(compiler)
 
-    const rules = compiler.options.module.rules as any[]
+    const rules = rulesOf(compiler)
     const fontRules = rules.filter(
       (r) =>
         r?.test instanceof RegExp &&
@@ -203,7 +220,7 @@ describe('StaticAssetsPlugin', () => {
     )
     expect(fontRules.length).toBe(2)
 
-    const defaultRule = fontRules.find((r) => r.type === 'asset')
+    const defaultRule = fontRules.find((r) => r.type === 'asset') as AssetRule
     expect(defaultRule).toBeTruthy()
     expect(defaultRule.resourceQuery?.not).toEqual([/inline/])
   })

@@ -54,6 +54,16 @@ interface TwoSessionsResult {
   olderRestarted: boolean
 }
 
+// One lifecycle line the host printed, with the fields the rows read.
+interface StreamFrame {
+  status: string
+  ok?: boolean
+  hint?: unknown
+  value?: {instanceId?: unknown; runId?: unknown; exitCode?: unknown}
+  error?: {code?: unknown}
+  [field: string]: unknown
+}
+
 function runHost<Result>(scenario: string, env: Record<string, string> = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-library-host-'))
   roots.push(root)
@@ -75,7 +85,7 @@ function runHost<Result>(scenario: string, env: Record<string, string> = {}) {
     Reflect.deleteProperty(hostEnv, key)
   }
 
-  return new Promise<{result: Result; frames: Array<Record<string, any>>}>(
+  return new Promise<{result: Result; frames: StreamFrame[]}>(
     (resolve, reject) => {
       execFile(
         process.execPath,

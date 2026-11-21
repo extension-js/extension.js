@@ -15,6 +15,12 @@ import {
 } from '../emulator-lane'
 import {skipWithoutDevelopDist} from './helpers/develop-dist'
 
+type WebpackConfigOptions = Parameters<typeof webpackConfig>[1]
+type DevServerOptions = ConstructorParameters<typeof RspackDevServer>[0]
+type Middleware = Parameters<
+  NonNullable<DevServerOptions['setupMiddlewares']>
+>[0][number]
+
 type FilesIndex = {
   version: number
   root: string
@@ -75,7 +81,7 @@ async function startRun(
     metadataCommand: 'dev',
     silent: true,
     output: {clean: false, path: path.join(root, 'dist', 'chrome')}
-  } as any)
+  } as WebpackConfigOptions)
   config.plugins = (config.plugins || []).filter(
     (plugin) =>
       plugin?.constructor.name !== 'plugin-browsers' &&
@@ -105,16 +111,16 @@ async function startRun(
       ...(webSocketPath
         ? {webSocketServer: {type: 'ws', options: {path: webSocketPath}}}
         : {}),
-      setupMiddlewares: (middlewares: any[], devServer: unknown) => [
+      setupMiddlewares: (middlewares: Middleware[], devServer: unknown) => [
         createEmulatorFilesMiddlewareEntry(holder, devServer),
         ...middlewares
       ]
-    } as any,
+    } as DevServerOptions,
     compiler
   )
   await server.start()
 
-  const address = (server.server as any)?.address()
+  const address = server.server?.address()
   const port = typeof address === 'object' && address ? address.port : 0
 
   const nextCompile = (after: number) =>

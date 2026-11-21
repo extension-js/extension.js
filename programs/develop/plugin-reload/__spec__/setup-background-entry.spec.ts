@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import type {Compiler} from '@rspack/core'
 import {afterEach, describe, expect, it} from 'vitest'
 import {
   compileIssues,
@@ -32,18 +33,26 @@ function writeManifest(manifest: Record<string, unknown>) {
   return manifestPath
 }
 
+type StepBrowser = ConstructorParameters<
+  typeof SetupBackgroundEntry
+>[0]['browser']
+
 function fakeCompiler(entry: Record<string, unknown> = {}) {
-  const compilationTaps: Array<(compilation: any) => void> = []
+  const compilationTaps: Array<(compilation: {errors: Error[]}) => void> = []
   const compiler = {
     options: {entry},
     hooks: {
       thisCompilation: {
-        tap: (_name: string, cb: (compilation: any) => void) => {
+        tap: (_name: string, cb: (compilation: {errors: Error[]}) => void) => {
           compilationTaps.push(cb)
         }
       }
     }
-  } as any
+  } as unknown as Compiler & {
+    // The fake's entry is the plain object the step writes into.
+    options: {entry: Record<string, unknown>}
+    __collectErrors: () => Error[]
+  }
 
   compiler.__collectErrors = () => {
     const compilation = {errors: [] as Error[]}
@@ -68,7 +77,7 @@ describe('SetupBackgroundEntry generated entry', () => {
   function generated(manifest: Record<string, unknown>, browser: string) {
     const step = new SetupBackgroundEntry({
       manifestPath: writeManifest(manifest),
-      browser: browser as any
+      browser: browser as StepBrowser
     })
     step.apply(fakeCompiler())
 
@@ -148,9 +157,10 @@ describe('SetupBackgroundEntry default entry registration', () => {
       const manifestPath = writeManifest(NO_BACKGROUND)
       const compiler = fakeCompiler()
 
-      new SetupBackgroundEntry({manifestPath, browser: browser as any}).apply(
-        compiler
-      )
+      new SetupBackgroundEntry({
+        manifestPath,
+        browser: browser as StepBrowser
+      }).apply(compiler)
 
       expect(compiler.options.entry).toHaveProperty('background/script')
       expect(compiler.options.entry).not.toHaveProperty(

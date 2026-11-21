@@ -205,7 +205,7 @@ async function compileDev(root: string, browser: 'chrome' | 'firefox') {
     metadataCommand: 'dev',
     silent: true,
     output: {clean: false, path: path.join(root, 'dist', browser)}
-  } as any)
+  } as Parameters<typeof webpackConfig>[1])
   config.plugins = (config.plugins || []).filter(
     (plugin) =>
       plugin?.constructor.name !== 'plugin-browsers' &&
@@ -225,7 +225,7 @@ async function compileDev(root: string, browser: 'chrome' | 'firefox') {
 
   const dist = path.join(root, 'dist', browser)
   const scripts = fs
-    .readdirSync(dist, {recursive: true} as any)
+    .readdirSync(dist, {recursive: true})
     .map(String)
     .filter((name) => name.endsWith('.js'))
   const read = (names: string[]) =>

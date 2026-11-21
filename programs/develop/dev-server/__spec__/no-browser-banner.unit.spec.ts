@@ -9,6 +9,9 @@ import {
 } from 'vitest'
 import {setupNoBrowserBannerOnFirstDone} from '../compiler-hooks'
 
+type BannerOptions = Parameters<typeof setupNoBrowserBannerOnFirstDone>[0]
+type DoneTap = (stats: {hasErrors: () => boolean}) => void
+
 describe('setupNoBrowserBannerOnFirstDone', () => {
   let consoleSpy: MockInstance<typeof console.log>
 
@@ -21,10 +24,10 @@ describe('setupNoBrowserBannerOnFirstDone', () => {
   })
 
   it('prints "ready for development" and banner on first successful compile', () => {
-    const compiler: any = {
+    const compiler = {
       hooks: {
         done: {
-          tap: vi.fn((_name: string, fn: (stats: any) => void) => {
+          tap: vi.fn((_name: string, fn: DoneTap) => {
             fn({hasErrors: () => false})
           })
         }
@@ -32,7 +35,7 @@ describe('setupNoBrowserBannerOnFirstDone', () => {
     }
 
     setupNoBrowserBannerOnFirstDone({
-      compiler,
+      compiler: compiler as unknown as BannerOptions['compiler'],
       browser: 'chromium',
       manifestPath: '/proj/manifest.json',
       readyPath: '/proj/dist/chromium/.extension-ready.json',
@@ -44,7 +47,7 @@ describe('setupNoBrowserBannerOnFirstDone', () => {
       expect.any(Function)
     )
 
-    const tapFn = (compiler.hooks.done.tap as any).mock.calls[0][1]
+    const tapFn = compiler.hooks.done.tap.mock.calls[0][1]
     tapFn({hasErrors: () => false})
 
     const output = consoleSpy.mock.calls.map((c) => String(c[0])).join('\n')
@@ -60,10 +63,10 @@ describe('setupNoBrowserBannerOnFirstDone', () => {
   })
 
   it('does not print when compilation has errors', () => {
-    const compiler: any = {
+    const compiler = {
       hooks: {
         done: {
-          tap: vi.fn((_name: string, fn: (stats: any) => void) => {
+          tap: vi.fn((_name: string, fn: DoneTap) => {
             fn({hasErrors: () => true})
           })
         }
@@ -71,14 +74,14 @@ describe('setupNoBrowserBannerOnFirstDone', () => {
     }
 
     setupNoBrowserBannerOnFirstDone({
-      compiler,
+      compiler: compiler as unknown as BannerOptions['compiler'],
       browser: 'chromium',
       manifestPath: '/proj/manifest.json',
       readyPath: '/proj/dist/chromium/.extension-ready.json',
       distPath: '/proj/dist/chromium'
     })
 
-    const tapFn = (compiler.hooks.done.tap as any).mock.calls[0][1]
+    const tapFn = compiler.hooks.done.tap.mock.calls[0][1]
     tapFn({hasErrors: () => true})
 
     const output = consoleSpy.mock.calls.map((c) => String(c[0])).join('\n')

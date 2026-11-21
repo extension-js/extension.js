@@ -10,6 +10,8 @@ import {trackTempFolders} from './helpers/temp-folders'
 // state left in ready.json, the control port, the options the launcher gets.
 const tempFolder = trackTempFolders()
 
+type PreviewOptions = Parameters<typeof extensionPreview>[1]
+
 beforeEach(() => {
   vi.spyOn(console, 'log').mockImplementation(() => {})
   vi.spyOn(console, 'warn').mockImplementation(() => {})
@@ -93,7 +95,7 @@ describe('preview refusals that come before any state is written', () => {
   it('codes a call that has no launcher and leaves no ready.json', async () => {
     const root = builtProject()
     const error = await rejection(
-      extensionPreview(root, {browser: 'chromium'} as any)
+      extensionPreview(root, {browser: 'chromium'} as PreviewOptions)
     )
 
     expect(error.code).toBe('E_INVALID_OPTION')
@@ -112,7 +114,7 @@ describe('preview refusals that come before any state is written', () => {
         browser: 'chromium',
         noBrowser: true,
         ...control
-      } as any)
+      } as PreviewOptions)
     )
 
     expect(error.code).toBe('E_INVALID_OPTION')
@@ -123,7 +125,10 @@ describe('preview refusals that come before any state is written', () => {
   it('still previews with no browser when no control channel is asked for', async () => {
     const root = builtProject()
 
-    await extensionPreview(root, {browser: 'chromium', noBrowser: true} as any)
+    await extensionPreview(root, {
+      browser: 'chromium',
+      noBrowser: true
+    } as PreviewOptions)
 
     expect(readReady(root).status).toBe('ready')
   })
@@ -137,7 +142,7 @@ describe('a preview that fails after it wrote starting', () => {
     )
     const launcher = vi.fn(launchNothing)
     const error = await rejection(
-      extensionPreview(root, {browser: 'chromium'} as any, launcher)
+      extensionPreview(root, {browser: 'chromium'} as PreviewOptions, launcher)
     )
 
     expect(error.code).toBe('E_CONFIG_LOAD')
@@ -159,7 +164,7 @@ describe('a preview that fails after it wrote starting', () => {
         {
           browser: 'chromium',
           extensions: {paths: ['abcdefghijklmnopabcdefghijklmnop']}
-        } as any,
+        } as PreviewOptions,
         launcher
       )
     )
@@ -179,7 +184,10 @@ describe('a preview that fails after it wrote starting', () => {
     const launcher = vi.fn(async (_opts: ResolvedPreviewOptions) => {})
     const result = await extensionPreview(
       root,
-      {browser: 'chromium', extensions: ['./extensions/gone']} as any,
+      {
+        browser: 'chromium',
+        extensions: ['./extensions/gone']
+      } as PreviewOptions,
       launcher
     )
     const gone = path.join(root, 'extensions', 'gone')
@@ -217,7 +225,7 @@ describe('a preview that fails after it wrote starting', () => {
     const launcher = vi.fn(launchNothing)
     const result = await extensionPreview(
       root,
-      {browser: 'chromium'} as any,
+      {browser: 'chromium'} as PreviewOptions,
       launcher
     )
 
@@ -237,7 +245,10 @@ describe('a preview that fails after it wrote starting', () => {
     try {
       const result = await extensionPreview(
         root,
-        {browser: 'chromium', extensions: ['./extensions/gone']} as any,
+        {
+          browser: 'chromium',
+          extensions: ['./extensions/gone']
+        } as PreviewOptions,
         launchNothing
       )
 
@@ -268,7 +279,7 @@ describe('a preview that fails after it wrote starting', () => {
 
     const result = await extensionPreview(
       root,
-      {browser: 'chromium'} as any,
+      {browser: 'chromium'} as PreviewOptions,
       launcher
     )
 
@@ -285,7 +296,11 @@ describe('a preview that fails after it wrote starting', () => {
     await rejection(
       extensionPreview(
         root,
-        {browser: 'chromium', allowControl: true, host: '192.0.2.1'} as any,
+        {
+          browser: 'chromium',
+          allowControl: true,
+          host: '192.0.2.1'
+        } as PreviewOptions,
         launcher
       )
     )
@@ -306,7 +321,7 @@ describe('a preview that fails after it wrote starting', () => {
     const error = await rejection(
       extensionPreview(
         root,
-        {browser: 'chromium', allowControl: true} as any,
+        {browser: 'chromium', allowControl: true} as PreviewOptions,
         async (opts) => {
           // The copy the browser loads carries the port its producer dials.
           controlPort = JSON.parse(
@@ -339,21 +354,25 @@ describe('a preview that fails after it wrote starting', () => {
     const root = builtProject()
 
     await rejection(
-      extensionPreview(root, {browser: 'chromium'} as any, async () => {
-        const ready = readReady(root)
+      extensionPreview(
+        root,
+        {browser: 'chromium'} as PreviewOptions,
+        async () => {
+          const ready = readReady(root)
 
-        fs.writeFileSync(
-          readyFile(root),
-          JSON.stringify({
-            ...ready,
-            status: 'error',
-            code: 'profile_locked',
-            message: 'the profile is in use'
-          })
-        )
+          fs.writeFileSync(
+            readyFile(root),
+            JSON.stringify({
+              ...ready,
+              status: 'error',
+              code: 'profile_locked',
+              message: 'the profile is in use'
+            })
+          )
 
-        throw new Error('launch refused')
-      })
+          throw new Error('launch refused')
+        }
+      )
     )
 
     const ready = readReady(root)
@@ -370,9 +389,14 @@ describe('what a preview hands the launcher', () => {
   ): Promise<ResolvedPreviewOptions> {
     let seen: ResolvedPreviewOptions | undefined
 
-    await extensionPreview(root, options as any, async (opts) => {
-      seen = opts
-    })
+    // A row may leave the browser out to read the default.
+    await extensionPreview(
+      root,
+      options as unknown as PreviewOptions,
+      async (opts) => {
+        seen = opts
+      }
+    )
 
     if (!seen) throw new Error('the launcher was not called')
 
@@ -434,7 +458,7 @@ describe('a build folder asked to run in another browser', () => {
     recordBuild(root, 'chrome', dist)
 
     const error = await rejection(
-      extensionPreview(dist, {browser: 'firefox'} as any, launcher)
+      extensionPreview(dist, {browser: 'firefox'} as PreviewOptions, launcher)
     )
 
     expect(error.code).toBe('E_INVALID_OPTION')
@@ -453,7 +477,7 @@ describe('a build folder asked to run in another browser', () => {
     const error = await rejection(
       extensionPreview(
         root,
-        {browser: 'firefox', outputPath: dist} as any,
+        {browser: 'firefox', outputPath: dist} as PreviewOptions,
         launchNothing
       )
     )
@@ -468,7 +492,7 @@ describe('a build folder asked to run in another browser', () => {
 
     recordBuild(root, 'chrome', dist)
 
-    await extensionPreview(dist, {browser: 'edge'} as any, launcher)
+    await extensionPreview(dist, {browser: 'edge'} as PreviewOptions, launcher)
 
     expect(launcher).toHaveBeenCalledTimes(1)
   })
@@ -479,7 +503,7 @@ describe('a build folder asked to run in another browser', () => {
 
     await extensionPreview(
       path.join(root, 'dist', 'chrome'),
-      {browser: 'firefox'} as any,
+      {browser: 'firefox'} as PreviewOptions,
       launcher
     )
 
@@ -493,7 +517,7 @@ describe('the exit listener of a preview', () => {
 
     await extensionPreview(
       builtProject(),
-      {browser: 'chromium'} as any,
+      {browser: 'chromium'} as PreviewOptions,
       launchNothing
     )
 
@@ -501,13 +525,13 @@ describe('the exit listener of a preview', () => {
 
     await extensionPreview(
       builtProject(),
-      {browser: 'chromium'} as any,
+      {browser: 'chromium'} as PreviewOptions,
       launchNothing
     )
 
     await extensionPreview(
       builtProject(),
-      {browser: 'chromium'} as any,
+      {browser: 'chromium'} as PreviewOptions,
       launchNothing
     )
 
