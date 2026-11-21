@@ -9,7 +9,6 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {
-  type Compiler,
   type Configuration,
   LightningCssMinimizerRspackPlugin,
   SwcJsMinimizerRspackPlugin
@@ -45,6 +44,7 @@ import {asAbsolute, getDirs, toPosixPath} from './lib/paths'
 import type {ProjectStructure} from './lib/project'
 import {sessionStateDir} from './lib/session-paths'
 import {sourceMapModuleName} from './lib/source-map-module-names'
+import {publicResolveRoots} from './lib/special-folders/resolve-public-folder'
 import {defaultSplitChunks} from './lib/split-chunks'
 import {diagnosticsHaveColor} from './lib/stats-handler'
 import {resolveTranspilePackageDirs} from './lib/transpile-packages'
@@ -63,7 +63,6 @@ import {PerfBudgetsPlugin} from './plugin-perf-budgets'
 import {PlaywrightPlugin} from './plugin-playwright'
 import {PageReloadPlugin, ReloadPlugin} from './plugin-reload'
 import {SpecialFoldersPlugin} from './plugin-special-folders'
-import {publicResolveRoots} from './plugin-special-folders/resolve-public-folder'
 import {StaticAssetsPlugin} from './plugin-static-assets'
 import {WebExtensionPlugin} from './plugin-web-extension'
 import {SetupChunkLoadingTarget} from './plugin-web-extension/feature-chunk-loading'

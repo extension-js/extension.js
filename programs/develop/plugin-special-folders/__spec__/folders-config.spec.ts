@@ -9,17 +9,17 @@ import {
   omitDevOnlyEntries,
   omitExcludedEntries,
   rememberExcludedFiles,
+  rememberSpecialFoldersConfig,
   resolveExcludedFiles
-} from '../folders-config'
-import {
-  getSpecialFoldersDataForCompiler,
-  getSpecialFoldersDataForProjectRoot,
-  rememberSpecialFoldersConfig
-} from '../get-data'
+} from '../../lib/special-folders/folders-config'
 import {
   inspectPublicFolders,
   publicResolveRoots
-} from '../resolve-public-folder'
+} from '../../lib/special-folders/resolve-public-folder'
+import {
+  getSpecialFoldersDataForCompiler,
+  getSpecialFoldersDataForProjectRoot
+} from '../get-data'
 
 const created: string[] = []
 

@@ -2,12 +2,12 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {stripVTControlCharacters as stripAnsi} from 'node:util'
 import {afterEach, describe, expect, it, vi} from 'vitest'
-import {SpecialFoldersPlugin} from '..'
 import {
   foldersRoots,
   miscasedEntryFolders,
   rememberSpecialFoldersConfig
-} from '../folders-config'
+} from '../../lib/special-folders/folders-config'
+import {SpecialFoldersPlugin} from '..'
 import {
   getSpecialFoldersDataForProjectRoot,
   walkedEntryCollisions

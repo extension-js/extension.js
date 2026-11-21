@@ -27,12 +27,12 @@ import {resolveDevelopDistFile} from '../../../lib/develop-context'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 import {parseAuthoredJson} from '../../../lib/parse-json-safe'
 import {sourceFileMayShip} from '../../../lib/public-private-files'
-import {templateCopiedAsset} from '../../../plugin-compilation/copied-asset-env'
-import {importMetaUrlForEmitPath} from '../../../plugin-compilation/env'
 import {
   excludedFiles,
   isExcludedEntry
-} from '../../../plugin-special-folders/folders-config'
+} from '../../../lib/special-folders/folders-config'
+import {templateCopiedAsset} from '../../../plugin-compilation/copied-asset-env'
+import {importMetaUrlForEmitPath} from '../../../plugin-compilation/env'
 import {
   type CompileMode,
   getSpecialFoldersDataForProjectRoot

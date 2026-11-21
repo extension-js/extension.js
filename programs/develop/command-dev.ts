@@ -35,6 +35,10 @@ import {browserOptionOrThrow, getDirs} from './lib/paths'
 import {getProjectStructure} from './lib/project'
 import {resolveSafariIdentity} from './lib/safari-identity'
 import {
+  rememberExcludedFiles,
+  rememberSpecialFoldersConfig
+} from './lib/special-folders/folders-config'
+import {
   type BrowserLauncherFn,
   BrowsersPlugin,
   BuildEmitter,
@@ -42,10 +46,6 @@ import {
 } from './plugin-browsers'
 import {SafariDevPlugin} from './plugin-browsers/safari-dev-plugin'
 import {resolvePerfBudgets} from './plugin-perf-budgets'
-import {
-  rememberExcludedFiles,
-  rememberSpecialFoldersConfig
-} from './plugin-special-folders/folders-config'
 import type {BrowserConfig, DevOptions} from './types'
 
 export async function extensionDev(

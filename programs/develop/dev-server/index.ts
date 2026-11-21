@@ -59,6 +59,11 @@ import {
   actionsPath as sessionActionsPath,
   logsPath as sessionLogsPath
 } from '../lib/session-paths'
+import {
+  rememberExcludedFiles,
+  rememberSpecialFoldersConfig
+} from '../lib/special-folders/folders-config'
+import {publicFolderOrDefault} from '../lib/special-folders/resolve-public-folder'
 import type {BrowserLogSinkEvent} from '../plugin-browsers'
 import {
   createPlaywrightMetadataWriter,
@@ -74,9 +79,6 @@ import {
   readDevBuild,
   reloadEachBuild
 } from '../plugin-reload'
-import {rememberExcludedFiles} from '../plugin-special-folders/folders-config'
-import {rememberSpecialFoldersConfig} from '../plugin-special-folders/get-data'
-import {publicFolderOrDefault} from '../plugin-special-folders/resolve-public-folder'
 import webpackConfig from '../rspack-config'
 import type {
   CommonWebpackOptions,
