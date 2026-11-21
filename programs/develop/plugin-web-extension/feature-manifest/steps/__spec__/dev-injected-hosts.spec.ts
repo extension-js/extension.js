@@ -12,7 +12,7 @@ import {
   matchesHostPattern,
   matchesHostPermission,
   optionalHostPatterns
-} from '../apply-dev-defaults-lib/dev-injected-hosts'
+} from '../../manifest-lib/dev-injected-hosts'
 
 describe('devInjectedHostPatterns', () => {
   it('unions every content-script match and nothing else', () => {

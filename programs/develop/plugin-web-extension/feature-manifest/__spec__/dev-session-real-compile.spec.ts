@@ -179,8 +179,11 @@ describe('the source scans of a dev session', () => {
         typeof file === 'string' &&
         path.dirname(file) === root &&
         file.endsWith('.js') &&
-        // Other plugins scan the same modules, and those are not counted.
-        /[\\/]feature-manifest[\\/]steps[\\/]/.test(String(new Error().stack))
+        // The manifest steps and the dev manifest step scan the same modules.
+        // What any other plugin reads is not counted.
+        /[\\/](?:feature-manifest|plugin-reload)[\\/]steps[\\/]/.test(
+          String(new Error().stack)
+        )
       ) {
         const name = path.basename(file)
         reads.set(name, (reads.get(name) || 0) + 1)

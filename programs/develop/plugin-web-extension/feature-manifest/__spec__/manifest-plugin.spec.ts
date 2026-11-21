@@ -34,10 +34,6 @@ vi.mock('../../feature-web-resources/steps/patch-war', () => ({
   PatchWAR: recorder('PatchWAR')
 }))
 
-vi.mock('../steps/apply-dev-defaults', () => ({
-  ApplyDevDefaults: recorder('ApplyDevDefaults')
-}))
-
 vi.mock('../steps/warn-undeclared-permissions', () => ({
   WarnUndeclaredPermissions: recorder('WarnUndeclaredPermissions')
 }))
@@ -95,7 +91,6 @@ describe('ManifestPlugin', () => {
       'ValidateThemeArrays',
       'UpdateManifest',
       'PatchWAR',
-      'ApplyDevDefaults',
       'WarnUndeclaredPermissions',
       'PersistManifestToDisk',
       'WarnDescriptionLength',
@@ -129,12 +124,6 @@ describe('ManifestPlugin', () => {
     })
 
     expect(optionsOf('PatchWAR')).toEqual({manifestPath, browser: 'firefox'})
-    expect(optionsOf('ApplyDevDefaults')).toEqual({
-      manifestPath,
-      browser: 'firefox',
-      devSession: false
-    })
-
     expect(optionsOf('WarnUndeclaredPermissions')).toEqual({
       manifestPath,
       browser: 'firefox',

@@ -3,7 +3,6 @@ import type {Manifest} from '../../../../types'
 import {buildCanonicalManifestWithOverrides} from '../../manifest-lib/manifest'
 import {sanitizeFatalManifestShapes} from '../../manifest-lib/sanitize-fatal-shapes'
 import {getManifestOverrides} from '../../manifest-overrides'
-import {patchV3CSP} from '../../steps/apply-dev-defaults-lib/patch-csp'
 import {hasMv3StringPolicy} from '../common/content_security_policy'
 
 const PAGES = "script-src 'self'; object-src 'self'"
@@ -109,17 +108,5 @@ describe('MV3 content_security_policy through buildCanonicalManifestWithOverride
     expect(sanitized.fixes.map((fix) => fix.field)).toContain(
       'content_security_policy.extension_pages'
     )
-  })
-})
-
-describe('patchV3CSP', () => {
-  it('returns the object form even when the author wrote a string', () => {
-    const patched = patchV3CSP({
-      manifest_version: 3,
-      content_security_policy: PAGES
-    } as Manifest)
-    expect(typeof patched).toBe('object')
-    expect(typeof patched.extension_pages).toBe('string')
-    expect(patched.extension_pages).toContain("script-src 'self'")
   })
 })

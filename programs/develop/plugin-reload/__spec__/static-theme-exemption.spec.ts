@@ -1,17 +1,17 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import type {Compilation, Compiler} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
-
-import {isStaticTheme, isStaticThemeSource} from '../../../lib/manifest-utils'
-import type {BrowserType, Manifest} from '../../../types'
-import {
-  asCompilation,
-  asCompiler,
-  type TapCallback
-} from '../../__spec__/helpers/rspack-fakes'
-import {setOriginalManifestContent} from '../manifest-lib/manifest'
+import {setOriginalManifestContent} from '../../lib/manifest/manifest-content'
+import {isStaticTheme, isStaticThemeSource} from '../../lib/manifest-utils'
+import type {BrowserType, Manifest} from '../../types'
 import {ApplyDevDefaults} from '../steps/apply-dev-defaults'
+
+// Plain objects with the hooks a step taps, handed in as the real things.
+type TapCallback = (...args: unknown[]) => unknown
+const asCompiler = (fake: unknown) => fake as Compiler
+const asCompilation = (fake: unknown) => fake as Compilation
 
 const THEME: Manifest = {
   manifest_version: 2,

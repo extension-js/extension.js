@@ -2,11 +2,11 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
-import {findInjectedOnlyPermissionUses} from '../steps/apply-dev-defaults'
 import {
   devInjectedPermissions,
   scannedPermissions
-} from '../steps/apply-dev-defaults-lib/dev-injected-permissions'
+} from '../manifest-lib/dev-injected-permissions'
+import {findInjectedOnlyPermissionUses} from '../manifest-lib/permission-scan'
 
 describe('findInjectedOnlyPermissionUses', () => {
   let tmp: string
@@ -91,5 +91,25 @@ describe('findInjectedOnlyPermissionUses', () => {
       ['storage', 'management']
     )
     expect(hits.size).toBe(0)
+  })
+})
+
+describe('findInjectedOnlyPermissionUses over module file names', () => {
+  it('reads .mts and .cts modules and a resource that carries a query', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-scan-ext-'))
+    const worker = path.join(dir, 'worker.mts')
+    const legacy = path.join(dir, 'legacy.cts')
+    fs.writeFileSync(worker, 'chrome.tabs.query({url: "https://*/*"})\n')
+    fs.writeFileSync(legacy, 'chrome.scripting.executeScript({})\n')
+    const uses = findInjectedOnlyPermissionUses(
+      {
+        modules: [{resource: worker}, {resource: `${legacy}?used`}]
+      },
+      new Set<string>(),
+      ['tabs', 'scripting']
+    )
+    expect(uses.get('tabs')).toEqual({file: worker, line: 1, field: 'url'})
+    expect(uses.get('scripting')).toEqual({file: legacy})
+    fs.rmSync(dir, {recursive: true, force: true})
   })
 })

@@ -16,8 +16,8 @@ import type {
   ReloadRestartOutcome
 } from '../dev-server/control-bridge/contracts'
 import {recordCodedWarning} from '../lib/coded-warnings'
+import {isHotUpdateFile} from '../lib/hot-update-files'
 import {CODES, humanLine, prefix} from '../lib/messaging'
-import {isHotUpdateFile} from '../plugin-web-extension/shared/initial-files'
 import {
   filesBehindFolders,
   readsOfCompilation,

@@ -6,14 +6,18 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import type {Manifest} from '../../../../types'
-import {cleanMatches} from '../../../feature-web-resources/web-resources-lib/clean-matches'
+import {HOT_UPDATES_FOLDER} from '../../../lib/hot-update-files'
+import {cleanMatches} from '../../../plugin-web-extension/shared/manifest-grants'
+import type {Manifest} from '../../../types'
 
 // The only files the dev runtime itself fetches from a page context: the HMR
 // update chunks a content script pulls on save, and the control-port file the
 // bridge re-reads after a dev-server restart. A wider list would make bundled
 // files page-reachable in development that the production build never exposes.
-export const DEV_RUNTIME_RESOURCES = ['hot/*', 'extension-js-control.json']
+export const DEV_RUNTIME_RESOURCES = [
+  `${HOT_UPDATES_FOLDER}/*`,
+  'extension-js-control.json'
+]
 
 function contentScriptMatches(manifest: Manifest): string[] {
   const scripts = (manifest.content_scripts || []) as Array<{

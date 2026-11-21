@@ -204,6 +204,22 @@ dev server, reload on or off.
   folds the instructions of a save burst into the one its single package
   sends, unioning content entries and injected script files.
 
+- `steps/apply-dev-defaults.ts` / `reload-lib/dev-manifest/`
+  The manifest of a dev session. `ApplyDevDefaults` runs ahead of the gate
+  in every dev session, reload on or off, at `REPORT + 100`
+  (`DEV_MANIFEST_STAGE_AFTER_REPORT`), last at that stage, so every later
+  step reads the grants. It adds what the session needs (permissions,
+  content script hosts, a pages policy that reaches the dev server, a
+  background, the hot update and control resources), reports each as a dev
+  addition, and warns where the project's own source leans on a grant only
+  the session made. What a manifest declares and what a source uses is the
+  manifest feature's knowledge, read through
+  `plugin-web-extension/shared/manifest-grants.ts`.
+  `reload-lib/dev-manifest/content-script-paths.ts` names the hashed content
+  scripts of a development compile in the manifest. The manifest feature
+  asks for it through `plugin-web-extension/shared/manifest-extensions.ts`,
+  in every development compile, session or not.
+
 - `steps/setup-reload-strategy/`
   Dev-only background entry setup. `SetupBackgroundEntry` generates
   `background/service_worker` (Chromium MV3) or `background/script` (Gecko

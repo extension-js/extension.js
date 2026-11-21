@@ -10,12 +10,28 @@ import * as path from 'node:path'
 import {Compilation, type Compiler, sources, WebpackError} from '@rspack/core'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
 import {readGeckoManifestId} from '../../../lib/extension-id'
+import {
+  filterKeysForThisBrowser,
+  findDroppedVendorKeys,
+  findPrefixedManifestVersionKeys,
+  isValidManifestVersion
+} from '../../../lib/manifest-utils'
+import {debugLine, humanLine, isDebug} from '../../../lib/messaging'
 import type {DevOptions, Manifest, PluginInterface} from '../../../types'
 import {
   getCanonicalContentScriptJsAssetName,
   isHollowContentScript,
   parseCanonicalContentScriptAsset
 } from '../../feature-scripts/contracts'
+import {reportToCompilation} from '../../shared/compilation-issues'
+import {
+  pageActionDropReason,
+  shouldFoldActionIntoBrowserAction,
+  shouldFoldBrowserActionIntoAction,
+  sidebarFoldTarget
+} from '../../shared/html-surfaces'
+import {applyKeptPagePaths, keptPagePaths} from '../../shared/kept-page-paths'
+import {manifestExtensionsFor} from '../../shared/manifest-extensions'
 import {missingGeckoDataCollectionPermissions} from '../manifest-lib/gecko-data-collection'
 import {
   buildCanonicalManifestWithOverrides,
@@ -27,26 +43,6 @@ import {
 } from '../manifest-lib/sanitize-fatal-shapes'
 import {hasMv3StringPolicy} from '../manifest-overrides/common/content_security_policy'
 import {hasMv2SandboxPolicy} from '../manifest-overrides/mv2/content_security_policy'
-
-// A single `content_scripts` entry as carried by the canonical `Manifest`
-// type (MV2/MV3 intersection). Used to read `css`/`js` without `as any`.
-type ContentScriptEntry = NonNullable<Manifest['content_scripts']>[number]
-
-import {
-  filterKeysForThisBrowser,
-  findDroppedVendorKeys,
-  findPrefixedManifestVersionKeys,
-  isValidManifestVersion
-} from '../../../lib/manifest-utils'
-import {debugLine, humanLine, isDebug} from '../../../lib/messaging'
-import {reportToCompilation} from '../../shared/compilation-issues'
-import {
-  pageActionDropReason,
-  shouldFoldActionIntoBrowserAction,
-  shouldFoldBrowserActionIntoAction,
-  sidebarFoldTarget
-} from '../../shared/html-surfaces'
-import {applyKeptPagePaths, keptPagePaths} from '../../shared/kept-page-paths'
 import * as messages from '../messages'
 import {
   hasUnsupportedMv3BackgroundPage,
@@ -56,7 +52,6 @@ import {
   patchChromiumThemeColors,
   translatedThemeColors
 } from './patch-chromium-theme-colors'
-import {patchDevContentScriptManifestPaths} from './patch-dev-content-script-manifest-paths'
 import {
   hasEmptyGeckoBackgroundScripts,
   patchGeckoBackground,
@@ -91,25 +86,6 @@ export class UpdateManifest {
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
-  }
-
-  private applyDevOverrides(manifest: Manifest) {
-    if (!manifest.content_scripts) return []
-
-    return manifest.content_scripts.map((contentObj, index) => {
-      const css = contentObj.css ?? []
-      const js = contentObj.js ?? []
-
-      if (css.length && !js.length) {
-        // In development the group's entry holds a script named after the canonical
-        // group index, which can differ from array position: read it from the css path.
-        const canonicalIndex =
-          parseCanonicalContentScriptAsset(css[0])?.index ?? index
-        contentObj.js = [getCanonicalContentScriptJsAssetName(canonicalIndex)]
-      }
-
-      return contentObj
-    })
   }
 
   // Store-readiness hint for AMO submissions: production artifacts
@@ -471,15 +447,9 @@ export class UpdateManifest {
               )
             }
 
-            // Dev-only: content_scripts with only CSS get a JS file so its styles
-            // load through a script. Must run before patchDevContentScriptManifestPaths.
-            if (compiler.options.mode === 'development') {
-              if (patchedManifest.content_scripts) {
-                patchedManifest.content_scripts =
-                  this.applyDevOverrides(patchedManifest)
-              }
-
-              patchedManifest = patchDevContentScriptManifestPaths(
+            // A plugin applied after this one may change the resolved manifest.
+            for (const extension of manifestExtensionsFor(compiler)) {
+              patchedManifest = extension.manifestResolved(
                 compilation,
                 patchedManifest
               )
@@ -489,32 +459,8 @@ export class UpdateManifest {
               try {
                 const overrideObj = JSON.parse(overrides || '{}')
                 const overrideKeys = Object.keys(overrideObj || {}).length
-                let devCssStubsAdded = 0
 
-                if (
-                  compiler.options.mode === 'development' &&
-                  Array.isArray(patchedManifest.content_scripts)
-                ) {
-                  for (const cs of patchedManifest.content_scripts as ContentScriptEntry[]) {
-                    try {
-                      const hasCss = Array.isArray(cs.css) && cs.css.length > 0
-                      const hasJs = Array.isArray(cs.js) && cs.js.length > 0
-
-                      if (hasCss && hasJs && cs.js?.length === 1) {
-                        devCssStubsAdded++
-                      }
-                    } catch {
-                      // Ignore
-                    }
-                  }
-                }
-
-                debugLine(
-                  messages.manifestOverridesSummary(
-                    overrideKeys,
-                    devCssStubsAdded
-                  )
-                )
+                debugLine(messages.manifestOverridesSummary(overrideKeys))
               } catch {
                 // Ignore
               }

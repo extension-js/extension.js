@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest'
-import type {Manifest} from '../../../types'
-import patchBackground from '../steps/apply-dev-defaults-lib/patch-background'
+import type {Manifest} from '../../types'
+import patchBackground from '../reload-lib/dev-manifest/patch-background'
 
 describe('patchBackground dev persistence', () => {
   it('forces persistent on an MV2 event page so the control channel survives idle', () => {

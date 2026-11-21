@@ -13,7 +13,7 @@ import {
   list,
   node,
   parse
-} from '../../../../lib/free-browser-references'
+} from '../../../lib/free-browser-references'
 
 // The spans of a script Safari never executes: a branch that a presence check
 // on a missing namespace or member keeps closed, the rest of a block after an
