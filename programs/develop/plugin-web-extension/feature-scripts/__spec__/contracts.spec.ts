@@ -29,8 +29,9 @@ function productSources(dir: string, found: string[] = []): string[] {
     else if (
       /\.[cm]?[jt]sx?$/.test(entry.name) &&
       !entry.name.includes('.spec.')
-    )
-      {found.push(full)}
+    ) {
+      found.push(full)
+    }
   }
 
   return found
