@@ -1,3 +1,4 @@
+import type {ChildProcess} from 'node:child_process'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
@@ -74,13 +75,13 @@ describe('the exit cleanup of a Firefox session', () => {
   // and a made-up number can name a real process.
   it('kills the browser first and then runs the exit cleanup', () => {
     const order: string[] = []
-    const child: any = {
+    const child = {
       kill: vi.fn((signal: string) => {
         order.push(`kill ${signal}`)
 
         return true
       })
-    }
+    } as unknown as ChildProcess
 
     const dispose = setupFirefoxProcessHandlers(
       'firefox',

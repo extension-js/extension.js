@@ -5,6 +5,15 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {resolveFirefoxLaunchConfig} from '../../run-firefox/firefox-launch/browser-config'
 import {removeSessionPreferences} from '../../run-firefox/firefox-launch/session-preferences'
 
+type Compilation = Parameters<typeof resolveFirefoxLaunchConfig>[0]
+type Host = Parameters<typeof resolveFirefoxLaunchConfig>[1]
+
+// A partial host, cast once. The launch also reads persistProfile, which
+// the options type does not declare.
+function host(fields: Partial<Host> & {persistProfile?: boolean}): Host {
+  return fields as Host
+}
+
 const OWN_USER_JS = 'user_pref("my.own.pref", true);\n'
 
 describe('firefox explicit profile preferences', () => {
@@ -18,7 +27,7 @@ describe('firefox explicit profile preferences', () => {
     fs.rmSync(scratch, {recursive: true, force: true})
   })
 
-  function makeCompilation() {
+  function makeCompilation(): Compilation {
     const project = path.join(scratch, 'project')
 
     return {
@@ -26,7 +35,7 @@ describe('firefox explicit profile preferences', () => {
         context: project,
         output: {path: path.join(project, 'dist', 'firefox')}
       }
-    } as any
+    }
   }
 
   const REMOTE_DEBUGGING_LINES = [
@@ -36,12 +45,15 @@ describe('firefox explicit profile preferences', () => {
   ]
 
   function launchOn(profile: string) {
-    return resolveFirefoxLaunchConfig(makeCompilation(), {
-      extension: '/ext',
-      browser: 'firefox',
-      profile,
-      preferences: {'ui.systemUsesDarkTheme': 1}
-    } as any)
+    return resolveFirefoxLaunchConfig(
+      makeCompilation(),
+      host({
+        extension: '/ext',
+        browser: 'firefox',
+        profile,
+        preferences: {'ui.systemUsesDarkTheme': 1}
+      })
+    )
   }
 
   it('adds only the remote debugging prefs to a profile the developer owns', async () => {
@@ -110,11 +122,14 @@ describe('firefox explicit profile preferences', () => {
       const compilation = makeCompilation()
       compilation.options.mode = mode
 
-      return resolveFirefoxLaunchConfig(compilation, {
-        extension: '/ext',
-        browser: 'firefox',
-        profile
-      } as any)
+      return resolveFirefoxLaunchConfig(
+        compilation,
+        host({
+          extension: '/ext',
+          browser: 'firefox',
+          profile
+        })
+      )
     }
 
     await launchFor('development')
@@ -183,11 +198,14 @@ describe('firefox explicit profile preferences', () => {
   it('seeds an explicit directory that holds no profile yet', async () => {
     const profile = path.join(scratch, 'fresh-profile')
 
-    const launch = await resolveFirefoxLaunchConfig(makeCompilation(), {
-      extension: '/ext',
-      browser: 'firefox',
-      profile
-    } as any)
+    const launch = await resolveFirefoxLaunchConfig(
+      makeCompilation(),
+      host({
+        extension: '/ext',
+        browser: 'firefox',
+        profile
+      })
+    )
 
     expect(launch.profilePath).toBe(profile)
     const userJs = fs.readFileSync(path.join(profile, 'user.js'), 'utf8')
@@ -215,11 +233,14 @@ describe('firefox explicit profile preferences', () => {
     fs.writeFileSync(path.join(managed, 'startupCache', 'stale.bin'), 'stale')
     fs.writeFileSync(path.join(managed, 'user.js'), OWN_USER_JS)
 
-    const launch = await resolveFirefoxLaunchConfig(compilation, {
-      extension: '/ext',
-      browser: 'firefox',
-      keepProfileChanges: true
-    } as any)
+    const launch = await resolveFirefoxLaunchConfig(
+      compilation,
+      host({
+        extension: '/ext',
+        browser: 'firefox',
+        keepProfileChanges: true
+      })
+    )
 
     expect(launch.profilePath).toBe(managed)
     const userJs = fs.readFileSync(path.join(managed, 'user.js'), 'utf8')

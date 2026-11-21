@@ -27,7 +27,17 @@ import {
   composeConverterArgs,
   resolveSafariBuildConfig
 } from '../../run-safari/safari-launch/safari-config'
+import type {SafariPluginLike} from '../../run-safari/safari-types'
 import {fakeChromium, fakeFirefox} from '../fake-browser'
+
+type FirefoxConfigOptions = Parameters<typeof firefoxBrowserConfig>[1]
+
+// The rows set only the launch fields the URL decision reads.
+function firefoxOptions(
+  fields: Partial<FirefoxConfigOptions>
+): FirefoxConfigOptions {
+  return fields as FirefoxConfigOptions
+}
 
 // --no-open means open nothing at all, so no family may put the starting URL
 // on the command line. Pinned here across families so they cannot re-diverge.
@@ -44,7 +54,7 @@ function compilation() {
     options: {mode: 'production', context: tmp, output: {path: out}},
     errors: [],
     hooks: {done: {tap: () => {}}}
-  } as any
+  }
 }
 
 const printed = () =>
@@ -87,20 +97,26 @@ describe('--no-open suppresses the starting URL', () => {
   })
 
   it('firefox drops the URL from the launch argv', async () => {
-    const withOpen = await firefoxBrowserConfig(compilation(), {
-      extension: '/ext',
-      browser: 'firefox',
-      startingUrl: URL
-    } as any)
+    const withOpen = await firefoxBrowserConfig(
+      compilation(),
+      firefoxOptions({
+        extension: '/ext',
+        browser: 'firefox',
+        startingUrl: URL
+      })
+    )
     // The launch opens about:blank; the URL follows the add-on install.
     expect(withOpen).toContain('--url about:blank')
 
-    const withNoOpen = await firefoxBrowserConfig(compilation(), {
-      extension: '/ext',
-      browser: 'firefox',
-      startingUrl: URL,
-      noOpen: true
-    } as any)
+    const withNoOpen = await firefoxBrowserConfig(
+      compilation(),
+      firefoxOptions({
+        extension: '/ext',
+        browser: 'firefox',
+        startingUrl: URL,
+        noOpen: true
+      })
+    )
     expect(withNoOpen).not.toContain(URL)
     expect(withNoOpen).not.toContain('--url')
   })
@@ -108,7 +124,7 @@ describe('--no-open suppresses the starting URL', () => {
   it('the two families agree on the same options', async () => {
     const chromiumFlags = chromiumBrowserConfig(
       compilation(),
-      {browser: 'chrome', extension: [out], profile: join(tmp, 'p')} as any,
+      {browser: 'chrome', extension: [out], profile: join(tmp, 'p')},
       {provision: false}
     )
     const chromiumArgs = chromiumLaunchPlan(
@@ -117,12 +133,15 @@ describe('--no-open suppresses the starting URL', () => {
       URL,
       true
     ).args.join(' ')
-    const firefoxArgs = await firefoxBrowserConfig(compilation(), {
-      extension: '/ext',
-      browser: 'firefox',
-      startingUrl: URL,
-      noOpen: true
-    } as any)
+    const firefoxArgs = await firefoxBrowserConfig(
+      compilation(),
+      firefoxOptions({
+        extension: '/ext',
+        browser: 'firefox',
+        startingUrl: URL,
+        noOpen: true
+      })
+    )
 
     expect(chromiumArgs).not.toContain(URL)
     expect(firefoxArgs).not.toContain(URL)
@@ -142,11 +161,11 @@ describe('--no-open suppresses the starting URL', () => {
           profile: join(fake.project.root, 'p'),
           startingUrl: URL,
           noOpen: true
-        } as any,
-        createChromiumContext() as any,
+        },
+        createChromiumContext(),
         fake.deps
       )
-      await plugin.runOnce(fake.project.compilation() as any)
+      await plugin.runOnce(fake.project.compilation())
 
       expect(printed()).toContain(binary)
       expect(argsLine('FLAGS')).toContain('--load-extension=')
@@ -172,16 +191,16 @@ describe('--no-open suppresses the starting URL', () => {
           profile,
           startingUrl: URL,
           noOpen: true
-        } as any,
-        createFirefoxContext() as any,
+        },
+        createFirefoxContext(),
         fake.deps
       )
       await plugin.runOnce(
-        fake.project.compilation() as any,
+        fake.project.compilation(),
         buildBrowserLaunchRequest(
-          {browser: 'firefox', profile, startingUrl: URL, noOpen: true} as any,
+          {browser: 'firefox', profile, startingUrl: URL, noOpen: true},
           'production'
-        ) as any
+        )
       )
 
       expect(printed()).toContain(binary)
@@ -199,21 +218,25 @@ describe('--no-open suppresses the starting URL', () => {
     // so dropping the key here silently re-opened the URL under --no-open.
     expect(
       buildBrowserLaunchRequest(
-        {browser: 'firefox', startingUrl: URL, noOpen: true} as any,
+        {browser: 'firefox', startingUrl: URL, noOpen: true},
         'development'
       ).noOpen
     ).toBe(true)
 
     expect(
       buildBrowserLaunchRequest(
-        {browser: 'firefox', startingUrl: URL} as any,
+        {browser: 'firefox', startingUrl: URL},
         'development'
       ).noOpen
     ).toBeUndefined()
   })
 
   it('safari raises nothing and has no starting-URL surface', () => {
-    const host = {browser: 'safari', extension: out, noOpen: true} as any
+    const host: SafariPluginLike = {
+      browser: 'safari',
+      extension: out,
+      noOpen: true
+    }
     const config = resolveSafariBuildConfig(compilation(), host)
 
     expect(config.open).toBe(false)

@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {CDPExtensionController} from '../../run-chromium/cdp/cdp-extension-controller'
 import * as ensureModule from '../../run-chromium/cdp/cdp-extension-controller/ensure'
+import {controllerInternals} from '../cdp-controller-fakes'
 
 describe('CDPExtensionController CDP-first loading', () => {
   const tempDirs: string[] = []
@@ -35,12 +36,14 @@ describe('CDPExtensionController CDP-first loading', () => {
       'utf-8'
     )
 
-    const controller = new CDPExtensionController({
-      outPath,
-      browser: 'chrome',
-      cdpPort: 9222,
-      extensionPaths: [outPath]
-    }) as any
+    const controller = controllerInternals(
+      new CDPExtensionController({
+        outPath,
+        browser: 'chrome',
+        cdpPort: 9222,
+        extensionPaths: [outPath]
+      })
+    )
 
     controller.cdp = {
       getExtensionInfo: vi.fn(async () => ({
@@ -75,12 +78,14 @@ describe('CDPExtensionController CDP-first loading', () => {
       'utf-8'
     )
 
-    const controller = new CDPExtensionController({
-      outPath,
-      browser: 'chrome',
-      cdpPort: 9222,
-      extensionPaths: [outPath]
-    }) as any
+    const controller = controllerInternals(
+      new CDPExtensionController({
+        outPath,
+        browser: 'chrome',
+        cdpPort: 9222,
+        extensionPaths: [outPath]
+      })
+    )
 
     controller.cdp = {
       getExtensionInfo: vi.fn(async () => ({
@@ -121,12 +126,14 @@ describe('CDPExtensionController CDP-first loading', () => {
       'utf-8'
     )
 
-    const controller = new CDPExtensionController({
-      outPath,
-      browser: 'chrome',
-      cdpPort: 9222,
-      extensionPaths: [outPath]
-    }) as any
+    const controller = controllerInternals(
+      new CDPExtensionController({
+        outPath,
+        browser: 'chrome',
+        cdpPort: 9222,
+        extensionPaths: [outPath]
+      })
+    )
 
     controller.extensionId = 'already-known-id'
     controller.cdp = {
