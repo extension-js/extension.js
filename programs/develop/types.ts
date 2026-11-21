@@ -67,6 +67,15 @@ export interface ThemeIcon {
   size?: number
 }
 
+// A command's own options: it defaults a browser the call leaves out, from
+// commands.<command>.browser in the config, then the stock target.
+export type BrowserDefaulted<T extends {browser: unknown}> = Omit<
+  T,
+  'browser'
+> & {
+  browser?: T['browser']
+}
+
 export type PluginInterface = {
   manifestPath: string
   browser?: DevOptions['browser']
@@ -113,9 +122,47 @@ export interface LoaderContext {
   }
 }
 
+// A loader and the options a framework rule hands it.
+export interface JsFrameworkLoader {
+  loader: string
+  options?: Record<string, unknown>
+}
+
+interface JsFrameworkRuleBase {
+  test: RegExp
+  // No framework rule limits itself to the project: a framework source
+  // compiles wherever it lives, so only an exclude narrows one.
+  include?: undefined
+  exclude?: (resourcePath: string) => boolean
+  resourceQuery?: {not: RegExp[]}
+  type?: string
+  resolve?: {fullySpecified?: boolean}
+}
+
+// One module rule a framework adds. Like the bundler's own rule type, it
+// names a loader directly, or loaders through use, or neither.
+export type JsFrameworkRule =
+  | (JsFrameworkRuleBase & {
+      loader: string
+      options?: Record<string, unknown>
+      use?: undefined
+    })
+  | (JsFrameworkRuleBase & {
+      use: JsFrameworkLoader | JsFrameworkLoader[]
+      loader?: undefined
+      options?: undefined
+    })
+  | (JsFrameworkRuleBase & {
+      loader?: undefined
+      options?: undefined
+      use?: undefined
+    })
+
+export type JsFrameworkLoaderRule = Extract<JsFrameworkRule, {loader: string}>
+
 export interface JsFramework {
   plugins: RspackPluginInstance[] | undefined
-  loaders: Record<string, unknown>[] | undefined
+  loaders: JsFrameworkRule[] | undefined
   alias: Record<string, string> | undefined
 }
 

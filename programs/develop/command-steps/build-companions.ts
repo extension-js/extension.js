@@ -17,14 +17,14 @@ import {
 } from '../lib/extensions-to-load'
 import {CODES, stripChannelPrefix} from '../lib/messaging'
 import type {NormalizedBrowser} from '../lib/paths'
-import type {BuildOptions} from '../types'
+import type {BrowserDefaulted, BuildOptions} from '../types'
 
 type Layer = {extensions?: CompanionExtensionsConfig}
 
 // Settles which companion extensions the run loads and warns once for each
 // one a layer names that is not there.
 export async function resolveBuildCompanions(input: {
-  buildOptions: BuildOptions | undefined
+  buildOptions: BrowserDefaulted<BuildOptions> | undefined
   commandConfig: Layer
   browserConfig: Layer
   projectConfig: Layer

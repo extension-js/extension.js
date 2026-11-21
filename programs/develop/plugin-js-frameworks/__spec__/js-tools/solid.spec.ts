@@ -3,6 +3,7 @@ import {createRequire} from 'node:module'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import type {JsFramework, JsFrameworkLoaderRule} from '../../../types'
 
 // The Babel pieces are not in the fixture, so they resolve from Extension.js
 // the same way the optional-deps resolver finds them.
@@ -11,18 +12,13 @@ const fromDevelop = createRequire(
 )
 const babelLoader = fromDevelop.resolve('babel-loader')
 
-// The fields of a Solid loader rule these specs read.
-interface SolidRule {
-  test: RegExp
-  exclude: (file: string) => boolean
-  loader: string
-  options: {presets: unknown[]; [key: string]: unknown}
-}
+// Every Solid rule names Babel or the gate loader, with options, and keeps
+// out the dependencies it does not transpile.
+type SolidRule = JsFrameworkLoaderRule &
+  Required<Pick<JsFrameworkLoaderRule, 'exclude' | 'options'>>
 
-// The framework hands its rules back as plain records, so they are read
-// through the fields above.
-const rulesOf = (result: {loaders?: Record<string, unknown>[]} | undefined) =>
-  (result?.loaders || []) as unknown as SolidRule[]
+const rulesOf = (result: Pick<JsFramework, 'loaders'> | undefined) =>
+  (result?.loaders || []) as SolidRule[]
 const solidPreset = fromDevelop.resolve('babel-preset-solid')
 const typescriptPreset = fromDevelop.resolve('@babel/preset-typescript')
 
@@ -241,7 +237,7 @@ describe('solid tools', () => {
     const {maybeUseSolid} = await loadSolidTools()
     const result = await maybeUseSolid(projectPath)
 
-    const presets = rulesOf(result)[0].options.presets
+    const presets = rulesOf(result)[0].options.presets as unknown[]
     expect(presets[0]).toEqual([solidPreset, {development: true}])
   })
 
