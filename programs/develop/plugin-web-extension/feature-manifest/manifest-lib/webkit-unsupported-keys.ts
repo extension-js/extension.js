@@ -6,7 +6,10 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-export interface WebkitUnsupportedKey {
+export interface WebkitDroppedPage {
+  // Root-relative output path of the page, the way a getURL literal names it
+  path: string
+  // Dotted manifest location that named the page, like side_panel.default_path
   key: string
   reason: string
 }
@@ -105,29 +108,6 @@ export const WEBKIT_UNSUPPORTED_OPTIONS_UI_KEYS: Readonly<
 > = Object.freeze({
   open_in_tab: 'Safari always opens the options page in a tab'
 })
-
-export function webkitUnsupportedManifestKeys(): WebkitUnsupportedKey[] {
-  return [
-    ...Object.entries(WEBKIT_UNSUPPORTED_TOP_LEVEL_KEYS).map(
-      ([key, reason]) => ({key, reason})
-    ),
-    ...Object.entries(WEBKIT_UNSUPPORTED_OPTIONS_UI_KEYS).map(
-      ([key, reason]) => ({key: `options_ui.${key}`, reason})
-    )
-  ]
-}
-
-export function webkitUnsupportedPermissions(): string[] {
-  return [...WEBKIT_UNSUPPORTED_PERMISSIONS]
-}
-
-export interface WebkitDroppedPage {
-  // Root-relative output path of the page, the way a getURL literal names it
-  path: string
-  // Dotted manifest location that named the page, like side_panel.default_path
-  key: string
-  reason: string
-}
 
 function pagePath(value: unknown): string | null {
   if (typeof value !== 'string') return null

@@ -20,9 +20,19 @@ const KEPT: Array<[file: string, name: string, why: string]> = [
     'the declarations name it as the return type of three action overrides'
   ],
   [
+    'lib/manifest-utils.ts',
+    'FilterKeysOptions',
+    'the declarations name it as the options type of filterKeysForThisBrowser'
+  ],
+  [
     'plugin-css/css-tools/postcss.ts',
     'initialize',
     'text of the import hook the file hands to Node, not its own export'
+  ],
+  [
+    'plugin-web-extension/feature-manifest/manifest-lib/webkit-unsupported-keys.ts',
+    'WebkitDroppedPage',
+    'the declarations name it as the return type of webkitDroppedSurfacePages'
   ]
 ]
 
