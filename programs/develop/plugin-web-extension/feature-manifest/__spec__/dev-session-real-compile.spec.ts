@@ -5,6 +5,7 @@ import {type Compiler, rspack, type Stats} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
 import {ageProjectFiles} from '../../../__spec__/helpers/dev-watch-session'
 import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
+import {watchBuilds} from '../../../__spec__/helpers/watch-builds'
 import {appendDevAdditions, devAdditionsOf} from '../../../lib/dev-additions'
 import {getProjectStructure} from '../../../lib/project'
 import webpackConfig from '../../../rspack-config'
@@ -68,29 +69,8 @@ async function devSession(
   const release = writeOutputAsADevSessionDoes(compiler, distPath)
   tap(compiler)
 
-  let builds = 0
-  let wanted: ((stats: Stats) => boolean) | undefined
-  let finished: ((stats: Stats) => void) | undefined
-  const buildThat = (matches: (stats: Stats) => boolean) =>
-    new Promise<Stats>((resolve) => {
-      wanted = matches
-      finished = resolve
-    })
-
-  compiler.hooks.watchRun.tap('spec:dev-session', () => {
-    builds += 1
-  })
-
-  const firstBuild = buildThat(() => true)
-  const watching = compiler.watch({aggregateTimeout: 20}, (_error, stats) => {
-    if (!stats || !wanted?.(stats)) return
-
-    const done = finished
-    wanted = undefined
-    finished = undefined
-    done?.(stats)
-  })
-  const first = await firstBuild
+  const watch = watchBuilds(compiler, {aggregateTimeout: 20})
+  const first = await watch.first
   // The watcher needs its baseline before a save counts as a change.
   await new Promise((resolve) => setTimeout(resolve, 300))
 
@@ -98,22 +78,12 @@ async function devSession(
     distPath,
     first,
     save(file, text) {
-      const before = builds
-      // A build already running may have read the file before this write, so
-      // only one that starts later and names the file has compiled the save.
-      const build = buildThat(
-        () =>
-          builds > before &&
-          [...(compiler.modifiedFiles || [])].some(
-            (changed) => path.basename(changed) === file
-          )
+      return watch.after([file], () =>
+        fs.writeFileSync(path.join(root, file), text)
       )
-      fs.writeFileSync(path.join(root, file), text)
-
-      return build
     },
     async close() {
-      await new Promise<void>((resolve) => watching.close(() => resolve()))
+      await watch.close()
       release()
     }
   }
