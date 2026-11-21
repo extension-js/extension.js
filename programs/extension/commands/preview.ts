@@ -114,6 +114,7 @@ export const PREVIEW_FAILED_CODES: ReadonlySet<ErrorCode> = new Set([
   CODES.E_PROFILE_LOCKED,
   CODES.E_PORT_UNAVAILABLE,
   CODES.E_CONFIG_LOAD,
+  CODES.E_PACKAGE_JSON_INVALID,
   CODES.E_RUNTIME_NOT_FOUND,
   CODES.E_REMOTE_DOWNLOAD,
   CODES.E_REMOTE_ACCESS_DENIED,
@@ -507,9 +508,16 @@ export function registerPreviewCommand(
                 : PREVIEW_FAILED_CODES.has(declared)
                   ? 'failed'
                   : 'usage'
+              // A file of the project could not be read. build, start and dev
+              // frame that from their build step, and this reads the same.
+              const configFailed =
+                declared === CODES.E_CONFIG_LOAD ||
+                declared === CODES.E_PACKAGE_JSON_INVALID
               const hint = nothingBuilt
                 ? PREVIEW_NO_DIST_HINT
-                : failureHint(declared)
+                : configFailed
+                  ? 'Fix the error above and run preview again.'
+                  : failureHint(declared)
 
               emit(
                 ENVELOPE.fail(
@@ -520,7 +528,7 @@ export function registerPreviewCommand(
                     message,
                     // A failed run names the thrown error as the top-level
                     // sink does, so start and preview read the same.
-                    ...(status === 'failed'
+                    ...(status === 'failed' && !configFailed
                       ? {name: error instanceof Error ? error.name : 'Error'}
                       : {})
                   },

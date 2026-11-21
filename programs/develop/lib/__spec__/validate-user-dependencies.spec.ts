@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import os from 'node:os'
 import * as path from 'node:path'
+import {stripVTControlCharacters} from 'node:util'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {takeCodedWarnings} from '../coded-warnings'
 import {assertNoManagedDependencyConflicts} from '../validate-user-dependencies'
@@ -198,6 +199,62 @@ describe('assertNoManagedDependencyConflicts', () => {
     }
 
     expect(warnings()).toEqual([])
+  })
+
+  // A config that cannot be read never stops a build here. Asked for
+  // diagnostics, the run says why the check was skipped, on the debug channel.
+  describe('with a config file that cannot be read', () => {
+    // A folder under the config's name: found by name, and no read succeeds.
+    function unreadable() {
+      const project = makeProject('extjs-managed-unread-')
+
+      fs.mkdirSync(path.join(project.root, 'extension.config.js'))
+
+      return project
+    }
+
+    afterEach(() => {
+      vi.unstubAllEnvs()
+    })
+
+    it('says nothing without debug mode', () => {
+      vi.stubEnv('EXTENSION_DEBUG', '0')
+
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+      const {root, srcDir} = unreadable()
+
+      takeCodedWarnings()
+      assertNoManagedDependencyConflicts(
+        path.join(srcDir, 'manifest.json'),
+        root
+      )
+
+      expect(logSpy).not.toHaveBeenCalled()
+      expect(warnSpy).not.toHaveBeenCalled()
+      expect(takeCodedWarnings()).toEqual([])
+      logSpy.mockRestore()
+    })
+
+    it('prints one debug line in debug mode, and no raw error object', () => {
+      vi.stubEnv('EXTENSION_DEBUG', '1')
+
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+      const {root, srcDir} = unreadable()
+
+      assertNoManagedDependencyConflicts(
+        path.join(srcDir, 'manifest.json'),
+        root
+      )
+
+      expect(warnSpy).not.toHaveBeenCalled()
+      expect(logSpy).toHaveBeenCalledTimes(1)
+      expect(logSpy.mock.calls[0]).toHaveLength(1)
+      expect(stripVTControlCharacters(String(logSpy.mock.calls[0][0]))).toMatch(
+        /^\S+ managed-deps skipped=EISDIR/
+      )
+
+      logSpy.mockRestore()
+    })
   })
 
   it('stays quiet when the project has no config file', () => {

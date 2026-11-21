@@ -102,6 +102,15 @@ export function packageJsonInvalid(packageJsonPath: string, reason: string) {
   )
 }
 
+export function packageJsonUnopened(packageJsonPath: string, reason: string) {
+  return (
+    `${getLoggingPrefix('error')} Couldn't open package.json.\n` +
+    `${colors.gray('PATH')} ${colors.underline(packageJsonPath)}\n` +
+    `${colors.gray('REASON')} ${colors.red(reason)}\n` +
+    `Make it a file this user can read, then run the command again.`
+  )
+}
+
 export function packageJsonNotUtf8(packageJsonPath: string, encoding: string) {
   return (
     `${getLoggingPrefix('error')} package.json is saved as ${encoding}, which the build cannot resolve modules through.\n` +
@@ -1706,6 +1715,11 @@ function getWarningBody(warning: LooseBuildWarning): string {
     .join('\n')
 }
 
+// Why the check for a second copy of a build package did not run.
+export function debugManagedDepsSkipped(error: unknown) {
+  return `${prefix('debug')} managed-deps skipped=${describeThrown(error)}`
+}
+
 export function debugConfigFileInUse(fileName: string) {
   return `${prefix('debug')} config   using=${fileName}`
 }
@@ -2012,7 +2026,7 @@ export function configUnknownNestedKey(
 
 export function configLoadingError(configPath: string, error: unknown) {
   return (
-    `${getLoggingPrefix('error')} Couldn't load ${colors.blue('extension.config.js')}.\n` +
+    `${getLoggingPrefix('error')} Couldn't load ${colors.blue(path.basename(configPath) || 'extension.config.js')}.\n` +
     `${fmt.label('PATH')} ${fmt.val(configPath)}\n` +
     `${colors.red(describeThrown(error))}\n` +
     `Fix the config file, then run the command again.`

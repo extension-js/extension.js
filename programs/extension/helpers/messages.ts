@@ -453,6 +453,11 @@ export function unhandledError(err: unknown) {
   return `${getLoggingPrefix('error', String(message || 'Unknown error'))} ${colors.red(String(message || 'Unknown error'))}`
 }
 
+// For a person who pressed Ctrl+C after the build said it was done.
+export function signalAfterBuild() {
+  return `${getLoggingPrefix('info')} The build had already finished, so there was nothing to stop.`
+}
+
 export function updateFailed(err: unknown) {
   return (
     `${getLoggingPrefix('warn')} Couldn't check for updates.\n` +

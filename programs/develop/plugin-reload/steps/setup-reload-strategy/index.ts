@@ -35,19 +35,5 @@ export class SetupReloadStrategy {
           ? authored
           : (backgroundEntry.generated ?? authored)
     })
-
-    // Hot update files drop the suffix the dev server adds, so a session
-    // fetches and prunes them under hot/ by chunk and build hash alone.
-    compiler.hooks.environment.tap('plugin-reload:hot-update-names', () => {
-      const {output} = compiler.options
-
-      if (output.hotUpdateChunkFilename !== undefined) {
-        output.hotUpdateChunkFilename = 'hot/[id].[fullhash].js'
-      }
-
-      if (output.hotUpdateMainFilename !== undefined) {
-        output.hotUpdateMainFilename = 'hot/[runtime].[fullhash].json'
-      }
-    })
   }
 }

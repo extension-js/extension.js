@@ -99,6 +99,39 @@ describe('a throwing extension.config.js', () => {
     expect(message).not.toMatch(/\n\s+at /)
   })
 
+  // One reader works on all four: the same keys, and a hint that names the
+  // command to run again.
+  it.each(
+    commands
+  )('gives the %s frame the keys and the hint every command gives', async (command, flags) => {
+    const run = await runCli([
+      command,
+      projectDir,
+      ...flags,
+      '--output',
+      'json'
+    ])
+    const [frame] = framesIn<Record<string, unknown>>(run.stdout)
+
+    expect(Object.keys(frame).sort()).toEqual([
+      'command',
+      'error',
+      'hint',
+      'ok',
+      'schema',
+      'status',
+      'value',
+      'warnings'
+    ])
+
+    expect(Object.keys(frame.error as object).sort()).toEqual([
+      'code',
+      'message'
+    ])
+
+    expect(frame.hint).toBe(`Fix the error above and run ${command} again.`)
+  })
+
   it.each(
     commands
   )('prints %s one block that names the file and the reason', async (command, flags) => {
@@ -113,6 +146,98 @@ describe('a throwing extension.config.js', () => {
     // A build adds its own closing line, the other commands print one head.
     const heads = count(run.stderr, GLYPH)
     expect(heads).toBe(command === 'build' || command === 'start' ? 2 : 1)
+  })
+})
+
+// An ES module config runs through import(), where a throw is a rejection,
+// not an exception. It gets the same single answer, and no stray rejection.
+describe.each([
+  ['extension.config.mjs', {}],
+  ['extension.config.js', {type: 'module'}]
+] as const)('a throwing ES module %s', (fileName, packageFields) => {
+  let work = ''
+  let projectDir = ''
+
+  beforeAll(() => {
+    work = mkdtempSync(join(tmpdir(), 'extjs-config-esm-throws-'))
+    projectDir = join(work, 'project')
+    mkdirSync(projectDir, {recursive: true})
+    writeFileSync(
+      join(projectDir, 'package.json'),
+      JSON.stringify({
+        private: true,
+        name: 'config-esm-throws',
+        version: '0.0.0',
+        ...packageFields
+      })
+    )
+
+    writeFileSync(
+      join(projectDir, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        name: 'Config Throws',
+        version: '1.0.0'
+      })
+    )
+
+    writeFileSync(
+      join(projectDir, fileName),
+      "throw new Error('ESM_CONFIG_BOOM_MARK')\nexport default {}\n"
+    )
+  })
+
+  afterAll(() => {
+    rmSync(work, {recursive: true, force: true})
+  })
+
+  const commands: Array<[string, string[]]> = [
+    ['dev', ['--no-browser']],
+    ['build', []],
+    ['start', ['--no-browser']],
+    ['preview', ['--no-browser']]
+  ]
+
+  it.each(
+    commands
+  )('answers %s --output json with one E_CONFIG_LOAD frame that names the file', async (command, flags) => {
+    const run = await runCli([
+      command,
+      projectDir,
+      ...flags,
+      '--output',
+      'json'
+    ])
+    const emitted = frames(run.stdout)
+
+    expect(run.status).toBe(1)
+    expect(emitted).toHaveLength(1)
+    expect(emitted[0].ok).toBe(false)
+    expect(emitted[0].command).toBe(command)
+    expect(emitted[0].status).toBe(
+      BUILDS.includes(command) ? 'build-failed' : 'failed'
+    )
+
+    expect(emitted[0].error?.code).toBe('E_CONFIG_LOAD')
+
+    const message = String(emitted[0].error?.message)
+
+    expect(message.split('\n')[0]).toBe(`Couldn't load ${fileName}.`)
+    expect(count(message, 'ESM_CONFIG_BOOM_MARK')).toBe(1)
+    expect(message).not.toMatch(/\n\s+at /)
+    expect(run.output).not.toMatch(/unhandled/i)
+  })
+
+  it.each(
+    commands
+  )('prints %s one block that names the file and the reason', async (command, flags) => {
+    const run = await runCli([command, projectDir, ...flags])
+
+    expect(run.status).toBe(1)
+    expect(count(run.stderr, `Couldn't load ${fileName}`)).toBe(1)
+    expect(count(run.stderr, 'ESM_CONFIG_BOOM_MARK')).toBe(1)
+    expect(run.stderr).not.toMatch(/\n\s+at /)
+    expect(run.output).not.toMatch(/unhandled/i)
   })
 })
 
