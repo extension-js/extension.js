@@ -147,7 +147,8 @@ test('a spec run with an unbuilt sibling stops at once, with one line that names
 
   assert.throws(
     () => requireBuiltWorkspaceDependencies(cli),
-    (/** @type {any} */ error) =>
+    (error) =>
+      error instanceof Error &&
       error.message.split('\n').length === 1 &&
       error.message.includes('extension-install has no build output') &&
       error.message.includes('run compile') &&

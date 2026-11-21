@@ -13,7 +13,19 @@ import path from 'node:path'
 import {fileURLToPath} from 'node:url'
 import spawn from 'cross-spawn'
 
-/** @param {any} manifest */
+/**
+ * @typedef {object} PackageManifest
+ * @property {string} [name]
+ * @property {unknown} [main]
+ * @property {unknown} [types]
+ * @property {unknown} [exports]
+ * @property {Record<string, unknown>} [scripts]
+ * @property {Record<string, unknown>} [dependencies]
+ * @property {Record<string, unknown>} [devDependencies]
+ * @property {Record<string, unknown>} [optionalDependencies]
+ */
+
+/** @param {PackageManifest} manifest */
 export function workspaceDependencyNames(manifest) {
   const fields = [
     manifest?.dependencies,
@@ -34,7 +46,7 @@ export function workspaceDependencyNames(manifest) {
 }
 
 /**
- * @param {any} manifest
+ * @param {PackageManifest} manifest
  * @returns {string[]}
  */
 export function buildEntriesFor(manifest) {
@@ -67,12 +79,15 @@ export function buildEntriesFor(manifest) {
   return [...entries]
 }
 
-/** @param {{manifest: any, exists: (entry: string) => boolean}} input */
+/** @param {{manifest: PackageManifest, exists: (entry: string) => boolean}} input */
 export function missingBuildEntries({manifest, exists}) {
   return buildEntriesFor(manifest).filter((entry) => !exists(entry))
 }
 
-/** @param {string} dir */
+/**
+ * @param {string} dir
+ * @returns {PackageManifest}
+ */
 function readManifest(dir) {
   return JSON.parse(readFileSync(path.join(dir, 'package.json'), 'utf-8'))
 }
@@ -95,7 +110,7 @@ export function unbuiltWorkspaceDependencies(packageDir) {
     if (!existsSync(linked)) {
       unbuilt.push({
         name,
-        owner: manifest.name,
+        owner: String(manifest.name),
         linked: false,
         dir: '',
         missing: [],
@@ -116,7 +131,7 @@ export function unbuiltWorkspaceDependencies(packageDir) {
 
     unbuilt.push({
       name,
-      owner: manifest.name,
+      owner: String(manifest.name),
       linked: true,
       dir,
       missing,
