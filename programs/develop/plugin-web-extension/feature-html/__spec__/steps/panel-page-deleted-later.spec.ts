@@ -81,7 +81,7 @@ async function productionFindings(root: string): Promise<Finding[]> {
     metadataCommand: 'build',
     silent: true,
     output: {clean: false, path: path.join(root, 'dist', 'chrome')}
-  } as Parameters<typeof webpackConfig>[1])
+  })
 
   config.plugins = (config.plugins || []).filter(
     (plugin) =>

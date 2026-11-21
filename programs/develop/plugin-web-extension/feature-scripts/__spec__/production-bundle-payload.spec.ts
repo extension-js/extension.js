@@ -49,7 +49,7 @@ async function compile(root: string) {
     metadataCommand: 'build',
     silent: true,
     output: {clean: true, path: distPath}
-  } as Parameters<typeof webpackConfig>[1])
+  })
   config.plugins = (config.plugins || []).filter(
     (plugin) =>
       plugin?.constructor.name !== 'plugin-browsers' &&

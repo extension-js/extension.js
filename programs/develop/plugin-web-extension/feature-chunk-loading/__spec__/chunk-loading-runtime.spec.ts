@@ -162,7 +162,7 @@ async function build(options: {
     metadataCommand: options.command,
     silent: true,
     output: {clean: true, path: distPath}
-  } as Parameters<typeof webpackConfig>[1])
+  })
 
   config.plugins = (config.plugins || []).filter(
     (plugin) =>

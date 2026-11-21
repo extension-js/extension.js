@@ -243,7 +243,7 @@ async function productionBuild(fixture: Fixture) {
       install: false,
       mode: 'production',
       exitOnError: false
-    } as Parameters<typeof extensionBuild>[1])
+    })
 
     expect(summary.errors_count).toBe(0)
   } finally {
