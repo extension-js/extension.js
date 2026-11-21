@@ -490,33 +490,34 @@ describe('the update check of a spawned CLI', () => {
 
   // The build is done and said so. From that line on a signal ends the wait,
   // or keeps it from starting, and the exit code is the build's.
-  it.each([
-    'SIGINT',
-    'SIGTERM'
-  ] as const)('%s after the built line ends the run at once with the code of the build', async (signal) => {
-    const silent = await silentRegistry()
-    const session = startOnTerminal(['build', projectDir], {
-      home: freshCliHome(),
-      env: {npm_registry: silent.url}
-    })
+  // Posix only: on Windows a kill ends the child before any handler runs.
+  it.skipIf(process.platform === 'win32').each(['SIGINT', 'SIGTERM'] as const)(
+    '%s after the built line ends the run at once with the code of the build',
+    async (signal) => {
+      const silent = await silentRegistry()
+      const session = startOnTerminal(['build', projectDir], {
+        home: freshCliHome(),
+        env: {npm_registry: silent.url}
+      })
 
-    try {
-      await session.waitFor(
-        () => session.read().stdout.includes(BUILT),
-        60_000,
-        'the built line'
-      )
+      try {
+        await session.waitFor(
+          () => session.read().stdout.includes(BUILT),
+          60_000,
+          'the built line'
+        )
 
-      const signaledAt = Date.now()
+        const signaledAt = Date.now()
 
-      expect(await session.stop(signal)).toEqual({status: 0, signal: null})
-      expect(Date.now() - signaledAt).toBeLessThan(1000)
-      expect(session.read().stderr).toBe('')
-    } finally {
-      session.killGroup()
-      await silent.close()
+        expect(await session.stop(signal)).toEqual({status: 0, signal: null})
+        expect(Date.now() - signaledAt).toBeLessThan(1000)
+        expect(session.read().stderr).toBe('')
+      } finally {
+        session.killGroup()
+        await silent.close()
+      }
     }
-  })
+  )
 
   it('asks nothing and prints no notice under the pin', async () => {
     const home = freshCliHome()

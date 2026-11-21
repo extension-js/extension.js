@@ -351,6 +351,44 @@ describe('the update check against a loopback registry', () => {
     )
   })
 
+  // Windows has no XDG folder, so both an answer and a miss land under the
+  // local application data of the user.
+  it('keeps its file under LOCALAPPDATA on Windows, for an answer and for a miss', async () => {
+    const home = makeTempFolder('extjs-update-home-')
+    const env = {
+      USERPROFILE: home,
+      LOCALAPPDATA: path.join(home, 'AppData', 'Local'),
+      npm_config_registry: 'http://127.0.0.1:9/'
+    }
+    const file = path.join(
+      env.LOCALAPPDATA,
+      'extensionjs',
+      'Cache',
+      'update-check.json'
+    )
+    const entries = (): unknown[] =>
+      Object.values(JSON.parse(fs.readFileSync(file, 'utf8')))
+    const on = (lookup: () => Promise<string>) => ({
+      ...deps(env),
+      homedir: () => home,
+      platform: 'win32' as const,
+      now: () => 1_000_000,
+      lookup
+    })
+
+    await checkUpdates(
+      on(async () => {
+        throw new Error('silent')
+      })
+    )
+
+    expect(entries()).toEqual([{missed: true, checkedAt: 1_000_000}])
+
+    fs.rmSync(file)
+    await checkUpdates(on(async () => '2.1.0'))
+    expect(entries()).toEqual([{latest: '2.1.0', checkedAt: 1_000_000}])
+  })
+
   it('reuses an answer for an hour, per registry, in the user cache folder', async () => {
     const first = await registry(latestIs('2.1.0'))
     const second = await registry(latestIs('2.2.0'))
