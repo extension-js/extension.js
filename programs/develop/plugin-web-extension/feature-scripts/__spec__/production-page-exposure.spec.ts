@@ -13,6 +13,7 @@ import {MAIN_WORLD_COPY_SUFFIX} from '../contracts'
 import {CHROMIUM_EXTENSION_ROOT} from '../scripts-lib/injected-sheet-urls'
 import {extensionBaseAttributeFor} from '../scripts-lib/taken-extension-base'
 import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
+import {writeProjectFiles} from '../../../__spec__/helpers/extension-project'
 
 const tempFolder = trackTempFolders()
 const EXTENSION_BASE = 'chrome-extension://abcdefghijklmnop/'
@@ -59,11 +60,7 @@ function scaffold(name: string, files: Record<string, string | Buffer>) {
     })
   )
 
-  for (const [relative, contents] of Object.entries(files)) {
-    const target = path.join(root, relative)
-    fs.mkdirSync(path.dirname(target), {recursive: true})
-    fs.writeFileSync(target, contents)
-  }
+  writeProjectFiles(root, files)
 
   return root
 }

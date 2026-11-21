@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {AddAssetsToCompilation} from '../../steps/add-assets-to-compilation'
 import {trackTempFolders} from '../../../../__spec__/helpers/temp-folders'
+import {writeProjectFiles} from '../../../../__spec__/helpers/extension-project'
 
 const tempFolder = trackTempFolders()
 
@@ -173,11 +174,7 @@ describe('AddAssetsToCompilation', () => {
         `<html><body><script src="/lib/widget.js" type="module"></script></body></html>`
       )
 
-      for (const [rel, content] of Object.entries(files)) {
-        const abs = path.join(tmp, rel)
-        fs.mkdirSync(path.dirname(abs), {recursive: true})
-        fs.writeFileSync(abs, content)
-      }
+      writeProjectFiles(tmp, files)
 
       return {tmp, manifestPath, html}
     }
