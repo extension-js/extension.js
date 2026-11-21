@@ -1,4 +1,5 @@
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import type {IconVariant} from '../../../../types'
 import {asManifest} from '../../__spec__/helpers/manifest-fakes'
 import {
   applyIconVariantsFallback,
@@ -9,10 +10,7 @@ import {
 } from '../icon-variants-fallback'
 import {buildCanonicalManifestWithOverrides} from '../manifest'
 
-// @types/chrome has no icon_variants on the action key, which the fallback keeps.
-type ActionVariants = {action?: {icon_variants?: unknown}}
-
-const variants = [
+const variants: IconVariant[] = [
   {16: 'icons/dark-16.png', 32: 'icons/dark-32.png', color_schemes: ['dark']},
   {16: 'icons/light-16.png', color_schemes: ['light']},
   {any: 'icons/any.svg'}
@@ -115,9 +113,7 @@ describe('icon_variants fallback', () => {
     })
 
     expect(out.manifest.icon_variants).toEqual(variants)
-    expect((out.manifest as ActionVariants).action?.icon_variants).toEqual(
-      variants
-    )
+    expect(out.manifest.action?.icon_variants).toEqual(variants)
 
     expect(out.verdicts).toEqual([
       {key: 'icons', outcome: 'added'},
