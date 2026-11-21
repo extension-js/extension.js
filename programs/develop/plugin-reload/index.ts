@@ -33,19 +33,12 @@ import {StableContentScriptNames} from './steps/stable-content-script-names'
 import {StripContentScriptDevServerRuntime} from './steps/strip-content-script-dev-server-runtime'
 
 export {
-  buildSourceFeatureIndex,
   classifyReloadFromSources,
   type ReloadInstruction,
-  type ReloadType,
-  readContentScriptCount
+  type ReloadType
 } from './classify-reload'
 
 export {attachHtmlRefresh} from './html-refresh'
-
-export {
-  mergeReloadInstructions,
-  reloadSurvivingPackage
-} from './reload-after-package'
 
 export {
   type ChangedSourcesTracker,

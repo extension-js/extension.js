@@ -12,9 +12,11 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
 import {
+  getCanonicalContentScriptEntryName,
   getCanonicalContentScriptJsAssetName,
   isCanonicalContentScriptAsset,
-  parseCanonicalContentScriptAsset
+  parseCanonicalContentScriptAsset,
+  parseHashedContentScriptAsset
 } from '../../../plugin-web-extension/feature-scripts/contracts'
 import type {ManifestExtension} from '../../../plugin-web-extension/shared/manifest-extensions'
 import type {Manifest} from '../../../types'
@@ -116,16 +118,13 @@ function findHashedContentScriptAsset(
   groupIndex: number,
   ext: 'js' | 'css'
 ): string | undefined {
-  const plain = `content_scripts/content-${groupIndex}.${ext}`
+  const plain = `${getCanonicalContentScriptEntryName(groupIndex)}.${ext}`
   if (assetNames.has(plain)) return plain
 
-  const re = new RegExp(
-    `^content_scripts/content-${groupIndex}\\.[a-f0-9]+\\.${ext}$`,
-    'i'
-  )
-
   for (const name of assetNames) {
-    if (re.test(name)) return name
+    if (parseHashedContentScriptAsset(name, ext)?.index === groupIndex) {
+      return name
+    }
   }
 
   return undefined

@@ -91,3 +91,25 @@ test('the typecheck script runs the spec project', () => {
   assert.match(scripts.typecheck, /tsc --noEmit -p tsconfig\.json/)
   assert.match(scripts.typecheck, /tsc --noEmit -p tsconfig\.spec\.json/)
 })
+
+// The bundle build writes declarations and the typecheck writes nothing, so
+// a type an export cannot name used to pass here and fail at compile only.
+test('the typecheck reports an export whose type cannot be named', () => {
+  const base = readTsconfig('tsconfig.json').compilerOptions
+
+  assert.equal(base.noEmit, true)
+  assert.equal(base.declaration, true)
+
+  for (const file of [
+    'tsconfig.spec.json',
+    'tsconfig.scripts.json',
+    'tsconfig.scripts-lib.json',
+    'programs/develop/tsconfig.json'
+  ]) {
+    assert.equal(
+      readTsconfig(file).compilerOptions?.declaration,
+      undefined,
+      `${file} must not turn the declaration check off`
+    )
+  }
+})

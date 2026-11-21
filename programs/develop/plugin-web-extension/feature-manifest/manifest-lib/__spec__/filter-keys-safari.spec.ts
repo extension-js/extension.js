@@ -3,15 +3,17 @@ import {asBrowser, asManifest} from '../../__spec__/helpers/manifest-fakes'
 import * as messages from '../../messages'
 import {
   dropWebkitUnsupportedKeys,
-  omitWebkitDroppedEntries,
-  webkitDroppedSurfacePages,
-  webkitUnsupportedManifestKeys,
-  webkitUnsupportedPermissions
+  omitWebkitDroppedEntries
 } from '../filter-keys-safari'
 import {
   buildCanonicalManifestWithOverrides,
   filterKeysForThisBrowser
 } from '../manifest'
+import {
+  webkitDroppedSurfacePages,
+  webkitUnsupportedManifestKeys,
+  webkitUnsupportedPermissions
+} from '../webkit-unsupported-keys'
 
 describe('filterKeysForThisBrowser (manifest-lib), Safari', () => {
   const manifest = asManifest({

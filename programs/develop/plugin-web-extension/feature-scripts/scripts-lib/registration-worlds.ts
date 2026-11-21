@@ -478,14 +478,3 @@ export function extractRegisteredFileSightings(
 
   return sightings
 }
-
-// Extract the js files a runtime registration or injection asks the browser to
-// run in the page's own world. The world rides the same object as the files.
-export function extractMainWorldRegisteredFileLiterals(
-  source: string,
-  readImported?: ImportedModuleReader
-): string[] {
-  return extractRegisteredFileSightings(source, readImported)
-    .filter((sighting) => sighting.world === 'MAIN')
-    .map((sighting) => sighting.file)
-}

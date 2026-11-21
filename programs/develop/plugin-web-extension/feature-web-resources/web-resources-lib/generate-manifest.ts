@@ -15,6 +15,7 @@ import {getManifestContent} from '../../feature-manifest/manifest-lib/manifest'
 import {
   getCanonicalContentScriptCssAssetName,
   isDevContentScriptStandInAsset,
+  isPlainContentScriptAsset,
   parseCanonicalContentScriptAsset
 } from '../../feature-scripts/contracts'
 import {injectedSheetTargets} from '../../feature-scripts/scripts-lib/injected-sheet-urls'
@@ -203,12 +204,12 @@ export function mergeIntoV3Group(
 const assetScanCache = new WeakMap<object, string[]>()
 
 function isCanonicalContentScriptCss(resource: string) {
-  return /^content_scripts\/content-\d+\.css$/.test(resource)
+  return isPlainContentScriptAsset(resource, 'css')
 }
 
 function toCanonicalContentScriptCss(jsFile: string) {
   const normalized = String(jsFile || '')
-  if (!/^content_scripts\/content-\d+\.js$/.test(normalized)) return undefined
+  if (!isPlainContentScriptAsset(normalized, 'js')) return undefined
 
   return normalized.replace(/\.js$/, '.css')
 }

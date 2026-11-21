@@ -1,12 +1,14 @@
 import {createRequire} from 'node:module'
 import * as vm from 'node:vm'
 import {describe, expect, it} from 'vitest'
-import {TAKE_BLOCK_OPEN} from '../../../../lib/extension-base-from-stack'
+import {takeBlockOpen} from '../../../../lib/extension-base-from-stack'
 import {
   carriesCompletionValue,
   closeCompletionValueBlock,
   keepCompletionValue
 } from '../completion-value'
+
+const TAKE_BLOCK_OPEN = takeBlockOpen()
 
 const requireModule = createRequire(import.meta.url)
 

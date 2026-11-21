@@ -317,10 +317,6 @@ export class PerfBudgetsPlugin {
   }
 }
 
-export {
-  ASSET_CATEGORIES,
-  BUDGET_BYTES,
-  categorizeAsset
-} from './categorize'
+export {BUDGET_BYTES, categorizeAsset} from './categorize'
 
 export {collectAssetReferrers} from './referrers'

@@ -1426,8 +1426,6 @@ function composeBridgeProducer(executor?: ProducerExecutor): string {
   )
 }
 
-export const BRIDGE_PRODUCER_SOURCE = composeBridgeProducer()
-
 // Lightweight console RELAY for non-SW contexts: forwards each call to the SW
 // over a NAMED runtime.Port so the extension's own onMessage never loops on it.
 // The devtools page is the exception and sends messages, see postLog below.
