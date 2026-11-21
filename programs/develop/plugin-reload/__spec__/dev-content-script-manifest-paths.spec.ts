@@ -3,8 +3,11 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
-import type {Manifest} from '../../../types'
-import {patchDevContentScriptManifestPaths} from '../steps/patch-dev-content-script-manifest-paths'
+import type {Manifest} from '../../types'
+import {
+  devContentScriptManifest,
+  patchDevContentScriptManifestPaths
+} from '../reload-lib/dev-manifest/content-script-paths'
 
 describe('patchDevContentScriptManifestPaths: stale CSS chunk purge', () => {
   let tmpRoot: string
@@ -230,5 +233,54 @@ describe('patchDevContentScriptManifestPaths: stale CSS chunk purge', () => {
     })
 
     expect(fs.readdirSync(csDir).sort()).toEqual([...kept].sort())
+  })
+})
+
+// What the manifest feature is handed back in a development compile.
+describe('devContentScriptManifest', () => {
+  const resolved = (emittedNames: string[], manifest: Manifest) =>
+    devContentScriptManifest.manifestResolved(
+      {
+        getAssets: () => emittedNames.map((name) => ({name})),
+        errors: [],
+        options: {mode: 'development'}
+      } as unknown as Compilation,
+      manifest
+    )
+
+  it('names the script of a group that declares only CSS', () => {
+    const out = resolved([], {
+      manifest_version: 3,
+      content_scripts: [{matches: ['*://*/*'], css: ['a.css']}]
+    })
+
+    expect(out.content_scripts?.[0]?.js).toEqual([
+      'content_scripts/content-0.js'
+    ])
+  })
+
+  it('resolves that script to the hashed file the compile emitted', () => {
+    const out = resolved(['content_scripts/content-0.deadbeef.js'], {
+      manifest_version: 3,
+      content_scripts: [{matches: ['*://*/*'], css: ['a.css']}]
+    })
+
+    expect(out.content_scripts?.[0]?.js).toEqual([
+      'content_scripts/content-0.deadbeef.js'
+    ])
+  })
+
+  it('reads the group index from the canonical CSS path, not the position', () => {
+    const out = resolved([], {
+      manifest_version: 3,
+      content_scripts: [
+        {matches: ['*://*/*'], js: ['content_scripts/content-0.js']},
+        {matches: ['*://*/*'], css: ['content_scripts/content-3.css']}
+      ]
+    })
+
+    expect(out.content_scripts?.[1]?.js).toEqual([
+      'content_scripts/content-3.js'
+    ])
   })
 })

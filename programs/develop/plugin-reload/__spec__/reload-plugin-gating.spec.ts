@@ -78,6 +78,7 @@ describe('ReloadPlugin on a real development compiler', () => {
         'plugin-reload:prune-unreachable-chunks'
       ],
       thisCompilation: [
+        'plugin-reload:apply-dev-defaults',
         'StripContentScriptDevServerRuntime',
         'StableContentScriptNames',
         'InjectScriptsReplayShim',
@@ -96,6 +97,7 @@ describe('ReloadPlugin on a real development compiler', () => {
         'plugin-reload:prune-unreachable-chunks'
       ],
       thisCompilation: [
+        'plugin-reload:apply-dev-defaults',
         'StripContentScriptDevServerRuntime',
         'StableContentScriptNames',
         'InjectScriptsReplayShim',
@@ -153,11 +155,21 @@ describe('ReloadPlugin applies nothing', () => {
       'hot/[id].[fullhash].hot-update.js'
     )
   })
+})
+
+// A dev session takes the dev manifest with reload off too, so that step
+// is the one thing this plugin still taps there.
+describe('ReloadPlugin only writes the dev manifest', () => {
+  const manifestOnly = {
+    taps: {thisCompilation: ['plugin-reload:apply-dev-defaults']},
+    entry: {},
+    fallbacks: 0
+  }
 
   it('when EXTENSION_NO_RELOAD=true (--no-reload)', () => {
     vi.stubEnv('EXTENSION_NO_RELOAD', 'true')
 
-    expect(applied('development')).toEqual({taps: {}, entry: {}, fallbacks: 0})
+    expect(applied('development')).toEqual(manifestOnly)
   })
 
   it('when the manifest path names no file', () => {
@@ -165,7 +177,7 @@ describe('ReloadPlugin applies nothing', () => {
 
     expect(
       applied('development', {manifestPath: path.join(root, 'missing.json')})
-    ).toEqual({taps: {}, entry: {}, fallbacks: 0})
+    ).toEqual(manifestOnly)
   })
 
   it('when the manifest path names a folder', () => {
@@ -174,7 +186,7 @@ describe('ReloadPlugin applies nothing', () => {
 
     expect(
       applied('development', {manifestPath: path.join(root, 'folder.json')})
-    ).toEqual({taps: {}, entry: {}, fallbacks: 0})
+    ).toEqual(manifestOnly)
   })
 })
 

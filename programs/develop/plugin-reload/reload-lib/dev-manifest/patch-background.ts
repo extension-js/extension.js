@@ -6,9 +6,9 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import {isGeckoBasedBrowser} from '../../../../lib/constants'
-import type {DevOptions, Manifest} from '../../../../types'
-import {patchWebkitBackground} from '../patch-webkit-background'
+import {isGeckoBasedBrowser} from '../../../lib/constants'
+import {patchWebkitBackground} from '../../../plugin-web-extension/shared/manifest-grants'
+import type {DevOptions, Manifest} from '../../../types'
 
 // Dev-only: an MV2 event page (persistent: false) idles out and takes the
 // control channel with it, so the dev manifest forces persistent on MV2.

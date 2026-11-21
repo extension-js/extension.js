@@ -96,9 +96,9 @@ describe('the coordinates of a dev session', () => {
       'plugin-reload/steps/inject-bridge-producer.ts',
       'plugin-reload/steps/inject-bridge-relay.ts',
       'plugin-reload/steps/setup-page-reload.ts',
+      'plugin-reload/steps/apply-dev-defaults.ts',
       'plugin-web-extension/index.ts',
-      'plugin-web-extension/feature-manifest/index.ts',
-      'plugin-web-extension/feature-manifest/steps/apply-dev-defaults.ts'
+      'plugin-web-extension/feature-manifest/index.ts'
     ].filter((file) =>
       /options\.(?:instanceId|controlPort|connectableHost|port)\b|BridgeCoordinates/.test(
         fs.readFileSync(path.join(develop, file), 'utf8')

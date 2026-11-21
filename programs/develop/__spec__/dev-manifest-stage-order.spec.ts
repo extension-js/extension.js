@@ -125,7 +125,7 @@ describe('the stage the dev manifest is written at', () => {
 
     expect(seen.taps).toEqual([
       'compatibility:warn-browser-global',
-      'manifest:apply-dev-defaults'
+      'plugin-reload:apply-dev-defaults'
     ])
 
     expect(seen.permissionsBefore).toEqual([])

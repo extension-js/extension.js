@@ -17,8 +17,8 @@ import {
   emittedFilesOf,
   readProjectSource
 } from '../../lib/emitted-evidence'
+import {isHotUpdateFile} from '../../lib/hot-update-files'
 import {BACKGROUND_ASSET} from '../../plugin-web-extension/shared/background-asset'
-import {isHotUpdateFile} from '../../plugin-web-extension/shared/initial-files'
 import {DEV_BUILD_GLOBAL} from '../reload-dispatch'
 import {
   buildDevProducerSource,

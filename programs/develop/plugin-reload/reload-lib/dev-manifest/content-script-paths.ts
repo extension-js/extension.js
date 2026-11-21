@@ -11,11 +11,47 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
-import type {Manifest} from '../../../types'
 import {
+  getCanonicalContentScriptJsAssetName,
   isCanonicalContentScriptAsset,
   parseCanonicalContentScriptAsset
-} from '../../feature-scripts/contracts'
+} from '../../../plugin-web-extension/feature-scripts/contracts'
+import type {ManifestExtension} from '../../../plugin-web-extension/shared/manifest-extensions'
+import type {Manifest} from '../../../types'
+
+// A content script group with only CSS gets the script its entry holds in
+// development, so its styles load through a script.
+function nameScriptOfCssOnlyGroups(manifest: Manifest): Manifest {
+  if (!manifest.content_scripts) return manifest
+
+  return {
+    ...manifest,
+    content_scripts: manifest.content_scripts.map((contentObj, index) => {
+      const css = contentObj.css ?? []
+      const js = contentObj.js ?? []
+
+      if (css.length && !js.length) {
+        // The script is named after the canonical group index, which can
+        // differ from the array position, so it is read from the css path.
+        const canonicalIndex =
+          parseCanonicalContentScriptAsset(css[0])?.index ?? index
+        contentObj.js = [getCanonicalContentScriptJsAssetName(canonicalIndex)]
+      }
+
+      return contentObj
+    })
+  }
+}
+
+// What a development compile changes in the manifest the build resolved.
+// The script names come first: the hashed paths are resolved from them.
+export const devContentScriptManifest: ManifestExtension = {
+  manifestResolved: (compilation, manifest) =>
+    patchDevContentScriptManifestPaths(
+      compilation,
+      nameScriptOfCssOnlyGroups(manifest)
+    )
+}
 
 // Point manifest content_scripts at the hashed dev bundles so every read
 // loads the current bytes. Stale prior-build files go once it is done.

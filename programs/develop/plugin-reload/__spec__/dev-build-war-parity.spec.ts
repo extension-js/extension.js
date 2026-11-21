@@ -2,7 +2,7 @@ import {describe, expect, it} from 'vitest'
 import {
   DEV_RUNTIME_RESOURCES,
   patchWebResources
-} from '../apply-dev-defaults-lib/patch-web-resources'
+} from '../reload-lib/dev-manifest/patch-web-resources'
 
 type WarGroup = {resources: string[]; matches: string[]}
 

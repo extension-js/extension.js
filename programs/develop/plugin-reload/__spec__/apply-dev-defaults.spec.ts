@@ -1,14 +1,18 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {Compilation} from '@rspack/core'
+import {Compilation, type Compiler} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
-import {asCompiler} from '../../../__spec__/helpers/rspack-fakes'
-import {devInjectedHostPatterns} from '../../manifest-lib/dev-injected-hosts'
-import {devInjectedPermissions} from '../../manifest-lib/dev-injected-permissions'
-import {UNSUPPORTED_PERMISSIONS as SAFARI_REJECTED_PERMISSIONS} from '../../manifest-lib/filter-keys-safari'
-import {setOriginalManifestContent} from '../../manifest-lib/manifest'
-import {ApplyDevDefaults} from '../apply-dev-defaults'
+import {setOriginalManifestContent} from '../../lib/manifest/manifest-content'
+import {
+  devInjectedHostPatterns,
+  devInjectedPermissions,
+  isWebkitUnsupportedPermission
+} from '../../plugin-web-extension/shared/manifest-grants'
+import {ApplyDevDefaults} from '../steps/apply-dev-defaults'
+
+// A plain object with the hooks a step taps, handed in as a compiler.
+const asCompiler = (fake: unknown) => fake as Compiler
 
 describe('ApplyDevDefaults', () => {
   it('registers processAssets after REPORT so it runs after WAR patching', () => {
@@ -1292,7 +1296,7 @@ describe('ApplyDevDefaults', () => {
     expect(out.permissions).not.toContain('management')
     expect(
       out.permissions.filter((permission: string) =>
-        SAFARI_REJECTED_PERMISSIONS.has(permission)
+        isWebkitUnsupportedPermission(permission, 'safari')
       )
     ).toEqual([])
 
@@ -1319,7 +1323,7 @@ describe('ApplyDevDefaults', () => {
       expect(injected.length).toBeGreaterThan(0)
       expect(
         injected.filter((permission) =>
-          SAFARI_REJECTED_PERMISSIONS.has(permission)
+          isWebkitUnsupportedPermission(permission, 'safari')
         )
       ).toEqual([])
     }

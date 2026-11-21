@@ -47,6 +47,7 @@ import {
   sidebarFoldTarget
 } from '../../shared/html-surfaces'
 import {applyKeptPagePaths, keptPagePaths} from '../../shared/kept-page-paths'
+import {manifestExtensionsFor} from '../../shared/manifest-extensions'
 import * as messages from '../messages'
 import {
   hasUnsupportedMv3BackgroundPage,
@@ -56,7 +57,6 @@ import {
   patchChromiumThemeColors,
   translatedThemeColors
 } from './patch-chromium-theme-colors'
-import {patchDevContentScriptManifestPaths} from './patch-dev-content-script-manifest-paths'
 import {
   hasEmptyGeckoBackgroundScripts,
   patchGeckoBackground,
@@ -91,25 +91,6 @@ export class UpdateManifest {
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
-  }
-
-  private applyDevOverrides(manifest: Manifest) {
-    if (!manifest.content_scripts) return []
-
-    return manifest.content_scripts.map((contentObj, index) => {
-      const css = contentObj.css ?? []
-      const js = contentObj.js ?? []
-
-      if (css.length && !js.length) {
-        // In development the group's entry holds a script named after the canonical
-        // group index, which can differ from array position: read it from the css path.
-        const canonicalIndex =
-          parseCanonicalContentScriptAsset(css[0])?.index ?? index
-        contentObj.js = [getCanonicalContentScriptJsAssetName(canonicalIndex)]
-      }
-
-      return contentObj
-    })
   }
 
   // Store-readiness hint for AMO submissions: production artifacts
@@ -471,15 +452,9 @@ export class UpdateManifest {
               )
             }
 
-            // Dev-only: content_scripts with only CSS get a JS file so its styles
-            // load through a script. Must run before patchDevContentScriptManifestPaths.
-            if (compiler.options.mode === 'development') {
-              if (patchedManifest.content_scripts) {
-                patchedManifest.content_scripts =
-                  this.applyDevOverrides(patchedManifest)
-              }
-
-              patchedManifest = patchDevContentScriptManifestPaths(
+            // A plugin applied after this one may change the resolved manifest.
+            for (const extension of manifestExtensionsFor(compiler)) {
+              patchedManifest = extension.manifestResolved(
                 compilation,
                 patchedManifest
               )

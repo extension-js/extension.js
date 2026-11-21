@@ -19,8 +19,8 @@ import {
   mentionsBrowserName,
   referencesBrowserGlobal
 } from '../lib/free-browser-references'
+import {isHotUpdateFile} from '../lib/hot-update-files'
 import {getManifestContent} from '../lib/manifest/manifest-content'
-import {isHotUpdateFile} from '../plugin-web-extension/shared/initial-files'
 import {scannableSourcePath} from '../plugin-web-extension/shared/scannable-source-path'
 import type {DevOptions, PluginInterface} from '../types'
 import * as messages from './compatibility-lib/messages'

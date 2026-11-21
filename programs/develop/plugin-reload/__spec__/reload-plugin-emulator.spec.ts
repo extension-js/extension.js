@@ -48,6 +48,7 @@ afterEach(() => {
 describe('ReloadPlugin producer injection per engine', () => {
   it('injects the reload producer and relay for chromium', () => {
     expect(thisCompilationTaps('chromium')).toEqual([
+      'plugin-reload:apply-dev-defaults',
       'StripContentScriptDevServerRuntime',
       'StableContentScriptNames',
       'InjectScriptsReplayShim',
@@ -59,6 +60,7 @@ describe('ReloadPlugin producer injection per engine', () => {
 
   it('never injects them into the user background for chromium-emulator', () => {
     expect(thisCompilationTaps('chromium-emulator')).toEqual([
+      'plugin-reload:apply-dev-defaults',
       'StripContentScriptDevServerRuntime',
       'StableContentScriptNames',
       'InjectScriptsReplayShim'

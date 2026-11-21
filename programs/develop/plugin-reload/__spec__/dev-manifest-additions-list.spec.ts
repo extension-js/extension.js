@@ -3,8 +3,8 @@ import {
   appendDevAdditions,
   devAdditionsOf,
   mergeDevAdditions
-} from '../../../../lib/dev-additions'
-import {listDevManifestAdditions} from '../apply-dev-defaults-lib/dev-additions'
+} from '../../lib/dev-additions'
+import {listDevManifestAdditions} from '../reload-lib/dev-manifest/dev-additions'
 
 describe('listDevManifestAdditions', () => {
   const changes = (

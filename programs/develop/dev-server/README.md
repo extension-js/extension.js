@@ -38,7 +38,7 @@ The dev server sets no environment variable. Each session writes one `DevSession
 | Field | Read by |
 | --- | --- |
 | `protocol`, `host`, `port`, `path` | `lib/dev-server-client-import.ts`, through the page reload plugin |
-| `connectableHost` | `rspack-config.ts` (the host `ready.json` names), `lib/dev-server-client-import.ts`, `plugin-web-extension/feature-manifest/steps/apply-dev-defaults-lib/patch-csp.ts`, `plugin-reload/steps/inject-bridge-producer.ts` |
+| `connectableHost` | `rspack-config.ts` (the host `ready.json` names), `lib/dev-server-client-import.ts`, `plugin-reload/reload-lib/dev-manifest/patch-csp.ts`, `plugin-reload/steps/inject-bridge-producer.ts` |
 | `instanceId` | `plugin-reload/steps/inject-bridge-producer.ts` |
 | `controlPort` | `plugin-reload/steps/inject-bridge-producer.ts`, `plugin-reload/steps/inject-bridge-relay.ts` |
 | `launchEnabled` | `rspack-config.ts`, for the compilation plugin |

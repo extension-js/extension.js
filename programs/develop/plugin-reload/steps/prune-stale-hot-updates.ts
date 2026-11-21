@@ -9,8 +9,9 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
+import {HOT_UPDATES_FOLDER} from '../../lib/hot-update-files'
 
-const HOT_DIR = 'hot'
+const HOT_DIR = HOT_UPDATES_FOLDER
 
 // Prune superseded hot-update generations from hot/: only the current one is
 // requested, and the previous is kept one round for in-flight fetches.

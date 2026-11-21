@@ -12,7 +12,6 @@ import type {DevOptions, PluginInterface} from '../../types'
 import {PatchWAR} from '../feature-web-resources/steps/patch-war'
 import * as messages from './messages'
 import {AddDependencies} from './steps/add-dependencies'
-import {ApplyDevDefaults} from './steps/apply-dev-defaults'
 import {EmitManifest} from './steps/emit-manifest'
 import {ManifestLegacyWarnings} from './steps/legacy-warnings'
 import {PersistManifestToDisk} from './steps/persist-manifest'
@@ -28,13 +27,11 @@ export class ManifestPlugin {
   public readonly manifestPath: string
   public readonly browser: DevOptions['browser']
   private readonly devSession?: boolean
-  private readonly session?: PluginInterface['session']
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
     this.devSession = options.devSession
-    this.session = options.session
   }
 
   public apply(compiler: Compiler) {
@@ -67,13 +64,6 @@ export class ManifestPlugin {
     new PatchWAR({
       manifestPath: this.manifestPath,
       browser: this.browser
-    }).apply(compiler)
-
-    new ApplyDevDefaults({
-      manifestPath: this.manifestPath,
-      browser: this.browser,
-      devSession: this.devSession,
-      session: this.session
     }).apply(compiler)
 
     new WarnUndeclaredPermissions({
