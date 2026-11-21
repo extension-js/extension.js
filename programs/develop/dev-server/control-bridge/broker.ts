@@ -6,6 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {browserConsoleCodeOf} from '../../lib/browser-console-codes'
 import {isExtensionOrigin} from '../cors'
 import {isSameWebOrigin, normalizeWebOrigin} from '../emulator-lane'
 import {type ActionRecord, type ActionsSink, fnv1aHex} from './actions-file'
@@ -1039,7 +1040,12 @@ export class BridgeBroker {
   ingestLog(incoming: IncomingLogEvent): void {
     // Producers stamp the only id the SW knows (its instanceId); the server owns
     // the session identity, so rows are normalized to ready.json's runId here.
-    const event = this.ring.push({...incoming, runId: this.runId})
+    const code = incoming.code ?? browserConsoleCodeOf(incoming.messageParts)
+    const event = this.ring.push({
+      ...incoming,
+      ...(code ? {code} : {}),
+      runId: this.runId
+    })
     this.file?.write(event)
     // Ring eviction only shortens the replay a later consumer gets; a live
     // consumer already holds every event, so it is told in the ready frame.

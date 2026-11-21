@@ -147,6 +147,7 @@ current run only, join on `runId` to correlate across runs):
 - `browser_exited`
 - `browser_launch_failed`
 - `restart_failed`
+- `warning`
 - `shutdown`
 
 Every row carries `type`, `ts`, `command`, `browser` and `runId`. A
@@ -154,6 +155,7 @@ Every row carries `type`, `ts`, `command`, `browser` and `runId`. A
 row adds `exitCode`, `exitSignal` and `browserExitedAt`. A
 `browser_launch_failed` row adds `browserLaunchFailedAt` and `reason`, and the
 contract it mirrors reads `status: error` with `code: browser_launch_failed`.
+A `warning` row is something the session warned about between two compiles, such as a reload the extension never confirmed. It adds the warning `code` and the `reason`.
 A `restart_failed` row is a dev restart that could not be made (a config or
 entry change whose next compiler or server failed). It adds the error `code`,
 the `reason` and `serving`: `true` when the build from before the restart

@@ -36,6 +36,7 @@ export type LifecycleStatus =
   | 'recompiled'
   | 'compile-failed'
   | 'restart-failed'
+  | 'warning'
   | 'ready'
   | 'ready-failed'
   | 'browser-exited'
@@ -320,6 +321,8 @@ export class LifecycleStream {
             `${CODES.W_NO_ENTRYPOINTS}: the compilation produced no entrypoints or assets`
           ]
         : []
+    // What the session warned about since its last frame rides this one.
+    warnings.push(...takeCodedWarnings())
 
     return this.emit(
       ENVELOPE.ok(
@@ -366,11 +369,14 @@ export class LifecycleStream {
       {code, message, ...(details ? {details} : {})},
       {
         truncated: outputTruncated || args.diagnosticsTruncated === true,
-        warnings: launchWithheld
-          ? [
-              `${CODES.W_LAUNCH_SKIPPED_COMPILE_ERRORS}: the browser launch is withheld until the compile succeeds`
-            ]
-          : []
+        warnings: [
+          ...(launchWithheld
+            ? [
+                `${CODES.W_LAUNCH_SKIPPED_COMPILE_ERRORS}: the browser launch is withheld until the compile succeeds`
+              ]
+            : []),
+          ...takeCodedWarnings()
+        ]
       }
     ) as Envelope<unknown>
     // value carries the compiler output so a consumer never has to scrape stdout.
@@ -650,6 +656,24 @@ export class LifecycleStream {
     frame.value = this.sessionValue()
 
     return this.emit(frame)
+  }
+
+  // Something the session warned about between two compiles, written the
+  // moment it is known. It ends nothing and no later frame repeats it.
+  public warned(args: {
+    code: ErrorCode
+    message: string
+  }): Envelope<unknown> | null {
+    const message = stripAnsi(args.message)
+
+    return this.emit(
+      ENVELOPE.ok(
+        this.options.command,
+        'warning',
+        this.sessionValue({code: args.code, message}),
+        {warnings: [`${args.code}: ${message}`]}
+      )
+    )
   }
 
   // The next compiler could not be built and the session goes on with the

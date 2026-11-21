@@ -2,6 +2,7 @@ import {AsyncLocalStorage} from 'node:async_hooks'
 import {describe, expect, it} from 'vitest'
 import {
   keepCodedWarningsOf,
+  onCodedWarning,
   outsideCodedWarnings,
   recordCodedWarning,
   takeCodedWarnings,
@@ -186,5 +187,49 @@ describe('coded warnings', () => {
       'W_TYPES_EMIT: from the build',
       'W_POLYFILL_NOT_FOUND: from the bundler'
     ])
+  })
+
+  it('hands a warning no build owns to whoever listens, and keeps it nowhere else', () => {
+    takeCodedWarnings()
+
+    const heard: unknown[][] = []
+    const owner = {}
+    const stop = onCodedWarning((...args) => heard.push(args))
+
+    recordCodedWarning(CODES.W_RELOAD_NOT_APPLIED, 'an edit did not land')
+    recordCodedWarning(CODES.W_RELOAD_NOT_APPLIED, 'another one', owner)
+
+    expect(heard).toEqual([
+      ['W_RELOAD_NOT_APPLIED', 'an edit did not land', undefined],
+      ['W_RELOAD_NOT_APPLIED', 'another one', owner]
+    ])
+
+    expect(takeCodedWarnings()).toEqual([])
+
+    stop()
+    recordCodedWarning(CODES.W_RELOAD_NOT_APPLIED, 'nobody listens')
+
+    expect(heard).toHaveLength(2)
+    expect(takeCodedWarnings()).toEqual([
+      'W_RELOAD_NOT_APPLIED: nobody listens'
+    ])
+  })
+
+  it('leaves a warning of a running build to that build while someone listens', async () => {
+    takeCodedWarnings()
+
+    const heard: unknown[][] = []
+    const stop = onCodedWarning((...args) => heard.push(args))
+
+    const taken = await withCodedWarnings(async () => {
+      recordCodedWarning(CODES.W_TYPES_EMIT, 'from the build')
+
+      return takeCodedWarnings()
+    })
+
+    stop()
+
+    expect(heard).toEqual([])
+    expect(taken).toEqual(['W_TYPES_EMIT: from the build'])
   })
 })
