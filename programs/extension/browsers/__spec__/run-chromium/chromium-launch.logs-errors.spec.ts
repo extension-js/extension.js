@@ -1,6 +1,35 @@
-import {describe, expect, it, vi} from 'vitest'
+import {describe, expect, it, type Mock, vi} from 'vitest'
+import type {BrowserLogger} from '../../browsers-types'
 import {createChromiumContext} from '../../run-chromium/chromium-context'
 import {ChromiumLaunchPlugin} from '../../run-chromium/chromium-launch'
+
+// The stats the done hook reads, as the plugin's own handler declares them.
+interface DoneStats {
+  hasErrors: () => boolean
+  compilation: {options: {mode: string}; errors: Error[]}
+}
+type DoneHandler = (stats: DoneStats) => Promise<void>
+
+interface FakeCompiler {
+  getInfrastructureLogger: () => BrowserLogger
+  hooks: {done: {tapPromise: (name: string, fn: DoneHandler) => void}}
+}
+
+// The private members the rows stub or set on the plugin.
+interface LaunchInternals {
+  launchChromium: Mock
+  didReportReady: boolean
+}
+
+function internals(plugin: ChromiumLaunchPlugin) {
+  return plugin as unknown as LaunchInternals
+}
+
+function tappedDoneHandler(handler: DoneHandler | null): DoneHandler {
+  if (!handler) throw new Error('the plugin tapped no done hook')
+
+  return handler
+}
 
 describe('ChromiumLaunchPlugin', () => {
   it('logs a launch error instead of swallowing it', async () => {
@@ -10,11 +39,11 @@ describe('ChromiumLaunchPlugin', () => {
         browser: 'chrome',
         extension: ['/ext'],
         dryRun: false
-      } as any,
-      ctx as any
+      },
+      ctx
     )
 
-    let doneHandler: any = null
+    let doneHandler: DoneHandler | null = null
     const logger = {
       info: vi.fn(),
       warn: vi.fn(),
@@ -22,25 +51,25 @@ describe('ChromiumLaunchPlugin', () => {
       debug: vi.fn()
     }
 
-    const compiler: any = {
+    const compiler: FakeCompiler = {
       getInfrastructureLogger: () => logger,
       hooks: {
         done: {
-          tapPromise: (_name: string, fn: any) => {
+          tapPromise: (_name, fn) => {
             doneHandler = fn
           }
         }
       }
     }
 
-    ;(plugin as any).launchChromium = vi
+    internals(plugin).launchChromium = vi
       .fn()
       .mockRejectedValueOnce(new Error('boom'))
 
     plugin.apply(compiler)
     expect(typeof doneHandler).toBe('function')
 
-    await doneHandler({
+    await tappedDoneHandler(doneHandler)({
       hasErrors: () => false,
       compilation: {options: {mode: 'development'}, errors: []}
     })
@@ -59,12 +88,12 @@ describe('ChromiumLaunchPlugin', () => {
         browser: 'chrome',
         extension: ['/ext'],
         dryRun: false
-      } as any,
-      ctx as any
+      },
+      ctx
     )
 
-    let doneHandler: any = null
-    const compiler: any = {
+    let doneHandler: DoneHandler | null = null
+    const compiler: FakeCompiler = {
       getInfrastructureLogger: () => ({
         info: vi.fn(),
         warn: vi.fn(),
@@ -73,19 +102,19 @@ describe('ChromiumLaunchPlugin', () => {
       }),
       hooks: {
         done: {
-          tapPromise: (_name: string, fn: any) => {
+          tapPromise: (_name, fn) => {
             doneHandler = fn
           }
         }
       }
     }
 
-    ;(plugin as any).launchChromium = vi.fn().mockResolvedValueOnce(undefined)
+    internals(plugin).launchChromium = vi.fn().mockResolvedValueOnce(undefined)
 
     plugin.apply(compiler)
     expect(typeof doneHandler).toBe('function')
 
-    await doneHandler({
+    await tappedDoneHandler(doneHandler)({
       hasErrors: () => false,
       compilation: {options: {mode: 'development'}, errors: []}
     })
@@ -106,12 +135,12 @@ describe('ChromiumLaunchPlugin', () => {
         browser: 'chrome',
         extension: ['/ext'],
         dryRun: false
-      } as any,
-      ctx as any
+      },
+      ctx
     )
 
-    let doneHandler: any = null
-    const compiler: any = {
+    let doneHandler: DoneHandler | null = null
+    const compiler: FakeCompiler = {
       getInfrastructureLogger: () => ({
         info: vi.fn(),
         warn: vi.fn(),
@@ -120,23 +149,23 @@ describe('ChromiumLaunchPlugin', () => {
       }),
       hooks: {
         done: {
-          tapPromise: (_name: string, fn: any) => {
+          tapPromise: (_name, fn) => {
             doneHandler = fn
           }
         }
       }
     }
 
-    ;(plugin as any).launchChromium = vi
+    internals(plugin).launchChromium = vi
       .fn()
       .mockImplementationOnce(async () => {
-        ;(plugin as any).didReportReady = true
+        internals(plugin).didReportReady = true
       })
 
     plugin.apply(compiler)
     expect(typeof doneHandler).toBe('function')
 
-    await doneHandler({
+    await tappedDoneHandler(doneHandler)({
       hasErrors: () => false,
       compilation: {options: {mode: 'development'}, errors: []}
     })
@@ -156,29 +185,29 @@ describe('ChromiumLaunchPlugin', () => {
         browser: 'chrome',
         extension: ['/ext'],
         dryRun: false
-      } as any,
-      ctx as any
+      },
+      ctx
     )
 
-    let doneHandler: any = null
+    let doneHandler: DoneHandler | null = null
     const logger = {
       info: vi.fn(),
       warn: vi.fn(),
       error: vi.fn(),
       debug: vi.fn()
     }
-    const compiler: any = {
+    const compiler: FakeCompiler = {
       getInfrastructureLogger: () => logger,
       hooks: {
         done: {
-          tapPromise: (_name: string, fn: any) => {
+          tapPromise: (_name, fn) => {
             doneHandler = fn
           }
         }
       }
     }
 
-    ;(plugin as any).launchChromium = vi.fn().mockResolvedValue(undefined)
+    internals(plugin).launchChromium = vi.fn().mockResolvedValue(undefined)
 
     plugin.apply(compiler)
 
@@ -191,20 +220,20 @@ describe('ChromiumLaunchPlugin', () => {
         /Skipping the browser launch/.test(String(call[0] || ''))
       )
 
-    await doneHandler(failing)
+    await tappedDoneHandler(doneHandler)(failing)
     expect(skipped()).toHaveLength(1)
-    expect((plugin as any).launchChromium).not.toHaveBeenCalled()
+    expect(internals(plugin).launchChromium).not.toHaveBeenCalled()
 
-    await doneHandler({
+    await tappedDoneHandler(doneHandler)({
       hasErrors: () => false,
       compilation: {options: {mode: 'development'}, errors: []}
     })
 
-    expect((plugin as any).launchChromium).toHaveBeenCalledTimes(1)
+    expect(internals(plugin).launchChromium).toHaveBeenCalledTimes(1)
 
-    await doneHandler(failing)
+    await tappedDoneHandler(doneHandler)(failing)
     expect(skipped()).toHaveLength(1)
-    expect((plugin as any).launchChromium).toHaveBeenCalledTimes(1)
+    expect(internals(plugin).launchChromium).toHaveBeenCalledTimes(1)
     consoleSpy.mockRestore()
   })
 })

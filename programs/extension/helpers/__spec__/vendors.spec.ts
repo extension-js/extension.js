@@ -21,8 +21,10 @@ describe('vendors', () => {
   })
 
   it('splits comma-separated values and trims whitespace', () => {
-    expect(vendors('chrome,firefox' as any)).toEqual(['chrome', 'firefox'])
-    expect(vendors('chrome, edge' as any)).toEqual(['chrome', 'edge'])
+    // @ts-expect-error The CLI hands a comma list over as one string.
+    expect(vendors('chrome,firefox')).toEqual(['chrome', 'firefox'])
+    // @ts-expect-error The CLI hands a comma list over as one string.
+    expect(vendors('chrome, edge')).toEqual(['chrome', 'edge'])
   })
 })
 
@@ -72,7 +74,8 @@ describe('installTargets', () => {
   })
 
   it('splits comma lists the same way install and uninstall will see them', () => {
-    expect(installTargets('chrome,edge' as any)).toEqual(['chrome', 'edge'])
+    // @ts-expect-error The CLI hands a comma list over as one string.
+    expect(installTargets('chrome,edge')).toEqual(['chrome', 'edge'])
   })
 })
 

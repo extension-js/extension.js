@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {Compilation} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
+import {asCompiler} from '../../../__spec__/helpers/rspack-fakes'
 import {UNSUPPORTED_PERMISSIONS as SAFARI_REJECTED_PERMISSIONS} from '../../manifest-lib/filter-keys-safari'
 import {setOriginalManifestContent} from '../../manifest-lib/manifest'
 import {
@@ -36,14 +37,14 @@ describe('ApplyDevDefaults', () => {
       }
     } as unknown as Compilation
 
-    const compiler = {
+    const compiler = asCompiler({
       options: {mode: 'development'},
       hooks: {
         thisCompilation: {
           tap: (_name: string, fn: (c: Compilation) => void) => fn(compilation)
         }
       }
-    } as any
+    })
 
     new ApplyDevDefaults({
       manifestPath: '/m/manifest.json',
@@ -91,14 +92,14 @@ describe('ApplyDevDefaults', () => {
       }
     } as unknown as Compilation
 
-    const compiler = {
+    const compiler = asCompiler({
       options: {mode: 'development'},
       hooks: {
         thisCompilation: {
           tap: (_name: string, fn: (c: Compilation) => void) => fn(compilation)
         }
       }
-    } as any
+    })
 
     new ApplyDevDefaults({
       manifestPath: '/m/manifest.json',
@@ -195,14 +196,14 @@ describe('ApplyDevDefaults', () => {
       setOriginalManifestContent(compilation, JSON.stringify(authored))
     }
 
-    const compiler = {
+    const compiler = asCompiler({
       options: {mode: 'development'},
       hooks: {
         thisCompilation: {
           tap: (_n: string, fn: (c: Compilation) => void) => fn(compilation)
         }
       }
-    } as any
+    })
     new ApplyDevDefaults({
       manifestPath: '/m/manifest.json',
       browser
@@ -1263,14 +1264,14 @@ describe('ApplyDevDefaults', () => {
       }
     } as unknown as Compilation
 
-    const compiler = {
+    const compiler = asCompiler({
       options: {mode: 'development'},
       hooks: {
         thisCompilation: {
           tap: (_name: string, fn: (c: Compilation) => void) => fn(compilation)
         }
       }
-    } as any
+    })
 
     new ApplyDevDefaults({
       manifestPath: '/m/manifest.json',
@@ -1362,7 +1363,7 @@ describe('findInjectedOnlyPermissionUses', () => {
     const uses = findInjectedOnlyPermissionUses(
       {
         modules: [{resource: worker}, {resource: `${legacy}?used`}]
-      } as any,
+      },
       new Set<string>(),
       ['tabs', 'scripting']
     )

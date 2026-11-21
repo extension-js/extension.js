@@ -22,9 +22,17 @@ vi.mock('edge-location', () => ({
 }))
 
 import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
+import type {CompilationLike} from '../../browsers-types'
 import {createChromiumContext} from '../../run-chromium/chromium-context'
 import {ChromiumLaunchPlugin} from '../../run-chromium/chromium-launch'
 import {emptyPathFolder, expectSealedBrowserEnv} from '../sealed-browser-env'
+
+// The private launch step the row drives directly.
+function launchInternals(plugin: ChromiumLaunchPlugin) {
+  return plugin as unknown as {
+    launchChromium: (compilation: CompilationLike) => Promise<void>
+  }
+}
 
 const makeTempFolder = trackTempFolders()
 
@@ -90,8 +98,8 @@ describe('--browser=edge on Windows with only the system Edge installed', () => 
 
   it('hands the locator an env that answers the upper-case Windows names', async () => {
     const plugin = new ChromiumLaunchPlugin(
-      {browser: 'edge', extension: ['/ext'], dryRun: true} as any,
-      createChromiumContext() as any
+      {browser: 'edge', extension: ['/ext'], dryRun: true},
+      createChromiumContext()
     )
     const outputPath = path.join(path.dirname(localAppData), 'dist', 'edge')
     const compilation = {
@@ -100,7 +108,7 @@ describe('--browser=edge on Windows with only the system Edge installed', () => 
     }
 
     await expect(
-      (plugin as any).launchChromium(compilation)
+      launchInternals(plugin).launchChromium(compilation)
     ).rejects.toMatchObject({
       code: 'E_BROWSER_NOT_FOUND',
       message: expect.stringContaining(

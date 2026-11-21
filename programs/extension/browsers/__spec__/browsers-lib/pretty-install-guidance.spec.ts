@@ -33,7 +33,7 @@ describe('prettyPuppeteerInstallGuidance', () => {
     vi.stubEnv('npm_config_user_agent', 'pnpm/10.28.0 npm/? node/v23.8.0')
 
     const msg = prettyPuppeteerInstallGuidance(
-      'chrome' as any,
+      'chrome',
       '/tmp/extension.js/browsers'
     )
 
@@ -60,7 +60,7 @@ describe('prettyPuppeteerInstallGuidance', () => {
     vi.stubEnv('npm_config_user_agent', undefined)
 
     const msg = prettyPuppeteerInstallGuidance(
-      'chromium' as any,
+      'chromium',
       '/tmp/extension.js/browsers'
     )
 
@@ -81,7 +81,7 @@ describe('prettyPuppeteerInstallGuidance', () => {
     vi.stubEnv('npm_config_user_agent', undefined)
 
     const msg = prettyPuppeteerInstallGuidance(
-      'edge' as any,
+      'edge',
       'C:\\Users\\cosmo\\AppData\\Local\\extension.js\\browsers',
       'win32'
     )
@@ -122,7 +122,7 @@ describe('prettyPuppeteerInstallGuidance', () => {
     vi.stubEnv('npm_config_user_agent', undefined)
 
     const msg = prettyPuppeteerInstallGuidance(
-      'edge' as any,
+      'edge',
       '/tmp/extension.js/browsers',
       'darwin'
     )
@@ -146,7 +146,7 @@ describe('prettyPuppeteerInstallGuidance', () => {
     vi.stubEnv('npm_config_user_agent', undefined)
 
     const msg = prettyPuppeteerInstallGuidance(
-      'firefox' as any,
+      'firefox',
       '/tmp/extension.js/browsers'
     )
 

@@ -21,6 +21,7 @@ import {
   WEBDRIVER_NOT_ASKED_YET,
   WEBDRIVER_SESSION_PENDING
 } from '../../run-safari/safari-launch/webdriver'
+import type {SafariPluginLike} from '../../run-safari/safari-types'
 import {
   type FakeSafariTools,
   type FakeSafariToolsOptions,
@@ -219,7 +220,12 @@ describe('safari dev session and its safaridriver', () => {
     const logs: string[] = []
     const record = (line: unknown) => logs.push(String(line))
     await packageSafariExtension(
-      {extension: [distDir], browser: 'safari', tools, ...host} as any,
+      {
+        extension: [distDir],
+        browser: 'safari',
+        tools,
+        ...host
+      } as SafariPluginLike,
       distDir,
       {info: record, warn: record, error: record, debug: () => {}},
       'full'

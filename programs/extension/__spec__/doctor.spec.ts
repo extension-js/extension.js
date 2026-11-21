@@ -13,8 +13,16 @@ import {
   resolveDoctorBrowser,
   runDoctor as runDoctorWith
 } from '../commands/doctor'
+import type {DevelopBridge} from '../helpers/extension-develop-runtime'
+import type {Envelope} from '../helpers/messaging'
 
-const state = {mod: {} as any}
+type DoctorCheck = DoctorReport['checks'][number]
+
+// The doctor frame carries its check list even when ok is false.
+type DoctorFrame = Omit<Envelope, 'value'> & {value: DoctorCheck[]}
+
+// Each row swaps the session module for a partial one of its own.
+const state: {mod: Record<string, unknown>} = {mod: {}}
 
 // The pid start-time probe shells out (PowerShell on Windows, where one cold
 // call can take a minute), so the spec answers it.
@@ -28,7 +36,7 @@ const peer = {
 
 // The session module and the peer scan answer from this file's state.
 const doctorDeps: DoctorDeps = {
-  loadBridge: async () => state.mod,
+  loadBridge: async () => state.mod as unknown as DevelopBridge,
   engineVersion: () => peer.engine,
   scanPeers: () =>
     ({conflicts: peer.conflicts, unreadable: peer.unreadable}) as never,
@@ -81,8 +89,8 @@ const stripAnsi = (text: string) => text.replace(/\[[0-9;]*m/g, '')
 
 class StubController {
   static connectError: Error | null = null
-  static readyFrame: any = {capabilities: {storage: true, reload: true}}
-  static probeResult: any = {ok: true, value: {}}
+  static readyFrame: unknown = {capabilities: {storage: true, reload: true}}
+  static probeResult: unknown = {ok: true, value: {}}
 
   async connect() {
     if (StubController.connectError) throw StubController.connectError
@@ -249,8 +257,8 @@ describe('extension doctor', () => {
   })
 
   it('skips port-agreement when the installed engine lacks the export', async () => {
-    const mod = healthyModule()
-    delete (mod as any).readPersistedControlPort
+    const mod: Record<string, unknown> = healthyModule()
+    delete mod.readPersistedControlPort
     state.mod = mod
     const r = byCheck(await runDoctor('/proj', {}))
     expect(r['port-agreement'].status).toBe('skip')
@@ -1377,7 +1385,10 @@ describe('extension doctor (command surface)', () => {
         warnings: []
       })
 
-      expect(frame.value.every((r: any) => r.status === 'pass')).toBe(true)
+      expect(frame.value.every((r: DoctorCheck) => r.status === 'pass')).toBe(
+        true
+      )
+
       expect(frame.browser).toBe('chromium')
     } finally {
       vi.restoreAllMocks()
@@ -1407,7 +1418,7 @@ describe('extension doctor (command surface)', () => {
       expect(frame.error.code).toBe('E_SESSION_NOT_FOUND')
       // A failure frame carrying a payload: the check list IS the diagnosis,
       // and it must survive ENVELOPE.fail rather than be nulled out.
-      expect(frame.value.map((r: any) => r.check)).toEqual(ALL_CHECKS)
+      expect(frame.value.map((r: DoctorCheck) => r.check)).toEqual(ALL_CHECKS)
       expect(frame.hint).toContain('extension dev')
     } finally {
       vi.restoreAllMocks()
@@ -1778,7 +1789,7 @@ describe('extension doctor (session identity in the report)', () => {
       const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
       expect(frame.browser).toBe('firefox')
       // The payload keeps the shape every host already reads: a bare list.
-      expect(frame.value.map((c: any) => c.check)).toEqual(ALL_CHECKS)
+      expect(frame.value.map((c: DoctorCheck) => c.check)).toEqual(ALL_CHECKS)
     } finally {
       vi.restoreAllMocks()
       fs.rmSync(root, {recursive: true, force: true})
@@ -1817,10 +1828,7 @@ describe('the golden doctor envelopes document the real frames', () => {
     }
   }
 
-  function expectSameShape(
-    frame: Record<string, any>,
-    fixture: Record<string, any>
-  ) {
+  function expectSameShape(frame: DoctorFrame, fixture: DoctorFrame) {
     expect(
       Object.keys(fixture).sort(),
       'the golden envelope names keys the doctor frame does not, or misses some'
@@ -1830,12 +1838,12 @@ describe('the golden doctor envelopes document the real frames', () => {
     expect(fixture.status).toBe(frame.status)
     expect(fixture.browser).toBe(frame.browser)
     expect(
-      fixture.value.map((c: any) => c.check),
+      fixture.value.map((c: DoctorCheck) => c.check),
       'the golden value under-documents the checks `doctor --output json` emits'
-    ).toEqual(frame.value.map((c: any) => c.check))
+    ).toEqual(frame.value.map((c: DoctorCheck) => c.check))
 
-    expect(fixture.value.map((c: any) => c.status)).toEqual(
-      frame.value.map((c: any) => c.status)
+    expect(fixture.value.map((c: DoctorCheck) => c.status)).toEqual(
+      frame.value.map((c: DoctorCheck) => c.status)
     )
   }
 

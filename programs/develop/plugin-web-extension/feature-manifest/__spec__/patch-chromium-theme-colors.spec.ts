@@ -4,6 +4,7 @@ import {
   patchChromiumThemeColors,
   translatedThemeColors
 } from '../steps/patch-chromium-theme-colors'
+import {asManifest} from './helpers/manifest-fakes'
 
 describe('translateThemeColor', () => {
   it('reads six and three digit hex in either case', () => {
@@ -54,12 +55,12 @@ describe('translateThemeColor', () => {
 
 describe('patchChromiumThemeColors', () => {
   const themedManifest = (colors: Record<string, unknown>) =>
-    ({
+    asManifest({
       manifest_version: 3,
       name: 'x',
       version: '1.0.0',
       theme: {colors, images: {theme_frame: 'frame.png'}}
-    }) as any
+    })
 
   it('writes hex and rgb() as arrays for chromium targets and names them', () => {
     const manifest = themedManifest({
@@ -68,7 +69,7 @@ describe('patchChromiumThemeColors', () => {
       toolbar: 'rgb(1, 2, 3)',
       bar: [4, 5, 6]
     })
-    const patched: any = patchChromiumThemeColors(manifest, 'chrome')
+    const patched = patchChromiumThemeColors(manifest, 'chrome')
 
     expect(patched.theme.colors).toEqual({
       tab_text: [0, 0, 0],
@@ -94,7 +95,11 @@ describe('patchChromiumThemeColors', () => {
     const manifest = themedManifest({frame: [0, 0, 0]})
     expect(patchChromiumThemeColors(manifest, 'chrome')).toBe(manifest)
     expect(translatedThemeColors(manifest, 'chrome')).toEqual([])
-    const themeless = {manifest_version: 3, name: 'x', version: '1.0.0'} as any
+    const themeless = asManifest({
+      manifest_version: 3,
+      name: 'x',
+      version: '1.0.0'
+    })
     expect(patchChromiumThemeColors(themeless, 'chrome')).toBe(themeless)
   })
 })

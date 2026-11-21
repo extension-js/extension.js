@@ -651,22 +651,9 @@ export interface CommonWebpackOptions {
    */
   extensions?: CompanionExtensionsConfig
   /**
-   * Internal auto-generated instance ID, not user-configurable
-   */
-  instanceId?: string
-  /**
-   * Agent-bridge control channel. Injected by dev-server so the
-   * PlaywrightPlugin can advertise them in ready.json. Not user-configurable.
-   */
-  controlPort?: number | null
-  /**
-   * The host this session's browser dials for the control bridge, given by
-   * the dev session that builds the config. Not user-configurable.
-   */
-  connectableHost?: string
-  /**
-   * Where the dev session that builds the config listens. One record for
-   * each compiler, so two sessions in one host never share a value.
+   * Where the dev session that builds the config listens: its hosts, port,
+   * socket path, instance id and control port. One record for each
+   * compiler, so two sessions in one host never share a value.
    * Not user-configurable.
    */
   session?: Readonly<DevSessionCoordinates>

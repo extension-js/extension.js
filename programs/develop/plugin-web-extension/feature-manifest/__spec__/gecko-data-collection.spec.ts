@@ -1,40 +1,54 @@
 import {describe, expect, it} from 'vitest'
+import {
+  asCompilation,
+  asCompiler,
+  type TapCallback
+} from '../../__spec__/helpers/rspack-fakes'
 import {missingGeckoDataCollectionPermissions} from '../manifest-lib/gecko-data-collection'
 import {UpdateManifest} from '../steps/update-manifest'
+import {asBrowser, asManifest, type FakeSource} from './helpers/manifest-fakes'
 
 describe('missingGeckoDataCollectionPermissions', () => {
   it('is missing when browser_specific_settings is absent entirely', () => {
-    expect(missingGeckoDataCollectionPermissions({name: 'x'} as any)).toBe(true)
+    expect(missingGeckoDataCollectionPermissions(asManifest({name: 'x'}))).toBe(
+      true
+    )
   })
 
   it('is missing when gecko settings exist without the key', () => {
     expect(
-      missingGeckoDataCollectionPermissions({
-        name: 'x',
-        browser_specific_settings: {gecko: {id: 'x@example.com'}}
-      } as any)
+      missingGeckoDataCollectionPermissions(
+        asManifest({
+          name: 'x',
+          browser_specific_settings: {gecko: {id: 'x@example.com'}}
+        })
+      )
     ).toBe(true)
   })
 
   it('is missing when the declaration is not an object', () => {
     expect(
-      missingGeckoDataCollectionPermissions({
-        name: 'x',
-        browser_specific_settings: {
-          gecko: {data_collection_permissions: 'none'}
-        }
-      } as any)
+      missingGeckoDataCollectionPermissions(
+        asManifest({
+          name: 'x',
+          browser_specific_settings: {
+            gecko: {data_collection_permissions: 'none'}
+          }
+        })
+      )
     ).toBe(true)
   })
 
   it('is satisfied by a required-none declaration', () => {
     expect(
-      missingGeckoDataCollectionPermissions({
-        name: 'x',
-        browser_specific_settings: {
-          gecko: {data_collection_permissions: {required: ['none']}}
-        }
-      } as any)
+      missingGeckoDataCollectionPermissions(
+        asManifest({
+          name: 'x',
+          browser_specific_settings: {
+            gecko: {data_collection_permissions: {required: ['none']}}
+          }
+        })
+      )
     ).toBe(false)
   })
 })
@@ -46,10 +60,10 @@ describe('UpdateManifest AMO data-collection warning', () => {
     manifestSource: string,
     errors: Error[] = []
   ) => {
-    const assets: Record<string, any> = {
+    const assets: Record<string, FakeSource> = {
       'manifest.json': {source: () => manifestSource}
     }
-    const compilation: any = {
+    const compilation = asCompilation({
       errors,
       warnings: [],
       options: {mode},
@@ -59,17 +73,17 @@ describe('UpdateManifest AMO data-collection warning', () => {
       getAssets: () =>
         Object.entries(assets).map(([name, src]) => ({name, source: src})),
       hooks: {
-        processAssets: {tap: (_opts: any, fn: any) => fn()}
+        processAssets: {tap: (_opts: unknown, fn: TapCallback) => fn()}
       },
       updateAsset: () => {},
       emitAsset: () => {}
-    }
-    const compiler: any = {
+    })
+    const compiler = asCompiler({
       options: {mode},
       hooks: {
-        thisCompilation: {tap: (_n: string, fn: any) => fn(compilation)}
+        thisCompilation: {tap: (_n: string, fn: TapCallback) => fn(compilation)}
       }
-    }
+    })
 
     return {compiler, compilation, browser}
   }
@@ -86,7 +100,7 @@ describe('UpdateManifest AMO data-collection warning', () => {
       typeof manifest === 'string' ? manifest : JSON.stringify(manifest),
       errors
     )
-    new UpdateManifest({manifestPath: '/m', browser: browser as any}).apply(
+    new UpdateManifest({manifestPath: '/m', browser: asBrowser(browser)}).apply(
       compiler
     )
 

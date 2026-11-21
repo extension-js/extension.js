@@ -2,19 +2,19 @@ import {describe, expect, it} from 'vitest'
 
 describe('dynamic install', () => {
   it('has access to extension-develop in the workspace dependency graph', async () => {
-    const mod: any = await import('extension-develop')
+    const mod = await import('extension-develop')
     expect(typeof mod.extensionBuild).toBe('function')
     expect(typeof mod.extensionDev).toBe('function')
     expect(typeof mod.extensionPreview).toBe('function')
   })
 
   it('has access to extension-create in the workspace dependency graph', async () => {
-    const mod: any = await import('extension-create')
+    const mod = await import('extension-create')
     expect(typeof mod.extensionCreate).toBe('function')
   })
 
   it('has access to extension-install in the workspace dependency graph', async () => {
-    const mod: any = await import('extension-install')
+    const mod = await import('extension-install')
     expect(typeof mod.extensionInstall).toBe('function')
     expect(typeof mod.extensionUninstall).toBe('function')
   })

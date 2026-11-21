@@ -43,7 +43,7 @@ function runLoader(files: Array<{name: string; content: string}>) {
     callback: vi.fn(),
     _compilation: {errors}
   }
-  classicConcatLoader.call(ctx as any, '')
+  classicConcatLoader.call(ctx, '')
   const [err, output, sourceMap] = ctx.callback.mock.calls[0]
 
   return {err, output: output as string, sourceMap, paths, errors}
@@ -479,10 +479,10 @@ describe('bridging behaviour end to end', () => {
         ].join('\n')
       }
     ])
-    const sandbox: Record<string, any> = {}
+    const sandbox: Record<string, unknown> = {}
     new Function('globalThis', output)(sandbox)
     expect(sandbox.answer).toBe(42)
-    expect(sandbox.double(21)).toBe(42)
+    expect((sandbox.double as (n: number) => number)(21)).toBe(42)
     expect(sandbox.hoistedOut).toBe('yes')
   })
 

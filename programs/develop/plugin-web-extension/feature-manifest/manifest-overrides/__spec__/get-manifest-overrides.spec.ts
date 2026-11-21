@@ -1,4 +1,5 @@
 import {describe, expect, it, vi} from 'vitest'
+import type {Manifest} from '../../../../types'
 import {getManifestOverrides} from '../../manifest-overrides'
 
 vi.spyOn(require('node:fs'), 'readFileSync').mockImplementation(
@@ -21,7 +22,7 @@ describe('getManifestOverrides', () => {
   it('merges background contributions and stringifies result', () => {
     const result = getManifestOverrides(
       '/m/manifest.json',
-      {name: 'x'} as any,
+      {name: 'x'} as Manifest,
       '/m'
     )
     const parsed = JSON.parse(result)

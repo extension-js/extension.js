@@ -6,6 +6,7 @@ import {CompilationPlugin} from '../plugin-compilation'
 import {PlaywrightPlugin} from '../plugin-playwright'
 import {WarnManifestV2OnChromium} from '../plugin-web-extension/feature-manifest/steps/warn-mv2-on-chromium'
 import webpackConfig from '../rspack-config'
+import {sessionOf} from './helpers/dev-session'
 import {writeProjectFiles} from './helpers/extension-project'
 import {trackTempFolders} from './helpers/temp-folders'
 
@@ -779,7 +780,7 @@ describe('ready contract carries the control-bridge bind reason', () => {
         browser: 'chrome',
         mode: 'development',
         metadataCommand: 'dev',
-        controlPort: null,
+        session: sessionOf({controlPort: null}),
         controlPath: '/__extension_control',
         controlPortUnavailableReason: bindReason,
         output: {clean: false, path: path.join(root, 'dist', 'chrome')},
@@ -850,7 +851,7 @@ describe('ready contract carries the control-bridge bind reason', () => {
         browser: 'chrome',
         mode: 'development',
         metadataCommand: 'dev',
-        controlPort: 50111,
+        session: sessionOf({controlPort: 50111}),
         output: {clean: false, path: path.join(root, 'dist', 'chrome')},
         noBrowser: true
       } as ConfigOptions
