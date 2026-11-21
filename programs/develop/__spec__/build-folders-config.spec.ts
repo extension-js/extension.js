@@ -3,8 +3,8 @@ import * as path from 'node:path'
 import {describe, expect, it, vi} from 'vitest'
 import type {FileConfig} from '../types'
 import {buildProject} from './helpers/build-project'
-import {writeProjectFiles} from './helpers/extension-project'
 import {trackTempFolders} from './helpers/temp-folders'
+import {writeProjectFiles} from './helpers/extension-project'
 
 const tempFolder = trackTempFolders()
 

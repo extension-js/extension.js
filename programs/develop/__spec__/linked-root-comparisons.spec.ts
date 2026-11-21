@@ -5,8 +5,8 @@ import {afterAll, describe, expect, it} from 'vitest'
 import {resolveCompanionExtensionsConfig} from '../lib/companion-extensions/resolve-config'
 import {readyContractPath} from '../lib/session-paths'
 import {buildProject} from './helpers/build-project'
-import {writeExtensionProject} from './helpers/extension-project'
 import {trackTempFolders} from './helpers/temp-folders'
+import {writeExtensionProject} from './helpers/extension-project'
 
 const makeTempFolder = trackTempFolders()
 const children: ChildProcess[] = []

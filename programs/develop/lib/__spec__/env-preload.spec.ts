@@ -1,9 +1,6 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
-import {buildProject} from '../../__spec__/helpers/build-project'
-import {writeExtensionProject} from '../../__spec__/helpers/extension-project'
-import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {getEnvFileCandidates} from '../../plugin-compilation/env'
 import {
   envFileCandidates,
@@ -12,6 +9,9 @@ import {
   loadCommandConfig,
   loadProjectConfigDefaults
 } from '../config-loader'
+import {buildProject} from '../../__spec__/helpers/build-project'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+import {writeExtensionProject} from '../../__spec__/helpers/extension-project'
 
 // Env files reach the config in the usual layers: .env.defaults only fills
 // gaps, .env is the base, .env.local overrides it, and a value the shell

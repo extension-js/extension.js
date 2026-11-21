@@ -4,10 +4,10 @@ import path from 'node:path'
 import vm from 'node:vm'
 import {rspack} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
-import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import contentScriptWrapper from '../../plugin-web-extension/feature-scripts/steps/add-content-script-wrapper/content-script-wrapper'
 import {contentScriptReinject} from '../reload-lib/content-script-reinject'
 import {wrapsForDevSession} from '../steps/add-content-script-reinject'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
 // A dev session injects a content script again after each edit. These rows
 // inject a second copy while the first still waits on a top-level await.

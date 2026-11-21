@@ -5,8 +5,8 @@ import {rspack, type Stats} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
 import {getProjectStructure} from '../lib/project'
 import webpackConfig from '../rspack-config'
-import {writeProjectFiles} from './helpers/extension-project'
 import {trackTempFolders} from './helpers/temp-folders'
+import {writeProjectFiles} from './helpers/extension-project'
 
 const tempFolder = trackTempFolders()
 

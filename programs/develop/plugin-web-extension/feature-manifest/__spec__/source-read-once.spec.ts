@@ -1,11 +1,11 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
-import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {readProjectSource} from '../../../lib/emitted-evidence'
 import {missingConstantsOf} from '../../feature-scripts/steps/warn-missing-build-constants'
 import {classicConcatEntry} from '../../shared/classic-concat'
 import {sourceFileOf} from '../steps/warn-webassembly'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 
 // One compile reads a project file from disk once. A scan that reads it
 // again sees a later save, and the findings of one build then disagree.

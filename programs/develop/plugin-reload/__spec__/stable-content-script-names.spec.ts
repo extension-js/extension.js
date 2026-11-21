@@ -2,10 +2,10 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compiler, rspack} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
-import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {getProjectStructure} from '../../lib/project'
 import webpackConfig from '../../rspack-config'
 import {stableContentScriptHash} from '../steps/stable-content-script-names'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
 const tempFolder = trackTempFolders()
 

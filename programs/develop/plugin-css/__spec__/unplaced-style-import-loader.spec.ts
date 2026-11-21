@@ -1,14 +1,14 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
-import {writeProjectFiles} from '../../__spec__/helpers/extension-project'
-import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {toResourceKey} from '../../lib/resource-path'
 import {findDeclaredContentScriptFiles} from '../index'
 import unplacedStyleImportLoader, {
   comparablePathKey,
   isDeclaredEntry
 } from '../unplaced-style-import-loader'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+import {writeProjectFiles} from '../../__spec__/helpers/extension-project'
 
 // eslint-disable-next-line no-control-regex
 const ANSI = /\u001b\[[0-9;]*m/g

@@ -2,9 +2,9 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
-import {writeProjectFiles} from '../../../__spec__/helpers/extension-project'
 import {ensureTypeScriptConfig} from '../../js-tools/typescript'
 import {buildReachesTypeScript} from '../../js-tools/typescript-reach'
+import {writeProjectFiles} from '../../../__spec__/helpers/extension-project'
 
 const tempDirs: string[] = []
 

@@ -2,13 +2,13 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
-import {writeProjectFiles} from '../../../../__spec__/helpers/extension-project'
 import {noteWithheldCssRef} from '../../../../lib/withheld-file'
 import {asCompilation} from '../../../__spec__/helpers/rspack-fakes'
 import {
   emitRootAbsoluteRefs,
   planRootAbsoluteRef
 } from '../../steps/emit-root-absolute-refs'
+import {writeProjectFiles} from '../../../../__spec__/helpers/extension-project'
 import type {BuildIssue, FakeSource} from '../helpers/html-fakes'
 
 type EmittedAsset = {name: string; source: FakeSource}

@@ -1,8 +1,8 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
-import {buildProject} from './helpers/build-project'
 import {trackTempFolders} from './helpers/temp-folders'
+import {buildProject} from './helpers/build-project'
 
 // A library host that runs a build keeps running after it. The env files the
 // config loaded and the card the build claimed must not stay in its process.

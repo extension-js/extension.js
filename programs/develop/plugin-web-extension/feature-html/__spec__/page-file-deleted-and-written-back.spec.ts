@@ -7,9 +7,9 @@ import {
   openDevWatchSession,
   waitUntil
 } from '../../../__spec__/helpers/dev-watch-session'
-import {writeExtensionProject} from '../../../__spec__/helpers/extension-project'
 import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {outputHolding} from './helpers/private-files-project'
+import {writeExtensionProject} from '../../../__spec__/helpers/extension-project'
 
 // A real rspack watch over a popup, one session per row. The row deletes a
 // file the page names, lets the failed build settle, then writes it back.

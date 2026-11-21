@@ -3,8 +3,8 @@ import os from 'node:os'
 import path from 'node:path'
 import {rspack} from '@rspack/core'
 import {afterEach, describe, expect, it} from 'vitest'
-import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {TraceRuntimeLoadedFiles} from '../steps/trace-runtime-loaded-files'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 
 // A surface the background names at runtime (an icon, a popup, a panel)
 // whose file is absent, in a real compilation of that background.

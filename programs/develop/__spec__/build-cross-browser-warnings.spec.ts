@@ -2,8 +2,8 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
-import {writeProjectFiles} from './helpers/extension-project'
 import {trackTempFolders} from './helpers/temp-folders'
+import {writeProjectFiles} from './helpers/extension-project'
 
 // One Chromium-first side panel project, built for each engine. The panel
 // page is written at the root and ships as sidebar/index.html, its script

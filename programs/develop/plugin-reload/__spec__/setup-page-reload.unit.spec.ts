@@ -2,13 +2,13 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compiler, rspack} from '@rspack/core'
 import {afterAll, afterEach, describe, expect, it, vi} from 'vitest'
-import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../../plugin-web-extension/feature-scripts/contracts'
 import {
   type HtmlPage,
   htmlPagesExtensionsFor
 } from '../../plugin-web-extension/shared/html-page-extensions'
 import {SetupPageReload} from '../steps/setup-page-reload'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
 const compilers: Compiler[] = []
 

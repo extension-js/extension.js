@@ -2,8 +2,8 @@ import * as fs from 'node:fs'
 import os from 'node:os'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
-import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {tsconfigCanIncludeFile} from '../tsconfig-includes-file'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
 const tempFolder = trackTempFolders()
 

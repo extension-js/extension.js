@@ -1,9 +1,9 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {trackTempFolders} from './helpers/temp-folders'
 import {buildProject} from './helpers/build-project'
 import {writeExtensionProject} from './helpers/extension-project'
-import {trackTempFolders} from './helpers/temp-folders'
 
 // A build is no dev session, so its receipt names no dev server host, and
 // least of all the one a session in the same host process is listening on.

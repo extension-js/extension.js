@@ -2,8 +2,6 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
-import {buildProject} from '../../../__spec__/helpers/build-project'
-import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import type {BrowserType} from '../../../types'
 import {
   asCompilation,
@@ -17,6 +15,8 @@ import {
   WASM_PAGES_POLICY,
   WarnWebAssembly
 } from '../steps/warn-webassembly'
+import {buildProject} from '../../../__spec__/helpers/build-project'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import type {StepDiagnostic} from './helpers/manifest-fakes'
 
 const tempFolder = trackTempFolders()

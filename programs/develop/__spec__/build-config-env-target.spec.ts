@@ -1,8 +1,8 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
-import {buildProject} from './helpers/build-project'
 import {trackTempFolders} from './helpers/temp-folders'
+import {buildProject} from './helpers/build-project'
 
 // The config and the bundle of one build read the same env files: the ones
 // for the mode and the browser the build runs for.

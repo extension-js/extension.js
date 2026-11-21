@@ -5,8 +5,8 @@ import {describe, expect, it} from 'vitest'
 // fixtures write and the typecheck gate fails once the type drops the key.
 import type {FileConfig} from '../../extension/config-types'
 import {buildProject} from './helpers/build-project'
-import {writeProjectFiles} from './helpers/extension-project'
 import {trackTempFolders} from './helpers/temp-folders'
+import {writeProjectFiles} from './helpers/extension-project'
 
 // An offscreen document only Chromium opens lives in pages/ beside a page
 // every browser ships. `browser.firefox.exclude` leaves it out of the Firefox

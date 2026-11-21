@@ -3,11 +3,11 @@ import * as path from 'node:path'
 import {type Compiler, rspack, type Stats} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {sessionOf} from '../../__spec__/helpers/dev-session'
-import {writeProjectFiles} from '../../__spec__/helpers/extension-project'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {skipWithoutDevelopDist} from '../../dev-server/__spec__/helpers/develop-dist'
 import {getProjectStructure} from '../../lib/project'
 import webpackConfig from '../../rspack-config'
+import {writeProjectFiles} from '../../__spec__/helpers/extension-project'
 
 const tempFolder = trackTempFolders()
 
