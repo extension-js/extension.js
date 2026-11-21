@@ -29,6 +29,7 @@ function makeCompiler() {
       thisCompilation: {
         tap: (_name: string, cb: (c: unknown) => void) => {
           compilation = {
+            errors: [],
             getAssets: vi.fn(() => Object.values(compilation.__assets)),
             getAsset: vi.fn((name: string) => compilation.__assets[name]),
             emitAsset: vi.fn((name: string, src: sources.Source) => {

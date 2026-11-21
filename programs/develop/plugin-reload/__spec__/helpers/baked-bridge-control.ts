@@ -34,6 +34,7 @@ function runBridgeProducer(
         tap: (_options: unknown, fn: () => void) => processAssets.push(fn)
       }
     },
+    errors: [],
     getAssets: () => Object.values(assets),
     getAsset: (name: string) => assets[name],
     emitAsset: put,
