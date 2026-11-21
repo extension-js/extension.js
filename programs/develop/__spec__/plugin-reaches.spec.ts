@@ -60,10 +60,6 @@ const PRODUCT_REACHES: Array<[reach: string, why: string]> = [
     'the launcher receives reload instructions through the session reload publishes'
   ],
   [
-    'plugin-compatibility -> plugin-web-extension/feature-manifest/manifest-lib/manifest',
-    'held: the manifest reader with its browser overrides is not in lib yet'
-  ],
-  [
     'plugin-compatibility -> plugin-web-extension/feature-scripts/contracts',
     'web-extension names the content script layers and every other plugin reads the names'
   ],
@@ -74,10 +70,6 @@ const PRODUCT_REACHES: Array<[reach: string, why: string]> = [
   [
     'plugin-compatibility -> plugin-web-extension/shared/scannable-source-path',
     'shared/ is the folder web-extension publishes to the other plugins'
-  ],
-  [
-    'plugin-compilation -> plugin-web-extension/feature-manifest/manifest-lib/manifest',
-    'held: the manifest reader with its browser overrides is not in lib yet'
   ],
   [
     'plugin-css -> plugin-web-extension/feature-scripts/contracts',

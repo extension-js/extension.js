@@ -37,9 +37,9 @@ import {
 } from '../lib/copied-asset-env'
 import {resolveDevelopDistFile} from '../lib/develop-context'
 import {IMPORT_META_URL_RUNTIME} from '../lib/import-meta-url'
+import {setCurrentManifestContent} from '../lib/manifest/manifest-content'
 import {CODES, debugLine, isDebug} from '../lib/messaging'
 import {toProjectRelativePath} from '../lib/resource-path'
-import {setCurrentManifestContent} from '../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import type {DevOptions, PluginInterface} from '../types'
 import {
   escapeForHtmlAsset,

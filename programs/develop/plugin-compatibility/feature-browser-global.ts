@@ -19,7 +19,7 @@ import {
   mentionsBrowserName,
   referencesBrowserGlobal
 } from '../lib/free-browser-references'
-import {getManifestContent} from '../plugin-web-extension/feature-manifest/manifest-lib/manifest'
+import {getManifestContent} from '../lib/manifest/manifest-content'
 import {isHotUpdateFile} from '../plugin-web-extension/shared/initial-files'
 import {scannableSourcePath} from '../plugin-web-extension/shared/scannable-source-path'
 import type {DevOptions, PluginInterface} from '../types'
