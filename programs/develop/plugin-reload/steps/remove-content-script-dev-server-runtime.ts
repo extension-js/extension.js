@@ -73,7 +73,7 @@ function startupLine(
   return undefined
 }
 
-export interface StrippedContentScript {
+interface StrippedContentScript {
   source: string
   // Start and end offsets in the input of each piece taken out, in order.
   removed: Array<[number, number]>

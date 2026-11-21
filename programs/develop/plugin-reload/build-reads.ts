@@ -12,7 +12,7 @@ import {projectRelative, resolveReal} from './project-relative'
 
 // What one compile read: its file dependencies (modules, loader inputs,
 // manifest references, config and env files) and the paths it looked for.
-export interface BuildReads {
+interface BuildReads {
   files: Set<string>
   missing: Set<string>
 }

@@ -17,7 +17,7 @@ import type {
 import * as messages from '../messages'
 
 // Tells a root mounted by this build from one an earlier build left behind.
-export function createBuildToken(source: string): string {
+function createBuildToken(source: string): string {
   let hash = 0
 
   for (let index = 0; index < source.length; index++) {

@@ -17,7 +17,7 @@ import {
 } from './classify-reload'
 import type {ChangedSourcesTracker} from './reload-dispatch'
 
-export type LoadedContentScripts = ReturnType<typeof createLoadedContentScripts>
+type LoadedContentScripts = ReturnType<typeof createLoadedContentScripts>
 
 // Emulated Chromium reads the new file index on every reload and swaps a
 // renamed static content script itself, so nothing is compared for it.
