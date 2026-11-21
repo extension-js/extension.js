@@ -30,7 +30,7 @@ import {projectRelative} from './project-relative'
 
 // Every reload goes through the control-bridge broker, never CDP or RDP. RDP
 // still wakes a suspended Firefox background so a latched reload is delivered.
-export interface UndeliveredReloadContext {
+interface UndeliveredReloadContext {
   // True when the caller restarted the extension to ship this build, so a
   // zero-producer broadcast is expected rather than a fault to report.
   producerRestartExpected?: boolean
@@ -74,12 +74,7 @@ export interface ReloadBroker {
 
 // The public names ready.json publishes in reloadKind. safari-resync is the
 // appex Safari reloads after a rebuild, stamped by the Safari dev plugin.
-export type ReloadKind =
-  | 'full'
-  | 'background'
-  | 'content'
-  | 'page'
-  | 'safari-resync'
+type ReloadKind = 'full' | 'background' | 'content' | 'page' | 'safari-resync'
 
 export function reloadKindFor(type: ReloadInstruction['type']): ReloadKind {
   if (type === 'service-worker') return 'background'
@@ -89,7 +84,7 @@ export function reloadKindFor(type: ReloadInstruction['type']): ReloadKind {
   return 'full'
 }
 
-export interface ReloadExecutor {
+interface ReloadExecutor {
   broker?: ReloadBroker
   // Safari packages by replacing the appex under a running browser, which takes
   // the extension down. The dispatch that follows must not call that a fault.
@@ -153,13 +148,13 @@ async function wakeDelivered(broker: ReloadBroker): Promise<boolean> {
 
 // The one stdout announcement per dispatched reload: one server-built string
 // echoed by producer console and devtools pill, zero drift.
-export function formatReloadingLine(label: string): string {
+function formatReloadingLine(label: string): string {
   return `${prefix('info')} Reloading ${label}…`
 }
 
 // A page reload that only ran injected files again reloaded no page, so the
 // line names the files and the tabs. Every other reload keeps its own line.
-export function appliedReloadLine(
+function appliedReloadLine(
   instruction: ReloadInstruction,
   broker: ReloadBroker
 ): string {
@@ -196,7 +191,7 @@ export function appliedReloadLine(
 
 // The ack window closed with no receipt: the frame reached an open socket and
 // the worker still never said it applied the edit, so say exactly that.
-export function formatUnappliedReloadLine(label: string): string {
+function formatUnappliedReloadLine(label: string): string {
   return (
     `${prefix('warn')} ${label} compiled but the extension never confirmed ` +
     'the reload, so this edit may not be live. Save again, or reload the ' +
@@ -217,7 +212,7 @@ function warnUnapplied(label: string, broker: ReloadBroker): void {
 
 // The worker acked the reload and then never said hello again, so the edit
 // was handed over and the extension is not there to run it.
-export function formatNotRestartedLine(label: string): string {
+function formatNotRestartedLine(label: string): string {
   return (
     `${prefix('warn')} ${label} reloaded but the extension has not come back ` +
     'since, so this edit may not be live. Reload the extension from the ' +
@@ -227,10 +222,7 @@ export function formatNotRestartedLine(label: string): string {
 
 // The extension said hello after the line above was printed, so the verdict
 // is taken back: a slow restart is not a lost one.
-export function formatLateRestartLine(
-  label: string,
-  late: LateReloadRestart
-): string {
+function formatLateRestartLine(label: string, late: LateReloadRestart): string {
   const seconds = Math.max(1, Math.round(late.afterMs / 1000))
 
   return late.runsBuild
@@ -241,7 +233,7 @@ export function formatLateRestartLine(
 
 // The zero-producer line for a caller that restarted the extension itself. The
 // broker latched the instruction, so the reconnecting producer still applies it.
-export function formatQueuedReloadLine(label: string): string {
+function formatQueuedReloadLine(label: string): string {
   return `${prefix('info')} Queued ${label} for the extension to apply when it reconnects.`
 }
 
@@ -387,7 +379,7 @@ async function dispatchViaBroker(
   return false
 }
 
-export interface ChangedSourcesSnapshot {
+interface ChangedSourcesSnapshot {
   forcedFull: boolean
   changedSources: string[]
 }

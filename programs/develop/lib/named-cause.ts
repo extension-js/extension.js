@@ -23,7 +23,7 @@ const GUTTER = /^\s*(?:│\s*)*│ ?/
 const CHANNEL_GLYPH = /^⏵⏵⏵\s*(?:(?:Warning|Error):(?:\s+|$))?/
 const STACK_FRAME = /^\s+at (?:.*\(.*\)|\S+:\d+:\d+)\s*$/
 
-export interface NamedCauseOptions {
+interface NamedCauseOptions {
   // A machine string keeps one gutter per line, the frame the layout strip expects.
   machine?: boolean
   keepStack?: boolean

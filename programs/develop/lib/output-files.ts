@@ -14,7 +14,7 @@ export interface OutputFile {
   size: number
 }
 
-export interface FoldedOutputFiles {
+interface FoldedOutputFiles {
   count: number
   bytes: number
   sourceMapsOnly: boolean

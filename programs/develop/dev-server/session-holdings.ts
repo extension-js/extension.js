@@ -10,7 +10,7 @@ type Release = () => void
 
 type ExitEvents = Pick<NodeJS.EventEmitter, 'once' | 'removeListener'>
 
-export interface SessionHoldings {
+interface SessionHoldings {
   // What could still act for the session: a restart, a poller. Runs at
   // process exit, and first at a release.
   addEarly: (release: Release) => void

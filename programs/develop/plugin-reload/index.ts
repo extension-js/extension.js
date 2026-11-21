@@ -18,7 +18,6 @@ import {AddContentScriptReinject} from './steps/add-content-script-reinject'
 import {ApplyDevDefaults} from './steps/apply-dev-defaults'
 import {
   InjectBridgeProducer,
-  readBootRegistrations,
   readDevBuild
 } from './steps/inject-bridge-producer'
 import {InjectBridgeRelay} from './steps/inject-bridge-relay'
@@ -34,23 +33,20 @@ import {StableContentScriptNames} from './steps/stable-content-script-names'
 import {StripContentScriptDevServerRuntime} from './steps/strip-content-script-dev-server-runtime'
 
 export {
-  type LoadedContentScripts,
-  loadedContentScriptsFor,
-  reloadForBuild
-} from './build-reload'
-export {
   buildSourceFeatureIndex,
   classifyReloadFromSources,
-  createLoadedContentScripts,
   type ReloadInstruction,
   type ReloadType,
   readContentScriptCount
 } from './classify-reload'
+
 export {attachHtmlRefresh} from './html-refresh'
+
 export {
   mergeReloadInstructions,
   reloadSurvivingPackage
 } from './reload-after-package'
+
 export {
   type ChangedSourcesTracker,
   createChangedSourcesTracker,
@@ -59,15 +55,16 @@ export {
   fullReloadsDeliveredTo,
   type ReloadBroker
 } from './reload-dispatch'
+
 export {
-  type BuildHold,
-  type CompilerReloads,
   createReloadSession,
   type ReloadPlan,
   type ReloadSession,
   reloadEachBuild
 } from './reload-session'
-export {readBootRegistrations, readDevBuild}
+
+export {readDevBuild}
+
 // The page side of reload. Registered ahead of plugin-web-extension, whose
 // pages it adds to as they are declared.
 export {SetupPageReload as PageReloadPlugin}

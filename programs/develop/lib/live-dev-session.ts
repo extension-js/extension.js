@@ -17,7 +17,7 @@ export interface LiveDevSession {
 }
 
 // EPERM is a process that exists under another user: alive, not ours to signal.
-export function isProcessAlive(pid: number): boolean {
+function isProcessAlive(pid: number): boolean {
   try {
     process.kill(pid, 0)
 

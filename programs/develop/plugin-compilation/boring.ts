@@ -46,7 +46,7 @@ function countDiagnostics(stats: Stats): {
   }
 }
 
-export interface BoringPluginOptions extends PluginInterface {
+interface BoringPluginOptions extends PluginInterface {
   browserLaunchEnabled?: boolean
   // True when the caller prints the diagnostics after the done hook returns.
   diagnosticsFollow?: boolean

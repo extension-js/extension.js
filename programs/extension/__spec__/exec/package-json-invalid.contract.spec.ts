@@ -208,3 +208,59 @@ describe.skipIf(!modeBitsKeepReadersOut)(
     })
   }
 )
+
+// A folder under the name is skipped by the walk, so the bundler used to
+// meet it first and answer with its own read error.
+describe('a project whose package.json is a folder', () => {
+  let work = ''
+  let projectDir = ''
+
+  beforeAll(() => {
+    work = mkdtempSync(join(tmpdir(), 'extjs-package-json-folder-'))
+    projectDir = join(work, 'project')
+    mkdirSync(join(projectDir, 'package.json'), {recursive: true})
+    writeFileSync(
+      join(projectDir, 'manifest.json'),
+      JSON.stringify({manifest_version: 3, name: 'Folder', version: '1.0.0'})
+    )
+  })
+
+  afterAll(() => {
+    rmSync(work, {recursive: true, force: true})
+  })
+
+  it.each([
+    ['dev', ['--no-browser'], 'failed'],
+    ['build', [], 'build-failed'],
+    ['start', ['--no-browser'], 'build-failed'],
+    ['preview', ['--no-browser'], 'failed']
+  ] as const)('answers %s --output json with one E_PACKAGE_JSON_INVALID frame that says a folder was found', async (command, flags, status) => {
+    const run = await runCli([
+      command,
+      projectDir,
+      ...flags,
+      '--output',
+      'json'
+    ])
+    const emitted = framesIn<Frame>(run.stdout)
+
+    expect(run.status).toBe(1)
+    expect(emitted).toHaveLength(1)
+    expect(emitted[0].status).toBe(status)
+    expect(emitted[0].error?.code).toBe('E_PACKAGE_JSON_INVALID')
+    expect(String(emitted[0].error?.message)).toContain(
+      'package.json is a folder, not a file.'
+    )
+  })
+
+  it('fails the doctor check that reads package.json', async () => {
+    const run = await runCli(['doctor', projectDir, '--output', 'json'])
+    const [frame] = framesIn<{
+      value: Array<{check: string; status: string; detail?: string}>
+    }>(run.stdout)
+    const check = frame.value.find((each) => each.check === 'peer-rspack')
+
+    expect(check?.status).toBe('fail')
+    expect(check?.detail).toContain('is a folder, not a file')
+  })
+})

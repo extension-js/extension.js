@@ -29,7 +29,7 @@ export const HOST_GATED_PERMISSIONS = [
   'webRequest'
 ] as const
 
-export interface ContentScriptOnlyHostAccess {
+interface ContentScriptOnlyHostAccess {
   matches: string[]
   permissions: string[]
 }

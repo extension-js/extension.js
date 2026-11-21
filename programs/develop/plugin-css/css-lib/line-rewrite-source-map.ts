@@ -9,7 +9,7 @@
 const BASE64 =
   'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
 
-export interface LineRewriteSourceMap {
+interface LineRewriteSourceMap {
   version: 3
   sources: string[]
   sourcesContent: string[]

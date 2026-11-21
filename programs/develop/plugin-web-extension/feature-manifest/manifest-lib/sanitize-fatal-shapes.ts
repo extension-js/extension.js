@@ -11,14 +11,14 @@ import * as path from 'node:path'
 import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../../../lib/constants'
 import type {Manifest} from '../../../types'
 
-export interface FatalShapeFix {
+interface FatalShapeFix {
   field: string
   detail: string
   // The engine that refuses the load, when it is not Chrome
   refusedBy?: string
 }
 
-export interface MistypedManifestField {
+interface MistypedManifestField {
   field: string
   expected: string
   received: string

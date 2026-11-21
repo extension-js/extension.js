@@ -32,7 +32,7 @@ function listsFor(compiler: object | undefined): string[][] {
   return activeBuilds.size > 0 ? [...activeBuilds] : [pending]
 }
 
-export type CodedWarningListener = (
+type CodedWarningListener = (
   code: WarningCode,
   text: string,
   owner?: object

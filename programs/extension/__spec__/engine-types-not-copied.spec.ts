@@ -155,11 +155,7 @@ const KEPT_ON_PURPOSE: Array<{file: string; names: string[]; why: string}> = [
   },
   {
     file: 'browsers/browsers-types.ts',
-    names: [
-      'BrowserLogSink',
-      'BrowserLogSinkEvent',
-      'ExtensionLoadRetryResult'
-    ],
+    names: ['BrowserLogSinkEvent', 'ExtensionLoadRetryResult'],
     why: 'Part of the published launcher contract. Compared above.'
   },
   {

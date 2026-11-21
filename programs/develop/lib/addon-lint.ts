@@ -55,7 +55,7 @@ const NOTICES_PRINTED_AS_WARNINGS = new Set([
   'PERMISSION_FIREFOX_ANDROID_UNSUPPORTED_BY_MIN_VERSION'
 ])
 
-export interface AddonLintFinding {
+interface AddonLintFinding {
   code?: string
   message?: string
   description?: string
@@ -70,7 +70,7 @@ export interface AddonLintOutput {
   notices?: AddonLintFinding[]
 }
 
-export type AddonLintLevel = 'error' | 'warning'
+type AddonLintLevel = 'error' | 'warning'
 
 export interface AddonLintLine {
   level: AddonLintLevel
@@ -79,7 +79,7 @@ export interface AddonLintLine {
   location: string
 }
 
-export type AddonLintResult =
+type AddonLintResult =
   | {status: 'skipped'; reason: 'disabled' | 'mode' | 'browser'}
   | {status: 'missing'; hint: string | null}
   | {status: 'failed'; reason: string; line: string; debugLine: string}

@@ -11,7 +11,7 @@ import * as path from 'node:path'
 import type {Compiler, Configuration} from '@rspack/core'
 import {detectLiveDevSessionOwner} from '../plugin-ready-contract'
 
-export interface SessionStartPruneOptions {
+interface SessionStartPruneOptions {
   isRestart: boolean
   distPath: string
   readyPath: string
@@ -47,7 +47,7 @@ function removeLeftovers(folder: string, root: string, emitted: Set<string>) {
 // A running session never cleans its output: a tab opened before a rebuild
 // still reads older hashed chunks. Before the first good compile no such tab
 // exists, so what an earlier session left behind goes then, and only then.
-export class PruneSessionStartLeftovers {
+class PruneSessionStartLeftovers {
   public static readonly name: string = 'dev-server:prune-session-start'
 
   private readonly distPath: string

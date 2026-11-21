@@ -48,9 +48,9 @@ const webkitUnsupportedApis = {
 
 type WebkitUnsupportedApi = keyof typeof webkitUnsupportedApis
 
-export type GeckoUnsupportedApi = WebkitUnsupportedApi | 'action'
+type GeckoUnsupportedApi = WebkitUnsupportedApi | 'action'
 
-export interface WebkitUnsupportedMember {
+interface WebkitUnsupportedMember {
   api: string
   member: string
   // call is chrome.ns.member(...), read is chrome.ns.member.something
@@ -96,9 +96,9 @@ export const webkitUnsupportedMembers = [
   {api: 'windows', member: 'onBoundsChanged', kind: 'read'}
 ] as const satisfies readonly WebkitUnsupportedMember[]
 
-export type WebkitMemberApi = (typeof webkitUnsupportedMembers)[number]['api']
+type WebkitMemberApi = (typeof webkitUnsupportedMembers)[number]['api']
 
-export type UnsupportedApiName = GeckoUnsupportedApi | WebkitMemberApi
+type UnsupportedApiName = GeckoUnsupportedApi | WebkitMemberApi
 
 // A namespace the table above already covers would warn twice on one line, so
 // the member pass drops it. The two lists are disjoint by construction, since a
@@ -119,7 +119,7 @@ export const webkitMissingApis: WebkitMissingApis = {
   members: new Set(webkitMemberByKey.keys())
 }
 
-export interface GeckoPromiseOnlyMethod {
+interface GeckoPromiseOnlyMethod {
   api: 'action' | 'tabs'
   member: string
   // How many arguments the promise form takes, so one more is a callback
@@ -248,9 +248,9 @@ export function usesGeckoCallbackForm(
 
 // Both engines ask the runtime question: only an unguarded read through a
 // missing namespace throws, so the author's own feature check keeps it quiet.
-export type UnsupportedApiEngine = 'gecko' | 'webkit'
+type UnsupportedApiEngine = 'gecko' | 'webkit'
 
-export interface GeckoUnsupportedApiUse {
+interface GeckoUnsupportedApiUse {
   api: UnsupportedApiName
   // Set only for a member-level hit, where the namespace itself is fine
   member?: string
@@ -326,7 +326,7 @@ export function usesWebkitUnsupportedMember(
 
 // Parsing is paid once per text and only when a pattern already matched it,
 // so a project that never names a missing API never parses anything.
-export function guardedRangesOf(
+function guardedRangesOf(
   missing: WebkitMissingApis = webkitMissingApis
 ): (text: string) => Range[] {
   const known = new Map<string, Range[]>()

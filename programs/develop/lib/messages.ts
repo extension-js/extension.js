@@ -27,7 +27,6 @@ import {asAskedPath, displayPath} from './paths'
 
 // Imported for local use and re-exported: consumers and snapshots read fmt
 // from this module, and the definition now lives in messaging.ts.
-export {fmt}
 
 function getLoggingPrefix(type: Channel, text?: string): string {
   return prefix(type, text)
@@ -108,6 +107,14 @@ export function packageJsonUnopened(packageJsonPath: string, reason: string) {
     `${colors.gray('PATH')} ${colors.underline(packageJsonPath)}\n` +
     `${colors.gray('REASON')} ${colors.red(reason)}\n` +
     `Make it a file this user can read, then run the command again.`
+  )
+}
+
+export function packageJsonNotAFile(packageJsonPath: string, found: string) {
+  return (
+    `${getLoggingPrefix('error')} package.json is ${found}, not a file.\n` +
+    `${colors.gray('PATH')} ${colors.underline(packageJsonPath)}\n` +
+    `Remove or rename it, or put a package.json file there, then run the command again.`
   )
 }
 

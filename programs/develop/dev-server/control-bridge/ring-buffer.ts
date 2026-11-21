@@ -13,9 +13,9 @@ import {
   type LogEvent
 } from './contracts'
 
-export const DEFAULT_RING_CAPACITY = 5000
+const DEFAULT_RING_CAPACITY = 5000
 
-export interface DrainedGap {
+interface DrainedGap {
   dropped: number
   reason: GapReason
   sinceSeq: number

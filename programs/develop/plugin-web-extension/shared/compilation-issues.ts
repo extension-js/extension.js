@@ -9,9 +9,9 @@
 import type {Compilation, Compiler} from '@rspack/core'
 import {toMachineText} from '../../lib/machine-text'
 
-export type IssueType = 'error' | 'warning'
+type IssueType = 'error' | 'warning'
 
-export function createIssue(
+function createIssue(
   compiler: Compiler,
   message: string,
   type: IssueType = 'error'

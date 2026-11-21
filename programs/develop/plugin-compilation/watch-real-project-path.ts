@@ -49,7 +49,7 @@ interface WatchFileSystem {
   watch?: Watch
 }
 
-export interface WatchRealProjectPathOptions {
+interface WatchRealProjectPathOptions {
   realpath?: (target: string) => string
 }
 

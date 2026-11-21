@@ -11,10 +11,7 @@ import {
   type DevSessionRestartRequest
 } from '../lib/session-restart-signal'
 
-export type {
-  DevSessionRestartReason,
-  DevSessionRestartRequest
-} from '../lib/session-restart-signal'
+export type {DevSessionRestartRequest} from '../lib/session-restart-signal'
 
 export const DEV_SESSION_RESTART_DEBOUNCE_MS = 300
 

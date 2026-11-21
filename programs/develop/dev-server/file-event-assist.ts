@@ -41,7 +41,7 @@ interface AssistedWatchFileSystem {
   watch?: (...args: unknown[]) => unknown
 }
 
-export interface FileEventAssistOptions {
+interface FileEventAssistOptions {
   platform?: NodeJS.Platform
   watchFile?: (file: string, listener: (type: string) => void) => fs.FSWatcher
   // Returns the function that stops the poll.

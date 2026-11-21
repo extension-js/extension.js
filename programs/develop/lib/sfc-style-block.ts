@@ -79,9 +79,7 @@ export function moduleStyleBlockRequest(input: {
 // reads it back from the component, so a CSS loader sees a .svelte resource.
 export const SVELTE_STYLE_BLOCK_TEST = /\.svelte\.\d+\.css$/
 
-export function isSvelteStyleBlockPath(
-  resourcePath: string | undefined
-): boolean {
+function isSvelteStyleBlockPath(resourcePath: string | undefined): boolean {
   return String(resourcePath || '').endsWith('.svelte')
 }
 

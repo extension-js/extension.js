@@ -14,7 +14,7 @@ import {discoverRuntimeSurfacePages} from './discover-runtime-surfaces'
 import {settingsOverridesStartupPages} from './manifest-path-assets'
 import {omitOwnedPages} from './omit-owned-pages'
 
-export interface HtmlPageEntriesOptions {
+interface HtmlPageEntriesOptions {
   manifestPath: string
   browser: DevOptions['browser']
   projectPath?: string

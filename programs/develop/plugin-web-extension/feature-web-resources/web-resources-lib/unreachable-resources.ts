@@ -51,8 +51,7 @@ export function isResourceCovered(
 
 // Names passed to runtime.getURL as a plain string. A computed name cannot be
 // read here, so a miss stays silent rather than guessing at a wrong file.
-export const GET_URL_LITERAL_PATTERN =
-  /getURL\s*\(\s*["'`]([^"'`\n)]+)["'`]\s*\)/g
+const GET_URL_LITERAL_PATTERN = /getURL\s*\(\s*["'`]([^"'`\n)]+)["'`]\s*\)/g
 
 // A bundle past this size is a payload, not hand-written glue, and scanning
 // it on every watch rebuild would cost more than the diagnostic is worth.

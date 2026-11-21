@@ -18,8 +18,8 @@ export const DEFAULT_SWC_TARGETS = ['chrome >= 100']
 
 // The stable Firefox and Safari on the day Chrome 100 shipped, so a build
 // with no declared floor reaches browsers of the same age on every engine.
-export const GECKO_DEFAULT_SWC_TARGETS = ['firefox >= 98']
-export const WEBKIT_DEFAULT_SWC_TARGETS = ['safari >= 15.4']
+const GECKO_DEFAULT_SWC_TARGETS = ['firefox >= 98']
+const WEBKIT_DEFAULT_SWC_TARGETS = ['safari >= 15.4']
 
 // A build compiles for one engine, so only that engine's declared floor may
 // downlevel it: minimum_chrome_version for the chromium family, the gecko

@@ -11,7 +11,7 @@ import * as path from 'node:path'
 import {renameSyncWithRetry} from '../../lib/rename-with-retry'
 import {LOG_EVENT_VERSION, type LogEvent} from './contracts'
 
-export interface LogsFileOptions {
+interface LogsFileOptions {
   filePath: string
   runId: string
   maxBytes?: number
@@ -43,7 +43,7 @@ function closeQuietly(fd: number | undefined): void {
 
 // Reads the header through an open descriptor, so the answer is about the
 // file that descriptor holds and not about whatever the path names by now.
-export function readLogDescriptorRunId(fd: number): string | undefined {
+function readLogDescriptorRunId(fd: number): string | undefined {
   try {
     const buffer = Buffer.alloc(HEADER_PROBE_BYTES)
     const read = fs.readSync(fd, buffer, 0, HEADER_PROBE_BYTES, 0)
@@ -86,11 +86,11 @@ export function isLogFileOwnedByAnotherRun(
   return isForeignRunId(readLogFileRunId(filePath), runId)
 }
 
-export type OwnedAppendResult = 'written' | 'foreign' | 'failed'
+type OwnedAppendResult = 'written' | 'foreign' | 'failed'
 
 // One descriptor carries the ownership check and the append. A newer run that
 // renames the file away in between leaves these rows in the renamed file.
-export function appendToOwnedLogFile(
+function appendToOwnedLogFile(
   filePath: string,
   runId: string,
   payload: string

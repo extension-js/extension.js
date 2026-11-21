@@ -15,10 +15,10 @@ import {humanLine} from '../../../lib/messaging'
 import type {DevOptions, Manifest} from '../../../types'
 import * as messages from '../messages'
 
-export type IconVariantsReader = 'gecko' | 'chromium' | 'webkit'
-export type IconVariantsOutcome = 'kept' | 'added' | 'missing'
+type IconVariantsReader = 'gecko' | 'chromium' | 'webkit'
+type IconVariantsOutcome = 'kept' | 'added' | 'missing'
 
-export interface IconVariantsVerdict {
+interface IconVariantsVerdict {
   // The manifest key the browser shows instead of the variants.
   key: string
   outcome: IconVariantsOutcome

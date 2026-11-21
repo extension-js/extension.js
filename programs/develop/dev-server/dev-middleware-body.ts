@@ -14,7 +14,7 @@ export interface OutputFileSystemLike {
   readFileSync?: (filePath: string) => Buffer
 }
 
-export interface ActiveCompilerRef {
+interface ActiveCompilerRef {
   outputPath(): string | undefined
   outputFileSystem(): OutputFileSystemLike | undefined
 }

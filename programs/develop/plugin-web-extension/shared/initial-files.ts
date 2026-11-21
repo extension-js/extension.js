@@ -8,7 +8,7 @@
 
 import {isHotUpdateFile} from '../../lib/hot-update-files'
 
-export interface ChunkLike {
+interface ChunkLike {
   files?: Iterable<string> | null
 }
 

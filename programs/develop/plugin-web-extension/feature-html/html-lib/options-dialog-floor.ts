@@ -14,8 +14,8 @@ import {OPTIONS_HTML_FEATURE} from '../../shared/html-surfaces'
 // Chrome opens the embedded options_ui dialog on the page's first non-empty
 // layout and stops drawing a guest shorter than 8px, so an empty first paint
 // never opens it and a 1px one never grows. 32px keeps both out of reach.
-export const OPTIONS_DIALOG_FLOOR_PX = 32
-export const OPTIONS_DIALOG_FLOOR_MARK = 'options-dialog-floor'
+const OPTIONS_DIALOG_FLOOR_PX = 32
+const OPTIONS_DIALOG_FLOOR_MARK = 'options-dialog-floor'
 export const OPTIONS_DIALOG_FLOOR_CSS = `html{min-height:${OPTIONS_DIALOG_FLOOR_PX}px}`
 
 // Only the page Chromium embeds in chrome://extensions needs the floor: a

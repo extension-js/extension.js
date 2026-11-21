@@ -15,7 +15,7 @@ import type {OutputFile} from './output-files'
 // every small file of a large build would cost more than it finds.
 const DUPLICATE_OUTPUT_THRESHOLD_BYTES = 256 * 1024
 
-export interface DuplicateOutputGroup {
+interface DuplicateOutputGroup {
   names: string[]
   size: number
 }
@@ -77,7 +77,7 @@ interface AssetInfoLike {
   info?: {sourceFilename?: unknown}
 }
 
-export interface AssetSourceReader {
+interface AssetSourceReader {
   getAsset?: (name: string) => unknown
 }
 

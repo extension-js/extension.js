@@ -67,10 +67,10 @@ const DEPENDENCY_FIELDS = [
   'optionalDependencies'
 ] as const
 
-export const MAX_LOCAL_IMPORT_DEPTH = 8
-export const MAX_LOCAL_IMPORT_FILES = 2000
+const MAX_LOCAL_IMPORT_DEPTH = 8
+const MAX_LOCAL_IMPORT_FILES = 2000
 
-export function readIfFile(absPath: string): string | undefined {
+function readIfFile(absPath: string): string | undefined {
   try {
     if (fs.statSync(absPath).isFile()) return fs.readFileSync(absPath, 'utf-8')
   } catch {
@@ -183,7 +183,7 @@ type ResolverOptions = NonNullable<
 
 // The resolve block of the bundler config, as loosely as a user config
 // may shape it.
-export type BuildResolve = Record<string, unknown>
+type BuildResolve = Record<string, unknown>
 
 const buildResolveByProject = new Map<
   string,

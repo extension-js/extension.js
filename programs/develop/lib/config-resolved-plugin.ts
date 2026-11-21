@@ -51,7 +51,7 @@ const FIXED_IN_OUTPUT = new Set([
   'bundlerInfo'
 ])
 
-export type ConfigResolvedHook = NonNullable<FileConfig['configResolved']>
+type ConfigResolvedHook = NonNullable<FileConfig['configResolved']>
 
 function isPlainObject(value: unknown): value is Options {
   if (typeof value !== 'object' || value === null) return false

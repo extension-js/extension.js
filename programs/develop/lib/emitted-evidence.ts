@@ -18,7 +18,7 @@ export interface EmittedModule {
   modules?: Iterable<EmittedModule>
 }
 
-export interface EmittedChunk {
+interface EmittedChunk {
   files?: Iterable<string>
 }
 

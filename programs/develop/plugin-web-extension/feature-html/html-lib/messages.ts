@@ -10,7 +10,7 @@ import * as path from 'node:path'
 import colors from 'pintor'
 import {type WithheldKind, withheldFileLines} from '../../../lib/withheld-file'
 
-export function javaScriptError(
+function javaScriptError(
   errorSourcePath: string,
   missingFilePath: string,
   opts?: {publicRootHint?: boolean; deadRefHint?: boolean; copiedPage?: boolean}
@@ -50,7 +50,7 @@ export function javaScriptError(
   return lines.join('\n')
 }
 
-export function cssError(
+function cssError(
   errorSourcePath: string,
   missingFilePath: string,
   opts?: {publicRootHint?: boolean; deadRefHint?: boolean}
@@ -85,7 +85,7 @@ export function cssError(
   return lines.join('\n')
 }
 
-export function staticAssetError(
+function staticAssetError(
   errorSourcePath: string,
   missingFilePath: string,
   opts?: {publicRootHint?: boolean; refLabel?: string; deadRefHint?: boolean}

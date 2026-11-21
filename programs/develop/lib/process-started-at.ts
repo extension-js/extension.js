@@ -72,7 +72,7 @@ export function processStartedAtMs(pid: number): number | null {
   return startedAt ? Date.parse(startedAt) : null
 }
 
-export interface ProcReader {
+interface ProcReader {
   platform?: NodeJS.Platform
   readFile?: (file: string) => string
 }
