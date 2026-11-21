@@ -3,6 +3,7 @@ import * as net from 'node:net'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {bridgeBrokerFake} from '../../__spec__/helpers/bridge-broker-fake'
 import {controlPortFilePath} from '../../lib/session-paths'
 import {stripAnsi} from '../../lib/strip-ansi'
 import {
@@ -43,12 +44,12 @@ function project(persistedPort?: number) {
 }
 
 function fakes() {
-  const broker = {
+  const broker = bridgeBrokerFake({
     noteControlPortUnavailable: vi.fn(),
-    pingProducers: () => {},
+    pingProducers: () => 0,
     onFrame: () => {},
     onClose: () => {}
-  }
+  })
   const logFile = {start: vi.fn(), close: vi.fn()}
   const actionsFile = {start: vi.fn()}
 
@@ -89,7 +90,7 @@ describe('opening the control bridge', () => {
     })
 
     const opening = await openControlBridge({
-      broker: broker as unknown as BridgeBroker,
+      broker,
       host: '127.0.0.1',
       viewerOrigin: null,
       packageJsonDir: root,
@@ -110,7 +111,7 @@ describe('opening the control bridge', () => {
       close: expect.any(Function)
     })
 
-    expect(broker.noteControlPortUnavailable.mock.calls).toEqual([
+    expect(vi.mocked(broker.noteControlPortUnavailable).mock.calls).toEqual([
       ['listen EADDRNOTAVAIL 10.0.0.9:0']
     ])
 
@@ -127,7 +128,7 @@ describe('opening the control bridge', () => {
     const root = project()
     const {broker, logFile, actionsFile} = fakes()
     const opening = await openControlBridge({
-      broker: broker as unknown as BridgeBroker,
+      broker,
       host: '127.0.0.1',
       viewerOrigin: null,
       packageJsonDir: root,
@@ -196,7 +197,7 @@ describe('opening the control bridge', () => {
     })
 
     const opening = await openControlBridge({
-      broker: broker as unknown as BridgeBroker,
+      broker,
       host: '127.0.0.1',
       viewerOrigin: null,
       packageJsonDir: root,
@@ -238,7 +239,7 @@ describe('opening the control bridge', () => {
     }
 
     const opening = await openControlBridge({
-      broker: broker as unknown as BridgeBroker,
+      broker,
       host: '127.0.0.1',
       viewerOrigin: null,
       packageJsonDir: root,
@@ -263,17 +264,17 @@ describe('opening the control bridge', () => {
   async function controlSocket() {
     const frames: unknown[] = []
     const closes: unknown[] = []
-    const broker = {
-      pingProducers: () => {},
+    const broker = bridgeBrokerFake({
+      pingProducers: () => 0,
       onFrame: (_conn: unknown, frame: unknown) => frames.push(frame),
       onClose: (conn: unknown) => closes.push(conn)
-    }
+    })
     const {startControlServer, MAX_CONTROL_FRAME_BYTES} = await import(
       '../control-bridge/ws-control-server'
     )
     const {WebSocket} = await import('ws')
     const server = await startControlServer({
-      broker: broker as unknown as BridgeBroker,
+      broker,
       host: '127.0.0.1',
       port: 0
     })

@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {portManagerFake} from '../../__spec__/helpers/port-manager-fake'
 import {codedError} from '../../lib/coded-error'
 import {CODES} from '../../lib/messaging'
 import {stripAnsi} from '../../lib/strip-ansi'
@@ -479,7 +480,7 @@ describe('a session that ended without a process exit', () => {
     holdings.addForRelease(
       setupCleanupHandlers(
         () => null,
-        {terminateCurrentInstance: async () => {}} as never,
+        portManagerFake({terminateCurrentInstance: async () => {}}),
         undefined,
         {exit, env: {}}
       )

@@ -31,7 +31,7 @@ export class ManifestPlugin {
   private readonly devSession?: boolean
   private readonly session?: PluginInterface['session']
 
-  constructor(options: PluginInterface & {browser: DevOptions['browser']}) {
+  constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
     this.devSession = options.devSession

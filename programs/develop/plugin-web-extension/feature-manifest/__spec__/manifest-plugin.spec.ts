@@ -152,8 +152,6 @@ describe('ManifestPlugin', () => {
   })
 
   it('builds for chrome when no browser is named', () => {
-    // The type requires a browser, and this row proves the runtime default.
-    // @ts-expect-error browser is left out on purpose
     const plugin = new ManifestPlugin({manifestPath})
     plugin.apply({hooks: {}} as never)
 
