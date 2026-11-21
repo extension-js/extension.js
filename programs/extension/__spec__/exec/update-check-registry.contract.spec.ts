@@ -1,10 +1,15 @@
+import {spawn} from 'node:child_process'
 import * as fs from 'node:fs'
 import * as http from 'node:http'
 import * as path from 'node:path'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {
+  CLI_BIN,
   CLI_ROOT,
   type CliHome,
+  type CliRunOptions,
+  type CliStartOptions,
+  cliEnv,
   cliHome,
   cliTempFolder,
   DEAD_REGISTRY,
@@ -15,6 +20,48 @@ import {
 import {trackTempFolders} from '../helpers/temp-folders'
 
 const makeTempFolder = trackTempFolders()
+
+// The check is for a person, so it runs only when stderr is a terminal. These
+// children are told theirs is one, and the spec still reads the two pipes.
+const runOnTerminal = (args: string[], options: CliRunOptions = {}) =>
+  runCli(args, {stderrTerminal: true, ...options})
+const startOnTerminal = (args: string[], options: CliStartOptions = {}) =>
+  startCli(args, {stderrTerminal: true, ...options})
+
+const shellQuoted = (text: string) => `'${text.replaceAll("'", "'\\''")}'`
+
+// Runs the CLI on a real pseudo terminal, through script(1). Both streams come
+// back as one, which is all the row that uses it reads.
+function runOnPty(
+  args: string[],
+  env: NodeJS.ProcessEnv
+): Promise<{status: number | null; output: string}> {
+  const command = [process.execPath, CLI_BIN, ...args]
+  const scriptArgs =
+    process.platform === 'darwin'
+      ? ['-q', '/dev/null', ...command]
+      : ['-qec', command.map(shellQuoted).join(' '), '/dev/null']
+
+  return new Promise((resolve, reject) => {
+    const child = spawn('script', scriptArgs, {
+      env,
+      stdio: ['ignore', 'pipe', 'pipe']
+    })
+    let output = ''
+
+    child.stdout.on('data', (chunk) => {
+      output += String(chunk)
+    })
+
+    child.stderr.on('data', (chunk) => {
+      output += String(chunk)
+    })
+
+    child.on('error', reject)
+    child.on('close', (status) => resolve({status, output}))
+  })
+}
+
 const NOTICE = 'version 99.0.0 is available'
 // What a run prints when the answer comes after its banner, on stderr.
 const LATE_NOTICE = 'The latest stable is 99.0.0.'
@@ -110,7 +157,7 @@ describe('the update check of a spawned CLI', () => {
   })
 
   it('asks the registry npm_registry names and prints the notice', async () => {
-    const run = await runCli(['build', projectDir], {
+    const run = await runOnTerminal(['build', projectDir], {
       home: freshCliHome(),
       env: {npm_registry: registry}
     })
@@ -123,7 +170,7 @@ describe('the update check of a spawned CLI', () => {
   it('asks the registry npm_config_registry names', async () => {
     asked.length = 0
 
-    const run = await runCli(['build', projectDir], {
+    const run = await runOnTerminal(['build', projectDir], {
       home: freshCliHome(),
       env: {npm_registry: undefined, npm_config_registry: registry}
     })
@@ -147,7 +194,7 @@ describe('the update check of a spawned CLI', () => {
     asked.length = 0
 
     const [command, ...rest] = args
-    const run = await runCli([command, projectDir, ...rest], {
+    const run = await runOnTerminal([command, projectDir, ...rest], {
       home: freshCliHome(),
       env: {npm_registry: registry, ...env}
     })
@@ -156,13 +203,45 @@ describe('the update check of a spawned CLI', () => {
     expect(tellsOfUpdate(run.output), run.output).toBe(false)
   })
 
+  // A script that pipes a build never waits on a registry, and gets no notice.
+  it('asks nothing when stderr is not a terminal', async () => {
+    asked.length = 0
+
+    const run = await runCli(['build', projectDir], {
+      home: freshCliHome(),
+      env: {npm_registry: registry}
+    })
+
+    expect(run.status, run.output).toBe(0)
+    expect(asked).toEqual([])
+    expect(tellsOfUpdate(run.output), run.output).toBe(false)
+  })
+
+  // The rows around this one tell the child its stderr is a terminal. This
+  // one gives it a real one, where script(1) can make it.
+  it.runIf(process.platform === 'darwin' || process.platform === 'linux')(
+    'asks and tells of the update on a real terminal',
+    async () => {
+      asked.length = 0
+
+      const run = await runOnPty(
+        ['build', projectDir],
+        cliEnv({home: freshCliHome(), env: {npm_registry: registry}})
+      )
+
+      expect(run.status, run.output).toBe(0)
+      expect(asked).toEqual(['/extension/latest'])
+      expect(tellsOfUpdate(run.output), run.output).toBe(true)
+    }
+  )
+
   it('asks the registry the home .npmrc names when no pin is set', async () => {
     const home = freshCliHome()
 
     fs.writeFileSync(path.join(home.home, '.npmrc'), `registry=${registry}\n`)
     asked.length = 0
 
-    const run = await runCli(['build', projectDir], {
+    const run = await runOnTerminal(['build', projectDir], {
       home,
       env: {npm_registry: undefined}
     })
@@ -175,7 +254,7 @@ describe('the update check of a spawned CLI', () => {
   it('keeps its answer in the home cache, not in a shared temp folder', async () => {
     const home = freshCliHome()
     const tempFolder = cliTempFolder(home)
-    const first = await runCli(['build', projectDir], {
+    const first = await runOnTerminal(['build', projectDir], {
       home,
       tempFolder,
       env: {npm_registry: registry}
@@ -188,7 +267,7 @@ describe('the update check of a spawned CLI', () => {
     asked.length = 0
 
     // Another home on the same temp folder gets no answer it did not ask for.
-    const later = await runCli(['build', projectDir], {
+    const later = await runOnTerminal(['build', projectDir], {
       home: freshCliHome(),
       tempFolder
     })
@@ -219,7 +298,7 @@ describe('the update check of a spawned CLI', () => {
     const address = slow.address()
     const port = typeof address === 'object' && address ? address.port : 0
     const home = freshCliHome()
-    const session = startCli(['build', projectDir], {
+    const session = startOnTerminal(['build', projectDir], {
       home,
       env: {npm_registry: `http://127.0.0.1:${port}/`}
     })
@@ -251,7 +330,7 @@ describe('the update check of a spawned CLI', () => {
 
     asked.length = 0
 
-    const first = await runCli(['build', projectDir], {
+    const first = await runOnTerminal(['build', projectDir], {
       env: {npm_registry: registry}
     })
 
@@ -263,7 +342,7 @@ describe('the update check of a spawned CLI', () => {
     // Read from the cache, the answer is always there before the banner.
     asked.length = 0
 
-    const cached = await runCli(['build', projectDir], {
+    const cached = await runOnTerminal(['build', projectDir], {
       env: {npm_registry: registry}
     })
 
@@ -271,7 +350,7 @@ describe('the update check of a spawned CLI', () => {
     expect(asked).toEqual([])
     expect(cached.stdout.split('\n')).toContain(`${BANNER} (${NOTICE})`)
 
-    const later = await runCli(['build', projectDir])
+    const later = await runOnTerminal(['build', projectDir])
 
     expect(later.status, later.output).toBe(0)
     expect(asked).toEqual([])
@@ -289,7 +368,7 @@ describe('the update check of a spawned CLI', () => {
 
     const address = silent.address()
     const port = typeof address === 'object' && address ? address.port : 0
-    const session = startCli(['build', projectDir], {
+    const session = startOnTerminal(['build', projectDir], {
       env: {npm_registry: `http://127.0.0.1:${port}/`}
     })
 
@@ -322,7 +401,7 @@ describe('the update check of a spawned CLI', () => {
     const options = {home, env: {npm_registry: silent.url}}
 
     try {
-      const first = await runCli(['build', projectDir], options)
+      const first = await runOnTerminal(['build', projectDir], options)
 
       expect(first.status, first.output).toBe(0)
       expect(silent.asked).toEqual(['/extension/latest'])
@@ -330,7 +409,7 @@ describe('the update check of a spawned CLI', () => {
       expect(cacheEntries(home).map((entry) => entry.missed)).toEqual([true])
       expect(cachedAnswers(home)).toEqual([])
 
-      const second = await runCli(['build', projectDir], options)
+      const second = await runOnTerminal(['build', projectDir], options)
 
       expect(second.status, second.output).toBe(0)
       expect(silent.asked).toEqual(['/extension/latest'])
@@ -348,7 +427,7 @@ describe('the update check of a spawned CLI', () => {
 
     asked.length = 0
 
-    const first = await runCli(['build', projectDir], options)
+    const first = await runOnTerminal(['build', projectDir], options)
 
     expect(first.status, first.output).toBe(0)
 
@@ -362,7 +441,7 @@ describe('the update check of a spawned CLI', () => {
 
     asked.length = 0
 
-    const later = await runCli(['build', projectDir], options)
+    const later = await runOnTerminal(['build', projectDir], options)
 
     expect(later.status, later.output).toBe(0)
     expect(asked).toEqual(['/extension/latest'])
@@ -387,7 +466,7 @@ describe('the update check of a spawned CLI', () => {
 
     fs.writeFileSync(path.join(broken, 'sw.js'), 'const broken = ;\n')
 
-    const session = startCli(['build', broken], {
+    const session = startOnTerminal(['build', broken], {
       home: freshCliHome(),
       env: {npm_registry: silent.url}
     })
@@ -409,13 +488,14 @@ describe('the update check of a spawned CLI', () => {
     }
   })
 
-  // The build is done and said so. The signal ends the wait, not the build.
+  // The build is done and said so. From that line on a signal ends the wait,
+  // or keeps it from starting, and the exit code is the build's.
   it.each([
     'SIGINT',
     'SIGTERM'
-  ] as const)('%s during the wait ends the run at once with the code of the build', async (signal) => {
+  ] as const)('%s after the built line ends the run at once with the code of the build', async (signal) => {
     const silent = await silentRegistry()
-    const session = startCli(['build', projectDir], {
+    const session = startOnTerminal(['build', projectDir], {
       home: freshCliHome(),
       env: {npm_registry: silent.url}
     })
@@ -426,10 +506,6 @@ describe('the update check of a spawned CLI', () => {
         60_000,
         'the built line'
       )
-
-      // The engine prints the line a moment before the command returns and
-      // the wait starts, so the signal is held back into the wait itself.
-      await new Promise((resolve) => setTimeout(resolve, 750))
 
       const signaledAt = Date.now()
 
@@ -448,7 +524,7 @@ describe('the update check of a spawned CLI', () => {
     fs.writeFileSync(path.join(home.home, '.npmrc'), `registry=${registry}\n`)
     asked.length = 0
 
-    const run = await runCli(['build', projectDir], {
+    const run = await runOnTerminal(['build', projectDir], {
       home
     })
 

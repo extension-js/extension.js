@@ -144,7 +144,13 @@ export interface CliEnvOptions {
   // A folder from cliTempFolder, for children that share one on purpose.
   // Without it each child gets a folder of its own.
   tempFolder?: string
+  // The child reads its stderr as a terminal, while the spec keeps the pipe.
+  stderrTerminal?: boolean
 }
+
+const STDERR_IS_A_TERMINAL = path
+  .join(__dirname, 'stderr-is-a-terminal.cjs')
+  .replaceAll('\\', '/')
 
 // Built from a list and never from the parent, so nothing the developer or
 // the runner exported reaches a child unless the spec names it.
@@ -198,6 +204,10 @@ export function cliEnv(options: CliEnvOptions = {}): NodeJS.ProcessEnv {
   })
 
   if (!options.telemetry) env.EXTENSION_TELEMETRY = '0'
+
+  if (options.stderrTerminal) {
+    env.NODE_OPTIONS = `--require "${STDERR_IS_A_TERMINAL}"`
+  }
 
   for (const [name, value] of Object.entries(options.env ?? {})) {
     if (value === undefined) Reflect.deleteProperty(env, name)
