@@ -83,7 +83,7 @@ function unreadableEncodingOf(bytes: Buffer): string | undefined {
 
 // The one read of a project's package.json: every reader takes the same
 // object, and a file no tool can parse is refused once, by its own code.
-export function readPackageJson(packageJsonPath: string): ParsedJson {
+export function readPackageJson<T = ParsedJson>(packageJsonPath: string): T {
   const bytes = fs.readFileSync(packageJsonPath)
   const encoding = unreadableEncodingOf(bytes)
 

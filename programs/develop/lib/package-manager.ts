@@ -539,7 +539,9 @@ export type WorkspaceMember = PnpmWorkspaceMember & {
 
 function readPackageJsonWorkspaces(dir: string): string[] | undefined {
   try {
-    const pkg = readPackageJson(path.join(dir, 'package.json'))
+    const pkg = readPackageJson<{
+      workspaces?: unknown[] | {packages?: unknown}
+    } | null>(path.join(dir, 'package.json'))
     const field = pkg?.workspaces
     const list = Array.isArray(field) ? field : field?.packages
 
