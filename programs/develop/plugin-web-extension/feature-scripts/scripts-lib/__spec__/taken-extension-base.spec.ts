@@ -7,7 +7,6 @@ import {
   EXTENSION_BASE_ATTRIBUTE,
   extensionBaseAttribute,
   extensionBaseGlobal,
-  TAKE_BLOCK_OPEN,
   takeBlockOpen
 } from '../../../../lib/extension-base-from-stack'
 import {
@@ -25,7 +24,7 @@ describe('the block a Gecko MAIN world file is closed in', () => {
   it('opens on the read and closes at the end of the file', () => {
     const {open, closed} = closeTakeBlock('window.ran = __extjsTakenBase')
 
-    expect(open).toBe(TAKE_BLOCK_OPEN)
+    expect(open).toBe(takeBlockOpen())
     expect(closed).toBe('window.ran = __extjsTakenBase\n}')
     expect(takesExtensionBase(`${open}${closed}`)).toBe(true)
     expect(takesExtensionBase(closed)).toBe(false)
@@ -80,7 +79,7 @@ describe('the block a Gecko MAIN world file is closed in', () => {
       takeBlockOpen(extensionBaseGlobal('any extension')).length
     )
 
-    expect(TAKE_BLOCK_COLUMNS).toBeGreaterThan(TAKE_BLOCK_OPEN.length)
+    expect(TAKE_BLOCK_COLUMNS).toBeGreaterThan(takeBlockOpen().length)
     expect(Number(columns?.[1])).toBe(TAKE_BLOCK_COLUMNS)
   })
 })

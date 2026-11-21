@@ -4,7 +4,7 @@ import {
   EXTENSION_ROOT_PLACEHOLDER,
   SFC_STYLE_ATTRIBUTE
 } from '../../../../lib/css/inline-content-script-css'
-import {TAKE_BLOCK_OPEN} from '../../../../lib/extension-base-from-stack'
+import {takeBlockOpen} from '../../../../lib/extension-base-from-stack'
 import {getContentScriptCssProbeMarker} from '../../contracts'
 import {
   namesSheet,
@@ -15,6 +15,8 @@ import {
   SHEET_BLOCK_OPEN,
   withoutSheetBlock
 } from '../runtime-script-sheet'
+
+const TAKE_BLOCK_OPEN = takeBlockOpen()
 
 interface StyleElement {
   attrs: Record<string, string>

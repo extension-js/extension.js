@@ -1,8 +1,10 @@
 import {describe, expect, it} from 'vitest'
-import {
-  extractMainWorldRegisteredFileLiterals,
-  extractRegisteredFileSightings
-} from '../scripts-lib/registration-worlds'
+import {extractRegisteredFileSightings} from '../scripts-lib/registration-worlds'
+
+const extractMainWorldRegisteredFileLiterals = (source: string) =>
+  extractRegisteredFileSightings(source)
+    .filter((sighting) => sighting.world === 'MAIN')
+    .map((sighting) => sighting.file)
 
 const worldsOf = (source: string, file = 'scripts/hook.js') =>
   extractRegisteredFileSightings(source)
