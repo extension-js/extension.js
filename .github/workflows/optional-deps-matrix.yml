@@ -25,8 +25,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: optional-deps-matrix-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: optional-deps-matrix-${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # The toolchain preflight spec has no job here: the develop suite in ci.yml

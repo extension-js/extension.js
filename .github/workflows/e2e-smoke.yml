@@ -23,8 +23,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: e2e-smoke-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: e2e-smoke-${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   smoke:

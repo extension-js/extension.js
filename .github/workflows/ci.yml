@@ -21,7 +21,7 @@ permissions:
 # A newer push supersedes a pull request run, but every run of main finishes
 # so its red lane report names the commit that broke it.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
