@@ -4,14 +4,14 @@ import os from 'node:os'
 import path from 'node:path'
 import {test} from 'node:test'
 import {fileURLToPath} from 'node:url'
+import {requireBuiltWorkspaceDependencies} from '../lib/require-built-workspace-deps.mjs'
 import {
   buildEntriesFor,
   missingBuildEntries,
   unbuiltDependencyLine,
   unbuiltWorkspaceDependencies,
   workspaceDependencyNames
-} from '../ensure-workspace-deps.mjs'
-import {requireBuiltWorkspaceDependencies} from '../lib/require-built-workspace-deps.mjs'
+} from '../lib/workspace-build-entries.mjs'
 
 const CLI_MANIFEST = {
   name: 'extension',

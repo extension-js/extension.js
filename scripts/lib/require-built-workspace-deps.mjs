@@ -1,7 +1,7 @@
 import {
   unbuiltDependencyLine,
   unbuiltWorkspaceDependencies
-} from '../ensure-workspace-deps.mjs'
+} from './workspace-build-entries.mjs'
 
 // A spec run started without the package's pretest never built the sibling
 // packages, and each row that spawns the compiled CLI then fails on its own.
