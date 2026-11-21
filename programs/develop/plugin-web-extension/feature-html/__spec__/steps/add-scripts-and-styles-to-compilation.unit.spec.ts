@@ -1,9 +1,20 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import {asCompiler} from '../../../__spec__/helpers/rspack-fakes'
 import {EXTENSIONJS_SANDBOX_LAYER} from '../../../feature-scripts/contracts'
 import {AddScriptsAndStylesToCompilation} from '../../steps/add-scripts-and-styles-to-compilation'
 import {trackTempFolders} from '../../../../__spec__/helpers/temp-folders'
+
+// The compiler options the entry step reads and writes.
+type EntryCompiler = {
+  options: {
+    mode: string
+    entry: Record<string, {import: string[]; layer?: string}>
+    resolve?: unknown
+    devServer?: {host: string; port: number; hot: string}
+  }
+}
 
 const tempFolder = trackTempFolders()
 
@@ -25,11 +36,11 @@ describe('AddScriptsAndStylesToCompilation', () => {
     fs.writeFileSync(path.join(tmp, 'main.js'), '// main')
     const manifestPath = path.join(tmp, 'manifest.json')
     fs.writeFileSync(manifestPath, '{}')
-    const compiler: any = {options: {mode: 'production', entry: {}}}
+    const compiler: EntryCompiler = {options: {mode: 'production', entry: {}}}
     new AddScriptsAndStylesToCompilation({
       manifestPath,
       includeList: {'feature/index': htmlPath}
-    }).apply(compiler as any)
+    }).apply(asCompiler(compiler))
 
     expect(
       compiler.options.entry['feature/index'].import.some((p: string) =>
@@ -55,12 +66,12 @@ describe('AddScriptsAndStylesToCompilation', () => {
     fs.writeFileSync(path.join(tmp, 'main.js'), '// main')
     const manifestPath = path.join(tmp, 'manifest.json')
     fs.writeFileSync(manifestPath, '{}')
-    const compiler: any = {options: {mode: 'production', entry: {}}}
+    const compiler: EntryCompiler = {options: {mode: 'production', entry: {}}}
 
     new AddScriptsAndStylesToCompilation({
       manifestPath,
       includeList: {'sandbox/page-0': htmlPath, 'action/index': htmlPath}
-    }).apply(compiler as any)
+    }).apply(asCompiler(compiler))
 
     expect(EXTENSIONJS_SANDBOX_LAYER).toEqual(expect.any(String))
     expect(compiler.options.entry['sandbox/page-0'].layer).toBe(
@@ -81,13 +92,13 @@ describe('AddScriptsAndStylesToCompilation', () => {
     fs.writeFileSync(path.join(tmp, 'exists.js'), '// exists')
     const manifestPath = path.join(tmp, 'manifest.json')
     fs.writeFileSync(manifestPath, '{}')
-    const compiler: any = {options: {mode: 'production', entry: {}}}
+    const compiler: EntryCompiler = {options: {mode: 'production', entry: {}}}
     new AddScriptsAndStylesToCompilation({
       manifestPath,
       includeList: {'feature/index': htmlPath}
-    }).apply(compiler as any)
+    }).apply(asCompiler(compiler))
 
-    const imports = compiler.options.entry['feature/index'].import as string[]
+    const imports = compiler.options.entry['feature/index'].import
     expect(imports.some((p) => p.endsWith('exists.js'))).toBe(true)
     expect(imports.some((p) => p.endsWith('dead-ref.js'))).toBe(false)
   })
@@ -106,7 +117,7 @@ describe('AddScriptsAndStylesToCompilation', () => {
     const missing = path.join(tmp, 'missing.html')
 
     const entriesOf = (mode: string) => {
-      const compiler: any = {
+      const compiler: EntryCompiler = {
         options: {
           mode,
           entry: {},
@@ -118,7 +129,7 @@ describe('AddScriptsAndStylesToCompilation', () => {
         includeList: {'feature/index': htmlPath, 'feature/missing': missing}
       })
 
-      step.apply(compiler as any)
+      step.apply(asCompiler(compiler))
 
       return {compiler, step}
     }

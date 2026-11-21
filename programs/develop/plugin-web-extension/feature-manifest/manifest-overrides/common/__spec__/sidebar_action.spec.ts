@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import type {Manifest} from '../../../../../types'
 import {sidebarAction} from '../sidebar_action'
 
 const tempDirs: string[] = []
@@ -35,7 +36,7 @@ describe('sidebarAction (common override)', () => {
           default_panel: 'src/sidebar/index.html',
           default_title: 'Panel'
         }
-      } as any,
+      } as Manifest,
       manifestPath
     )
 
@@ -57,7 +58,7 @@ describe('sidebarAction (common override)', () => {
         manifest_version: 3,
         side_panel: {default_path: 'sidepanel/index.html'},
         sidebar_action: {default_panel: 'firefoxsidebar/index.html'}
-      } as any,
+      } as Manifest,
       manifestPath
     )
 
@@ -70,7 +71,7 @@ describe('sidebarAction (common override)', () => {
         manifest_version: 3,
         side_panel: {default_path: 'sidepanel/index.html'},
         sidebar_action: {default_panel: './sidepanel/index.html'}
-      } as any,
+      } as Manifest,
       manifestPath
     )
 
@@ -78,7 +79,7 @@ describe('sidebarAction (common override)', () => {
   })
 
   it('returns undefined when the manifest has no sidebar_action', () => {
-    expect(sidebarAction({manifest_version: 2} as any)).toBeUndefined()
+    expect(sidebarAction({manifest_version: 2} as Manifest)).toBeUndefined()
   })
 
   it('keeps a panel hosted in public/ at the name the copier ships', () => {
@@ -87,7 +88,7 @@ describe('sidebarAction (common override)', () => {
       {
         manifest_version: 2,
         sidebar_action: {default_panel: 'public/sidebar/panel.html'}
-      } as any,
+      } as Manifest,
       manifestPath
     )
 
@@ -100,7 +101,7 @@ describe('sidebarAction (common override)', () => {
       {
         manifest_version: 2,
         sidebar_action: {default_panel: '/panel.html'}
-      } as any,
+      } as Manifest,
       manifestPath
     )
 
@@ -116,7 +117,7 @@ describe('sidebarAction (common override)', () => {
           default_panel: 'public/sidebar/panel.html',
           default_icon: {'16': 'images/icon16.png'}
         }
-      } as any,
+      } as Manifest,
       manifestPath
     )
 

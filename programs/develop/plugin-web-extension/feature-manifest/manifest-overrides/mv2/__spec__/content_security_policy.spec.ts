@@ -1,4 +1,5 @@
 import {describe, expect, it} from 'vitest'
+import type {Manifest} from '../../../../../types'
 import {
   contentSecurityPolicy,
   dropMv2ObjectPolicy,
@@ -14,7 +15,7 @@ describe('mv2 content_security_policy override', () => {
       contentSecurityPolicy({
         manifest_version: 2,
         content_security_policy: {extension_pages: PAGES}
-      } as any)
+      } as Manifest)
     ).toEqual({content_security_policy: PAGES})
   })
 
@@ -23,7 +24,7 @@ describe('mv2 content_security_policy override', () => {
       contentSecurityPolicy({
         manifest_version: 2,
         content_security_policy: {extension_pages: PAGES, sandbox: SANDBOX}
-      } as any)
+      } as Manifest)
     ).toEqual({content_security_policy: PAGES})
   })
 
@@ -32,7 +33,7 @@ describe('mv2 content_security_policy override', () => {
       contentSecurityPolicy({
         manifest_version: 2,
         content_security_policy: PAGES
-      } as any)
+      } as Manifest)
     ).toBeUndefined()
   })
 
@@ -41,7 +42,7 @@ describe('mv2 content_security_policy override', () => {
       contentSecurityPolicy({
         manifest_version: 2,
         content_security_policy: {sandbox: SANDBOX}
-      } as any)
+      } as Manifest)
     ).toBeUndefined()
   })
 
@@ -50,12 +51,14 @@ describe('mv2 content_security_policy override', () => {
       contentSecurityPolicy({
         manifest_version: 3,
         content_security_policy: {extension_pages: PAGES}
-      } as any)
+      } as Manifest)
     ).toBeUndefined()
   })
 
   it('returns undefined for MV2 without a policy', () => {
-    expect(contentSecurityPolicy({manifest_version: 2} as any)).toBeUndefined()
+    expect(
+      contentSecurityPolicy({manifest_version: 2} as Manifest)
+    ).toBeUndefined()
   })
 })
 
@@ -65,14 +68,14 @@ describe('hasMv2SandboxPolicy', () => {
       hasMv2SandboxPolicy({
         manifest_version: 2,
         content_security_policy: {sandbox: SANDBOX}
-      } as any)
+      } as Manifest)
     ).toBe(true)
 
     expect(
       hasMv2SandboxPolicy({
         manifest_version: 2,
         content_security_policy: {extension_pages: PAGES, sandbox: SANDBOX}
-      } as any)
+      } as Manifest)
     ).toBe(true)
   })
 
@@ -81,21 +84,21 @@ describe('hasMv2SandboxPolicy', () => {
       hasMv2SandboxPolicy({
         manifest_version: 2,
         content_security_policy: {extension_pages: PAGES}
-      } as any)
+      } as Manifest)
     ).toBe(false)
 
     expect(
       hasMv2SandboxPolicy({
         manifest_version: 2,
         content_security_policy: PAGES
-      } as any)
+      } as Manifest)
     ).toBe(false)
 
     expect(
       hasMv2SandboxPolicy({
         manifest_version: 3,
         content_security_policy: {sandbox: SANDBOX}
-      } as any)
+      } as Manifest)
     ).toBe(false)
   })
 })

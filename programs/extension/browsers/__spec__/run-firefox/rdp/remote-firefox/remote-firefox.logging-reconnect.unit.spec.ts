@@ -1,3 +1,4 @@
+import type EventEmitter from 'node:events'
 import {beforeEach, describe, expect, it, vi} from 'vitest'
 
 const attachConsoleListeners = vi.fn(async (..._a: unknown[]) => {})
@@ -31,6 +32,21 @@ vi.mock('../../../../run-firefox/rdp/remote-firefox/messaging-client', () => {
 
 import {RemoteFirefox} from '../../../../run-firefox/rdp/remote-firefox'
 
+type RemoteOptions = ConstructorParameters<typeof RemoteFirefox>[0]
+
+// The private members these rows drive, reached through one cast.
+interface RemoteInternals {
+  connectClient(port: number): Promise<EventEmitter>
+  enableUnifiedLogging(opts: {level: string}): Promise<void>
+  cachedAddonsActor: string | undefined
+}
+
+function makeRemote(options: Partial<RemoteOptions>): RemoteInternals {
+  return new RemoteFirefox(
+    options as RemoteOptions
+  ) as unknown as RemoteInternals
+}
+
 describe('RemoteFirefox unified logging across a reconnect', () => {
   beforeEach(() => {
     attachConsoleListeners.mockClear()
@@ -38,11 +54,11 @@ describe('RemoteFirefox unified logging across a reconnect', () => {
   })
 
   it('starts the console listeners again on the new connection', async () => {
-    const rf: any = new RemoteFirefox({
+    const rf = makeRemote({
       extension: 'dist/firefox',
       browser: 'firefox',
       resolvedRdpPort: 9999
-    } as any)
+    })
 
     const client = await rf.connectClient(9999)
     await rf.enableUnifiedLogging({level: 'info'})
@@ -57,10 +73,10 @@ describe('RemoteFirefox unified logging across a reconnect', () => {
   })
 
   it('leaves listeners alone on a reconnect when logging was never enabled', async () => {
-    const rf: any = new RemoteFirefox({
+    const rf = makeRemote({
       extension: 'dist/firefox',
       browser: 'firefox'
-    } as any)
+    })
 
     const client = await rf.connectClient(9999)
     client.emit('reconnected')

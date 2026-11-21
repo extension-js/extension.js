@@ -16,6 +16,7 @@ vi.mock('../get-locales', async () => {
   }
 })
 
+import {asCompilation, asCompiler} from '../../__spec__/helpers/rspack-fakes'
 import {processLocaleAssets} from '../process-assets'
 
 let root = ''
@@ -41,11 +42,15 @@ describe('processLocaleAssets', () => {
 
     missing.path = path.join(root, '_locales', 'en', 'privacy.md')
     const warnings: Error[] = []
-    const compilation = {errors: [], warnings, emitAsset: vi.fn()} as any
-    const compiler = {
+    const compilation = asCompilation({
+      errors: [],
+      warnings,
+      emitAsset: vi.fn()
+    })
+    const compiler = asCompiler({
       options: {context: root},
       rspack: {WebpackError: Error}
-    } as any
+    })
 
     processLocaleAssets(compiler, compilation, path.join(root, 'manifest.json'))
 
@@ -75,11 +80,15 @@ describe('processLocaleAssets', () => {
 
     missing.path = path.join(root, '_locales', 'en', 'messages.json')
     const warnings: Error[] = []
-    const compilation = {errors: [], warnings, emitAsset: vi.fn()} as any
-    const compiler = {
+    const compilation = asCompilation({
+      errors: [],
+      warnings,
+      emitAsset: vi.fn()
+    })
+    const compiler = asCompiler({
       options: {context: root},
       rspack: {WebpackError: Error}
-    } as any
+    })
 
     processLocaleAssets(compiler, compilation, path.join(root, 'manifest.json'))
 

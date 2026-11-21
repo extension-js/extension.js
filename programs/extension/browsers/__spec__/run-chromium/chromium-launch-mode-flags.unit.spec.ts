@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import type {CompilationLike, PluginInterface} from '../../browsers-types'
 import {
   applyLaunchModeFlags,
   browserConfig,
@@ -12,19 +13,19 @@ const CLEAR_WEBDRIVER = '--disable-blink-features=AutomationControlled'
 
 let project: string
 
-function makeCompilation() {
+function makeCompilation(): CompilationLike {
   return {
     options: {
       mode: 'development',
       output: {path: path.join(project, 'dist', 'chrome')}
     }
-  } as any
+  }
 }
 
-function launchFlags(options: Record<string, unknown> = {}) {
+function launchFlags(options: Partial<PluginInterface> = {}) {
   return browserConfig(
     makeCompilation(),
-    {extension: '/ext', browser: 'chrome', ...options} as any,
+    {extension: '/ext', browser: 'chrome', ...options},
     {provision: false, cdp: true}
   )
 }

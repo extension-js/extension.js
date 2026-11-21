@@ -2,6 +2,12 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import type {BrowserType} from '../../../types'
+import {
+  asCompilation,
+  asCompiler,
+  type TapCallback
+} from '../../__spec__/helpers/rspack-fakes'
 import {setOriginalManifestContent} from '../manifest-lib/manifest'
 import {
   findRemoteWebAssemblyAddresses,
@@ -11,6 +17,7 @@ import {
 } from '../steps/warn-webassembly'
 import {buildProject} from '../../../__spec__/helpers/build-project'
 import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
+import type {StepDiagnostic} from './helpers/manifest-fakes'
 
 const tempFolder = trackTempFolders()
 
@@ -84,7 +91,7 @@ function project(options: {
   return root
 }
 
-async function build(root: string, browser = 'chrome') {
+async function build(root: string, browser: BrowserType = 'chrome') {
   return await buildProject(root, {
     browser,
     mode: 'production',
@@ -271,25 +278,25 @@ describe('findRemoteWebAssemblyAddresses', () => {
 
 describe('WarnWebAssembly in a dev session', () => {
   function session(mode: 'development' | 'production') {
-    let thisCompilationFn: ((compilation: any) => void) | undefined
+    let thisCompilationFn: TapCallback | undefined
 
-    const compiler: any = {
+    const compiler = asCompiler({
       options: {mode, context: os.tmpdir()},
       hooks: {
         thisCompilation: {
-          tap: (_name: string, fn: any) => {
+          tap: (_name: string, fn: TapCallback) => {
             thisCompilationFn = fn
           }
         }
       }
-    }
+    })
 
     new WarnWebAssembly({browser: 'chrome'}).apply(compiler)
 
     return (wasmName: string) => {
-      const warnings: any[] = []
+      const warnings: StepDiagnostic[] = []
       let processAssetsFn: (() => void) | undefined
-      const compilation: any = {
+      const compilation = asCompilation({
         warnings,
         modules: [],
         getAssets: () => [
@@ -301,12 +308,12 @@ describe('WarnWebAssembly in a dev session', () => {
         ],
         hooks: {
           processAssets: {
-            tap: (_options: any, callback: any) => {
+            tap: (_options: unknown, callback: TapCallback) => {
               processAssetsFn = callback
             }
           }
         }
-      }
+      })
       setOriginalManifestContent(
         compilation,
         JSON.stringify({manifest_version: 3, name: 'x', version: '1'})

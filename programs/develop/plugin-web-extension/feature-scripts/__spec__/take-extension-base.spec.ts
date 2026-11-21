@@ -6,6 +6,7 @@ import {
   extensionBaseGlobal,
   takeBlockOpen
 } from '../../../lib/extension-base-from-stack'
+import {asCompiler} from '../../__spec__/helpers/rspack-fakes'
 import {getCanonicalContentScriptEntryName} from '../contracts'
 import {TakeExtensionBase} from '../steps/take-extension-base'
 import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
@@ -61,15 +62,17 @@ function emit(browser: string, assets: Record<string, string>, runs = 1) {
   new TakeExtensionBase({
     manifestPath: path.join(root, 'manifest.json'),
     browser
-  } as any).apply({
-    options: {context: root},
-    hooks: {
-      thisCompilation: {
-        tap: (_name: string, tapped: (compilation: unknown) => void) =>
-          tapped(compilation)
+  } as ConstructorParameters<typeof TakeExtensionBase>[0]).apply(
+    asCompiler({
+      options: {context: root},
+      hooks: {
+        thisCompilation: {
+          tap: (_name: string, tapped: (compilation: unknown) => void) =>
+            tapped(compilation)
+        }
       }
-    }
-  } as any)
+    })
+  )
 
   for (let run = 0; run < runs; run++) {
     for (const pass of passes) pass()

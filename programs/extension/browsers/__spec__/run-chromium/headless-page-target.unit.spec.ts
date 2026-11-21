@@ -2,26 +2,27 @@ import {describe, expect, it} from 'vitest'
 import {chromiumHeadlessNoPageTarget} from '../../browsers-lib/messages'
 import {launchIsHeadless} from '../../browsers-lib/shared-utils'
 import {CDPExtensionController} from '../../run-chromium/cdp/cdp-extension-controller'
+import {controllerInternals} from '../cdp-controller-fakes'
 
 const WELCOME =
   'chrome-extension://kgdaecdpfkikjncaalnmmnjjfpofkcbl/pages/welcome.html'
 
 function controllerOverTargetSamples(samples: unknown[][]) {
-  const calls: Array<{method: string; params: any}> = []
+  const calls: Array<{method: string; params: Record<string, unknown>}> = []
   let sample = 0
   const controller = new CDPExtensionController({
     outPath: '/p/dist/yandex',
     browser: 'yandex',
     cdpPort: 9222
   })
-  ;(controller as any).cdp = {
+  controllerInternals(controller).cdp = {
     getTargets: async () => {
       const current = samples[Math.min(sample, samples.length - 1)]
       sample += 1
 
       return current
     },
-    sendCommand: async (method: string, params: any) => {
+    sendCommand: async (method: string, params: Record<string, unknown>) => {
       calls.push({method, params})
 
       return {targetId: 'made'}

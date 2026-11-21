@@ -78,7 +78,7 @@ async function compile(
     metadataCommand: mode === 'production' ? 'build' : 'dev',
     silent: true,
     output: {clean: true, path: distPath}
-  } as any)
+  } as Parameters<typeof webpackConfig>[1])
   config.plugins = (config.plugins || []).filter(
     (plugin) =>
       plugin?.constructor.name !== 'plugin-browsers' &&
@@ -96,9 +96,7 @@ async function compile(
     })
   })
 
-  const emitted = (
-    fs.readdirSync(distPath, {recursive: true} as any) as unknown[]
-  )
+  const emitted = (fs.readdirSync(distPath, {recursive: true}) as unknown[])
     .map((entry) => String(entry).split(path.sep).join('/'))
     .filter((entry) => fs.statSync(path.join(distPath, entry)).isFile())
     .sort()

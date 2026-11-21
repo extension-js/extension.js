@@ -34,31 +34,27 @@ describe('needsOptionsDialogFloor', () => {
   const embedded = {options_ui: {page: 'options.html'}}
 
   it('asks for the floor on a Chromium options_ui page that opens in the dialog', () => {
-    expect(
-      needsOptionsDialogFloor(embedded as any, 'chrome', 'options/index')
-    ).toBe(true)
+    expect(needsOptionsDialogFloor(embedded, 'chrome', 'options/index')).toBe(
+      true
+    )
 
     expect(
       needsOptionsDialogFloor(
-        {options_ui: {page: 'options.html', open_in_tab: false}} as any,
+        {options_ui: {page: 'options.html', open_in_tab: false}},
         'edge',
         'options/index'
       )
     ).toBe(true)
 
     expect(
-      needsOptionsDialogFloor(
-        embedded as any,
-        'chromium-based',
-        'options/index'
-      )
+      needsOptionsDialogFloor(embedded, 'chromium-based', 'options/index')
     ).toBe(true)
   })
 
   it('leaves a page that opens in a tab alone', () => {
     expect(
       needsOptionsDialogFloor(
-        {options_ui: {page: 'options.html', open_in_tab: true}} as any,
+        {options_ui: {page: 'options.html', open_in_tab: true}},
         'chrome',
         'options/index'
       )
@@ -66,7 +62,7 @@ describe('needsOptionsDialogFloor', () => {
 
     expect(
       needsOptionsDialogFloor(
-        {options_page: 'options.html'} as any,
+        {options_page: 'options.html'},
         'chrome',
         'options/index'
       )
@@ -74,17 +70,17 @@ describe('needsOptionsDialogFloor', () => {
   })
 
   it('leaves Gecko and Safari pages and every other surface alone', () => {
-    expect(
-      needsOptionsDialogFloor(embedded as any, 'firefox', 'options/index')
-    ).toBe(false)
+    expect(needsOptionsDialogFloor(embedded, 'firefox', 'options/index')).toBe(
+      false
+    )
 
-    expect(
-      needsOptionsDialogFloor(embedded as any, 'safari', 'options/index')
-    ).toBe(false)
+    expect(needsOptionsDialogFloor(embedded, 'safari', 'options/index')).toBe(
+      false
+    )
 
-    expect(
-      needsOptionsDialogFloor(embedded as any, 'chrome', 'action/index')
-    ).toBe(false)
+    expect(needsOptionsDialogFloor(embedded, 'chrome', 'action/index')).toBe(
+      false
+    )
 
     expect(needsOptionsDialogFloor(undefined, 'chrome', 'options/index')).toBe(
       false

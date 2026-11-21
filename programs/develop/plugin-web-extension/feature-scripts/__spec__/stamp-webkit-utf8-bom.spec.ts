@@ -7,13 +7,14 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {describe, expect, it} from 'vitest'
+import {asCompiler, type TapCallback} from '../../__spec__/helpers/rspack-fakes'
 import {StampWebkitUtf8Bom, UTF8_BOM} from '../steps/stamp-webkit-utf8-bom'
 
 const BACKGROUND = 'console.info("…", "王伟");\n'
 
 function makeCompilation(assets: Record<string, string>) {
   const store: Record<string, string> = {...assets}
-  const compilation: any = {
+  const compilation = {
     getAssets: () =>
       Object.keys(store).map((name) => ({
         name,
@@ -23,14 +24,14 @@ function makeCompilation(assets: Record<string, string>) {
       store[name] = source.source().toString()
     },
     hooks: {
-      processAssets: {tap: (_opts: any, fn: any) => fn()}
+      processAssets: {tap: (_opts: unknown, fn: TapCallback) => fn()}
     }
   }
-  const compiler: any = {
+  const compiler = asCompiler({
     hooks: {
-      thisCompilation: {tap: (_n: string, fn: any) => fn(compilation)}
+      thisCompilation: {tap: (_n: string, fn: TapCallback) => fn(compilation)}
     }
-  }
+  })
 
   return {compiler, store}
 }

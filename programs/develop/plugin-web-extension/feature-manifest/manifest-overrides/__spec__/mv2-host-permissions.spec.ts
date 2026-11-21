@@ -1,4 +1,5 @@
 import {describe, expect, it} from 'vitest'
+import type {Manifest} from '../../../../types'
 import {buildCanonicalManifestWithOverrides} from '../../manifest-lib/manifest'
 import {getManifestOverrides} from '../../manifest-overrides'
 
@@ -26,7 +27,7 @@ describe('MV2 host_permissions through getManifestOverrides', () => {
       getManifestOverrides('/p/manifest.json', {
         ...rest,
         manifest_version: 2
-      } as any)
+      } as Manifest)
     )
 
     expect(result.manifest_version).toBe(2)
@@ -54,7 +55,7 @@ describe('MV2 host_permissions through getManifestOverrides', () => {
       getManifestOverrides('/p/manifest.json', {
         ...rest,
         manifest_version: 3
-      } as any)
+      } as Manifest)
     )
 
     expect(result.host_permissions).toEqual([
@@ -75,9 +76,9 @@ describe('MV2 host_permissions through buildCanonicalManifestWithOverrides', () 
   it('drops the keys for firefox once the prefixed manifest_version resolves to 2', () => {
     const result = buildCanonicalManifestWithOverrides(
       '/p/manifest.json',
-      source as any,
+      source as Manifest,
       'firefox'
-    ).manifest as any
+    ).manifest as Manifest
 
     expect(result.manifest_version).toBe(2)
     expect(result).not.toHaveProperty('host_permissions')
@@ -97,9 +98,9 @@ describe('MV2 host_permissions through buildCanonicalManifestWithOverrides', () 
   it('keeps the keys for chrome where manifest_version resolves to 3', () => {
     const result = buildCanonicalManifestWithOverrides(
       '/p/manifest.json',
-      source as any,
+      source as Manifest,
       'chrome'
-    ).manifest as any
+    ).manifest as Manifest
 
     expect(result.manifest_version).toBe(3)
     expect(result.host_permissions).toEqual([

@@ -1,4 +1,5 @@
 import {describe, expect, it} from 'vitest'
+import type {Manifest} from '../../../../../types'
 import {background} from '../background'
 
 describe('mv2 background override', () => {
@@ -6,12 +7,12 @@ describe('mv2 background override', () => {
     const result = background({
       manifest_version: 2,
       background: {scripts: ['one.js', 'two.js', 'three.js']}
-    } as any) as any
+    } as Manifest) as Manifest
 
-    expect(result.background.scripts).toEqual(['background/scripts.js'])
+    expect(result.background?.scripts).toEqual(['background/scripts.js'])
   })
 
   it('returns falsy when there is no background.scripts', () => {
-    expect(background({manifest_version: 2} as any)).toBeFalsy()
+    expect(background({manifest_version: 2} as Manifest)).toBeFalsy()
   })
 })

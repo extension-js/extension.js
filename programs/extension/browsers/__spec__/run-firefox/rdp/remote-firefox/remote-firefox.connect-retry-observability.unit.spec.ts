@@ -42,6 +42,23 @@ async function importRemoteFirefox(maxRetries: number) {
   return mod.RemoteFirefox
 }
 
+type RemoteFirefoxClass = Awaited<ReturnType<typeof importRemoteFirefox>>
+type RemoteOptions = ConstructorParameters<RemoteFirefoxClass>[0]
+
+// The private dial these rows drive, reached through one cast.
+interface RemoteInternals {
+  connectClient(port: number): Promise<unknown>
+}
+
+function makeRemote(
+  RemoteFirefox: RemoteFirefoxClass,
+  options: Partial<RemoteOptions>
+): RemoteInternals {
+  return new RemoteFirefox(
+    options as RemoteOptions
+  ) as unknown as RemoteInternals
+}
+
 describe('RemoteFirefox connect retry observability', () => {
   const envBackup = {
     retries: process.env.EXTENSION_RDP_MAX_RETRIES,
@@ -77,17 +94,18 @@ describe('RemoteFirefox connect retry observability', () => {
 
     try {
       const RemoteFirefox = await importRemoteFirefox(25)
-      const rf: any = new RemoteFirefox({
+      const rf = makeRemote(RemoteFirefox, {
         extension: 'dist/firefox',
         browser: 'firefox'
-      } as any)
+      })
 
       await expect(rf.connectClient(9330)).rejects.toThrow(
         "Can't connect to Firefox on port 9330"
       )
 
-      const progressLines = (console.log as any).mock.calls
-        .map((c: unknown[]) => String(c[0]))
+      const progressLines = vi
+        .mocked(console.log)
+        .mock.calls.map((c: unknown[]) => String(c[0]))
         .filter((line: string) => line.includes('debugger=wait'))
       expect(progressLines).toHaveLength(2)
       expect(progressLines[0]).toContain('port=9330')
@@ -110,17 +128,18 @@ describe('RemoteFirefox connect retry observability', () => {
 
     try {
       const RemoteFirefox = await importRemoteFirefox(25)
-      const rf: any = new RemoteFirefox({
+      const rf = makeRemote(RemoteFirefox, {
         extension: 'dist/firefox',
         browser: 'firefox'
-      } as any)
+      })
 
       await expect(rf.connectClient(9330)).rejects.toThrow(
         "Can't connect to Firefox on port 9330"
       )
 
-      const progressLines = (console.log as any).mock.calls
-        .map((c: unknown[]) => String(c[0]))
+      const progressLines = vi
+        .mocked(console.log)
+        .mock.calls.map((c: unknown[]) => String(c[0]))
         .filter((line: string) => line.includes('debugger=wait'))
       expect(progressLines).toHaveLength(0)
     } finally {
@@ -138,10 +157,10 @@ describe('RemoteFirefox connect retry observability', () => {
 
   it('names the port in the final give-up error', async () => {
     const RemoteFirefox = await importRemoteFirefox(12)
-    const rf: any = new RemoteFirefox({
+    const rf = makeRemote(RemoteFirefox, {
       extension: 'dist/firefox',
       browser: 'firefox'
-    } as any)
+    })
 
     const error = await rf.connectClient(9330).then(
       () => undefined,
@@ -158,11 +177,11 @@ describe('RemoteFirefox connect retry observability', () => {
 
   it('stops dialing once the launcher says the browser is gone', async () => {
     const RemoteFirefox = await importRemoteFirefox(25)
-    const rf: any = new RemoteFirefox({
+    const rf = makeRemote(RemoteFirefox, {
       extension: 'dist/firefox',
       browser: 'firefox',
       isBrowserGone: () => connectAttempts >= 2
-    } as any)
+    })
 
     const error = await rf.connectClient(9330).then(
       () => undefined,
@@ -180,15 +199,16 @@ describe('RemoteFirefox connect retry observability', () => {
   it('stays quiet when the connection succeeds before the first log threshold', async () => {
     const RemoteFirefox = await importRemoteFirefox(25)
     succeedOnAttempt = 3
-    const rf: any = new RemoteFirefox({
+    const rf = makeRemote(RemoteFirefox, {
       extension: 'dist/firefox',
       browser: 'firefox'
-    } as any)
+    })
 
     await rf.connectClient(9230)
 
-    const progressLines = (console.log as any).mock.calls
-      .map((c: unknown[]) => String(c[0]))
+    const progressLines = vi
+      .mocked(console.log)
+      .mock.calls.map((c: unknown[]) => String(c[0]))
       .filter((line: string) => line.includes('debugger server'))
     expect(progressLines).toHaveLength(0)
     expect(console.error).not.toHaveBeenCalled()

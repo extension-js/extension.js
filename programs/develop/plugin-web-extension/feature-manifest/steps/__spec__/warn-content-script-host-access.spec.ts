@@ -1,5 +1,6 @@
 import {Compilation} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
+import {asCompilation, asCompiler} from '../../../__spec__/helpers/rspack-fakes'
 import {setOriginalManifestContent} from '../../manifest-lib/manifest'
 import * as messages from '../../messages'
 import {
@@ -23,36 +24,36 @@ function makeCompiler(
   browser: string,
   mode: 'development' | 'production' = 'production'
 ) {
-  let thisCompilationFn: ((compilation: any) => void) | undefined
+  let thisCompilationFn: ((compilation: Compilation) => void) | undefined
   let tapStage: number | undefined
 
-  const compiler: any = {
+  const compiler = asCompiler({
     options: {mode},
     hooks: {
       thisCompilation: {
-        tap: (_n: string, fn: any) => {
+        tap: (_n: string, fn: (compilation: Compilation) => void) => {
           thisCompilationFn = fn
         }
       }
     }
-  }
+  })
 
   new WarnContentScriptHostAccess({browser: browser as never}).apply(compiler)
 
   const runCompilation = (manifest: Record<string, unknown>) => {
-    const warnings: any[] = []
+    const warnings: Array<Error & {file?: string}> = []
     let processAssetsFn: (() => void) | undefined
-    const compilation: any = {
+    const compilation = asCompilation({
       warnings,
       hooks: {
         processAssets: {
-          tap: (opts: any, cb: any) => {
+          tap: (opts: {stage?: number}, cb: () => void) => {
             tapStage = opts.stage
             processAssetsFn = cb
           }
         }
       }
-    }
+    })
     setOriginalManifestContent(compilation, JSON.stringify(manifest))
     thisCompilationFn?.(compilation)
     processAssetsFn?.()

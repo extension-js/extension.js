@@ -1,6 +1,10 @@
+import type {EventEmitter} from 'node:events'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
-const wsInstances: any[] = []
+// The mock socket class lives in the hoisted factory, so its shape is named here.
+type MockSocket = EventEmitter & {readyState: number}
+
+const wsInstances: MockSocket[] = []
 
 vi.mock('ws', async () => {
   const {EventEmitter} = await import('node:events')
@@ -16,7 +20,7 @@ vi.mock('ws', async () => {
     }
 
     close() {
-      ;(this as any).readyState = 3
+      this.readyState = 3
     }
 
     send(_data: string) {}

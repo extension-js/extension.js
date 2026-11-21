@@ -17,7 +17,7 @@ function makeCompilation(mode: 'development' | 'production'): Compilation {
   const compilation = {
     options: {mode} as Compilation['options'],
     getAsset: (name: string) =>
-      name.endsWith('.css') ? ({source: {}} as any) : undefined,
+      name.endsWith('.css') ? {source: {}} : undefined,
     emitAsset() {},
     updateAsset() {},
     warnings: []

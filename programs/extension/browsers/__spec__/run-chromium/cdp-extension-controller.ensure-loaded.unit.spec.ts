@@ -5,6 +5,7 @@ import {afterEach, describe, expect, it, vi} from 'vitest'
 import {CDPExtensionController} from '../../run-chromium/cdp/cdp-extension-controller'
 import * as ensureModule from '../../run-chromium/cdp/cdp-extension-controller/ensure'
 import {codedError} from '../../run-chromium/cdp/coded-error'
+import {controllerInternals} from '../cdp-controller-fakes'
 
 describe('CDPExtensionController ensureLoaded', () => {
   const tempDirs: string[] = []
@@ -36,12 +37,14 @@ describe('CDPExtensionController ensureLoaded', () => {
       'utf-8'
     )
 
-    const controller = new CDPExtensionController({
-      outPath,
-      browser: 'chrome',
-      cdpPort: 9222,
-      extensionPaths: [outPath]
-    }) as any
+    const controller = controllerInternals(
+      new CDPExtensionController({
+        outPath,
+        browser: 'chrome',
+        cdpPort: 9222,
+        extensionPaths: [outPath]
+      })
+    )
 
     controller.cdp = {
       getExtensionInfo: vi.fn(async () => ({
@@ -106,13 +109,15 @@ describe('CDPExtensionController ensureLoaded', () => {
       'utf-8'
     )
 
-    const controller = new CDPExtensionController({
-      outPath,
-      browser: 'chrome',
-      cdpPort: 9222,
-      profilePath,
-      extensionPaths: [outPath]
-    }) as any
+    const controller = controllerInternals(
+      new CDPExtensionController({
+        outPath,
+        browser: 'chrome',
+        cdpPort: 9222,
+        profilePath,
+        extensionPaths: [outPath]
+      })
+    )
 
     const getExtensionInfo = vi.fn(async (id: string) => ({
       extensionInfo: {
@@ -145,12 +150,14 @@ describe('CDPExtensionController ensureLoaded', () => {
       'utf-8'
     )
 
-    const controller = new CDPExtensionController({
-      outPath,
-      browser: 'chrome',
-      cdpPort: 9222,
-      extensionPaths: [outPath]
-    }) as any
+    const controller = controllerInternals(
+      new CDPExtensionController({
+        outPath,
+        browser: 'chrome',
+        cdpPort: 9222,
+        extensionPaths: [outPath]
+      })
+    )
 
     controller.cdp = {
       getExtensionInfo: vi.fn(async () => null),

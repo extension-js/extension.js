@@ -84,7 +84,7 @@ async function configure(root: string, mode: Mode, plugins: unknown[] = []) {
     metadataCommand: mode === 'development' ? 'dev' : 'build',
     silent: true,
     output: {clean: false, path: distPath}
-  } as any)
+  })
   config.plugins = (config.plugins || []).filter(
     (plugin) => plugin?.constructor.name !== 'plugin-browsers'
   )

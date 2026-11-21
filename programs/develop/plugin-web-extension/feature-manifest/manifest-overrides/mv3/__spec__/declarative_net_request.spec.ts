@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import type {Manifest} from '../../../../../types'
 import {declarativeNetRequest} from '../declarative_net_request'
 
 describe('declarativeNetRequest (MV3 override)', () => {
@@ -17,7 +18,7 @@ describe('declarativeNetRequest (MV3 override)', () => {
           }
         ]
       }
-    } as any)
+    } as Manifest)
 
     expect(result).toEqual({
       declarative_net_request: {
@@ -36,7 +37,7 @@ describe('declarativeNetRequest (MV3 override)', () => {
     const result = declarativeNetRequest({
       manifest_version: 3,
       declarative_net_request: {}
-    } as any)
+    } as Manifest)
 
     expect(result).toEqual({
       declarative_net_request: {}
@@ -49,7 +50,7 @@ describe('declarativeNetRequest (MV3 override)', () => {
       declarative_net_request: {
         rule_resources: undefined
       }
-    } as any)
+    } as Manifest)
 
     expect(result).toEqual({
       declarative_net_request: {
@@ -64,7 +65,7 @@ describe('declarativeNetRequest (MV3 override)', () => {
       declarative_net_request: {
         rule_resources: []
       }
-    } as any)
+    } as Manifest)
 
     expect(result).toEqual({
       declarative_net_request: {
@@ -74,7 +75,7 @@ describe('declarativeNetRequest (MV3 override)', () => {
   })
 
   it('returns undefined when manifest has no declarative_net_request', () => {
-    const result = declarativeNetRequest({manifest_version: 3} as any)
+    const result = declarativeNetRequest({manifest_version: 3} as Manifest)
     expect(result).toBeUndefined()
   })
 
@@ -86,7 +87,7 @@ describe('declarativeNetRequest (MV3 override)', () => {
           {id: 'ruleset_1', enabled: true, path: 'public/rules.json'}
         ]
       }
-    } as any)
+    } as Manifest)
 
     expect(result?.declarative_net_request?.rule_resources?.[0].path).toBe(
       'rules.json'
@@ -101,7 +102,7 @@ describe('declarativeNetRequest (MV3 override)', () => {
           {id: 'block', enabled: true, path: 'public/dnr/block.json'}
         ]
       }
-    } as any)
+    } as Manifest)
 
     expect(result?.declarative_net_request?.rule_resources?.[0].path).toBe(
       'dnr/block.json'
@@ -122,7 +123,7 @@ describe('declarativeNetRequest (MV3 override)', () => {
               {id: 'ruleset_1', enabled: true, path: '/rules.json'}
             ]
           }
-        } as any,
+        } as Manifest,
         path.join(dir, 'manifest.json')
       )
 
@@ -148,7 +149,7 @@ describe('declarativeNetRequest (MV3 override)', () => {
               {id: 'ruleset_1', enabled: true, path: 'dnr/block.json'}
             ]
           }
-        } as any,
+        } as Manifest,
         path.join(dir, 'manifest.json')
       )
 
@@ -173,7 +174,7 @@ describe('declarativeNetRequest (MV3 override)', () => {
               {id: 'ruleset_1', enabled: true, path: '/rules.json'}
             ]
           }
-        } as any,
+        } as Manifest,
         path.join(dir, 'manifest.json')
       )
 
@@ -193,7 +194,7 @@ describe('declarativeNetRequest (MV3 override)', () => {
           {id: 'ruleset_a', enabled: false, path: 'src/rules/a.json'}
         ]
       }
-    } as any)
+    } as Manifest)
 
     expect(result?.declarative_net_request?.rule_resources?.[0]).toEqual({
       id: 'ruleset_a',

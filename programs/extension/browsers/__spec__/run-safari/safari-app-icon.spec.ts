@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import * as messages from '../../browsers-lib/messages'
+import type {BrowserLogger, CompilationLike} from '../../browsers-types'
 import {
   packageSafariExtension,
   type SafariPipelineMode
@@ -14,6 +15,7 @@ import {
   resolveSafariBuildConfig
 } from '../../run-safari/safari-launch/safari-config'
 import {resizePngArgs} from '../../run-safari/safari-launch/tools'
+import type {SafariPluginLike} from '../../run-safari/safari-types'
 import {
   CONVERTER_PLATE,
   type FakeSafariTools,
@@ -82,9 +84,9 @@ async function run(
       noOpen: true,
       tools,
       ...host
-    } as any,
+    } as SafariPluginLike,
     distDir,
-    {info: push, warn: push, error: push, debug: () => {}} as any,
+    {info: push, warn: push, error: push, debug: () => {}} as BrowserLogger,
     mode
   )
 
@@ -225,8 +227,8 @@ describe('the Safari app icon', () => {
 
   it('regenerates when the icon bytes change or the option goes, and keeps old fingerprints', () => {
     const source = path.join(root, 'app-icon.png')
-    const host = {extension: [distDir], browser: 'safari'} as any
-    const compilation = {options: {output: {path: distDir}}} as any
+    const host: SafariPluginLike = {extension: [distDir], browser: 'safari'}
+    const compilation: CompilationLike = {options: {output: {path: distDir}}}
     const plain = resolveSafariBuildConfig(compilation, host)
     const withIcon = resolveSafariBuildConfig(compilation, {
       ...host,
