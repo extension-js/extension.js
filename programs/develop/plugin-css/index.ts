@@ -16,6 +16,8 @@ import {
   WebpackError
 } from '@rspack/core'
 import {isGeckoBasedBrowser} from '../lib/constants'
+import {isNamedByCssImport, whyNotRead} from '../lib/css/inline-css-imports'
+import {withheldCssRef} from '../lib/css/messages'
 import {
   checkedCssSheets,
   cssUrlRefFiles,
@@ -49,7 +51,6 @@ import type {DevOptions, Manifest, PluginInterface} from '../types'
 import {usesStyleTools} from './common-style-loaders'
 import {cssInContentScriptLoader} from './css-in-content-script-loader'
 import {cssInHtmlLoader} from './css-in-html-loader'
-import {isNamedByCssImport, whyNotRead} from './css-lib/inline-css-imports'
 import * as messages from './css-lib/messages'
 import {
   beginStyleDiagnostics,
@@ -408,7 +409,7 @@ export class CssPlugin {
       )
       const error = new WebpackError(
         withheld
-          ? messages.withheldCssRef(issuerPath, raw, withheld, strict)
+          ? withheldCssRef(issuerPath, raw, withheld, strict)
           : messages.deadCssRef(issuerPath, raw, strict, imports(issuer, raw))
       )
       ;(error as Error & {file?: string}).file = issuerPath

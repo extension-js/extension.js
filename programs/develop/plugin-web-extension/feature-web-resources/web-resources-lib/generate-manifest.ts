@@ -11,10 +11,7 @@ import {type Compilation, sources, WebpackError} from '@rspack/core'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
 import {debugLine, isDebug} from '../../../lib/messaging'
 import type {Manifest} from '../../../types'
-import {
-  getManifestContent,
-  setCurrentManifestContent
-} from '../../feature-manifest/manifest-lib/manifest'
+import {getManifestContent} from '../../feature-manifest/manifest-lib/manifest'
 import {
   getCanonicalContentScriptCssAssetName,
   isDevContentScriptStandInAsset,
@@ -806,7 +803,6 @@ export function generateManifestPatches(
 
   const source = JSON.stringify(canonicalManifest, null, 2)
   const rawSource = new sources.RawSource(source)
-  setCurrentManifestContent(compilation, source)
 
   if (isDebug()) {
     try {

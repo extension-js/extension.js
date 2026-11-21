@@ -4,15 +4,15 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {rspack} from '@rspack/core'
 import {afterEach, describe, expect, it, vi} from 'vitest'
-import {resolveDevelopDistFile} from '../../lib/develop-context'
-import {workspaceRootOf} from '../../lib/public-private-files'
-import {cssInContentScriptLoader} from '../css-in-content-script-loader'
-import {bundledFileToken} from '../css-lib/inline-content-script-css'
+import {bundledFileToken} from '../../lib/css/inline-content-script-css'
 import {
   inlineCssImports,
   realPath,
   whyNotRead
-} from '../css-lib/inline-css-imports'
+} from '../../lib/css/inline-css-imports'
+import {resolveDevelopDistFile} from '../../lib/develop-context'
+import {workspaceRootOf} from '../../lib/public-private-files'
+import {cssInContentScriptLoader} from '../css-in-content-script-loader'
 import deadCssUrlLoader from '../dead-css-url-loader'
 import {cssProjects} from './helpers/css-project'
 

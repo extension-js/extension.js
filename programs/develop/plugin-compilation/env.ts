@@ -39,7 +39,6 @@ import {resolveDevelopDistFile} from '../lib/develop-context'
 import {IMPORT_META_URL_RUNTIME} from '../lib/import-meta-url'
 import {CODES, debugLine, isDebug} from '../lib/messaging'
 import {toProjectRelativePath} from '../lib/resource-path'
-import {setCurrentManifestContent} from '../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import type {DevOptions, PluginInterface} from '../types'
 import {
   escapeForHtmlAsset,
@@ -552,10 +551,6 @@ export class EnvPlugin {
             // is left as it is and ships the bytes it was authored with.
             if (filled !== authored) {
               compilation.updateAsset(filename, new sources.RawSource(filled))
-            }
-
-            if (filename === 'manifest.json') {
-              setCurrentManifestContent(compilation, filled.toString('utf8'))
             }
           })
         }
