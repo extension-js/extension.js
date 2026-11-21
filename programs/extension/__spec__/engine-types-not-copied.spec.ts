@@ -11,14 +11,14 @@ import type {
 } from 'extension-develop'
 import type {LogContext as EngineLogContext} from 'extension-develop/bridge'
 import type {LogEventLike as EngineLogEventLike} from 'extension-develop/contracts'
-import type {
-  LocalizableManifest as EngineLocalizableManifest,
-  LocalizedNameOptions as EngineLocalizedNameOptions
-} from 'extension-develop/manifest'
 import type {PreviewLauncherFn} from 'extension-develop/preview'
 import {describe, expect, it} from 'vitest'
 // @ts-expect-error plain ESM script without types, shared with the script specs
 import {workspaceSourceEntries} from '../../../scripts/lib/workspace-source-entries.mjs'
+import type {
+  LocalizableManifest as EngineLocalizableManifest,
+  LocalizedNameOptions as EngineLocalizedNameOptions
+} from '../../develop/lib/localized-manifest-name'
 import type {
   BrowserController,
   BrowserLaunchOptions,
@@ -222,11 +222,6 @@ const KEPT_ON_PURPOSE: Array<{file: string; names: string[]; why: string}> = [
     file: 'helpers/normalize-options.ts',
     names: ['LogLevel'],
     why: 'The --logs filter level. The engine uses the name for the level of one log line. Compared above with the option it feeds.'
-  },
-  {
-    file: 'helpers/localized-manifest-name.ts',
-    names: ['LocalizableManifest', 'LocalizedNameOptions'],
-    why: 'The launchers resolve a name with no engine loaded. Compared above.'
   }
 ]
 

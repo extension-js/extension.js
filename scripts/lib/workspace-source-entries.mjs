@@ -22,7 +22,6 @@ export const workspaceSourceEntries = {
   'extension-develop': 'programs/develop/module.ts',
   'extension-develop/bridge': 'programs/develop/bridge-entry.ts',
   'extension-develop/contracts': 'programs/develop/contracts-entry.ts',
-  'extension-develop/manifest': 'programs/develop/manifest-entry.ts',
   'extension-develop/preview': 'programs/develop/preview-entry.ts',
   'extension-install': 'programs/install/module.ts'
 }
