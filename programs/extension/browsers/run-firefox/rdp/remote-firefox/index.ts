@@ -139,8 +139,7 @@ export class RemoteFirefox {
       return typeof pinned === 'number' && pinned > 0 ? pinned : resolvedRdpPort
     }
 
-    const devPort = (compilation?.options as {devServer?: {port?: number}})
-      ?.devServer?.port
+    const devPort = compilation?.options?.devServer?.port
     const optionPort = this.options?.port
     const normalizedOptionPort =
       typeof optionPort === 'string' ? parseInt(optionPort, 10) : optionPort

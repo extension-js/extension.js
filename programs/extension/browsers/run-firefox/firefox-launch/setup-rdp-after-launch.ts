@@ -82,14 +82,8 @@ export async function setupRdpAfterLaunch(
       await retry(() => controller.ensureLoaded(compilation))
       plugin.rdpController = controller
     } else {
-      await retry(
-        () =>
-          (
-            plugin.rdpController as {
-              ensureLoaded?: (compilation: CompilationLike) => Promise<void>
-            }
-          ).ensureLoaded?.(compilation) || Promise.resolve()
-      )
+      const existing = plugin.rdpController
+      await retry(() => existing.ensureLoaded(compilation))
     }
   } catch (error) {
     controller.disconnect()

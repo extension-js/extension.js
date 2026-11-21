@@ -20,6 +20,9 @@ export interface CompilationLike {
     mode?: string
     output?: {path?: string}
     context?: string
+    // Read as a fallback RDP base port. Wide enough for rspack's own type,
+    // whose 'auto' and string ports the port helper parses away.
+    devServer?: {port?: number | string}
   }
   outputOptions?: {path?: string}
   // Read to skip a launch after a failed compile.
