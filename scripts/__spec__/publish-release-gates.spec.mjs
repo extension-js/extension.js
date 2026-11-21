@@ -280,3 +280,27 @@ test('the gate reads Safari, the published reading only on a canary', () => {
     expr("inputs.channel == 'canary'")
   )
 })
+
+test('the smoke on main reads the templates at the commit the release is gated on', () => {
+  const texts = FILES.map((file) =>
+    fs.readFileSync(path.join(root, file), 'utf8')
+  )
+  const smoke = texts[FILES.indexOf('.github/workflows/e2e-smoke.yml')]
+  const pinned = /PINNED_EXAMPLES_REF: ([0-9a-f]{40})\r?\n/.exec(smoke)
+
+  assert.ok(pinned, 'the smoke names no full commit for the templates')
+  assert.equal(pinned[1], pinnedSha(texts, 'extension-js/templates'))
+})
+
+test('moving the templates pin moves the one the smoke reads', () => {
+  const smoke = fs.readFileSync(
+    path.join(root, '.github', 'workflows', 'e2e-smoke.yml'),
+    'utf8'
+  )
+  const from = pinnedSha([workflow], 'extension-js/templates')
+  const to = 'f'.repeat(40)
+  const moved = movePin(smoke, 'extension-js/templates', from, to, '2026-02-02')
+
+  assert.ok(moved.includes(`PINNED_EXAMPLES_REF: ${to}`))
+  assert.ok(!moved.includes(from))
+})
