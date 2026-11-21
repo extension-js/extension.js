@@ -36,9 +36,9 @@ import {
   inspectPublicFolders,
   publicFolderExists
 } from '../lib/special-folders/resolve-public-folder'
-import {emitRootAbsoluteRefs} from '../plugin-web-extension/feature-html/steps/emit-root-absolute-refs'
 import {htmlPageEntries} from '../plugin-web-extension/shared/html-page-entries'
 import {getResolvedManifestFieldsData} from '../plugin-web-extension/shared/manifest-fields'
+import {rootAbsoluteRefsEmitterFor} from '../plugin-web-extension/shared/root-absolute-refs-emitter'
 import type {
   DevOptions,
   ExcludeFilesConfig,
@@ -287,10 +287,10 @@ export class SpecialFoldersPlugin {
             // Late enough that HTML and CSS assets exist to be scanned.
             stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE
           },
-          () =>
+          async () =>
             // Root refs resolve from the EXTENSION root (the manifest dir),
             // which is not always the compiler context / package.json dir.
-            emitRootAbsoluteRefs(
+            rootAbsoluteRefsEmitterFor(compiler)?.(
               compilation,
               path.dirname(manifestPath),
               publicDir,

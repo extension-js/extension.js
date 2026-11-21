@@ -18,6 +18,7 @@ import type {
   Manifest,
   PluginInterface
 } from '../../../types'
+import {isRemoteUrl} from '../../shared/script-entry-path'
 import {
   EXTENSIONJS_CONTENT_SCRIPT_LAYER,
   EXTENSIONJS_MAIN_WORLD_IMPORT_LAYER,
@@ -26,7 +27,6 @@ import {
 } from '../contracts'
 import * as messages from '../messages'
 import {findRuntimeMainWorldEntries} from '../scripts-lib/runtime-main-world-scripts'
-import {isRemoteUrl} from '../scripts-lib/utils'
 import {createSequentialEntryModule, manifestFieldOf} from './add-scripts'
 import {
   withEagerDynamicImports,

@@ -20,8 +20,8 @@ import {
   referencesBrowserGlobal
 } from '../lib/free-browser-references'
 import {getManifestContent} from '../plugin-web-extension/feature-manifest/manifest-lib/manifest'
-import {scannableSourcePath} from '../plugin-web-extension/feature-manifest/steps/apply-dev-defaults-lib/dev-injected-hosts'
 import {isHotUpdateFile} from '../plugin-web-extension/shared/initial-files'
+import {scannableSourcePath} from '../plugin-web-extension/shared/scannable-source-path'
 import type {DevOptions, PluginInterface} from '../types'
 import * as messages from './compatibility-lib/messages'
 import {
