@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {expectedChromiumExtensionId} from '../../browsers-lib/banner'
 import {CDPExtensionController} from '../../run-chromium/cdp/cdp-extension-controller'
+import {controllerInternals} from '../cdp-controller-fakes'
 
 const tempDirs: string[] = []
 
@@ -29,12 +30,14 @@ function makeController(
   outPath: string,
   targets: Array<{type: string; url: string}>
 ) {
-  const controller = new CDPExtensionController({
-    outPath,
-    browser,
-    cdpPort: 9222,
-    extensionPaths: [outPath]
-  }) as any
+  const controller = controllerInternals(
+    new CDPExtensionController({
+      outPath,
+      browser,
+      cdpPort: 9222,
+      extensionPaths: [outPath]
+    })
+  )
 
   controller.cdp = {
     getTargets: vi.fn(async () => targets),

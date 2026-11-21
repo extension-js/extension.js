@@ -77,7 +77,12 @@ function wrap(
     })
   }
 
-  return String(contentScriptWrapper.call(context as any, source))
+  return String(
+    contentScriptWrapper.call(
+      context as unknown as ThisParameterType<typeof contentScriptWrapper>,
+      source
+    )
+  )
 }
 
 class StubElement {
@@ -467,7 +472,7 @@ describe('a dev session build of a content script', () => {
       metadataCommand: 'dev',
       silent: true,
       output: {clean: true, path: distPath}
-    } as any)
+    } as Parameters<typeof webpackConfig>[1])
     config.plugins = (config.plugins || []).filter(
       (plugin) =>
         plugin?.constructor.name !== 'plugin-browsers' &&

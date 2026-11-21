@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import type {Compilation, Compiler} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {quietBroker} from '../../__spec__/helpers/quiet-broker'
 import {
@@ -629,10 +630,10 @@ describe('dispatchReload', () => {
 describe('createChangedSourcesTracker', () => {
   function fakeCompiler() {
     let runner: (() => void) | undefined
-    let doneRunner: ((stats: any) => void) | undefined
+    let doneRunner: ((stats: unknown) => void) | undefined
     let emittedRunner: ((file: string) => void) | undefined
     const saved = new Set<string>()
-    const compiler: any = {
+    const compiler = {
       modifiedFiles: undefined as Set<string> | undefined,
       options: {context: '/proj'},
       hooks: {
@@ -642,7 +643,7 @@ describe('createChangedSourcesTracker', () => {
           }
         },
         done: {
-          tap: (_name: string, fn: (stats: any) => void) => {
+          tap: (_name: string, fn: (stats: unknown) => void) => {
             doneRunner = fn
           }
         },
@@ -652,7 +653,7 @@ describe('createChangedSourcesTracker', () => {
           }
         }
       }
-    }
+    } as unknown as Compiler
 
     return {
       compiler,
@@ -663,7 +664,10 @@ describe('createChangedSourcesTracker', () => {
       },
       // A compile names what it read. One given no list read every file
       // saved so far, as a build whose modules are all reachable does.
-      fireDone: (errors: any[] = [], extra?: {fileDependencies?: string[]}) => {
+      fireDone: (
+        errors: unknown[] = [],
+        extra?: {fileDependencies?: string[]}
+      ) => {
         doneRunner?.({
           compilation: {
             errors,
@@ -1053,7 +1057,7 @@ describe('createChangedSourcesTracker on a symlinked project dir', () => {
 
   function trackerAt(context: string) {
     let runner: (() => void) | undefined
-    const compiler: any = {
+    const compiler = {
       modifiedFiles: undefined as Set<string> | undefined,
       options: {context},
       hooks: {
@@ -1065,7 +1069,7 @@ describe('createChangedSourcesTracker on a symlinked project dir', () => {
         done: {tap: () => undefined},
         assetEmitted: {tap: () => undefined}
       }
-    }
+    } as unknown as Compiler
     const tracker = createChangedSourcesTracker(compiler)
 
     return {compiler, tracker, fireWatchRun: () => runner?.()}
@@ -1130,7 +1134,7 @@ describe('createChangedSourcesTracker on a symlinked project dir', () => {
         ]
       }
     ]
-    const compilation: any = {
+    const compilation = {
       chunks: chunks.map((chunk) => ({name: chunk.name})),
       chunkGraph: {
         getChunkModulesIterable: (chunk: {name: string}) =>
@@ -1138,7 +1142,7 @@ describe('createChangedSourcesTracker on a symlinked project dir', () => {
             .find((each) => each.name === chunk.name)!
             .modules.map((id) => ({identifier: () => id}))
       }
-    }
+    } as unknown as Compilation
 
     const {compiler, tracker, fireWatchRun} = trackerAt(unresolved)
     compiler.modifiedFiles = new Set([

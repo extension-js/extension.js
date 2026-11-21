@@ -186,7 +186,7 @@ describe('an include entry in its long form', () => {
         'e.js': {from: 'vendor/lib.js', minify: 'no'},
         'f.js': {from: 'vendor/lib.js', minfy: false},
         'g.js': ['vendor/lib.js']
-      } as any,
+      } as unknown as Parameters<typeof judgeIncludeFiles>[0],
       root
     )
 

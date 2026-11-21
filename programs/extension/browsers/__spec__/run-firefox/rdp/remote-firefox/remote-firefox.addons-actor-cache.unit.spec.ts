@@ -1,3 +1,4 @@
+import type EventEmitter from 'node:events'
 import {describe, expect, it, vi} from 'vitest'
 
 vi.mock('../../../../run-firefox/rdp/remote-firefox/messaging-client', () => {
@@ -23,12 +24,27 @@ vi.mock('../../../../run-firefox/rdp/remote-firefox/messaging-client', () => {
 
 import {RemoteFirefox} from '../../../../run-firefox/rdp/remote-firefox'
 
+type RemoteOptions = ConstructorParameters<typeof RemoteFirefox>[0]
+
+// The private members these rows drive, reached through one cast.
+interface RemoteInternals {
+  connectClient(port: number): Promise<EventEmitter>
+  enableUnifiedLogging(opts: {level: string}): Promise<void>
+  cachedAddonsActor: string | undefined
+}
+
+function makeRemote(options: Partial<RemoteOptions>): RemoteInternals {
+  return new RemoteFirefox(
+    options as RemoteOptions
+  ) as unknown as RemoteInternals
+}
+
 describe('RemoteFirefox connection-scoped actor cache', () => {
   it('clears the addonsActor cache when a new RDP connection is established', async () => {
-    const rf: any = new RemoteFirefox({
+    const rf = makeRemote({
       extension: 'dist/firefox',
       browser: 'firefox'
-    } as any)
+    })
 
     rf.cachedAddonsActor = 'server1.conn0.addonsActor2'
 
@@ -38,10 +54,10 @@ describe('RemoteFirefox connection-scoped actor cache', () => {
   })
 
   it('re-clears the cache when the transport transparently reconnects', async () => {
-    const rf: any = new RemoteFirefox({
+    const rf = makeRemote({
       extension: 'dist/firefox',
       browser: 'firefox'
-    } as any)
+    })
 
     const client = await rf.connectClient(9999)
 

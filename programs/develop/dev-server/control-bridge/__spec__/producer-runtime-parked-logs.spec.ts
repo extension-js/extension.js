@@ -27,7 +27,10 @@ class FakeWebSocket {
 }
 
 type Console = Record<string, (...args: unknown[]) => void>
-type Frame = {type: string; event?: Record<string, any>}
+type Frame = {
+  type: string
+  event?: {level?: unknown; messageParts?: unknown[]}
+}
 
 function makeStore() {
   const data: Record<string, unknown> = {}

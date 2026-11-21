@@ -9,11 +9,11 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 const execInstallCommand = vi.fn()
 
 vi.mock('../package-manager', async (importOriginal) => {
-  const actual = (await importOriginal()) as any
+  const actual = await importOriginal<typeof import('../package-manager')>()
 
   return {
     ...actual,
-    execInstallCommand: (...args: any[]) => execInstallCommand(...args),
+    execInstallCommand: (...args: unknown[]) => execInstallCommand(...args),
     resolvePackageManager: () => ({name: 'pnpm'})
   }
 })
@@ -85,9 +85,8 @@ function exitedPid(): number {
 async function refusal(
   options?: Parameters<typeof ensureDevelopArtifacts>[0]
 ): Promise<{code?: string; lines: string[]}> {
-  const error: any = await ensureDevelopArtifacts(options).catch(
-    (caught) => caught
-  )
+  const error: {code?: string; message?: string} | undefined =
+    await ensureDevelopArtifacts(options).catch((caught) => caught)
 
   return {
     code: error?.code,
@@ -240,7 +239,7 @@ describe('ensureDevelopArtifacts', () => {
     })
 
     expect(
-      stripVTControlCharacters(String((console.warn as any).mock.calls[0][0]))
+      stripVTControlCharacters(String(vi.mocked(console.warn).mock.calls[0][0]))
     ).toContain('install  target=extension-develop build artifacts')
   })
 

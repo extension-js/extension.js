@@ -4,6 +4,13 @@ import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {readRecentConsole} from '../commands/act'
 
+// The log line fields the rows read back from the buffer.
+interface ConsoleEntry {
+  context: string
+  messageParts: unknown[]
+  seq: number
+}
+
 let dir: string
 
 beforeEach(() => {
@@ -63,7 +70,7 @@ describe('readRecentConsole (console-from-buffer)', () => {
       'chromium',
       {context: 'content'},
       50
-    ) as any[]
+    ) as ConsoleEntry[]
     expect(out).toHaveLength(3)
     expect(out.every((e) => e.context === 'content')).toBe(true)
   })
@@ -74,7 +81,7 @@ describe('readRecentConsole (console-from-buffer)', () => {
       'chromium',
       {context: 'content', tabId: 7},
       50
-    ) as any[]
+    ) as ConsoleEntry[]
     expect(out.map((e) => e.messageParts[0])).toEqual(['c-tab7', 'c-tab7-b'])
   })
 
@@ -84,7 +91,7 @@ describe('readRecentConsole (console-from-buffer)', () => {
       'chromium',
       {context: 'content'},
       1
-    ) as any[]
+    ) as ConsoleEntry[]
     expect(out).toHaveLength(1)
     expect(out[0].seq).toBe(4)
   })

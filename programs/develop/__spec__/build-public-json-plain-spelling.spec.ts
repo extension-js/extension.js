@@ -122,7 +122,13 @@ function readDist(root: string, browser: Browser = 'chrome') {
 
 // Every path the built manifest names must be a file in dist, whichever
 // slot the build chose for it.
-function expectNamedPathsExist(distDir: string, manifest: any) {
+function expectNamedPathsExist(
+  distDir: string,
+  manifest: {
+    storage: {managed_schema: string}
+    declarative_net_request?: {rule_resources: Array<{path: string}>}
+  }
+) {
   const named: string[] = [manifest.storage.managed_schema]
 
   if (manifest.declarative_net_request) {

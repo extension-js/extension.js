@@ -26,10 +26,18 @@ import {
 } from '../../browsers-lib/messages'
 import {stampReadyBrowserLaunch} from '../../browsers-lib/ready-stamp'
 import {classifyBinaryProvenance} from '../../browsers-lib/shared-utils'
+import type {CompilationLike} from '../../browsers-types'
 import {createChromiumContext} from '../../run-chromium/chromium-context'
 import {ChromiumLaunchPlugin} from '../../run-chromium/chromium-launch'
 
 import {emptyPathFolder, expectSealedBrowserEnv} from '../sealed-browser-env'
+
+// The plan stops at the launch itself, short of the failure stamp runOnce adds.
+function withPrivateLaunch(plugin: ChromiumLaunchPlugin) {
+  return plugin as unknown as {
+    launchChromium: (compilation: CompilationLike) => Promise<void>
+  }
+}
 
 const stripAnsi = (s: string) => s.replace(/\u001b\[[0-9;]*m/g, '')
 
@@ -135,11 +143,11 @@ describe('a session names a system binary it resolved', () => {
 
   it('plans the located Edge when the managed cache holds no binary, and classes it system', async () => {
     const plugin = new ChromiumLaunchPlugin(
-      {browser: 'edge', extension: [outputPath], dryRun: true} as any,
-      createChromiumContext() as any
+      {browser: 'edge', extension: [outputPath], dryRun: true},
+      createChromiumContext()
     )
 
-    await (plugin as any).launchChromium({
+    await withPrivateLaunch(plugin).launchChromium({
       options: {output: {path: outputPath}, mode: 'development'},
       outputOptions: {path: outputPath}
     })

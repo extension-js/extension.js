@@ -32,6 +32,9 @@ afterEach(() => {
   created.length = 0
 })
 
+// Rows name a browser through the config's own custom names.
+type BrowserName = Parameters<typeof loadBrowserConfig>[1]
+
 describe('extension.config object-merge and command/browser defaults', () => {
   it('merges plain object config on top of base using deep merge', async () => {
     const dir = tmpDir('extjs-cfg-')
@@ -45,7 +48,7 @@ describe('extension.config object-merge and command/browser defaults', () => {
       rspack
     })
     const base = {resolve: {alias: {baz: 'qux'}}}
-    const merged = hook(base as any) as any
+    const merged = hook(base as Parameters<typeof hook>[0]) as typeof base
     expect(merged.resolve.alias).toMatchObject({baz: 'qux', foo: 'bar'})
   })
 
@@ -203,9 +206,13 @@ describe('extension.config object-merge and command/browser defaults', () => {
     )
 
     // Exact fork block wins when present.
-    const exact = await loadBrowserConfig(withExact, 'acme-webkit' as any, {
-      mode: 'production'
-    })
+    const exact = await loadBrowserConfig(
+      withExact,
+      'acme-webkit' as BrowserName,
+      {
+        mode: 'production'
+      }
+    )
     expect(exact).toMatchObject({browser: 'acme-webkit', appName: 'FromAcme'})
 
     // Prefer webkit-based over safari when both exist and the fork has no block.
@@ -223,7 +230,7 @@ describe('extension.config object-merge and command/browser defaults', () => {
 
     const engineCfg = await loadBrowserConfig(
       withEngine,
-      'internal-webkit' as any,
+      'internal-webkit' as BrowserName,
       {mode: 'production'}
     )
     expect(engineCfg).toMatchObject({
@@ -245,7 +252,7 @@ describe('extension.config object-merge and command/browser defaults', () => {
 
     const forkCfg = await loadBrowserConfig(
       safariOnly,
-      'internal-webkit' as any,
+      'internal-webkit' as BrowserName,
       {mode: 'production'}
     )
     expect(forkCfg).toMatchObject({

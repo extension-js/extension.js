@@ -2,6 +2,7 @@ import {PassThrough} from 'node:stream'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 import {CDPClient} from '../../run-chromium/cdp/cdp-client'
+import {clientInternals} from '../cdp-client-fakes'
 
 describe('CDPClient pipe transport', () => {
   let client: CDPClient
@@ -94,7 +95,7 @@ describe('CDPClient pipe transport', () => {
 
     pipeOut.removeAllListeners('data')
     const pendingIds = Array.from(
-      (client as any).pendingRequests.keys()
+      clientInternals(client).pendingRequests.keys()
     ) as number[]
     expect(pendingIds).toHaveLength(2)
 
@@ -118,7 +119,7 @@ describe('CDPClient pipe transport', () => {
     await new Promise((r) => setTimeout(r, 0))
 
     const pendingIds = Array.from(
-      (client as any).pendingRequests.keys()
+      clientInternals(client).pendingRequests.keys()
     ) as number[]
     const response = JSON.stringify({id: pendingIds[0], result: {value: 2}})
 

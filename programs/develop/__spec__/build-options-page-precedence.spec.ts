@@ -61,7 +61,7 @@ async function build(root: string) {
 
 async function buildAndRead(manifestExtra: Record<string, unknown>) {
   const root = project(manifestExtra)
-  const summary: any = await build(root)
+  const summary = await build(root)
   expect(summary.errors_count).toBe(0)
   const distDir = path.join(root, 'dist', 'chrome')
 

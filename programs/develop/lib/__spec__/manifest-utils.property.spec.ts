@@ -78,18 +78,24 @@ const wrap = (node: unknown, depth: number): unknown =>
   depth === 0 ? node : wrap(depth % 2 ? {inner: node} : [node], depth - 1)
 
 // wrap adds the depth-1 layer last, so peeling starts from layer one.
-const unwrap = (node: any, depth: number): any => {
+const unwrap = (node: unknown, depth: number) => {
   let current = node
 
   for (let layer = 1; layer <= depth; layer++) {
-    current = layer % 2 ? current.inner : current[0]
+    current =
+      layer % 2
+        ? (current as {inner: unknown}).inner
+        : (current as unknown[])[0]
   }
 
-  return current
+  return current as Record<string, unknown>
 }
 
 const filter = (manifest: unknown, browser: string) =>
-  filterKeysForThisBrowser(manifest as any, browser as Browser) as any
+  filterKeysForThisBrowser(
+    manifest as Parameters<typeof filterKeysForThisBrowser>[0],
+    browser as Browser
+  ) as Record<string, unknown>
 
 const allKeys = (node: unknown): string[] =>
   Array.isArray(node)
@@ -201,7 +207,7 @@ describe('filterKeysForThisBrowser properties', () => {
     })
 
     expect(JSON.stringify(out)).toContain('"__proto__":{"polluted":true}')
-    expect(Object.hasOwn(out.nested, '__proto__')).toBe(true)
+    expect(Object.hasOwn(out.nested as object, '__proto__')).toBe(true)
     expect(JSON.stringify(out.nested)).toBe('{"__proto__":{"deep":1}}')
 
     expect(Object.getPrototypeOf(out)).toBe(Object.prototype)

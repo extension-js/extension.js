@@ -10,6 +10,7 @@ import {
   markManagedEphemeralProfile,
   parseEnvBrowserFlags
 } from '../../browsers-lib/shared-utils'
+import type {CompilationLike} from '../../browsers-types'
 import {
   browserConfig,
   DEFAULT_BROWSER_FLAGS,
@@ -25,8 +26,10 @@ const makeTempFolder = trackTempFolders()
 // A folder of this file's own: other sessions run the same suite at once.
 const projectDir = makeTempFolder('extjs-flags-project-')
 
-function makeCompilation(out = path.join(projectDir, 'dist', 'chrome')) {
-  return {options: {output: {path: out}}} as any
+function makeCompilation(
+  out = path.join(projectDir, 'dist', 'chrome')
+): CompilationLike {
+  return {options: {output: {path: out}}}
 }
 
 // Chromium keeps one merged --disable-features switch, so an exclusion has to
@@ -65,7 +68,7 @@ describe('Chromium profile flags', () => {
     const flags = browserConfig(makeCompilation(), {
       extension: '/ext',
       browser: 'chrome'
-    } as any)
+    })
     const userDir = flags.find((f: string) => f.startsWith('--user-data-dir='))
     expect(userDir).toBeTruthy()
     expect(userDir).toMatch(
@@ -78,7 +81,7 @@ describe('Chromium profile flags', () => {
       extension: '/ext',
       browser: 'chrome',
       persistProfile: true
-    } as any)
+    })
     expect(getUserDataDir(flags)).toBe(
       path.join(
         projectDir,
@@ -95,7 +98,7 @@ describe('Chromium profile flags', () => {
     const flags = browserConfig(makeCompilation(), {
       extension: '/ext',
       browser: 'chromium'
-    } as any)
+    })
 
     const profilePath = getUserDataDir(flags)
     const preferencesPath = path.join(profilePath, 'Default', 'Preferences')
@@ -111,7 +114,7 @@ describe('Chromium profile flags', () => {
       extension: '/ext',
       browser: 'chrome',
       persistProfile: true
-    } as any)
+    })
 
     const profilePath = getUserDataDir(initialFlags)
     const preferencesPath = path.join(profilePath, 'Default', 'Preferences')
@@ -125,7 +128,7 @@ describe('Chromium profile flags', () => {
       extension: '/ext',
       browser: 'chrome',
       persistProfile: true
-    } as any)
+    })
 
     const preferences = JSON.parse(fs.readFileSync(preferencesPath, 'utf8'))
     expect(preferences?.extensions?.developer_mode).toBe(false)
@@ -156,7 +159,7 @@ describe('Chromium profile flags', () => {
       extension: '/ext',
       browser: 'chrome',
       profile: explicitProfile
-    } as any)
+    })
 
     expect(flags).toContain(`--user-data-dir=${explicitProfile}`)
     expect(fs.existsSync(path.join(explicitProfile, 'SingletonLock'))).toBe(
@@ -185,24 +188,24 @@ describe('Chromium profile flags', () => {
           context: projectA,
           output: {path: path.join(projectA, 'dist', 'chrome')}
         }
-      } as any
+      } satisfies CompilationLike
       const compilationB = {
         options: {
           context: projectB,
           output: {path: path.join(projectB, 'dist', 'chrome')}
         }
-      } as any
+      } satisfies CompilationLike
 
       const flagsA = browserConfig(compilationA, {
         extension: '/ext',
         browser: 'chrome',
         profile: './dist/extension-profile-chrome'
-      } as any)
+      })
       const flagsB = browserConfig(compilationB, {
         extension: '/ext',
         browser: 'chrome',
         profile: './dist/extension-profile-chrome'
-      } as any)
+      })
 
       const userDirA = getUserDataDir(flagsA)
       const userDirB = getUserDataDir(flagsB)
@@ -238,13 +241,13 @@ describe('Chromium profile flags', () => {
           context: projectDir,
           output: {path: path.join(projectDir, 'dist', 'chrome')}
         }
-      } as any
+      } satisfies CompilationLike
 
       const flags = browserConfig(compilation, {
         extension: '/ext',
         browser: 'chrome',
         profile: explicitProfile
-      } as any)
+      })
 
       expect(getUserDataDir(flags)).toBe(explicitProfile)
     } finally {
@@ -286,7 +289,7 @@ describe('Chromium profile flags', () => {
             extension: '/ext',
             browser: 'chrome',
             profile: explicitProfile
-          } as any)
+          })
         ).toThrow(/already in use by process/i)
       } finally {
         holder.kill('SIGKILL')
@@ -362,7 +365,7 @@ describe('Chromium container sandbox flags', () => {
     return browserConfig(makeCompilation(), {
       extension: '/ext',
       browser: 'chrome'
-    } as any)
+    })
   }
 
   it('adds --no-sandbox when CI=true on Linux', () => {
@@ -392,7 +395,7 @@ describe('Chromium container sandbox flags', () => {
     const flags = browserConfig(makeCompilation(), {
       extension: '/ext',
       browser: 'chrome'
-    } as any)
+    })
     expect(flags).not.toContain('--no-sandbox')
   })
 
@@ -405,7 +408,7 @@ describe('Chromium container sandbox flags', () => {
     const flags = browserConfig(makeCompilation(), {
       extension: '/ext',
       browser: 'chrome'
-    } as any)
+    })
     expect(flags).not.toContain('--no-sandbox')
   })
 })
@@ -415,7 +418,7 @@ describe('Chromium feature-switch merging', () => {
     const flags = browserConfig(makeCompilation(), {
       extension: '/ext',
       browser: 'chrome'
-    } as any)
+    })
     const disables = flags.filter((f: string) =>
       f.startsWith('--disable-features=')
     )
@@ -439,7 +442,7 @@ describe('Chromium feature-switch merging', () => {
     const flags = browserConfig(makeCompilation(), {
       extension: '/ext',
       browser: 'chrome'
-    } as any)
+    })
     const enables = flags.filter((f: string) =>
       f.startsWith('--enable-features=')
     )
@@ -455,7 +458,7 @@ describe('Chromium feature-switch merging', () => {
         '--disable-features=MyCustomFeature',
         '--enable-features=MyEnabledFeature'
       ]
-    } as any)
+    })
     const disables = flags.filter((f: string) =>
       f.startsWith('--disable-features=')
     )
@@ -477,7 +480,7 @@ describe('Chromium feature-switch merging', () => {
       excludeBrowserFlags: [
         '--disable-features=ExtensionDisableUnsupportedDeveloper'
       ]
-    } as any)
+    })
     const disables = flags.find((f: string) =>
       f.startsWith('--disable-features=')
     )
@@ -491,7 +494,7 @@ describe('Chromium feature-switch merging', () => {
       browser: 'chrome',
       browserFlags: ['--start-maximized', '--kiosk'],
       excludeBrowserFlags: ['--start-maximized']
-    } as any)
+    })
     expect(flags).not.toContain('--start-maximized')
     expect(flags).toContain('--kiosk')
   })
@@ -501,7 +504,7 @@ describe('Chromium feature-switch merging', () => {
       extension: '/ext',
       browser: 'chrome',
       excludeBrowserFlags: ['--disable-dev-shm-usage', '--memory-pressure-off']
-    } as any)
+    })
     expect(flags).not.toContain('--disable-dev-shm-usage')
     expect(flags).not.toContain('--memory-pressure-off')
     expect(flags).toContain('--disable-hang-monitor')
@@ -513,7 +516,7 @@ describe('Chromium feature-switch merging', () => {
       extension: '/ext',
       browser: 'chrome',
       excludeBrowserFlags: ['--disable-features=TranslateUI']
-    } as any)
+    })
     const entries = disabledFeatureEntries(flags)
     expect(entries).not.toContain('TranslateUI')
     expect(entries).toContain('Translate')
@@ -525,7 +528,7 @@ describe('Chromium feature-switch merging', () => {
       extension: '/ext',
       browser: 'chrome',
       excludeBrowserFlags: ['--disable-features=Translate']
-    } as any)
+    })
     const entries = disabledFeatureEntries(flags)
     expect(entries).not.toContain('Translate')
     expect(entries).toContain('TranslateUI')
@@ -540,7 +543,7 @@ describe('Chromium feature-switch merging', () => {
         '--disable-features=Translate',
         '--disable-features=TranslateUI'
       ]
-    } as any)
+    })
     const entries = disabledFeatureEntries(flags)
     expect(entries).not.toContain('Translate')
     expect(entries).not.toContain('TranslateUI')
@@ -553,7 +556,7 @@ describe('Chromium feature-switch merging', () => {
       browser: 'chrome',
       browserFlags: ['--foobar', '--foo=value'],
       excludeBrowserFlags: ['--foo']
-    } as any)
+    })
     expect(flags).toContain('--foobar')
     expect(flags).not.toContain('--foo=value')
   })
@@ -595,7 +598,7 @@ describe('EXTENSION_BROWSER_FLAGS environment pass-through', () => {
     const flags = browserConfig(makeCompilation(), {
       extension: '/ext',
       browser: 'chrome'
-    } as any)
+    })
     expect(flags).toContain('--headless=new')
   })
 
@@ -604,7 +607,7 @@ describe('EXTENSION_BROWSER_FLAGS environment pass-through', () => {
     const baseline = browserConfig(makeCompilation(), {
       extension: '/ext',
       browser: 'chrome'
-    } as any)
+    })
     expect(baseline.some((f: string) => f.includes('--headless'))).toBe(false)
   })
 
@@ -613,7 +616,7 @@ describe('EXTENSION_BROWSER_FLAGS environment pass-through', () => {
     const flags = browserConfig(makeCompilation(), {
       extension: '/ext',
       browser: 'chrome'
-    } as any)
+    })
     const disables = flags.filter((f: string) =>
       f.startsWith('--disable-features=')
     )
@@ -628,7 +631,7 @@ describe('EXTENSION_BROWSER_FLAGS environment pass-through', () => {
       extension: '/ext',
       browser: 'chrome',
       browserFlags: ['--window-size=800,600']
-    } as any)
+    })
     expect(flags.indexOf('--headless=new')).toBeGreaterThan(
       flags.indexOf('--window-size=800,600')
     )
@@ -658,7 +661,7 @@ describe('EXTENSION_HEADLESS focus-steal guard', () => {
     const flags = browserConfig(makeCompilation(), {
       extension: '/ext',
       browser: 'chrome'
-    } as any)
+    })
     expect(flags).toContain('--headless=new')
   })
 
@@ -668,7 +671,7 @@ describe('EXTENSION_HEADLESS focus-steal guard', () => {
       extension: '/ext',
       browser: 'chrome',
       browserFlags: ['--headless=old']
-    } as any)
+    })
     expect(flags).toContain('--headless=old')
     expect(flags).not.toContain('--headless=new')
   })
@@ -678,14 +681,14 @@ describe('EXTENSION_HEADLESS focus-steal guard', () => {
     const unset = browserConfig(makeCompilation(), {
       extension: '/ext',
       browser: 'chrome'
-    } as any)
+    })
     expect(unset.some((f: string) => f.startsWith('--headless'))).toBe(false)
 
     vi.stubEnv('EXTENSION_HEADLESS', '0')
     const disabled = browserConfig(makeCompilation(), {
       extension: '/ext',
       browser: 'chrome'
-    } as any)
+    })
     expect(disabled.some((f: string) => f.startsWith('--headless'))).toBe(false)
   })
 })
@@ -716,7 +719,12 @@ describe('chromium load-extension launch flags', () => {
   })
 })
 
-type Prefs = Record<string, any>
+// The fields the rows read off the merged first-run preferences.
+type Prefs = Record<string, unknown> & {
+  vivaldi: {startup: {has_seen_welcome_page: unknown}}
+  distribution: {suppress_first_run_bubble: unknown}
+  session: {restore_on_startup: unknown}
+}
 
 describe('chromium fork first-run preferences', () => {
   it('marks the Vivaldi welcome page as seen so a fresh profile opens on the extension', () => {

@@ -19,7 +19,7 @@ describe('optional-deps-resolver swallowed errors', () => {
         resolveOptionalPackageWithoutInstall({
           projectPath: '/definitely/not/a/project',
           dependencyId: 'not-a-real-package-xyz'
-        } as any)
+        } as Parameters<typeof resolveOptionalPackageWithoutInstall>[0])
       } catch {
         // Expected: nothing resolves it.
       }

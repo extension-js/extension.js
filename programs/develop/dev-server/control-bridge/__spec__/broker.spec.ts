@@ -8,7 +8,7 @@ import {
   RELOAD_ACK_TIMEOUT_MS,
   RELOAD_RESTART_TIMEOUT_MS
 } from '../broker'
-import type {IncomingLogEvent, ServerFrame} from '../contracts'
+import type {IncomingLogEvent, LogFrame, ServerFrame} from '../contracts'
 import {LogRingBuffer} from '../ring-buffer'
 
 class FakeConn implements BridgeConnection {
@@ -113,10 +113,10 @@ describe('BridgeBroker (Slice 1: logs)', () => {
     })
 
     cons.sent = []
-    b.onFrame(prod, {type: 'log', event: {...incoming('hi'), seq: 0} as any})
+    b.onFrame(prod, {type: 'log', event: {...incoming('hi'), seq: 0}})
     expect(cons.sent).toHaveLength(1)
     expect(cons.sent[0]).toMatchObject({type: 'log'})
-    expect((cons.sent[0] as any).event.seq).toBe(1)
+    expect((cons.sent[0] as LogFrame).event.seq).toBe(1)
   })
 
   it('normalizes producer-stamped runId to the session runId on ingest', () => {
@@ -131,7 +131,7 @@ describe('BridgeBroker (Slice 1: logs)', () => {
 
     cons.sent = []
     b.ingestLog({...incoming('hi'), runId: 'inst-1'})
-    expect((cons.sent[0] as any).event.runId).toBe('run-A')
+    expect((cons.sent[0] as LogFrame).event.runId).toBe('run-A')
   })
 
   it('replays the retained ring to a late consumer', () => {
@@ -161,9 +161,9 @@ describe('BridgeBroker (Slice 1: logs)', () => {
       evicted: 0
     })
 
-    expect(late.sent.slice(1).map((f: any) => f.event.messageParts[0])).toEqual(
-      ['a', 'b']
-    )
+    expect(
+      late.sent.slice(1).map((f) => (f as LogFrame).event.messageParts[0])
+    ).toEqual(['a', 'b'])
   })
 
   it('sends a live consumer every event and no gap frame once the ring is full', () => {
@@ -180,16 +180,9 @@ describe('BridgeBroker (Slice 1: logs)', () => {
     cons.sent = []
     for (let i = 1; i <= 8; i++) b.ingestLog(incoming(`m${i}`))
     expect(cons.sent.filter((f) => f.type === 'gap')).toHaveLength(0)
-    expect(cons.sent.map((f: any) => f.event.messageParts[0])).toEqual([
-      'm1',
-      'm2',
-      'm3',
-      'm4',
-      'm5',
-      'm6',
-      'm7',
-      'm8'
-    ])
+    expect(cons.sent.map((f) => (f as LogFrame).event.messageParts[0])).toEqual(
+      ['m1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7', 'm8']
+    )
   })
 
   it('tells a late consumer how much of the replay the ring evicted', () => {
@@ -211,7 +204,10 @@ describe('BridgeBroker (Slice 1: logs)', () => {
       evicted: 5
     })
 
-    expect(late.sent.slice(1).map((f: any) => f.event.seq)).toEqual([6, 7, 8])
+    expect(late.sent.slice(1).map((f) => (f as LogFrame).event.seq)).toEqual([
+      6, 7, 8
+    ])
+
     expect(late.sent.filter((f) => f.type === 'gap')).toHaveLength(0)
   })
 
@@ -226,7 +222,7 @@ describe('BridgeBroker (Slice 1: logs)', () => {
     })
 
     cons.sent = []
-    b.onFrame(cons, {type: 'log', event: {...incoming('x'), seq: 0} as any})
+    b.onFrame(cons, {type: 'log', event: {...incoming('x'), seq: 0}})
     expect(cons.sent).toHaveLength(0)
   })
 

@@ -6,6 +6,8 @@ import {
   findDroppedVendorKeys
 } from '../manifest-entry'
 
+type Manifest = Parameters<typeof filterKeysForThisBrowser>[0]
+
 describe('the public manifest entry', () => {
   it('resolves the prefix convention for a project with its own build', () => {
     const manifest = {
@@ -14,7 +16,7 @@ describe('the public manifest entry', () => {
       'chromium:background': {service_worker: 'sw.js'},
       'firefox:background': {scripts: ['bg.js']},
       'safari:background': {scripts: ['safari.js']}
-    } as any
+    } as Manifest
 
     expect(filterKeysForThisBrowser(manifest, 'chrome').background).toEqual({
       service_worker: 'sw.js'
@@ -38,7 +40,7 @@ describe('the public manifest entry', () => {
       'firefox:background': {scripts: ['bg.js']},
       'firefox:browser_specific_settings': {gecko: {id: 'x@y'}},
       'safari:browser_specific_settings': {safari: {strict_min_version: '17'}}
-    } as any
+    } as Manifest
 
     expect(filterKeysForThisBrowser(manifest, 'safari')).toEqual({
       manifest_version: 3,
