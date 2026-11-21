@@ -4,6 +4,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {bridgeBrokerFake} from '../../__spec__/helpers/bridge-broker-fake'
+import {sessionOf} from '../../__spec__/helpers/dev-session'
 import {controlPortFilePath} from '../../lib/session-paths'
 import {stripAnsi} from '../../lib/strip-ansi'
 import {
@@ -180,8 +181,12 @@ describe('opening the control bridge', () => {
     )
 
     new ReadyContractPlugin({
-      ...session,
-      ...coordinates,
+      packageJsonDir: root,
+      browser: 'chrome',
+      manifestPath: path.join(root, 'manifest.json'),
+      session: sessionOf({port: 8080, controlPort: coordinates.controlPort}),
+      controlPortUnavailableReason: coordinates.controlPortUnavailableReason,
+      controlPath: coordinates.controlPath,
       mode: 'development',
       outputPath: path.join(root, 'dist', 'chrome')
     }).apply({hooks: anyHook} as never)

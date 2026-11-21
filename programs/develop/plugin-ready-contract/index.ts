@@ -20,6 +20,7 @@ import {
   devAdditionsOf,
   mergeDevAdditions
 } from '../lib/dev-additions'
+import type {DevSessionCoordinates} from '../lib/dev-session-coordinates'
 import {
   chromiumExtensionId,
   geckoExtensionId,
@@ -127,12 +128,11 @@ type PluginOptions = {
   mode?: 'development' | 'production' | 'none'
   outputPath: string
   manifestPath: string
-  port?: number | string | null
-  host?: string
+  // The dev session whose port, host, id and control port the document
+  // names. A command that serves nothing hands none.
+  session?: Readonly<DevSessionCoordinates>
   command?: SessionCommand
-  instanceId?: string
   instanceExplicit?: boolean
-  controlPort?: number | string | null
   controlPortUnavailableReason?: string | null
   controlPath?: string
   logsPath?: string
@@ -1279,17 +1279,20 @@ export class ReadyContractPlugin {
 
     this.launchFollows = options.launchFollows === true
 
+    const session = options.session
+
     this.writer = createReadyContractWriter({
       packageJsonDir: options.packageJsonDir,
       browser: this.browser,
       command: this.command,
       distPath: options.outputPath,
       manifestPath: options.manifestPath,
-      port: options.port,
-      host: options.host,
-      instanceId: options.instanceId,
+      port: session?.port,
+      // The host a client dials. The bind host stands in for a blank one.
+      host: session?.connectableHost || session?.host,
+      instanceId: session?.instanceId,
       instanceExplicit: options.instanceExplicit,
-      controlPort: options.controlPort,
+      controlPort: session?.controlPort,
       controlPortUnavailableReason: options.controlPortUnavailableReason,
       controlPath: options.controlPath,
       logsPath: options.logsPath,

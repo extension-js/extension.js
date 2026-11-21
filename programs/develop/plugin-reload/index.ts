@@ -20,6 +20,7 @@ import {
 import {InjectBridgeRelay} from './steps/inject-bridge-relay'
 import {InjectScriptsReplayShim} from './steps/inject-scripts-replay-shim'
 import {KeepOpenTabStylesheets} from './steps/keep-open-tab-stylesheets'
+import {NameHotUpdateFiles} from './steps/name-hot-update-files'
 import {PruneStaleHotUpdates} from './steps/prune-stale-hot-updates'
 import {PruneUnreachableChunks} from './steps/prune-unreachable-chunks'
 import {SetupDevContentScripts} from './steps/setup-dev-content-scripts'
@@ -105,16 +106,21 @@ export class ReloadPlugin {
     // or not, so the sheets an earlier compile left stay reachable.
     new KeepOpenTabStylesheets().apply(compiler)
 
-    if (!isReloadSession(compiler.options.mode, this.devSession)) {
-      return
-    }
-
     const hasValidManifest =
       !!this.manifestPath &&
       fs.existsSync(this.manifestPath) &&
       fs.lstatSync(this.manifestPath).isFile()
+    const reloads =
+      isReloadSession(compiler.options.mode, this.devSession) &&
+      hasValidManifest
 
-    if (!hasValidManifest) {
+    // Ahead of the gate too: a dev server writes hot update files with
+    // reload off as well, and no other place names them.
+    if (compiler.options.mode !== 'production' && this.devSession !== false) {
+      new NameHotUpdateFiles(reloads).apply(compiler)
+    }
+
+    if (!reloads) {
       return
     }
 

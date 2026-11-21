@@ -11,7 +11,10 @@ const makeTempFolder = trackTempFolders()
 
 // Emits the named files in a real compile, at the stage the locales, JSON
 // and icon steps emit theirs, and returns what the name check reported.
-async function errorsFor(assetNames: string[]): Promise<string[]> {
+async function errorsFor(
+  assetNames: string[],
+  order: 'check-last' | 'check-first' = 'check-last'
+): Promise<string[]> {
   const root = writeProject(makeTempFolder('extjs-output-names-'), {
     'main.js': ''
   })
@@ -34,10 +37,14 @@ async function errorsFor(assetNames: string[]): Promise<string[]> {
       })
     }
   }
-  const {errors} = await compileIssues(root, 'production', {main: 'main.js'}, [
-    emitter,
-    new NoDangerNamePlugin()
-  ])
+  const {errors} = await compileIssues(
+    root,
+    'production',
+    {main: 'main.js'},
+    order === 'check-first'
+      ? [new NoDangerNamePlugin(), emitter]
+      : [emitter, new NoDangerNamePlugin()]
+  )
 
   return errors.map((error) => error.message)
 }
@@ -77,5 +84,14 @@ describe('NoDangerNamePlugin', () => {
 
     expect(errors).toHaveLength(1)
     expect(errors[0]).toContain('"_danger.js"')
+  })
+
+  // The check reads what the emitting stage wrote, so where a config lists
+  // it among the plugins cannot hide a name from it.
+  it('rejects a name emitted by a plugin registered after it', async () => {
+    const errors = await errorsFor(['_late.js'], 'check-first')
+
+    expect(errors).toHaveLength(1)
+    expect(errors[0]).toContain('"_late.js"')
   })
 })

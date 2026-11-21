@@ -88,9 +88,6 @@ export default function webpackConfig(
     : (devOptions.mode || 'development') === 'development'
   // The record of the session that builds this config, when one does.
   const session = devOptions.session
-  const connectableHost = session?.connectableHost
-  // A session listens on the port it was given, which may not be the asked one.
-  const port = session?.port ?? devOptions.port
 
   let rawManifest: unknown
 
@@ -233,7 +230,7 @@ export default function webpackConfig(
       zipSource: devOptions.zipSource === true,
       zipFilename: devOptions.zipFilename,
       zipDir: devOptions.zipDir,
-      port: typeof port === 'string' ? parseInt(port, 10) : port,
+      session,
       command: devOptions.metadataCommand,
       browserLaunchEnabled: session
         ? session.launchEnabled
@@ -280,9 +277,6 @@ export default function webpackConfig(
     }),
     // Dev-session reload/HMR strategy. Must register AFTER WebExtensionPlugin,
     // whose declared entries it decorates. No-ops outside `extension dev`.
-    // Same-stage order too: its NoDangerNamePlugin taps processAssets at
-    // ADDITIONS, where the locales, json and icon steps above emit the
-    // assets it name-checks, so it only sees them by registering later.
     new ReloadPlugin({
       manifestPath,
       browser: devOptions.browser,
@@ -337,13 +331,8 @@ export default function webpackConfig(
       command: devOptions.metadataCommand,
       outputPath: publishedExtensionOutputDir,
       manifestPath,
-      port,
-      // Connectable host clients dial (HMR + control bridge), resolved by
-      // dev-server/index.ts for each session. The bind host is the fallback.
-      host: connectableHost || (devOptions as {host?: string}).host,
-      instanceId: session?.instanceId,
+      session,
       instanceExplicit: devOptions.instanceExplicit,
-      controlPort: session?.controlPort,
       controlPortUnavailableReason: devOptions.controlPortUnavailableReason,
       controlPath: devOptions.controlPath,
       logsPath: devOptions.logsPath,
@@ -548,8 +537,6 @@ export default function webpackConfig(
           : '[name].js',
       // CSS output naming (cssFilename, cssChunkFilename) is owned by
       // CssPlugin, see plugin-css/index.ts.
-      hotUpdateChunkFilename: 'hot/[id].[fullhash].hot-update.js',
-      hotUpdateMainFilename: 'hot/[runtime].[fullhash].hot-update.json',
       environment: {
         bigIntLiteral: true,
         dynamicImport: true
@@ -769,8 +756,8 @@ export default function webpackConfig(
       // HTML pages share the framework runtime and their common modules
       // through stable sibling files. Every other surface keeps one file.
       splitChunks: defaultSplitChunks(devOptions.browser),
-      // A hashed id is the hash of every loader path in the module request,
-      // so it follows where the CLI is installed. Production counts instead.
+      // A dev id hashes the module request, loader paths included, so dev file
+      // names follow the install folder. Kept: a counted id moves with each import.
       moduleIds: devOptions.mode === 'production' ? 'natural' : 'deterministic',
       chunkIds: devOptions.mode === 'production' ? 'natural' : 'deterministic'
     },

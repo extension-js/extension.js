@@ -72,8 +72,12 @@ export default defineConfig({
       'browsers/__spec__/**/*.spec.ts',
       'commands/__spec__/**/*.spec.ts'
     ],
-    // One temp folder for the whole run, removed when the run ends.
-    globalSetup: ['../../scripts/lib/spec-temp-folder.mjs'],
+    // One temp folder for the whole run, removed when the run ends. Then a
+    // stop, before any worker, when a sibling package was never built.
+    globalSetup: [
+      '../../scripts/lib/spec-temp-folder.mjs',
+      '../../scripts/lib/require-built-workspace-deps.mjs'
+    ],
     setupFiles: ['__spec__/setup/env.ts'],
     sequence: {concurrent: false},
     allowOnly: !process.env.CI
