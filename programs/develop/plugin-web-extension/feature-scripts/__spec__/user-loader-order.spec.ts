@@ -340,7 +340,7 @@ async function devSessionBundle(root: string, rule: object) {
   config.plugins = (config.plugins || []).filter(
     (plugin) =>
       plugin?.constructor.name !== 'plugin-browsers' &&
-      plugin?.constructor.name !== 'plugin-playwright'
+      plugin?.constructor.name !== 'plugin-ready-contract'
   )
 
   config.stats = false

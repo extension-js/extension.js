@@ -43,7 +43,7 @@ import {
   getZipArtifacts,
   getZipFailures
 } from '../plugin-compilation/zip-artifacts'
-import {stampReadyDistExtensionId} from '../plugin-playwright'
+import {stampReadyDistExtensionId} from '../plugin-ready-contract'
 import {removeDevelopmentArtifacts} from '../plugin-reload/reload-lib/development-artifacts'
 import type {BuildOptions} from '../types'
 import type {createBuildReceipt} from './build-receipt'

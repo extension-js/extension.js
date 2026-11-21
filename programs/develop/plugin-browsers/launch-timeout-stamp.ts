@@ -6,13 +6,10 @@
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {CODES, stripChannelPrefix} from '../lib/messaging'
-import {renameSyncWithRetry} from '../lib/rename-with-retry'
+import {patchReadyRecord, type ReadyRecord} from '../lib/ready-contract-writer'
 import {readyContractPathBesideBuild} from '../lib/session-contract'
-
-type ReadyRecord = Record<string, unknown>
 
 const TIMEOUT_CODE = CODES.E_BROWSER_START_TIMEOUT
 
@@ -25,22 +22,16 @@ function updateContract(
   try {
     if (!outputPath) return
 
-    const readyPath = readyContractPathBesideBuild(path.resolve(outputPath))
-    if (!fs.existsSync(readyPath)) return
+    patchReadyRecord(
+      readyContractPathBesideBuild(path.resolve(outputPath)),
+      (ready) => {
+        if (typeof ready.pid === 'number' && ready.pid !== process.pid) {
+          return false
+        }
 
-    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8')) as ReadyRecord
-    if (typeof ready.pid === 'number' && ready.pid !== process.pid) return
-
-    if (!update(ready)) return
-
-    const tmpPath = `${readyPath}.tmp-${process.pid}`
-
-    try {
-      fs.writeFileSync(tmpPath, `${JSON.stringify(ready, null, 2)}\n`, 'utf-8')
-      renameSyncWithRetry(tmpPath, readyPath)
-    } catch {
-      fs.rmSync(tmpPath, {force: true})
-    }
+        return update(ready)
+      }
+    )
   } catch {
     // Best-effort: a contract write never breaks the compile loop.
   }

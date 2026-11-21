@@ -60,7 +60,7 @@ import {UnresolvedBareRequires} from './plugin-compilation/unresolved-bare-requi
 import {CssPlugin} from './plugin-css'
 import {JsFrameworksPlugin} from './plugin-js-frameworks'
 import {PerfBudgetsPlugin} from './plugin-perf-budgets'
-import {PlaywrightPlugin} from './plugin-playwright'
+import {ReadyContractPlugin} from './plugin-ready-contract'
 import {PageReloadPlugin, ReloadPlugin} from './plugin-reload'
 import {SpecialFoldersPlugin} from './plugin-special-folders'
 import {StaticAssetsPlugin} from './plugin-static-assets'
@@ -331,7 +331,7 @@ export default function webpackConfig(
   // The readiness contract (ready.json + events.ndjson) is written in ALL dev
   // modes, not just --no-browser: logs --follow and act verbs discover it there.
   plugins.push(
-    new PlaywrightPlugin({
+    new ReadyContractPlugin({
       packageJsonDir,
       browser: devOptions.browser,
       mode: devOptions.mode,

@@ -842,7 +842,7 @@ export function attachLifecycleStream(
         entrypoints: entrypointCount(stats)
       })
 
-      // The ready contract is written by the playwright plugin's done hook,
+      // The ready contract is written by the ready contract plugin's done hook,
       // which is tapped first, so it is on disk by the time this runs.
       stream.ready({restarted: restartReadyOwed})
       restartReadyOwed = false

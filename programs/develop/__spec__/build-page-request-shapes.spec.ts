@@ -77,7 +77,7 @@ async function compile(mode: 'development' | 'production') {
   config.plugins = (config.plugins || []).filter(
     (plugin) =>
       plugin?.constructor.name !== 'plugin-browsers' &&
-      plugin?.constructor.name !== 'plugin-playwright'
+      plugin?.constructor.name !== 'plugin-ready-contract'
   )
 
   if (mode === 'development') {

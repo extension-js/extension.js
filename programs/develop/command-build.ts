@@ -94,7 +94,7 @@ import {
   rememberSpecialFoldersConfig
 } from './lib/special-folders/folders-config'
 import {parkForStartLaunch} from './lib/start-launch-handoff'
-import {createPlaywrightMetadataWriter} from './plugin-playwright'
+import {createReadyContractWriter} from './plugin-ready-contract'
 import type {
   BrowserDefaulted,
   BuildOptions,
@@ -209,7 +209,7 @@ async function runBuild(
       if (findLiveDevSession(packageJsonDir, browser)) return
 
       writeFailedReceipt(
-        createPlaywrightMetadataWriter({
+        createReadyContractWriter({
           packageJsonDir,
           browser: String(browser),
           command: buildOptions?.metadataCommand || 'build',

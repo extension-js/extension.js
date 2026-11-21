@@ -1,32 +1,40 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
-import {
-  createPlaywrightMetadataWriter,
-  type ReadyMetadata
-} from '../plugin-playwright'
+import type {PlaywrightAutomationCommand, ReadyMetadata} from '../bridge-entry'
+import {createReadyContractWriter} from '../plugin-ready-contract'
 import type {ReadyContract} from '../types'
 import {trackTempFolders} from './helpers/temp-folders'
 
 const developRoot = path.resolve(__dirname, '..')
-const writerSourcePath = path.join(developRoot, 'plugin-playwright', 'index.ts')
+const writerSourcePath = path.join(
+  developRoot,
+  'plugin-ready-contract',
+  'index.ts'
+)
 const tempFolder = trackTempFolders()
 
-type WriterOptions = Parameters<typeof createPlaywrightMetadataWriter>[0]
+type WriterOptions = Parameters<typeof createReadyContractWriter>[0]
 type Document = Record<string, unknown>
 
-// The writer's own type has to fit the public one: a field it declares with
-// another type, or one the public type lacks, fails the typecheck gate here.
-type SharedFields = Pick<Required<ReadyContract>, keyof ReadyMetadata>
-type WriterTypeFits =
-  Required<ReadyMetadata> extends SharedFields ? true : never
-const writerTypeFits: WriterTypeFits = true
+// One shape: the names the bridge still publishes for older callers are the
+// public type itself, so a field added to one cannot be missing from another.
+type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never
+const earlierNameIsTheContract: Same<ReadyMetadata, ReadyContract> = true
+const earlierCommandIsTheContract: Same<
+  PlaywrightAutomationCommand,
+  ReadyContract['command']
+> = true
+
+// A Windows checkout holds the sources with CRLF, so every read of one
+// goes through here and the patterns below match on a plain line feed.
+function sourceText(file: string): string {
+  return fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n')
+}
 
 // The interface as written in types.ts, one field per two-space line.
 function readyContractBody(): string {
-  const source = fs
-    .readFileSync(path.join(developRoot, 'types.ts'), 'utf8')
-    .replace(/\r\n/g, '\n')
+  const source = sourceText(path.join(developRoot, 'types.ts'))
   const start = source.indexOf('\nexport interface ReadyContract {\n')
 
   expect(start, 'types.ts declares no ReadyContract interface').toBeGreaterThan(
@@ -48,7 +56,7 @@ function fieldsOfReadyContract(only: 'all' | 'required' = 'all'): string[] {
 // Every field the writer reads off the document on disk. Those are the ones
 // the browser launcher stamps, so the stand-in below stamps each of them.
 function fieldsTheWriterReadsBack(): string[] {
-  const source = fs.readFileSync(writerSourcePath, 'utf8')
+  const source = sourceText(writerSourcePath)
 
   return [
     ...new Set(
@@ -57,35 +65,65 @@ function fieldsTheWriterReadsBack(): string[] {
   ].sort()
 }
 
+const programsRoot = path.resolve(developRoot, '..')
+const sharedWriterPath = path.join(
+  developRoot,
+  'lib',
+  'ready-contract-writer.ts'
+)
+
+function productSources(dir: string): string[] {
+  return fs.readdirSync(dir, {withFileTypes: true}).flatMap((entry) => {
+    const full = path.join(dir, entry.name)
+
+    if (entry.isDirectory()) {
+      return ['node_modules', 'dist', '__spec__'].includes(entry.name)
+        ? []
+        : productSources(full)
+    }
+
+    return /\.ts$/.test(entry.name) && !/\.(?:spec|d)\.ts$/.test(entry.name)
+      ? [full]
+      : []
+  })
+}
+
+// Every file of the engine and the CLI that hands the shared writer a patch.
+// The engine's own writer is read apart, off the fields it reads back.
+function launcherStampSources(): string[] {
+  return ['develop', 'extension']
+    .flatMap((program) => productSources(path.join(programsRoot, program)))
+    .filter(
+      (file) =>
+        file !== writerSourcePath &&
+        /from '[./]+(?:develop\/)?(?:lib\/)?ready-contract-writer'/.test(
+          sourceText(file)
+        )
+    )
+    .sort()
+}
+
 // Every field the launchers stamp, read off their stamp code. The writer
 // carries any field it does not own across a recompile of the same run, so
 // it no longer names these one by one, and the stand-in must learn them here.
-const launcherStampSources = [
-  path.join(developRoot, 'plugin-browsers', 'launch-timeout-stamp.ts'),
-  path.join(
-    developRoot,
-    '..',
-    'extension',
-    'browsers',
-    'browsers-lib',
-    'ready-stamp.ts'
-  )
-]
-
 function fieldsTheLaunchersStamp(): string[] {
   const fields = new Set<string>()
 
-  for (const file of launcherStampSources) {
-    const source = fs.readFileSync(file, 'utf8')
+  for (const file of launcherStampSources()) {
+    const source = sourceText(file)
 
     for (const m of source.matchAll(/\bready\.([A-Za-z]+) =/g)) {
       fields.add(m[1])
     }
+  }
 
-    // The pid stamps write through a key typed as a union of literal names.
-    for (const m of source.matchAll(/Key: ((?:'[A-Za-z]+'(?: \| )?)+)/g)) {
-      for (const name of m[1].matchAll(/'([A-Za-z]+)'/g)) fields.add(name[1])
-    }
+  // The pid stamps write through the shared writer's table of field names.
+  const shared = sourceText(sharedWriterPath)
+
+  for (const m of shared.matchAll(
+    /(?:pid|startedAt|startId): '([A-Za-z]+)'/g
+  )) {
+    fields.add(m[1])
   }
 
   return [...fields].sort()
@@ -120,7 +158,7 @@ function session(root: string, overrides: Partial<WriterOptions> = {}) {
   )
   const seen = new Set<string>()
 
-  const writer = createPlaywrightMetadataWriter({
+  const writer = createReadyContractWriter({
     packageJsonDir: root,
     browser,
     command: 'dev',
@@ -293,8 +331,50 @@ describe('the ReadyContract type in types.ts', () => {
     expect(fieldsOfReadyContract()).toEqual(written)
   })
 
-  it('holds every field of the type the writer declares for itself', () => {
-    expect(writerTypeFits).toBe(true)
+  it('is the one shape, under the earlier names the bridge still exports', () => {
+    expect(earlierNameIsTheContract).toBe(true)
+    expect(earlierCommandIsTheContract).toBe(true)
+
+    const declared = ['develop', 'extension']
+      .flatMap((program) => productSources(path.join(programsRoot, program)))
+      .filter((file) =>
+        /\b(?:type|interface) ReadyMetadata\b(?! = ReadyContract\n)/.test(
+          sourceText(file)
+        )
+      )
+
+    expect(declared).toEqual([])
+  })
+
+  it('covers every caller that stamps the file, engine and CLI', () => {
+    expect(
+      launcherStampSources().map((file) =>
+        path.relative(programsRoot, file).split(path.sep).join('/')
+      )
+    ).toEqual([
+      'develop/plugin-browsers/launch-timeout-stamp.ts',
+      'extension/browsers/browsers-lib/ready-stamp.ts'
+    ])
+
+    const typed = fieldsOfReadyContract()
+    const stamped = [
+      ...fieldsTheLaunchersStamp(),
+      ...fieldsTheWriterReadsBack()
+    ]
+
+    expect(stamped.length).toBeGreaterThan(60)
+    expect(stamped.filter((field) => !typed.includes(field))).toEqual([])
+
+    for (const identity of [
+      'browserPid',
+      'browserStartedAt',
+      'browserStartId',
+      'launcherPid',
+      'launcherStartedAt',
+      'launcherStartId'
+    ]) {
+      expect(fieldsTheLaunchersStamp()).toContain(identity)
+    }
   })
 
   it('marks as always present only what the first write carries', () => {
