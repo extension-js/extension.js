@@ -293,7 +293,7 @@ export class JsFrameworksPlugin {
     const wantsSourceMaps =
       devtool !== false && (mode === 'development' || devtool != null)
 
-    let manifest: ParsedJson = {}
+    let manifest: Manifest = {}
 
     try {
       manifest = parseJsonSafe(fs.readFileSync(this.manifestPath, 'utf-8'))
@@ -303,7 +303,7 @@ export class JsFrameworksPlugin {
 
     // A browser-prefixed key is the only spelling this target sees, so read
     // the resolved manifest here as the background block below already does.
-    let browserManifest: ParsedJson = manifest
+    let browserManifest: Manifest = manifest
 
     try {
       browserManifest = filterKeysForThisBrowser(manifest, this.browser)

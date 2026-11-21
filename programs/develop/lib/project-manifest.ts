@@ -115,7 +115,7 @@ export function stripJsoncExtensions(text: string): string {
 }
 
 // JSON.parse for JSONC input; empty input parses as {}, invalid syntax throws.
-export function parseJsoncSafe(text: string | Buffer): ParsedJson {
+export function parseJsoncSafe<T = ParsedJson>(text: string | Buffer): T {
   const stripped = stripJsoncExtensions(stripBom(text))
 
   return JSON.parse(stripped.trim() || '{}')
@@ -172,7 +172,7 @@ export function readDenoConfigDependencies(
 ): Record<string, string> {
   const dependencies: Record<string, string> = {}
 
-  let config: ParsedJson
+  let config: {imports?: unknown} | null
 
   try {
     config = parseJsoncSafe(fs.readFileSync(denoConfigPath, 'utf8'))
