@@ -3,6 +3,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {portManagerFake} from '../../__spec__/helpers/port-manager-fake'
 import {setupCleanupHandlers} from '../cleanup'
 import {leaveWatchHandlesToExit} from '../leave-watch-handles-to-exit'
 import type {PortManager} from '../port-manager'
@@ -179,9 +180,9 @@ describe('dev shutdown and folder watchers', () => {
     const stop = vi.fn(async () => {
       order.push('stop')
     })
-    const portManager = {
+    const portManager = portManagerFake({
       terminateCurrentInstance: vi.fn(async () => {})
-    } as unknown as PortManager
+    })
 
     const dispose = setupCleanupHandlers(
       () => ({stop}) as never,
