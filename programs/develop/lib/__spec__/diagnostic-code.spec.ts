@@ -104,6 +104,7 @@ describe('diagnosticCode', () => {
     ['ManifestV2OnChromiumWarning', 'W_MANIFEST_COMPAT'],
     ['ManifestLegacyWarning', 'W_MANIFEST_COMPAT'],
     ['ManifestHostPermissionWarning', 'W_MANIFEST_COMPAT'],
+    ['PrefixedPermissionItemWarning', 'W_MANIFEST_COMPAT'],
     ['GeckoAddonIdWarning', 'W_MANIFEST_COMPAT'],
     ['WebAssemblyPolicyWarning', 'W_MANIFEST_COMPAT'],
     ['ManifestDescriptionWarning', 'W_STORE_READINESS'],

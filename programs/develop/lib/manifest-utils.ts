@@ -8,7 +8,12 @@
 
 import * as fs from 'node:fs'
 import type {DevOptions, Manifest} from '../types'
-import {isChromiumBasedBrowser, isGeckoBasedBrowser} from './constants'
+import {
+  isChromiumBasedBrowser,
+  isGeckoBasedBrowser,
+  SUPPORTED_BROWSERS,
+  WEBKIT_BASED_BROWSERS
+} from './constants'
 import {parseJsonSafe} from './parse-json-safe'
 
 // chrome: and edge: name one vendor. Up to 4.1.18 they reached every
@@ -51,6 +56,88 @@ function classifyPrefixes(browser: DevOptions['browser']) {
   return {isChromiumTarget, isFamilyPrefix, isSpecificPrefix}
 }
 
+const PERMISSION_LIST_KEYS = new Set([
+  'permissions',
+  'optional_permissions',
+  'host_permissions',
+  'optional_host_permissions'
+])
+
+// Every word a prefixed key may carry: the three families and each browser.
+const PERMISSION_ITEM_PREFIXES = new Set([
+  'chromium',
+  'gecko',
+  'webkit',
+  ...SUPPORTED_BROWSERS,
+  ...WEBKIT_BASED_BROWSERS
+])
+
+export interface PrefixedPermissionItem {
+  key: string
+  item: string
+  prefix: string
+  value: string
+}
+
+// "chromium:sidePanel" names a browser and a permission. A URL scheme such
+// as chrome://favicon/ is a host of its own, and not a prefix.
+function readPermissionItemPrefix(
+  item: unknown
+): {prefix: string; value: string} | undefined {
+  if (typeof item !== 'string') return undefined
+
+  const colon = item.indexOf(':')
+  if (colon <= 0) return undefined
+
+  const prefix = item.slice(0, colon)
+  const value = item.slice(colon + 1)
+
+  if (!PERMISSION_ITEM_PREFIXES.has(prefix)) return undefined
+  if (!value || value.startsWith('//')) return undefined
+
+  return {prefix, value}
+}
+
+// Every item of a top-level permission list that carries a browser prefix,
+// in the manifest as authored, with the key as written.
+export function findPrefixedPermissionItems(
+  manifest: unknown
+): PrefixedPermissionItem[] {
+  const found: PrefixedPermissionItem[] = []
+  if (!manifest || typeof manifest !== 'object') return found
+
+  for (const [key, list] of Object.entries(manifest)) {
+    const plain = key.substring(key.indexOf(':') + 1)
+
+    if (!PERMISSION_LIST_KEYS.has(plain) || !Array.isArray(list)) continue
+
+    for (const item of list) {
+      const read = readPermissionItemPrefix(item)
+
+      if (read) found.push({key, item: String(item), ...read})
+    }
+  }
+
+  return found
+}
+
+// Whether a prefix names this build, by the rule prefixed keys follow.
+export function prefixAppliesToBrowser(
+  prefix: string,
+  browser: DevOptions['browser'],
+  options: FilterKeysOptions = {}
+): boolean {
+  const {isFamilyPrefix, isSpecificPrefix} = classifyPrefixes(browser)
+
+  return (
+    isSpecificPrefix(prefix) ||
+    isFamilyPrefix(prefix) ||
+    (options.fallbacks || []).some(
+      (fallback) => fallback.replace(/:$/, '') === prefix
+    )
+  )
+}
+
 // Canonical browser-key resolver, re-exported by manifest/scripts/html paths.
 // Prefixed keys win deterministically over a plain key, independent of source order.
 export function filterKeysForThisBrowser(
@@ -63,7 +150,36 @@ export function filterKeysForThisBrowser(
     (options.fallbacks || []).map((prefix) => prefix.replace(/:$/, ''))
   )
 
-  const resolve = (node: unknown): unknown => {
+  // A prefixed item is kept without its prefix for the browsers it names and
+  // left out for the others, so no browser ever reads the prefix.
+  const resolvePermissionItems = (list: unknown[]): unknown[] => {
+    if (!list.some((item) => readPermissionItemPrefix(item))) {
+      return list.map((item) => resolve(item))
+    }
+
+    const kept: unknown[] = []
+
+    for (const item of list) {
+      const read = readPermissionItemPrefix(item)
+
+      if (!read) {
+        if (typeof item !== 'string' || !kept.includes(item)) kept.push(item)
+
+        continue
+      }
+
+      if (
+        prefixAppliesToBrowser(read.prefix, browser, options) &&
+        !kept.includes(read.value)
+      ) {
+        kept.push(read.value)
+      }
+    }
+
+    return kept
+  }
+
+  const resolve = (node: unknown, top = false): unknown => {
     if (Array.isArray(node)) {
       return node.map((item) => resolve(item))
     }
@@ -76,11 +192,16 @@ export function filterKeysForThisBrowser(
       const familyMatches = new Map<string, unknown>()
       const specificMatches = new Map<string, unknown>()
 
+      const resolveValue = (plainKey: string, value: unknown) =>
+        top && PERMISSION_LIST_KEYS.has(plainKey) && Array.isArray(value)
+          ? resolvePermissionItems(value)
+          : resolve(value)
+
       for (const [key, value] of Object.entries(node)) {
         const indexOfColon = key.indexOf(':')
 
         if (indexOfColon === -1) {
-          result.set(key, resolve(value))
+          result.set(key, resolveValue(key, value))
           continue
         }
 
@@ -88,11 +209,11 @@ export function filterKeysForThisBrowser(
         const strippedKey = key.substring(indexOfColon + 1)
 
         if (isSpecificPrefix(prefix)) {
-          specificMatches.set(strippedKey, resolve(value))
+          specificMatches.set(strippedKey, resolveValue(strippedKey, value))
         } else if (isFamilyPrefix(prefix)) {
-          familyMatches.set(strippedKey, resolve(value))
+          familyMatches.set(strippedKey, resolveValue(strippedKey, value))
         } else if (fallbackPrefixes.has(prefix)) {
-          fallbackMatches.set(strippedKey, resolve(value))
+          fallbackMatches.set(strippedKey, resolveValue(strippedKey, value))
         }
       }
 
@@ -120,7 +241,7 @@ export function filterKeysForThisBrowser(
     return node
   }
 
-  return resolve(manifest) as Manifest
+  return resolve(manifest, true) as Manifest
 }
 
 // The key as written that supplies plainKey to this browser at the top

@@ -8,68 +8,16 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {existsSync, readFileSync, realpathSync} from 'node:fs'
+import {realpathSync} from 'node:fs'
 import path from 'node:path'
 import {fileURLToPath} from 'node:url'
 import spawn from 'cross-spawn'
+import {
+  unbuiltDependencyLine,
+  unbuiltWorkspaceDependencies
+} from './lib/workspace-build-entries.mjs'
 
-export function workspaceDependencyNames(manifest) {
-  const fields = [
-    manifest?.dependencies,
-    manifest?.devDependencies,
-    manifest?.optionalDependencies
-  ]
-  const names = new Set()
-
-  for (const field of fields) {
-    for (const [name, range] of Object.entries(field ?? {})) {
-      if (typeof range === 'string' && range.startsWith('workspace:')) {
-        names.add(name)
-      }
-    }
-  }
-
-  return [...names]
-}
-
-export function buildEntriesFor(manifest) {
-  const entries = new Set()
-
-  // A subpath pattern such as ./dist/contract/* never exists as a file, so the
-  // folder that holds its matches is what tells us the package was built.
-  const add = (value) => {
-    if (typeof value !== 'string' || !value.startsWith('.')) return
-
-    entries.add(
-      value.includes('*')
-        ? value.slice(0, value.indexOf('*')).replace(/\/$/, '')
-        : value
-    )
-  }
-
-  add(manifest?.main)
-  add(manifest?.types)
-
-  const collect = (node) => {
-    if (typeof node === 'string') return add(node)
-    if (!node || typeof node !== 'object') return
-
-    for (const value of Object.values(node)) collect(value)
-  }
-
-  collect(manifest?.exports)
-
-  return [...entries]
-}
-
-export function missingBuildEntries({manifest, exists}) {
-  return buildEntriesFor(manifest).filter((entry) => !exists(entry))
-}
-
-function readManifest(dir) {
-  return JSON.parse(readFileSync(path.join(dir, 'package.json'), 'utf-8'))
-}
-
+/** @param {string} dir */
 function runCompile(dir) {
   const child = spawn.sync('pnpm', ['-C', dir, 'run', 'compile'], {
     stdio: 'inherit'
@@ -80,44 +28,31 @@ function runCompile(dir) {
 
 function main() {
   const packageDir = path.resolve(process.cwd(), process.argv[2] ?? '.')
-  const manifest = readManifest(packageDir)
-  const names = workspaceDependencyNames(manifest)
 
-  for (const name of names) {
-    const linked = path.join(packageDir, 'node_modules', name)
+  for (const dependency of unbuiltWorkspaceDependencies(packageDir)) {
+    const {name} = dependency
 
-    if (!existsSync(linked)) {
+    if (!dependency.linked) {
+      console.error(`error: ${unbuiltDependencyLine(dependency)}`)
+
+      process.exit(1)
+    }
+
+    if (!dependency.canCompile) {
       console.error(
-        `error: workspace dependency ${name} of ${manifest.name} is not linked. Run "pnpm install" from the repository root.`
+        `error: workspace dependency ${name} has no build output (${dependency.missing[0]}) and no compile script.`
       )
 
       process.exit(1)
     }
 
-    const depDir = realpathSync(linked)
-    const depManifest = readManifest(depDir)
-    const missing = missingBuildEntries({
-      manifest: depManifest,
-      exists: (entry) => existsSync(path.join(depDir, entry))
-    })
-
-    if (missing.length === 0) continue
-
-    if (!depManifest.scripts?.compile) {
-      console.error(
-        `error: workspace dependency ${name} has no build output (${missing[0]}) and no compile script.`
-      )
-
-      process.exit(1)
-    }
-
-    const relativeDir = path.relative(process.cwd(), depDir) || '.'
+    const relativeDir = path.relative(process.cwd(), dependency.dir) || '.'
 
     console.log(
-      `Building workspace dependency ${name}, its ${missing[0]} is missing.`
+      `Building workspace dependency ${name}, its ${dependency.missing[0]} is missing.`
     )
 
-    if (runCompile(depDir) !== 0) {
+    if (runCompile(dependency.dir) !== 0) {
       console.error(
         `error: could not build ${name}. Run "pnpm -C ${relativeDir} run compile" and read the failure there.`
       )

@@ -1,6 +1,8 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import {CompilationPlugin} from '../../plugin-compilation'
+import {ReadyContractPlugin} from '../../plugin-ready-contract'
 import {ReloadPlugin} from '../../plugin-reload'
 import {buildDevProducerSource} from '../../plugin-reload/reload-lib/producer-reload'
 import type {PluginInterface} from '../../types'
@@ -121,9 +123,35 @@ describe('the coordinates of a dev session', () => {
       // @ts-expect-error the producer is built for a session, not loose values
       buildDevProducerSource({controlPort: 9000, instanceId: 'one'})
 
+      new ReadyContractPlugin({
+        packageJsonDir: 'p',
+        outputPath: 'o',
+        manifestPath: 'm',
+        // @ts-expect-error the ready contract names the session it was handed
+        port: 8080
+      })
+
+      // @ts-expect-error the compilation plugin reads the port off the record
+      new CompilationPlugin({manifestPath: 'm', port: 8080})
+
       return [host, port]
     }
 
     expect(typeof loose).toBe('function')
+  })
+
+  it('leave the config builder as the record, never as values read off it', () => {
+    const config = fs
+      .readFileSync(
+        path.resolve(__dirname, '..', '..', 'rspack-config.ts'),
+        'utf8'
+      )
+      .replace(/\r\n/g, '\n')
+
+    expect(
+      config.match(
+        /session\?\.(?:port|host|connectableHost|instanceId|controlPort)\b|devOptions\.port\b/g
+      )
+    ).toBeNull()
   })
 })

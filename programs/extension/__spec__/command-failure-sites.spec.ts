@@ -217,7 +217,6 @@ describe('build when the engine rejects', () => {
 describe('preview when the launch rejects with a declared code', () => {
   it.each([
     ['E_BROWSER_NOT_FOUND', 'failed'],
-    ['E_CONFIG_LOAD', 'failed'],
     ['E_REMOTE_ZIP_INVALID', 'failed'],
     ['E_BROWSER_BINARY_INVALID', 'usage']
   ])('frames %s with status %s', async (code, status) => {
@@ -239,6 +238,30 @@ describe('preview when the launch rejects with a declared code', () => {
           message: `it broke with ${code}`,
           ...(status === 'failed' ? {name: 'Error'} : {})
         },
+        warnings: []
+      }
+    ])
+  })
+
+  // The project's own file failed, which build, start and dev frame from
+  // their build step with no name and a hint. preview reads the same.
+  it('frames E_CONFIG_LOAD as failed with no name and the hint the build commands give', async () => {
+    extensionPreview.mockRejectedValueOnce(
+      Object.assign(new Error('it broke with E_CONFIG_LOAD'), {
+        code: 'E_CONFIG_LOAD'
+      })
+    )
+
+    expect(await run(['preview', '.', '--output', 'json'])).toBe(1)
+    expect(frames()).toEqual([
+      {
+        schema: 1,
+        ok: false,
+        command: 'preview',
+        status: 'failed',
+        value: null,
+        error: {code: 'E_CONFIG_LOAD', message: 'it broke with E_CONFIG_LOAD'},
+        hint: 'Fix the error above and run preview again.',
         warnings: []
       }
     ])

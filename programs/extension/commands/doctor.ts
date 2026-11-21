@@ -367,6 +367,22 @@ export function resolveDoctorBrowser(
   }
 }
 
+// The reason a package.json on disk cannot be opened or parsed, or nothing
+// when it reads, or when no file is there.
+function packageJsonParseFailure(file: string): string | undefined {
+  try {
+    JSON.parse(fs.readFileSync(file, 'utf8'))
+
+    return undefined
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException | null)?.code === 'ENOENT') {
+      return undefined
+    }
+
+    return error instanceof Error ? error.message : String(error)
+  }
+}
+
 function peerRspackCheck(
   projectPath: string,
   engineVersion: typeof engineRspackVersion,
@@ -379,6 +395,21 @@ function peerRspackCheck(
       check: 'peer-rspack',
       status: 'skip',
       detail: `skipped: no package.json at ${projectPath}, so there are no dependencies to read`
+    }
+  }
+
+  // A package.json that is there and is not JSON lists no dependency, and
+  // a pass would say every one of them was checked.
+  const unparsed = packageJsonParseFailure(
+    path.join(projectPath, 'package.json')
+  )
+
+  if (unparsed) {
+    return {
+      check: 'peer-rspack',
+      status: 'fail',
+      detail: `${path.join(projectPath, 'package.json')} cannot be read as JSON (${unparsed}), so no dependency was checked`,
+      remediation: 'Fix package.json, then run doctor again'
     }
   }
 

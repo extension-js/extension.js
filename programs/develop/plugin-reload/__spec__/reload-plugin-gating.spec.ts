@@ -132,32 +132,21 @@ describe('ReloadPlugin applies nothing', () => {
       fallbacks: 0
     })
   })
+})
 
-  // A build with no session keeps the hot update names the config gives.
-  it('to the hot update names outside a dev session', () => {
-    const {root, manifestPath} = project()
-    const compiler = idleCompiler(root, 'development')
-    compiler.options.output.hotUpdateChunkFilename =
-      'hot/[id].[fullhash].hot-update.js'
-
-    new ReloadPlugin({
-      session: sessionBridge(),
-      manifestPath,
-      browser: 'chrome',
-      devSession: false
-    }).apply(compiler)
-
-    compiler.hooks.environment.call()
-
-    expect(compiler.options.output.hotUpdateChunkFilename).toBe(
-      'hot/[id].[fullhash].hot-update.js'
-    )
-  })
+// A dev server writes hot update files with reload off too, so the names
+// are the one thing this plugin still sets there.
+describe('ReloadPlugin only names hot update files', () => {
+  const namesOnly = {
+    taps: {environment: ['plugin-reload:hot-update-names']},
+    entry: {},
+    fallbacks: 0
+  }
 
   it('when EXTENSION_NO_RELOAD=true (--no-reload)', () => {
     vi.stubEnv('EXTENSION_NO_RELOAD', 'true')
 
-    expect(applied('development')).toEqual({taps: {}, entry: {}, fallbacks: 0})
+    expect(applied('development')).toEqual(namesOnly)
   })
 
   it('when the manifest path names no file', () => {
@@ -165,7 +154,7 @@ describe('ReloadPlugin applies nothing', () => {
 
     expect(
       applied('development', {manifestPath: path.join(root, 'missing.json')})
-    ).toEqual({taps: {}, entry: {}, fallbacks: 0})
+    ).toEqual(namesOnly)
   })
 
   it('when the manifest path names a folder', () => {
@@ -174,7 +163,64 @@ describe('ReloadPlugin applies nothing', () => {
 
     expect(
       applied('development', {manifestPath: path.join(root, 'folder.json')})
-    ).toEqual({taps: {}, entry: {}, fallbacks: 0})
+    ).toEqual(namesOnly)
+  })
+})
+
+// The names a compiler holds once its environment is set up. The stand-in
+// is what a config or an earlier plugin might have left there.
+function hotUpdateNames(
+  mode: 'development' | 'production',
+  options: {devSession?: boolean} = {}
+) {
+  const {root, manifestPath} = project()
+  const compiler = idleCompiler(root, mode)
+  compiler.options.output.hotUpdateChunkFilename = 'left-by-another.js'
+  compiler.options.output.hotUpdateMainFilename = 'left-by-another.json'
+
+  new ReloadPlugin({
+    session: sessionBridge(),
+    manifestPath,
+    browser: 'chrome',
+    ...options
+  }).apply(compiler)
+
+  compiler.hooks.environment.call()
+
+  return {
+    chunk: compiler.options.output.hotUpdateChunkFilename,
+    main: compiler.options.output.hotUpdateMainFilename
+  }
+}
+
+describe('ReloadPlugin names the hot update files', () => {
+  it('under hot with no update suffix in a reload session', () => {
+    expect(hotUpdateNames('development')).toEqual({
+      chunk: 'hot/[id].[fullhash].js',
+      main: 'hot/[runtime].[fullhash].json'
+    })
+  })
+
+  it('under hot with the update suffix when reload is off', () => {
+    vi.stubEnv('EXTENSION_NO_RELOAD', 'true')
+
+    expect(hotUpdateNames('development')).toEqual({
+      chunk: 'hot/[id].[fullhash].hot-update.js',
+      main: 'hot/[runtime].[fullhash].hot-update.json'
+    })
+  })
+
+  // Neither build writes a hot update file, so neither is given a name.
+  it('in no production build and no build outside a dev session', () => {
+    const untouched = {
+      chunk: 'left-by-another.js',
+      main: 'left-by-another.json'
+    }
+
+    expect(hotUpdateNames('production')).toEqual(untouched)
+    expect(hotUpdateNames('development', {devSession: false})).toEqual(
+      untouched
+    )
   })
 })
 
