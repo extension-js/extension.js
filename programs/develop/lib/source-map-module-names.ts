@@ -25,6 +25,30 @@ function inside(root: string, file: string): string | undefined {
     : undefined
 }
 
+const holds = (folder: string, other: string) =>
+  folder === other || inside(folder, other) !== undefined
+
+const INSTALLED = `${path.sep}node_modules${path.sep}`
+
+// A package Extension.js installed for itself: one its own lookup reaches
+// and the project's never does. A package both reach is the project's.
+function ownDependency(
+  developRoot: string,
+  projectRoot: string,
+  file: string
+): string | undefined {
+  const first = file.indexOf(INSTALLED)
+
+  if (first === -1) return undefined
+
+  const installedUnder = file.slice(0, first)
+
+  return holds(installedUnder, developRoot) &&
+    !holds(installedUnder, projectRoot)
+    ? file.slice(file.lastIndexOf(INSTALLED) + 1)
+    : undefined
+}
+
 export function sourceMapModuleName(
   developRoot: string | undefined,
   projectRoot: string
@@ -34,7 +58,8 @@ export function sourceMapModuleName(
     const base = `webpack://${info.namespace}/`
     const own =
       developRoot && path.isAbsolute(resource) && !inside(projectRoot, resource)
-        ? inside(developRoot, resource)
+        ? (inside(developRoot, resource) ??
+          ownDependency(developRoot, projectRoot, resource))
         : undefined
 
     return own
