@@ -6,8 +6,8 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as fs from 'node:fs'
 import type {NormalizedBrowser} from '../lib/paths'
+import {readReadyRecord} from '../lib/ready-contract-writer'
 import {readyContractPath} from '../lib/session-paths'
 import {
   createReadyContractWriter,
@@ -59,17 +59,11 @@ export function createBuildReceipt(input: {
   const heldReceipt = (): {compiledAt?: unknown} | undefined => {
     if (liveDevSession) return undefined
 
-    try {
-      const contract = JSON.parse(
-        fs.readFileSync(readyContractPath(packageJsonDir, browser), 'utf-8')
-      )
-      const ownRun =
-        contract?.runId === getSessionRunId(packageJsonDir, String(browser))
+    const contract = readReadyRecord(readyContractPath(packageJsonDir, browser))
+    const ownRun =
+      contract?.runId === getSessionRunId(packageJsonDir, String(browser))
 
-      return ownRun && contract.status === 'starting' ? contract : undefined
-    } catch {
-      return undefined
-    }
+    return ownRun && contract?.status === 'starting' ? contract : undefined
   }
 
   const writeReadyWhenHeld = () => {

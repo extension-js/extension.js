@@ -147,6 +147,7 @@ current run only, join on `runId` to correlate across runs):
 - `browser_exited`
 - `browser_launch_failed`
 - `restart_failed`
+- `warning`
 - `shutdown`
 
 Every row carries `type`, `ts`, `command`, `browser` and `runId`. A
@@ -154,6 +155,7 @@ Every row carries `type`, `ts`, `command`, `browser` and `runId`. A
 row adds `exitCode`, `exitSignal` and `browserExitedAt`. A
 `browser_launch_failed` row adds `browserLaunchFailedAt` and `reason`, and the
 contract it mirrors reads `status: error` with `code: browser_launch_failed`.
+A `warning` row is something the session warned about between two compiles, such as a reload the extension never confirmed. It adds the warning `code` and the `reason`.
 A `restart_failed` row is a dev restart that could not be made (a config or
 entry change whose next compiler or server failed). It adds the error `code`,
 the `reason` and `serving`: `true` when the build from before the restart
@@ -211,7 +213,9 @@ Three callers hand it a patch and write nothing themselves:
 - `plugin-browsers/launch-timeout-stamp.ts`, for a launch the compile stopped waiting for
 - `programs/extension/browsers/browsers-lib/ready-stamp.ts`, the CLI browser launcher, which compiles the writer into its own bundle
 
-`__spec__/ready-contract-one-writer.spec.ts` fails when a second write or rename of the file appears in either program.
+The same module is the only reader. `readReadyRecord` answers the record, or nothing for a missing, half-written or wrong-shape file, and `tryReadReadyRecord` also answers the parse error, which `dev --wait` reports when it times out. `doctor`, the run card, `preview`, the lifecycle stream, the live session check and the published `readReadyContract` and `readReadyContractDocument` all take the record from it. Specs read the file by hand on purpose, as the check on the module.
+
+`__spec__/ready-contract-one-writer.spec.ts` fails when a second write, rename, read or parse of the file appears in either program, or a second rename retry.
 
 ### Notes
 

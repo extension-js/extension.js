@@ -90,7 +90,7 @@ async function devSession(root: string): Promise<Diagnostic[]> {
     metadataCommand: 'dev',
     silent: true,
     output: {clean: true, path: path.join(root, 'dist', 'chrome')}
-  } as Parameters<typeof webpackConfig>[1])
+  })
 
   config.plugins = (config.plugins || []).filter(
     (plugin) =>

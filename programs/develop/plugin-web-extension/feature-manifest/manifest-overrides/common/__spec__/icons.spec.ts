@@ -3,9 +3,6 @@ import type {Manifest} from '../../../../../types'
 import {action} from '../../mv3/action'
 import {icons} from '../icons'
 
-// @types/chrome has no icon_variants on the action key, which the override rewrites.
-type ActionVariants = {action?: {icon_variants?: unknown}}
-
 describe('icons manifest override, output path matches the icon emitter', () => {
   it('preserves in-project relative icon paths as declared', () => {
     const out = icons({
@@ -89,7 +86,7 @@ describe('icons manifest override, output path matches the icon emitter', () => 
       (
         action({
           action: {icon_variants: variants}
-        } as Manifest) as ActionVariants
+        } as Manifest) as Manifest
       ).action?.icon_variants
     ).toEqual(expected)
 

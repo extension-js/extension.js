@@ -139,13 +139,6 @@ export function iconOutputPath(raw: string) {
   return externalAssetOutputPath(normalized, 'icons')
 }
 
-// The manifest types predate icon_variants, so the read goes through here.
-export function iconVariantsOf(holder: unknown): unknown {
-  return holder && typeof holder === 'object'
-    ? (holder as {icon_variants?: unknown}).icon_variants
-    : undefined
-}
-
 // Every path in an icon_variants list follows the icons rule, so the built
 // manifest names the files the icons emitter writes. Keep the two agreed.
 export function iconVariantsOutput(variants: unknown): unknown {

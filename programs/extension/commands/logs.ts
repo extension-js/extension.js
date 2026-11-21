@@ -277,7 +277,9 @@ export function formatPrettyLogLine(event: LogEventLike): string {
         .map((p: unknown) => (typeof p === 'string' ? p : JSON.stringify(p)))
         .join(' ')
     : ''
-  const code = event.code ? ` ${event.code}` : ''
+  // A line that opens with its code already says it.
+  const code =
+    event.code && !parts.includes(`${event.code}: `) ? ` ${event.code}` : ''
   const remediation = event.remediation ? `\n    ↳ ${event.remediation}` : ''
   const level = String(event.level || 'log').toLowerCase()
 

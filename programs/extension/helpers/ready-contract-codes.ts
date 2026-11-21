@@ -33,6 +33,7 @@ export const READY_EVENT_TYPES = [
   'browser_exited',
   'browser_launch_failed',
   'restart_failed',
+  'warning',
   'shutdown'
 ] as const
 

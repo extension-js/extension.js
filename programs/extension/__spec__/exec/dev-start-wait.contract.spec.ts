@@ -1,7 +1,7 @@
 import {mkdirSync, realpathSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {describe, expect, it} from 'vitest'
-import {renameSyncWithRetry} from '../../browsers/browsers-lib/rename-with-retry'
+import {renameSyncWithRetry} from '../../../develop/lib/rename-with-retry'
 import {type CliRun, everyLineAsFrame, runCli} from '../helpers/run-cli'
 import {trackTempFolders} from '../helpers/temp-folders'
 

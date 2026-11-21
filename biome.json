@@ -60,21 +60,6 @@
           "tailwindDirectives": true
         }
       }
-    },
-    {
-      "includes": [
-        "programs/develop/**/__spec__/**",
-        "programs/develop/**/*.spec.ts",
-        "programs/extension/**/__spec__/**",
-        "programs/extension/**/*.spec.ts"
-      ],
-      "linter": {
-        "rules": {
-          "suspicious": {
-            "noExplicitAny": "off"
-          }
-        }
-      }
     }
   ],
   "linter": {

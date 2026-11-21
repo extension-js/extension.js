@@ -139,6 +139,7 @@ import {
 } from './session-restart-handler'
 import {isAwaitingMainWorldRestart} from './session-restart-holds'
 import {withSessionStartPrune} from './session-start-prune'
+import {reportSessionWarnings} from './session-warnings'
 import {
   attachUnlaunchedSession,
   createBindFailureRelay,
@@ -1010,6 +1011,11 @@ async function startDevSession(
   }
 
   lifecycle.starting({requestedPort: Number(devOptions.port), port})
+
+  // Setup warnings rode the frame above, and later ones get a frame each.
+  holdings.addForRelease(
+    reportSessionWarnings({lifecycle, metadata, broker: bridgeBroker})
+  )
 
   // A start that fails rejects to a caller that keeps running, and the
   // release of everything opened so far is the one devServer runs.

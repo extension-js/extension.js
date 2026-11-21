@@ -41,13 +41,21 @@ export type ChromeManifest = WithoutManifestVersion<Partial<ManifestV2>> &
     // Intersecting the two Partials collapses manifest_version to never, so
     // it is declared once here with the two values the engine accepts.
     manifest_version?: 2 | 3
+    // Chromium reads icon_variants at the top level and on each action
+    // surface. The manifest types predate the key.
+    icon_variants?: IconVariant[]
     browser_action?: {
       theme_icons?: ThemeIcon[]
+      icon_variants?: IconVariant[]
     }
     // Firefox supports theme_icons on the MV3 action (light/dark toolbar
     // icons), which @types/chrome does not model.
     action?: ManifestV3['action'] & {
       theme_icons?: ThemeIcon[]
+      icon_variants?: IconVariant[]
+    }
+    page_action?: {
+      icon_variants?: IconVariant[]
     }
     // Extension.js augments the standard omnibox shape with a `default_icon`
     // (string path or per-size record), which `@types/chrome` does not model.
@@ -60,6 +68,14 @@ export type ChromeManifest = WithoutManifestVersion<Partial<ManifestV2>> &
   }
 
 export type Manifest = ChromeManifest
+
+// One icon_variants entry: a path per pixel size, an `any` path (usually an
+// SVG) for every size, and the color schemes the group is drawn under.
+export interface IconVariant {
+  [size: `${number}`]: string
+  any?: string
+  color_schemes?: Array<'light' | 'dark'>
+}
 
 export interface ThemeIcon {
   light: string
@@ -93,12 +109,9 @@ export type PluginInterface = {
    * (dev CSP, injected permissions, reload client, page HMR) on. A build in
    * development mode is shippable and keeps the author's manifest. */
   devSession?: boolean
-  /** The host this dev session's browser dials, given by the session that
-   * builds the config, so another session's environment does not name it. */
-  connectableHost?: string
-  /** The port this dev session's server listens on, for its page HMR client. */
-  port?: string | number
-  /** The record of the dev session that builds the config, when one does. */
+  /** The record of the dev session that builds the config, when one does.
+   * It names the host the session's browser dials and the port it listens
+   * on, so another session's environment names neither. */
   session?: Readonly<DevSessionCoordinates>
 }
 
