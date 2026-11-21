@@ -8,6 +8,7 @@ import {
   emitRootAbsoluteRefs,
   planRootAbsoluteRef
 } from '../../steps/emit-root-absolute-refs'
+import {writeProjectFiles} from '../../../../__spec__/helpers/extension-project'
 import type {BuildIssue, FakeSource} from '../helpers/html-fakes'
 
 type EmittedAsset = {name: string; source: FakeSource}
@@ -39,11 +40,7 @@ function createProject(files: Record<string, string>) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-root-abs-'))
   tempDirs.push(root)
 
-  for (const [rel, content] of Object.entries(files)) {
-    const abs = path.join(root, rel)
-    fs.mkdirSync(path.dirname(abs), {recursive: true})
-    fs.writeFileSync(abs, content, 'utf8')
-  }
+  writeProjectFiles(root, files)
 
   return {root, publicDir: path.join(root, 'public')}
 }

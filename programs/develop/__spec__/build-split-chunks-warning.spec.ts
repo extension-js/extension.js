@@ -1,40 +1,28 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
+import {writeExtensionProject} from './helpers/extension-project'
 
 // A user cache group that spans every chunk is narrowed to the page chunks,
 // and the emitted HTML loads every sibling file, so the build stays quiet.
 // Only a user chunks function can still split the single-file surfaces, and
 // that one entry has to be named under a green build.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 type Selector = 'all' | 'async' | 'every-chunk'
 
 function project(selector: Selector) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-split-chunks-'))
-  roots.push(root)
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'split-chunks', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'split-chunks',
-      version: '1.0.0',
+  const root = tempFolder('extjs-split-chunks-')
+  writeExtensionProject(root, {
+    name: 'split-chunks',
+    manifest: {
       action: {default_popup: 'popup.html'},
       options_ui: {page: 'options.html'},
       background: {service_worker: 'background.js'}
-    })
-  )
+    }
+  })
 
   fs.writeFileSync(
     path.join(root, 'shared.js'),

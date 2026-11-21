@@ -1,23 +1,16 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {type Compiler, rspack} from '@rspack/core'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {getProjectStructure} from '../../lib/project'
 import webpackConfig from '../../rspack-config'
 import {stableContentScriptHash} from '../steps/stable-content-script-names'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function scaffold() {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-stable-names-'))
-  )
-  roots.push(root)
+  const root = fs.realpathSync(tempFolder('extjs-stable-names-'))
   const files: Record<string, string> = {
     'package.json': JSON.stringify({
       private: true,

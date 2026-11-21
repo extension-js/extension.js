@@ -3,6 +3,7 @@ import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import {type RspackPluginInstance, rspack, type Stats} from '@rspack/core'
 import {describe, expect, it, vi} from 'vitest'
+import type {JsFrameworkLoader, JsFrameworkRule} from '../../../types'
 import {maybeUseSvelte} from '../../js-tools/svelte'
 import {fakePackage, makeProject} from '../project-fixture'
 
@@ -39,21 +40,11 @@ function svelteProject(files: Record<string, string> = {}) {
   return {root, dir}
 }
 
-type Rule = {
-  test: RegExp
-  use?: unknown
-  exclude?: unknown
-  resolve?: unknown
-}
-
-function svelteLoaderOptionsFor(rules: Rule[], file: string) {
+function svelteLoaderOptionsFor(rules: JsFrameworkRule[], file: string) {
   const matching = rules.filter((rule) => rule.test.test(file))
   expect(matching).toHaveLength(1)
 
-  const entries = [matching[0].use].flat() as Array<{
-    loader: string
-    options: unknown
-  }>
+  const entries = [matching[0].use].flat() as JsFrameworkLoader[]
 
   return entries.filter((entry) => entry.loader === svelteLoader)[0]?.options
 }
@@ -81,7 +72,8 @@ describe('maybeUseSvelte', () => {
     const {root} = svelteProject({
       'svelte.loader.mjs': 'export default {bar: 2}\n'
     })
-    const rules = (await maybeUseSvelte(root, 'development'))?.loaders as Rule[]
+    const rules = (await maybeUseSvelte(root, 'development'))
+      ?.loaders as JsFrameworkRule[]
     const component = svelteLoaderOptionsFor(rules, '/p/Counter.svelte')
 
     expect(component).toEqual({
@@ -100,10 +92,7 @@ describe('maybeUseSvelte', () => {
     )
 
     const tsRule = rules.find((rule) => rule.test.test('/p/state.svelte.ts'))
-    const [, typeStrip] = tsRule?.use as Array<{
-      loader: string
-      options: unknown
-    }>
+    const [, typeStrip] = tsRule?.use as JsFrameworkLoader[]
     expect(typeStrip).toEqual({
       loader: 'builtin:swc-loader',
       options: {jsc: {parser: {syntax: 'typescript'}, target: 'esnext'}}
@@ -112,7 +101,8 @@ describe('maybeUseSvelte', () => {
 
   it('turns dev and hot reload off in production', async () => {
     const {root} = svelteProject()
-    const rules = (await maybeUseSvelte(root, 'production'))?.loaders as Rule[]
+    const rules = (await maybeUseSvelte(root, 'production'))
+      ?.loaders as JsFrameworkRule[]
 
     expect(svelteLoaderOptionsFor(rules, '/p/Counter.svelte')).toEqual({
       emitCss: true,
@@ -123,7 +113,8 @@ describe('maybeUseSvelte', () => {
 
   it('compiles a component that ships inside node_modules', async () => {
     const {root} = svelteProject()
-    const rules = (await maybeUseSvelte(root, 'development'))?.loaders as Rule[]
+    const rules = (await maybeUseSvelte(root, 'development'))
+      ?.loaders as JsFrameworkRule[]
     const rulesFor = (file: string) =>
       rules.filter((rule) => rule.test.test(file))
 
@@ -138,7 +129,8 @@ describe('maybeUseSvelte', () => {
     const {root} = svelteProject({
       'svelte.loader.mjs': 'export default {compilerOptions: {runes: true}}\n'
     })
-    const rules = (await maybeUseSvelte(root, 'development'))?.loaders as Rule[]
+    const rules = (await maybeUseSvelte(root, 'development'))
+      ?.loaders as JsFrameworkRule[]
 
     expect(svelteLoaderOptionsFor(rules, '/p/App.svelte')).toEqual({
       emitCss: true,

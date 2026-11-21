@@ -1,32 +1,18 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
+import {writeExtensionProject} from './helpers/extension-project'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project(opts: {alias?: Record<string, false>; background: string}) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-alias-false-'))
-  roots.push(root)
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'alias-false', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'alias-false',
-      version: '1.0.0',
-      background: {service_worker: 'background.js'}
-    })
-  )
+  const root = tempFolder('extjs-alias-false-')
+  writeExtensionProject(root, {
+    name: 'alias-false',
+    manifest: {background: {service_worker: 'background.js'}}
+  })
 
   fs.writeFileSync(path.join(root, 'background.js'), opts.background)
 

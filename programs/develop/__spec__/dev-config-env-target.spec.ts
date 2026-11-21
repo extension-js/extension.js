@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {trackTempFolders} from './helpers/temp-folders'
+import {writeExtensionProject} from './helpers/extension-project'
 
 const devServer = vi.hoisted(() => vi.fn(async () => {}))
 
@@ -40,15 +41,7 @@ afterEach(() => {
 function project(configBody: string) {
   const root = fs.realpathSync(tempFolder('extjs-dev-env-'))
 
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'dev-env', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({manifest_version: 3, name: 'dev-env', version: '1.0.0'})
-  )
+  writeExtensionProject(root, {name: 'dev-env'})
 
   fs.writeFileSync(
     path.join(root, 'extension.config.js'),

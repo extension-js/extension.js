@@ -6,6 +6,7 @@ import {sessionOf} from '../../../__spec__/helpers/dev-session'
 import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {getProjectStructure} from '../../../lib/project'
 import webpackConfig from '../../../rspack-config'
+import {writeExtensionProject} from '../../../__spec__/helpers/extension-project'
 
 const makeTempFolder = trackTempFolders()
 
@@ -29,23 +30,15 @@ afterEach(() => {
 function project() {
   const root = fs.realpathSync(makeTempFolder('extjs-session-host-'))
 
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'session-host', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'session-host',
-      version: '1.0.0',
+  writeExtensionProject(root, {
+    name: 'session-host',
+    manifest: {
       action: {default_popup: 'popup.html'},
       content_security_policy: {
         extension_pages: "script-src 'self'; connect-src 'self'"
       }
-    })
-  )
+    }
+  })
 
   fs.writeFileSync(
     path.join(root, 'popup.html'),

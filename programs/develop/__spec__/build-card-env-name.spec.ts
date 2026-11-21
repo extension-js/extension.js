@@ -2,6 +2,8 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {trackTempFolders} from './helpers/temp-folders'
+import {buildProject} from './helpers/build-project'
+import {writeExtensionProject} from './helpers/extension-project'
 
 // The build card names the extension the folder ships, so a name filled from
 // .env reads as its value and never as the placeholder the source holds.
@@ -14,20 +16,14 @@ afterEach(() => {
 function project(): string {
   const root = fs.realpathSync.native(tempFolder('extjs-card-env-name-'))
 
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'card-probe-pkg', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
+  writeExtensionProject(root, {
+    manifest: {
       name: 'Card $EXTENSION_PUBLIC_CARD_NAME',
       version: '1.2.3',
       action: {default_popup: 'popup.html'}
-    })
-  )
+    },
+    packageJson: {name: 'card-probe-pkg'}
+  })
 
   fs.writeFileSync(
     path.join(root, 'popup.html'),
@@ -55,13 +51,11 @@ describe('the build card and a name set through .env', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    const {extensionBuild} = await import('../command-build')
-    const summary = await extensionBuild(root, {
-      browser: 'chrome',
-      install: false,
+    const summary = await buildProject(root, {
+      silent: undefined,
       mode: 'production',
       exitOnError: false
-    } as never)
+    })
 
     expect(summary.errors_count).toBe(0)
 

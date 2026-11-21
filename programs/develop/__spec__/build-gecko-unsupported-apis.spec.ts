@@ -1,19 +1,15 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // One source manifest serves MV3 on Chromium and MV2 on Firefox. A background
 // that reads chrome.sidePanel and chrome.action ships fine on Chromium, and
 // addons-linter flags both on the Firefox build, so the production build for
 // Firefox names them first, once per file per API. A build-time browser
 // branch compiles the calls out, and then the build stays quiet.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function stripAnsi(value: string): string {
   // eslint-disable-next-line no-control-regex
@@ -46,8 +42,7 @@ const GUARDED = [
 ].join('\n')
 
 function project(background: string) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-gecko-apis-'))
-  roots.push(root)
+  const root = tempFolder('extjs-gecko-apis-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'panel', version: '0.0.0'})

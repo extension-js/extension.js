@@ -1,21 +1,16 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // A chunk a content script loads through import() is fetched by the page
 // from the extension origin, so the built manifest must list it as web
 // accessible for that script's matches, in production as well as in dev.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project(manifestVersion: 2 | 3) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dyn-import-'))
-  roots.push(root)
+  const root = tempFolder('extjs-dyn-import-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'dyn', version: '0.0.0'})

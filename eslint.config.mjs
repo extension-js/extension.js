@@ -123,7 +123,7 @@ export default [
       'programs/develop/plugin-browsers/index.ts',
       'programs/develop/plugin-reload/index.ts',
       'programs/develop/plugin-reload/classify-reload.ts',
-      'programs/develop/plugin-special-folders/folder-extensions/types.ts',
+      'programs/develop/lib/companion-extensions/types.ts',
       'programs/develop/dev-server/control-bridge/contracts.ts',
       'programs/develop/dev-server/control-bridge/consumer-client.ts',
       'programs/develop/dev-server/control-bridge/logs-query.ts'

@@ -21,6 +21,7 @@ import {
   inspectPublicFolders,
   publicResolveRoots
 } from '../resolve-public-folder'
+import {writeProjectFiles} from '../../__spec__/helpers/extension-project'
 
 const created: string[] = []
 
@@ -36,11 +37,7 @@ function project(files: Record<string, string>) {
 
   fs.writeFileSync(path.join(root, 'manifest.json'), '{"manifest_version":3}')
 
-  for (const [rel, content] of Object.entries(files)) {
-    const abs = path.join(root, rel)
-    fs.mkdirSync(path.dirname(abs), {recursive: true})
-    fs.writeFileSync(abs, content)
-  }
+  writeProjectFiles(root, files)
 
   return root
 }

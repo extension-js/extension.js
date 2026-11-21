@@ -1,18 +1,15 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
+import {writeProjectFiles} from './helpers/extension-project'
 
 // One Chromium-first side panel project, built for each engine. The panel
 // page is written at the root and ships as sidebar/index.html, its script
 // injects three files that reach the output three ways, and the background
 // calls chrome.sidePanel behind its own presence check.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g')
 
@@ -44,8 +41,7 @@ const PANEL = [
 ].join('\n')
 
 function project(manifest: Record<string, unknown> = {}) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-xbrowser-'))
-  roots.push(root)
+  const root = tempFolder('extjs-xbrowser-')
 
   const files: Record<string, string> = {
     'package.json': JSON.stringify({
@@ -80,11 +76,7 @@ function project(manifest: Record<string, unknown> = {}) {
     'scripts/built.js': 'console.log("built")\n'
   }
 
-  for (const [name, contents] of Object.entries(files)) {
-    const file = path.join(root, name)
-    fs.mkdirSync(path.dirname(file), {recursive: true})
-    fs.writeFileSync(file, contents)
-  }
+  writeProjectFiles(root, files)
 
   return root
 }

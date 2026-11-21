@@ -1,24 +1,19 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // The dev build keeps the author's security contract apart from what the
 // dev server needs: the sandbox policy survives, optional lists stay as
 // written, and every promotion dev makes is named in a warning.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 const SANDBOX =
   "sandbox allow-scripts; script-src 'self' https://cdn.example.com"
 
 function project(manifest: Record<string, unknown>) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-fidelity-'))
-  roots.push(root)
+  const root = tempFolder('extjs-dev-fidelity-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'fidelity', version: '0.0.0'})

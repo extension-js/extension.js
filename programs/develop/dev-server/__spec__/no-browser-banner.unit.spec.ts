@@ -7,10 +7,12 @@ import {
   type MockInstance,
   vi
 } from 'vitest'
-import {setupNoBrowserBannerOnFirstDone} from '../compiler-hooks'
+import {
+  type FirstDoneStats,
+  setupNoBrowserBannerOnFirstDone
+} from '../compiler-hooks'
 
-type BannerOptions = Parameters<typeof setupNoBrowserBannerOnFirstDone>[0]
-type DoneTap = (stats: {hasErrors: () => boolean}) => void
+type DoneTap = (stats: FirstDoneStats) => void
 
 describe('setupNoBrowserBannerOnFirstDone', () => {
   let consoleSpy: MockInstance<typeof console.log>
@@ -35,7 +37,7 @@ describe('setupNoBrowserBannerOnFirstDone', () => {
     }
 
     setupNoBrowserBannerOnFirstDone({
-      compiler: compiler as unknown as BannerOptions['compiler'],
+      compiler,
       browser: 'chromium',
       manifestPath: '/proj/manifest.json',
       readyPath: '/proj/dist/chromium/.extension-ready.json',
@@ -74,7 +76,7 @@ describe('setupNoBrowserBannerOnFirstDone', () => {
     }
 
     setupNoBrowserBannerOnFirstDone({
-      compiler: compiler as unknown as BannerOptions['compiler'],
+      compiler,
       browser: 'chromium',
       manifestPath: '/proj/manifest.json',
       readyPath: '/proj/dist/chromium/.extension-ready.json',

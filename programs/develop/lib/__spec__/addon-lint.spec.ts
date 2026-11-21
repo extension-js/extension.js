@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it, vi} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 import {
   ADDON_LINT_DEFAULT,
   ADDON_LINT_MAX_PRINTED,
@@ -19,22 +19,18 @@ import {
   shouldRunAddonLint,
   summarizeAddonLint
 } from '../addon-lint'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
 function stripAnsi(value: string): string {
   // eslint-disable-next-line no-control-regex
   return value.replace(/\[[0-9;]*m/g, '')
 }
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 // A throwaway project with a pnpm lockfile so the install hint is stable.
 function project(): string {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-addon-lint-'))
-  roots.push(root)
+  const root = tempFolder('extjs-addon-lint-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({name: 'lint-me', version: '0.0.0', private: true})

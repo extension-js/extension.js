@@ -1,25 +1,20 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // One source manifest serves MV3 on Chromium and MV2 on Firefox through the
 // prefixed manifest_version. Firefox MV2 has no host_permissions, so the
 // built manifest carries the match patterns under permissions instead, in
 // production and in development alike, while the MV3 output stays as written.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 const HOSTS = ['<all_urls>', 'https://api.example.com/*']
 const OPTIONAL_HOSTS = ['https://opt.example.com/*']
 
 function project() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-mv2-hosts-'))
-  roots.push(root)
+  const root = tempFolder('extjs-mv2-hosts-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'hosts', version: '0.0.0'})

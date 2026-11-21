@@ -1,16 +1,12 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // Firefox reads theme colors as CSS strings and Chromium only as number
 // arrays, so a Chromium build ports the exact strings and refuses the rest.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 const NOTE = 'as [R, G, B] arrays for'
 
@@ -27,8 +23,7 @@ function stripAnsi(value: string): string {
 }
 
 function project(theme: Record<string, unknown>) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-theme-colors-'))
-  roots.push(root)
+  const root = tempFolder('extjs-theme-colors-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'theme-colors', version: '0.0.0'})

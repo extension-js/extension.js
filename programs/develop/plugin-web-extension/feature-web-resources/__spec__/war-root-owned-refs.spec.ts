@@ -7,6 +7,7 @@ import {
   declaredResourceSource,
   resolveUserDeclaredWAR
 } from '../web-resources-lib/resolve-war'
+import {writeProjectFiles} from '../../../__spec__/helpers/extension-project'
 
 const created: string[] = []
 
@@ -17,11 +18,7 @@ function srcProject(files: Record<string, string>) {
   created.push(root)
   fs.mkdirSync(path.join(root, 'src'), {recursive: true})
 
-  for (const [rel, content] of Object.entries(files)) {
-    const abs = path.join(root, rel)
-    fs.mkdirSync(path.dirname(abs), {recursive: true})
-    fs.writeFileSync(abs, content)
-  }
+  writeProjectFiles(root, files)
 
   return {root, manifestPath: path.join(root, 'src', 'manifest.json')}
 }
@@ -236,11 +233,7 @@ describe('web_accessible_resources of a manifest below the project root', () => 
       'project/src/beside.txt': 'beside'
     }
 
-    for (const [rel, content] of Object.entries(files)) {
-      const abs = path.join(holder, rel)
-      fs.mkdirSync(path.dirname(abs), {recursive: true})
-      fs.writeFileSync(abs, content)
-    }
+    writeProjectFiles(holder, files)
 
     const root = path.join(holder, 'project')
 

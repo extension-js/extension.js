@@ -1,21 +1,17 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
 import {workspacePackage} from './helpers/workspace-package'
+import {trackTempFolders} from './helpers/temp-folders'
+import {writeProjectFiles} from './helpers/extension-project'
 
-const roots: string[] = []
+const tempFolder = trackTempFolders()
 
 const sassDir = workspacePackage('sass')
 
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
-
 function project(files: Record<string, string>) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-injected-style-'))
-  roots.push(root)
+  const root = tempFolder('extjs-injected-style-')
 
   fs.writeFileSync(
     path.join(root, 'package.json'),
@@ -57,11 +53,7 @@ function project(files: Record<string, string>) {
     ].join('\n')
   )
 
-  for (const [rel, content] of Object.entries(files)) {
-    const abs = path.join(root, rel)
-    fs.mkdirSync(path.dirname(abs), {recursive: true})
-    fs.writeFileSync(abs, content)
-  }
+  writeProjectFiles(root, files)
 
   return root
 }

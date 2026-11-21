@@ -1,19 +1,16 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import * as vm from 'node:vm'
 import {rspack} from '@rspack/core'
-import {afterAll, describe, expect, it, vi} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
+import {buildProject} from '../../../__spec__/helpers/build-project'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {getProjectStructure} from '../../../lib/project'
 import webpackConfig from '../../../rspack-config'
 
 // What a loader added through the config hook of extension.config.js is
 // handed for a content script, read from whole builds with a recording loader.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function write(root: string, rel: string, content: string) {
   const file = path.join(root, rel)
@@ -168,10 +165,7 @@ interface Fixture {
 }
 
 function project({scripts, files = {}, config}: Fixture) {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-user-loader-order-'))
-  )
-  roots.push(root)
+  const root = fs.realpathSync(tempFolder('extjs-user-loader-order-'))
 
   const names = Object.keys(scripts)
   const usesJsx = names.some((name) => name.endsWith('x'))
@@ -227,26 +221,14 @@ interface BuildFailure extends Error {
 }
 
 async function build(root: string, mode: Mode) {
-  const {extensionBuild} = await import('../../../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
   const spies = (['log', 'warn', 'error'] as const).map((method) =>
     vi.spyOn(console, method).mockImplementation(() => {})
   )
 
   try {
-    return await extensionBuild(root, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      mode,
-      exitOnError: false
-    })
+    return await buildProject(root, {mode, exitOnError: false})
   } finally {
     for (const spy of spies) spy.mockRestore()
-
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
   }
 }
 

@@ -61,6 +61,19 @@ export const dev: DevOptions = {port: 8080}
 export const build: BuildOptions = {zip: true}
 `
 
+// A command call may leave the browser out: each command takes it from its
+// commands block in the config, then from the stock target.
+const browserDefaulted = `import type {
+  extensionBuild,
+  extensionDev,
+  extensionPreview
+} from 'extension-develop'
+
+export const dev: Parameters<typeof extensionDev>[1] = {port: 8080}
+export const build: Parameters<typeof extensionBuild>[1] = {zip: true}
+export const preview: Parameters<typeof extensionPreview>[1] = {noOpen: true}
+`
+
 // What start and preview read from their own commands block. The two profile
 // seeding keys reach the browser from dev alone, so they stay refused here.
 const serveCommandKeys = `import type {FileConfig} from 'extension-develop'
@@ -312,6 +325,13 @@ describe('the declarations extension-develop ships', () => {
 
   it('want browser wherever no map key names the target', () => {
     const result = typecheck({'browser-required.ts': browserRequired})
+
+    expect(result.errors).toEqual([])
+    expect(result.status).toBe(0)
+  }, 120_000)
+
+  it('let a command call leave the browser to the config', () => {
+    const result = typecheck({'browser-defaulted.ts': browserDefaulted})
 
     expect(result.errors).toEqual([])
     expect(result.status).toBe(0)

@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {type RspackOptions, rspack} from '@rspack/core'
+import {rspack} from '@rspack/core'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {resolveDevelopDistFile} from '../../lib/develop-context'
 import {cssInContentScriptLoader} from '../css-in-content-script-loader'
@@ -152,10 +152,8 @@ describe.each([
           clean: true,
           filename: '[name].js'
         },
-        module: {rules},
-        // The rspack typings dropped layers, the option this build still sets.
-        experiments: {layers: true}
-      } as RspackOptions)
+        module: {rules}
+      })
       compiler.run((err, stats) => {
         if (err) return reject(err)
 

@@ -2,11 +2,11 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {unzipSync} from 'fflate'
 import {describe, expect, it, vi} from 'vitest'
-import {extensionBuild} from '../command-build'
 import {getDirs} from '../lib/paths'
 import {getProjectStructure} from '../lib/project'
 import {resolveSessionProjectRoot} from '../lib/session-project-root'
 import {trackTempFolders} from './helpers/temp-folders'
+import {buildProject} from './helpers/build-project'
 
 // The folder a command is pointed at is the project root whether or not a
 // package.json sits in it. Without one, a manifest found in src/ once took
@@ -46,25 +46,12 @@ function project(layout: Layout): string {
 }
 
 async function build(root: string, extra: Record<string, unknown> = {}) {
-  const previousVitest = process.env.VITEST
-  process.env.VITEST = 'true'
-
-  try {
-    return await extensionBuild(root, {
-      browser: 'chromium',
-      silent: true,
-      install: false,
-      mode: 'production',
-      exitOnError: false,
-      ...extra
-    } as never)
-  } finally {
-    if (previousVitest === undefined) {
-      Reflect.deleteProperty(process.env, 'VITEST')
-    } else {
-      process.env.VITEST = previousVitest
-    }
-  }
+  return await buildProject(root, {
+    browser: 'chromium',
+    mode: 'production',
+    exitOnError: false,
+    ...extra
+  })
 }
 
 function filesUnder(dir: string): string[] {
