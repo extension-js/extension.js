@@ -5,10 +5,10 @@ import vm from 'node:vm'
 import {rspack} from '@rspack/core'
 import {Parser, type Program} from 'acorn'
 import {describe, expect, it, vi} from 'vitest'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {diagnosticCode} from '../../../lib/diagnostic-code'
 import {readDefaultExport} from '../scripts-lib/default-export'
 import contentScriptWrapper from '../steps/add-content-script-wrapper/content-script-wrapper'
-import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 
 const tempFolder = trackTempFolders()
 

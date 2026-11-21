@@ -13,7 +13,7 @@ import {parseAuthoredJson} from '../../lib/parse-json-safe'
 import {
   findPublicFile,
   publicRelativePath
-} from '../../plugin-special-folders/resolve-public-folder'
+} from '../../lib/special-folders/resolve-public-folder'
 import type {DevOptions, FilepathList, Manifest} from '../../types'
 
 // Beside the manifest first; a file only public/ has (project root first,

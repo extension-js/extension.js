@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {trackTempFolders} from '../../../../__spec__/helpers/temp-folders'
 import type {PluginInterface} from '../../../../types'
 import {
   asCompiler,
@@ -14,7 +15,6 @@ import {
   type FakeSource,
   readSource
 } from '../helpers/html-fakes'
-import {trackTempFolders} from '../../../../__spec__/helpers/temp-folders'
 
 const tempFolder = trackTempFolders()
 

@@ -1,10 +1,10 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../../../__spec__/helpers/temp-folders'
 import {asCompiler} from '../../../__spec__/helpers/rspack-fakes'
 import {EXTENSIONJS_SANDBOX_LAYER} from '../../../feature-scripts/contracts'
 import {AddScriptsAndStylesToCompilation} from '../../steps/add-scripts-and-styles-to-compilation'
-import {trackTempFolders} from '../../../../__spec__/helpers/temp-folders'
 
 // The compiler options the entry step reads and writes.
 type EntryCompiler = {

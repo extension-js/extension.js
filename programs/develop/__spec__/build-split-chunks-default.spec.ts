@@ -2,8 +2,8 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
-import {trackTempFolders} from './helpers/temp-folders'
 import {writeExtensionProject} from './helpers/extension-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // HTML pages share code by default: the framework runtime lands in
 // shared/framework.js and a module two pages import in shared/commons.js.

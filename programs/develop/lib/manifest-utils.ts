@@ -301,7 +301,9 @@ export function isStaticThemeSource(
   if (!manifestPath) return false
 
   try {
-    const parsed = parseJsonSafe(fs.readFileSync(manifestPath, 'utf-8'))
+    const parsed = parseJsonSafe<Manifest>(
+      fs.readFileSync(manifestPath, 'utf-8')
+    )
 
     return isStaticTheme(
       filterKeysForThisBrowser(parsed, browser as DevOptions['browser'])

@@ -12,6 +12,7 @@ import {resolveLocalizedManifestName} from '../lib/localized-manifest-name'
 import {browserRowValue, card, humanLine} from '../lib/messaging'
 import {parseJsonSafe} from '../lib/parse-json-safe'
 import {collapseHomeDir} from '../lib/paths'
+import type {Manifest} from '../types'
 
 // The card is the session header, printed before the first work line. The
 // caller holds its key, which is what keeps `start` from printing it twice.
@@ -29,7 +30,7 @@ export function printBuildCard(
     // The written manifest has its $EXTENSION_PUBLIC_* values filled, so the
     // card names what ships. The source stands in when none was written.
     const written = nodePath.join(writtenDir, 'manifest.json')
-    const manifest = parseJsonSafe(
+    const manifest = parseJsonSafe<Manifest | null>(
       fs.readFileSync(fs.existsSync(written) ? written : manifestPath, 'utf-8')
     )
     const name = resolveLocalizedManifestName(manifest, [

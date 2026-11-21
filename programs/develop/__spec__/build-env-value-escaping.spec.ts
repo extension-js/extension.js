@@ -2,8 +2,8 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it, vi} from 'vitest'
 import {buildProject} from './helpers/build-project'
-import {trackTempFolders} from './helpers/temp-folders'
 import {writeExtensionProject} from './helpers/extension-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 const tempFolder = trackTempFolders()
 

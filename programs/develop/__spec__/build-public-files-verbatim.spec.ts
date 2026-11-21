@@ -3,8 +3,8 @@ import * as path from 'node:path'
 import * as vm from 'node:vm'
 import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
-import {trackTempFolders} from './helpers/temp-folders'
 import {writeProjectFiles} from './helpers/extension-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // A file under public/ ships as authored. A script `include` declares is
 // minified in production, in a way that keeps the value the file ends on.

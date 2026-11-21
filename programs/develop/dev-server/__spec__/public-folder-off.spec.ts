@@ -2,8 +2,8 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
-import {rememberSpecialFoldersConfig} from '../../plugin-special-folders/folders-config'
-import {publicFolderOrDefault} from '../../plugin-special-folders/resolve-public-folder'
+import {rememberSpecialFoldersConfig} from '../../lib/special-folders/folders-config'
+import {publicFolderOrDefault} from '../../lib/special-folders/resolve-public-folder'
 import type {SpecialFoldersConfig} from '../../types'
 
 const created: string[] = []

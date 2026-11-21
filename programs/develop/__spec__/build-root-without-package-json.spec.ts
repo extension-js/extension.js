@@ -5,8 +5,8 @@ import {describe, expect, it, vi} from 'vitest'
 import {getDirs} from '../lib/paths'
 import {getProjectStructure} from '../lib/project'
 import {resolveSessionProjectRoot} from '../lib/session-project-root'
-import {trackTempFolders} from './helpers/temp-folders'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // The folder a command is pointed at is the project root whether or not a
 // package.json sits in it. Without one, a manifest found in src/ once took

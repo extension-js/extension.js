@@ -1,8 +1,8 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
-import {trackTempFolders} from './helpers/temp-folders'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // A config that names the browser runs before the browser's env files are
 // known. It runs again only when those files change a name it read.

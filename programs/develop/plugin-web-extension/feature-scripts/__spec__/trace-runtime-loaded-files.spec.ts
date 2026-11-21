@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import {writeProjectFiles} from '../../../__spec__/helpers/extension-project'
 import {asCompiler, type TapCallback} from '../../__spec__/helpers/rspack-fakes'
 import {
   createLocalImportResolver,
@@ -15,7 +16,6 @@ import {
   planTracedFile,
   TraceRuntimeLoadedFiles
 } from '../steps/trace-runtime-loaded-files'
-import {writeProjectFiles} from '../../../__spec__/helpers/extension-project'
 
 // A diagnostic as the step under test reports it.
 type Reported = Error & {file?: string}

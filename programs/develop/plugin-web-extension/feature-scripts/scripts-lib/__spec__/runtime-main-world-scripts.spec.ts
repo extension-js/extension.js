@@ -2,13 +2,13 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import {writeProjectFiles} from '../../../../__spec__/helpers/extension-project'
 import {rememberBuildResolve} from '../../../shared/script-graph'
 import {
   findBridgePairingPages,
   findPageRelativeScriptPaths,
   findRuntimeMainWorldEntries
 } from '../runtime-main-world-scripts'
-import {writeProjectFiles} from '../../../../__spec__/helpers/extension-project'
 
 const roots: string[] = []
 

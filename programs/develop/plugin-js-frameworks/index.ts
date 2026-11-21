@@ -16,14 +16,13 @@ import {type ParsedJson, parseJsonSafe} from '../lib/parse-json-safe'
 import {toResourceKey} from '../lib/resource-path'
 import {NOT_RAW_RESOURCE_QUERY, RAW_RESOURCE_QUERY} from '../lib/resource-query'
 import {setupInOrder} from '../lib/setup-in-order'
-import {classifyEntrySurface} from '../lib/split-chunks'
+import {scriptsFolderRoot} from '../lib/special-folders/folders-config'
 import {resolveEngineTargets} from '../lib/swc-targets'
 import {
   createNodeModulesExclude,
   resolveTranspilePackageDirs
 } from '../lib/transpile-packages'
 import {getUserTypeScriptConfigFile} from '../lib/user-tsconfig'
-import {scriptsFolderRoot} from '../plugin-special-folders/folders-config'
 import {getSpecialFoldersDataForCompiler} from '../plugin-special-folders/get-data'
 import {getAssetsFromHtml} from '../plugin-web-extension/feature-html/html-lib/utils'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../plugin-web-extension/feature-scripts/contracts'
@@ -293,7 +292,7 @@ export class JsFrameworksPlugin {
     const wantsSourceMaps =
       devtool !== false && (mode === 'development' || devtool != null)
 
-    let manifest: ParsedJson = {}
+    let manifest: Manifest = {}
 
     try {
       manifest = parseJsonSafe(fs.readFileSync(this.manifestPath, 'utf-8'))
@@ -303,7 +302,7 @@ export class JsFrameworksPlugin {
 
     // A browser-prefixed key is the only spelling this target sees, so read
     // the resolved manifest here as the background block below already does.
-    let browserManifest: ParsedJson = manifest
+    let browserManifest: Manifest = manifest
 
     try {
       browserManifest = filterKeysForThisBrowser(manifest, this.browser)

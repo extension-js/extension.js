@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {hasPrivateFileName} from '../lib/public-private-files'
+import {hasPrivateFileName} from '../public-private-files'
 import {publicFolderSetting} from './folders-config'
 
 function isUsableDir(candidate: string): boolean {

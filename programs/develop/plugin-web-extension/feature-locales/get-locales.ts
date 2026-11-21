@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {inspectPublicFolders} from '../../plugin-special-folders/resolve-public-folder'
+import {inspectPublicFolders} from '../../lib/special-folders/resolve-public-folder'
 
 function isUsableDir(p: string): boolean {
   try {

@@ -2,9 +2,9 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {Compilation} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
+import {buildProject} from '../../../__spec__/helpers/build-project'
 import {openDevWatchSession} from '../../../__spec__/helpers/dev-watch-session'
 import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
-import {buildProject} from '../../../__spec__/helpers/build-project'
 
 // Real builds of projects with an icon in every manifest field that takes
 // one. Each icon has its own bytes, so the output says which source a shipped

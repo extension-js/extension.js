@@ -12,7 +12,7 @@ import {
   excludedFiles,
   isExcludedEntry,
   omitExcludedEntries
-} from '../plugin-special-folders/folders-config'
+} from '../lib/special-folders/folders-config'
 import {getSpecialFoldersDataForCompiler} from '../plugin-special-folders/get-data'
 import * as specialFoldersMessages from '../plugin-special-folders/messages'
 import type {DevOptions, FilepathList, PluginInterface} from '../types'

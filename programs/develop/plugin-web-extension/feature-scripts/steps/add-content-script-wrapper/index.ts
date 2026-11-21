@@ -18,7 +18,7 @@ import {
   canonicalizeResourcePath
 } from '../../../../lib/resource-path'
 import {NOT_RAW_RESOURCE_QUERY} from '../../../../lib/resource-query'
-import {scriptsFolderRoot} from '../../../../plugin-special-folders/folders-config'
+import {scriptsFolderRoot} from '../../../../lib/special-folders/folders-config'
 import type {
   DevOptions,
   FilepathList,

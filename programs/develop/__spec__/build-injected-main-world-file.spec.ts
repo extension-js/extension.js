@@ -4,8 +4,8 @@ import * as vm from 'node:vm'
 import {describe, expect, it} from 'vitest'
 import {readTakeBlock} from '../lib/extension-base-from-stack'
 import {buildProject} from './helpers/build-project'
-import {trackTempFolders} from './helpers/temp-folders'
 import {writeProjectFiles} from './helpers/extension-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // An injected MAIN world file reads the extension base off the page on
 // Gecko, so the caller's bundle runs the bridge ahead of the injection.

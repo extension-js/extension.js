@@ -11,25 +11,22 @@ import path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import {debugLine, isDebug} from '../lib/messaging'
 import {isInsidePath} from '../lib/real-path'
-import type {FilepathList, SpecialFoldersConfig} from '../types'
-import {
-  type EntryNameCollision,
-  type ScanEntryFolder,
-  scanEntryFolder
-} from './entry-folders'
 import {
   excludedFiles,
   foldersRoots,
   omitDevOnlyEntries,
   omitExcludedEntries,
   publicFolderSetting,
-  rememberedFolders,
-  rememberSpecialFoldersConfig
-} from './folders-config'
+  rememberedFolders
+} from '../lib/special-folders/folders-config'
+import type {FilepathList, SpecialFoldersConfig} from '../types'
+import {
+  type EntryNameCollision,
+  type ScanEntryFolder,
+  scanEntryFolder
+} from './entry-folders'
 import * as messages from './messages'
 import {guardWalkedEntries, type WalkedEntries} from './walked-entries'
-
-export {rememberSpecialFoldersConfig}
 
 // scripts/ enrolls EVERY file as a content-script-like entry, but Node build
 // tooling (Node-builtin imports, node shebang) can never be one; exclude it.

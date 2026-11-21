@@ -3,6 +3,8 @@ import * as path from 'node:path'
 import vm from 'node:vm'
 import {rspack, type Stats} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
+import {writeProjectFiles} from '../../../__spec__/helpers/extension-project'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {
   EXTENSION_BASE_GLOBAL,
   readTakeBlock
@@ -12,8 +14,6 @@ import webpackConfig from '../../../rspack-config'
 import {MAIN_WORLD_COPY_SUFFIX} from '../contracts'
 import {CHROMIUM_EXTENSION_ROOT} from '../scripts-lib/injected-sheet-urls'
 import {extensionBaseAttributeFor} from '../scripts-lib/taken-extension-base'
-import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
-import {writeProjectFiles} from '../../../__spec__/helpers/extension-project'
 
 const tempFolder = trackTempFolders()
 const EXTENSION_BASE = 'chrome-extension://abcdefghijklmnop/'

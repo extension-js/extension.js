@@ -23,10 +23,16 @@ export type ChromiumManifestCaveat =
   | 'background-scripts-not-run'
   | 'manifest-version-above-3'
 
-// Manifests under diagnosis are arbitrary user JSON; every access is
-// runtime-guarded.
-// biome-ignore lint/suspicious/noExplicitAny: dynamic manifest JSON diagnostics boundary
-type LooseManifest = any
+// Manifests under diagnosis are arbitrary user JSON, and every read is guarded
+// by an optional chain or a typeof check. Nested keys read that way are named.
+interface LooseManifest {
+  [key: string]: unknown
+  background?: {scripts?: unknown; service_worker?: unknown}
+  storage?: {managed_schema?: unknown}
+  action?: {default_icon?: unknown}
+  browser_action?: {default_icon?: unknown}
+  page_action?: {default_icon?: unknown}
+}
 
 function isManifestObject(manifest: unknown): manifest is LooseManifest {
   return (
@@ -130,7 +136,7 @@ export function endsRunOnlyLaunch(
 // Measured on Chrome 151 and Firefox Nightly 160: an invalid host wildcard
 // in the host permission lists loads and grants no host access.
 export function findIgnoredHostPermissionPatterns(manifest: unknown): string[] {
-  const m = manifest as Record<string, LooseManifest> | null | undefined
+  const m = manifest as LooseManifest | null | undefined
   const patterns: unknown[] = []
 
   for (const list of [m?.host_permissions, m?.optional_host_permissions]) {
@@ -151,7 +157,7 @@ function isInvalidHostPattern(pattern: unknown): pattern is string {
 // An invalid host wildcard in a content script or a web accessible resource
 // refuses the whole extension. The host permission lists are read above.
 export function findInvalidMatchPatterns(manifest: unknown): string[] {
-  const m = manifest as Record<string, LooseManifest> | null | undefined
+  const m = manifest as LooseManifest | null | undefined
   const patterns: string[] = []
 
   for (const contentScript of Array.isArray(m?.content_scripts)
@@ -203,7 +209,7 @@ export function findChromiumLoadBlockers(
   manifest: unknown,
   browserVersion?: string
 ): string[] {
-  const m = manifest as Record<string, LooseManifest> | null | undefined
+  const m = manifest as LooseManifest | null | undefined
   const blockers: string[] = []
   if (!m || typeof m !== 'object' || Array.isArray(m)) return blockers
 
@@ -288,7 +294,10 @@ export function findChromiumLoadBlockers(
       })
     }
 
-    if (group.run_at !== undefined && !CS_RUN_AT.includes(group.run_at)) {
+    if (
+      group.run_at !== undefined &&
+      !CS_RUN_AT.includes(group.run_at as string)
+    ) {
       blockers.push(
         `content_scripts[${index}].run_at: expected "document_start", "document_end" or "document_idle", got ${JSON.stringify(group.run_at)}, Chrome refuses the extension.`
       )
@@ -367,7 +376,7 @@ export function findUnloadableIconFiles(
   manifest: unknown,
   extensionDir: string
 ): string[] {
-  const m = manifest as Record<string, LooseManifest> | null | undefined
+  const m = manifest as LooseManifest | null | undefined
   const findings: string[] = []
 
   const check = (field: string, ref: unknown) => {
@@ -402,7 +411,11 @@ export function findUnloadableIconFiles(
     }
   }
 
-  for (const actionKey of ['action', 'browser_action', 'page_action']) {
+  for (const actionKey of [
+    'action',
+    'browser_action',
+    'page_action'
+  ] as const) {
     const icon = m?.[actionKey]?.default_icon
 
     if (typeof icon === 'string') {
@@ -423,7 +436,7 @@ export function findLocaleLoadBlockers(
   manifest: unknown,
   extensionDir: string
 ): string[] {
-  const m = manifest as Record<string, LooseManifest> | null | undefined
+  const m = manifest as LooseManifest | null | undefined
   const blockers: string[] = []
   if (!m || typeof m !== 'object' || Array.isArray(m)) return blockers
 
@@ -497,7 +510,7 @@ export function findMissingManagedSchema(
   manifest: unknown,
   extensionDir: string
 ): string[] {
-  const m = manifest as Record<string, LooseManifest> | null | undefined
+  const m = manifest as LooseManifest | null | undefined
   const schema = m?.storage?.managed_schema
   if (typeof schema !== 'string' || schema.trim() === '') return []
 
