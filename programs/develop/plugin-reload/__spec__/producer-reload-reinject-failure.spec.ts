@@ -149,7 +149,7 @@ describe('bridge producer runtime, a reinject whose manifest cannot be read', ()
     ])
 
     expect(h.warned).toEqual([
-      'Extension.js: manifest.json could not be read to reinject the content scripts, so the extension reloads instead. Error: Failed to fetch'
+      'Extension.js W_RELOAD_NOT_APPLIED: manifest.json could not be read to reinject the content scripts, so the extension reloads instead. Error: Failed to fetch'
     ])
   })
 

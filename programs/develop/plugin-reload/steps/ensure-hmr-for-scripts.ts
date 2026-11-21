@@ -148,11 +148,11 @@ if (${hot}) {
         // underneath the one the entry renders next.
         clear(document.getElementById('root'));
       } catch (err) {
-        console.error('Error clearing HTML containers', err);
+        console.warn('Extension.js W_RELOAD_NOT_APPLIED: the page could not be cleared for the hot update, so the version before may stay under the new one.', err);
       }
     });
   } catch (error) {
-    console.error('Error accepting HMR', error);
+    console.warn('Extension.js W_RELOAD_NOT_APPLIED: the page could not accept hot updates, so an edit shows after the page is reloaded.', error);
   }
 }
 `
