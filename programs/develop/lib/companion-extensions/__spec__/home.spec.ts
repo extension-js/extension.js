@@ -46,6 +46,25 @@ describe('where companion extensions are resolved', () => {
     expect(reaching).toEqual([])
   })
 
+  // The config type is published, so its comments are what a user reads on
+  // hover. The comment lint strips them from any file it is not told to skip.
+  it('keeps the hover docs of the published config type', () => {
+    const types = fs.readFileSync(
+      path.join(developRoot, 'lib', 'companion-extensions', 'types.ts'),
+      'utf8'
+    )
+    const lintConfig = fs.readFileSync(
+      path.resolve(developRoot, '..', '..', 'eslint.config.mjs'),
+      'utf8'
+    )
+
+    expect(types).toMatch(/\/\*\*[\s\S]*?\*\/\s+dir\?: string/)
+    expect(types).toMatch(/\/\*\*[\s\S]*?\*\/\s+paths\?: string\[\]/)
+    expect(lintConfig).toContain(
+      "'programs/develop/lib/companion-extensions/types.ts'"
+    )
+  })
+
   it('leaves the special folders plugin with no companion code', () => {
     const plugin = path.join(developRoot, 'plugin-special-folders')
     const naming = sources(plugin)
