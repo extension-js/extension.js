@@ -2,16 +2,16 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import {resolveFirefoxLaunchConfig} from '../../run-firefox/firefox-launch/browser-config'
+import type {CompilationLike} from '../../browsers-types'
+import {
+  type BrowserConfigOptions,
+  resolveFirefoxLaunchConfig
+} from '../../run-firefox/firefox-launch/browser-config'
 import {removeSessionPreferences} from '../../run-firefox/firefox-launch/session-preferences'
 
-type Compilation = Parameters<typeof resolveFirefoxLaunchConfig>[0]
-type Host = Parameters<typeof resolveFirefoxLaunchConfig>[1]
-
-// A partial host, cast once. The launch also reads persistProfile, which
-// the options type does not declare.
-function host(fields: Partial<Host> & {persistProfile?: boolean}): Host {
-  return fields as Host
+// A partial host, cast once.
+function host(fields: Partial<BrowserConfigOptions>): BrowserConfigOptions {
+  return fields as BrowserConfigOptions
 }
 
 const OWN_USER_JS = 'user_pref("my.own.pref", true);\n'
@@ -27,7 +27,7 @@ describe('firefox explicit profile preferences', () => {
     fs.rmSync(scratch, {recursive: true, force: true})
   })
 
-  function makeCompilation(): Compilation {
+  function makeCompilation(): CompilationLike {
     const project = path.join(scratch, 'project')
 
     return {
