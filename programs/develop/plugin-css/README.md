@@ -50,7 +50,7 @@ document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet]
 
 ### Reading the addresses of a sheet
 
-`rewriteCssUrls(css, rewrite, doubleQuoted?, escapedToo?)` in `css-lib/inline-css-imports.ts` passes each address of a sheet to `rewrite(request, place)` and replaces it with the answer. An answer of `undefined` keeps the address as written. A request that holds a backslash reaches `rewrite` only with `escapedToo`, as written. Text inside a string or a comment never does.
+`rewriteCssUrls(css, rewrite, doubleQuoted?, escapedToo?)` in `lib/css/inline-css-imports.ts` passes each address of a sheet to `rewrite(request, place)` and replaces it with the answer. An answer of `undefined` keeps the address as written. A request that holds a backslash reaches `rewrite` only with `escapedToo`, as written. Text inside a string or a comment never does.
 
 | Place        | What it is                                                        |
 | ------------ | ----------------------------------------------------------------- |

@@ -9,7 +9,7 @@ import {
   rewriteInlinedCssUrls,
   SFC_STYLE_ATTRIBUTE,
   toRuntimeStylesheetModule
-} from '../css-lib/inline-content-script-css'
+} from '../inline-content-script-css'
 
 const tempDirs: string[] = []
 

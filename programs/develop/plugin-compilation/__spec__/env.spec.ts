@@ -9,7 +9,7 @@ import {
   importMetaUrlForEmitPath
 } from '../../lib/import-meta-url'
 import {toJsStringLiteral} from '../../lib/js-literal'
-import {getCurrentManifestContent} from '../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
+import {readManifestAssetText} from '../../lib/manifest/manifest-content'
 import {EnvPlugin, getEnvFileLayers} from '../env'
 import {
   type CompileOptions,
@@ -680,7 +680,7 @@ describe('EnvPlugin placeholders in emitted .json and .html', () => {
 
     expect(result.asset('notes.txt')).toBe('$EXTENSION_PUBLIC_FOO')
     // Later manifest steps read the substituted text, not the authored one.
-    expect(getCurrentManifestContent(result.stats.compilation)).toBe(
+    expect(readManifestAssetText(result.stats.compilation)).toBe(
       '{"name":"envFoo","desc":"$EXTENSION_BAR"}'
     )
   })
@@ -969,7 +969,7 @@ describe('EnvPlugin private names in emitted .json and .html', () => {
       '{"token":"$EXTENSION_SECRET_TOKEN"}'
     )
 
-    expect(getCurrentManifestContent(result.stats.compilation)).toBe(
+    expect(readManifestAssetText(result.stats.compilation)).toBe(
       result.asset('manifest.json')
     )
 
