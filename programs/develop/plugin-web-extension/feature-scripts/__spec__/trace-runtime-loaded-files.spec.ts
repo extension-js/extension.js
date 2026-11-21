@@ -15,6 +15,7 @@ import {
   planTracedFile,
   TraceRuntimeLoadedFiles
 } from '../steps/trace-runtime-loaded-files'
+import {writeProjectFiles} from '../../../__spec__/helpers/extension-project'
 
 // A diagnostic as the step under test reports it.
 type Reported = Error & {file?: string}
@@ -43,11 +44,7 @@ function createTempProject(
     'utf8'
   )
 
-  for (const [rel, content] of Object.entries(files)) {
-    const abs = path.join(dir, rel)
-    fs.mkdirSync(path.dirname(abs), {recursive: true})
-    fs.writeFileSync(abs, content, 'utf8')
-  }
+  writeProjectFiles(dir, files)
 
   return dir
 }

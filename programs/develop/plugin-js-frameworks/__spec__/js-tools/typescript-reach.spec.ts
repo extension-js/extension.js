@@ -4,6 +4,7 @@ import path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
 import {ensureTypeScriptConfig} from '../../js-tools/typescript'
 import {buildReachesTypeScript} from '../../js-tools/typescript-reach'
+import {writeProjectFiles} from '../../../__spec__/helpers/extension-project'
 
 const tempDirs: string[] = []
 
@@ -18,11 +19,7 @@ function createProject(files: Record<string, string>) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-ts-reach-'))
   tempDirs.push(dir)
 
-  for (const [rel, content] of Object.entries(files)) {
-    const abs = path.join(dir, rel)
-    fs.mkdirSync(path.dirname(abs), {recursive: true})
-    fs.writeFileSync(abs, content, 'utf8')
-  }
+  writeProjectFiles(dir, files)
 
   return dir
 }

@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
 import {getBuildSummary} from '../build-summary'
 import {foldOutputFiles, listOutputFiles} from '../output-files'
+import {writeProjectFiles} from '../../__spec__/helpers/extension-project'
 
 const roots: string[] = []
 
@@ -18,11 +19,7 @@ function outputFolder(files: Record<string, string>) {
   roots.push(parent)
   const root = path.join(parent, 'chrome')
 
-  for (const [name, content] of Object.entries(files)) {
-    const target = path.join(root, name)
-    fs.mkdirSync(path.dirname(target), {recursive: true})
-    fs.writeFileSync(target, content)
-  }
+  writeProjectFiles(root, files)
 
   return {parent, root}
 }

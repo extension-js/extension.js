@@ -1,22 +1,18 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
+import {writeProjectFiles} from './helpers/extension-project'
 
 // The command decides whether a project is TypeScript before the compiler
 // does. Both must read the same folders config, or the first build writes
 // tsconfig.json alone and only the second one writes extension-env.d.ts.
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project(files: Record<string, string>) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-first-run-ts-'))
-  roots.push(root)
+  const root = tempFolder('extjs-first-run-ts-')
 
   const all: Record<string, string> = {
     'package.json': JSON.stringify({
@@ -35,11 +31,7 @@ function project(files: Record<string, string>) {
     ...files
   }
 
-  for (const [name, text] of Object.entries(all)) {
-    const file = path.join(root, name)
-    fs.mkdirSync(path.dirname(file), {recursive: true})
-    fs.writeFileSync(file, text)
-  }
+  writeProjectFiles(root, all)
 
   return root
 }

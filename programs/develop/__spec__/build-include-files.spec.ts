@@ -1,14 +1,14 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it, vi} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
+import {
+  writeExtensionProject,
+  writeProjectFiles
+} from './helpers/extension-project'
 
-const tempDirs: string[] = []
-
-afterAll(() => {
-  for (const dir of tempDirs) fs.rmSync(dir, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 // The project lives one level below the temp dir, so a source can sit
 // beside it, outside the project root, the way an exported model tree does.
@@ -16,36 +16,21 @@ function workspace(
   files: Record<string, string | Buffer>,
   config: string
 ): {root: string; outside: string} {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-include-'))
-  tempDirs.push(dir)
+  const dir = tempFolder('extjs-include-')
   const root = path.join(dir, 'project')
   const outside = path.join(dir, 'training', 'export')
   fs.mkdirSync(root, {recursive: true})
   fs.mkdirSync(outside, {recursive: true})
 
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'include', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'include',
-      version: '1.0.0',
-      background: {service_worker: 'background.js'}
-    })
-  )
+  writeExtensionProject(root, {
+    name: 'include',
+    manifest: {background: {service_worker: 'background.js'}}
+  })
 
   fs.writeFileSync(path.join(root, 'background.js'), 'console.log("bg")\n')
   fs.writeFileSync(path.join(root, 'extension.config.js'), config)
 
-  for (const [rel, content] of Object.entries(files)) {
-    const abs = path.join(dir, rel)
-    fs.mkdirSync(path.dirname(abs), {recursive: true})
-    fs.writeFileSync(abs, content)
-  }
+  writeProjectFiles(dir, files)
 
   return {root, outside}
 }

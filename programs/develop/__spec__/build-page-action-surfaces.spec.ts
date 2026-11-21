@@ -1,8 +1,8 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // Firefox drives the toolbar and the address bar independently, so a
 // browser_action/action popup and a page_action popup are two pages unless
@@ -12,15 +12,10 @@ const PNG = Buffer.from(
     'h6FO1AAAAABJRU5ErkJggg==',
   'base64'
 )
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project(manifest: Record<string, unknown>) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-page-action-'))
-  roots.push(root)
+  const root = tempFolder('extjs-page-action-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'surfaces', version: '0.0.0'})

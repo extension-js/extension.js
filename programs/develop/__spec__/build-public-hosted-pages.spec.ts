@@ -1,29 +1,23 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
+import {writeProjectFiles} from './helpers/extension-project'
 
 const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGBgAAAABQAB' +
     'h6FO1AAAAABJRU5ErkJggg==',
   'base64'
 )
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project(
   manifestRel: string,
   manifest: Record<string, unknown>,
   files: Record<string, Buffer | string>
 ) {
-  const root = fs.mkdtempSync(
-    path.join(os.tmpdir(), 'extjs-public-hosted-pages-')
-  )
-  roots.push(root)
+  const root = tempFolder('extjs-public-hosted-pages-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'public-hosted', version: '0.0.0'})
@@ -41,11 +35,7 @@ function project(
     })
   )
 
-  for (const [rel, content] of Object.entries(files)) {
-    const abs = path.join(root, rel)
-    fs.mkdirSync(path.dirname(abs), {recursive: true})
-    fs.writeFileSync(abs, content)
-  }
+  writeProjectFiles(root, files)
 
   return root
 }

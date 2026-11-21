@@ -1,25 +1,20 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // One source manifest serves MV3 on Chromium and MV2 on Firefox through the
 // prefixed manifest_version. Firefox MV2 reads content_security_policy as one
 // string, so the built manifest carries the extension_pages policy as that
 // string, in production and in a dev session alike, while the MV3 output
 // keeps the object as written.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 const PAGES = "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
 
 function project() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-mv2-csp-'))
-  roots.push(root)
+  const root = tempFolder('extjs-mv2-csp-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'csp', version: '0.0.0'})

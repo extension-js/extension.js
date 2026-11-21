@@ -13,6 +13,7 @@ import {
   createFixture,
   freeLoopbackPort
 } from './helpers/loopback-dev-server'
+import {writeProjectFiles} from '../../__spec__/helpers/extension-project'
 
 type WebpackConfigOptions = Parameters<typeof webpackConfig>[1]
 
@@ -66,12 +67,7 @@ function scaffold() {
     'bundled/companion/note.txt': 'beside the companion manifest\n'
   }
 
-  for (const [relative, content] of Object.entries(files)) {
-    const absolute = path.join(root, relative)
-
-    fs.mkdirSync(path.dirname(absolute), {recursive: true})
-    fs.writeFileSync(absolute, content)
-  }
+  writeProjectFiles(root, files)
 
   return root
 }

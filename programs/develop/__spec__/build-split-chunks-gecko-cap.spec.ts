@@ -1,18 +1,14 @@
 import * as crypto from 'node:crypto'
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // The Firefox store check stops parsing a script past 5 MB. A page can load
 // any number of sibling files, so the Firefox build splits the shared chunk
 // that would pass that size. Chrome keeps its one shared file.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 const STORE_PARSE_LIMIT = 5 * 1024 * 1024
 const MODULE_COUNT = 12
@@ -26,8 +22,7 @@ function bigModule(name: string) {
 function project(
   options: {moduleCount?: number; pages?: string[]; config?: string} = {}
 ) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-gecko-cap-'))
-  roots.push(root)
+  const root = tempFolder('extjs-gecko-cap-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'gecko-cap', version: '0.0.0'})

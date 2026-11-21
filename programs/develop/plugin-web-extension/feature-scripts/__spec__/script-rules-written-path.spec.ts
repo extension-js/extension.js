@@ -1,23 +1,16 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {rspack} from '@rspack/core'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {ScriptsPlugin} from '../index'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 // A project reached through a link, the way a Windows short folder name
 // such as RUNNER~1 reaches it: the path as written is not the real one.
 function linkedProject() {
-  const real = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-written-path-'))
-  )
-  roots.push(real)
+  const real = fs.realpathSync(tempFolder('extjs-written-path-'))
 
   const files: Record<string, string> = {
     'manifest.json': JSON.stringify({

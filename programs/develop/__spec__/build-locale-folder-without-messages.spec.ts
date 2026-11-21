@@ -1,14 +1,10 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function stripAnsi(value: string): string {
   // eslint-disable-next-line no-control-regex
@@ -16,8 +12,7 @@ function stripAnsi(value: string): string {
 }
 
 function project(localesParent: '' | 'public') {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-locale-folder-'))
-  roots.push(root)
+  const root = tempFolder('extjs-locale-folder-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'localeme', version: '0.0.0'})

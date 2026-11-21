@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
 import {resolveCompanionExtensionDirs} from '../resolve-dirs'
 import {isDirExactCase} from '../utils'
+import {writeProjectFiles} from '../../../__spec__/helpers/extension-project'
 
 const created: string[] = []
 
@@ -13,11 +14,7 @@ function project(layout: Record<string, string>) {
   )
   created.push(root)
 
-  for (const [rel, content] of Object.entries(layout)) {
-    const abs = path.join(root, rel)
-    fs.mkdirSync(path.dirname(abs), {recursive: true})
-    fs.writeFileSync(abs, content)
-  }
+  writeProjectFiles(root, layout)
 
   return root
 }

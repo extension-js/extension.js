@@ -15,6 +15,7 @@ import {
   notFoundPaths,
   outputHolding
 } from './helpers/private-files-project'
+import {writeExtensionProject} from '../../../__spec__/helpers/extension-project'
 
 // A real rspack watch over a popup that embeds a second page. The second
 // page names a script, a stylesheet and an image, which ship as plain copies.
@@ -90,20 +91,10 @@ beforeAll(async () => {
   root = fs.realpathSync(tempFolder('extjs-nested-refs-'))
   fs.mkdirSync(path.join(root, 'popup'))
 
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'nested-refs', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'nested-refs',
-      version: '1.0.0',
-      action: {default_popup: 'popup/index.html'}
-    })
-  )
+  writeExtensionProject(root, {
+    name: 'nested-refs',
+    manifest: {action: {default_popup: 'popup/index.html'}}
+  })
 
   write('index.html', popupPage('one'))
   write('main.js', "console.log('popup')\n")

@@ -1,14 +1,11 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it, vi} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
+import {writeProjectFiles} from './helpers/extension-project'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 interface Diagnostic {
   code?: string
@@ -30,8 +27,7 @@ function project(
   manifest: Record<string, unknown>,
   files: Record<string, string>
 ) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-diagnostic-codes-'))
-  roots.push(root)
+  const root = tempFolder('extjs-diagnostic-codes-')
 
   const all: Record<string, string> = {
     'package.json': JSON.stringify({
@@ -48,11 +44,7 @@ function project(
     ...files
   }
 
-  for (const [rel, content] of Object.entries(all)) {
-    const abs = path.join(root, rel)
-    fs.mkdirSync(path.dirname(abs), {recursive: true})
-    fs.writeFileSync(abs, content)
-  }
+  writeProjectFiles(root, all)
 
   return root
 }

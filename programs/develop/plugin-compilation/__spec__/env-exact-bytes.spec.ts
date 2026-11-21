@@ -5,6 +5,7 @@ import {buildProject} from '../../__spec__/helpers/build-project'
 import {templateCopiedAsset} from '../copied-asset-env'
 import {EnvPlugin} from '../env'
 import {compile, makeTempRoot, removeTempRoots} from './helpers/real-compile'
+import {writeProjectFiles} from '../../__spec__/helpers/extension-project'
 
 const stripAnsi = (value: string) => value.replace(/\x1b\[[0-9;]*m/g, '')
 const hex = (...parts: string[]) => Buffer.from(parts.join(''), 'hex')
@@ -31,11 +32,7 @@ const UTF16_WITH_PLACEHOLDER = Buffer.concat([
 ])
 
 function writeBytes(root: string, files: Record<string, Buffer | string>) {
-  for (const [relative, contents] of Object.entries(files)) {
-    const target = path.join(root, relative)
-    fs.mkdirSync(path.dirname(target), {recursive: true})
-    fs.writeFileSync(target, contents)
-  }
+  writeProjectFiles(root, files)
 }
 
 beforeEach(() => {

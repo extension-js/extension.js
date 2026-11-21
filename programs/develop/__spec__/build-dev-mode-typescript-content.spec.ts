@@ -1,21 +1,16 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // A one-shot development build runs compiler.run(), so the frameworks plugin
 // must finish configuring SWC before the first module is parsed: a TypeScript
 // content script otherwise reaches the JS parser untranspiled.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-ts-content-'))
-  roots.push(root)
+  const root = tempFolder('extjs-dev-ts-content-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({
