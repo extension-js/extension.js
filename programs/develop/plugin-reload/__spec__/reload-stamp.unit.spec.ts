@@ -79,7 +79,7 @@ describe('the broker hands the stamp to the session', () => {
       runId: 'run-1',
       allowControl: true,
       onReloadApplied
-    } as never)
+    })
 
     b.noteReloadApplied('content', 'content_script (a.ts)')
 

@@ -139,7 +139,7 @@ describe('the reload plugin of a dev session config', () => {
     )
 
     const config = webpackConfig(
-      {manifestPath, packageJsonPath: path.join(root, 'package.json')} as never,
+      {manifestPath, packageJsonPath: path.join(root, 'package.json')},
       {
         browser: 'chrome',
         mode: 'development',
@@ -147,7 +147,7 @@ describe('the reload plugin of a dev session config', () => {
         session: sessionOf({instanceId, controlPort}),
         output: {clean: false, path: path.join(root, 'dist', 'chrome')},
         noBrowser: true
-      } as never
+      }
     )
     const plugin = (config.plugins ?? []).find(
       (candidate: unknown) => candidate instanceof ReloadPlugin
