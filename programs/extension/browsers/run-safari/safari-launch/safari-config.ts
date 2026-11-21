@@ -73,10 +73,7 @@ export function resolveSafariBuildConfig(
   compilation: CompilationLike,
   host: SafariPluginLike
 ): SafariBuildConfig {
-  const extensionDir = String(
-    (compilation as {options?: {output?: {path?: unknown}}} | undefined)
-      ?.options?.output?.path || ''
-  )
+  const extensionDir = String(compilation?.options?.output?.path || '')
   const manifest = readManifest(extensionDir)
   const appName = sanitizeAppName(
     String(host.appName || manifest?.name || 'Extension')

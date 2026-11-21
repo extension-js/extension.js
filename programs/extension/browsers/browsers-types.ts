@@ -22,6 +22,8 @@ export interface CompilationLike {
     context?: string
   }
   outputOptions?: {path?: string}
+  // Read to skip a launch after a failed compile.
+  errors?: unknown[]
   getAsset?: (name: string) => {source: {source: () => string}} | undefined
 }
 
