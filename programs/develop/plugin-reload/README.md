@@ -12,8 +12,11 @@ It is responsible for:
   background entry setup, the SW scripts-replay shim, and the control-bridge
   producer/relay (console forwarding for unified logging)
 - asking the chunk loading target of `plugin-web-extension` for the
-  message fallback a content script uses when it cannot import a chunk,
-  and naming hot update files `hot/[id].[fullhash].js`
+  message fallback a content script uses when it cannot import a chunk
+- naming the hot update files of a dev server compile, in
+  `steps/name-hot-update-files.ts` and nowhere else: `hot/[id].[fullhash].js`
+  in a reload session, and the same with the `.hot-update` suffix when
+  reload is off
 - on Chromium, turning the manifest's `content_scripts` entries into
   signalling stubs and registering the real bundles from the worker, so an
   edit reaches new and open pages without a second copy running
@@ -76,13 +79,16 @@ names one, otherwise any mode but production), so it also runs under
 2. `StripContentScriptDevServerRuntime`
 3. `StableContentScriptNames`
 4. `SetupReloadStrategy` (`SetupBackgroundEntry`, then the message
-   fallback request, then the hot update file names)
+   fallback request)
 5. `InjectScriptsReplayShim`
 6. `SetupDevContentScripts` (Chromium only, not the emulator)
 7. `InjectBridgeProducer` (not the emulator)
 8. `InjectBridgeRelay` (not the emulator)
 9. `PruneStaleHotUpdates`
 10. `PruneUnreachableChunks`
+
+`NameHotUpdateFiles` runs ahead of the gate as well, in every compile of a
+dev server, reload on or off.
 
 ## Important files
 
@@ -224,8 +230,7 @@ names one, otherwise any mode but production), so it also runs under
   `plugin-web-extension/shared/chunk-loading-target-extensions.ts`. The
   fallback is answered from the authored background when the manifest names
   one, and from the generated one otherwise. The target itself, its loaders
-  and its public path module stay in `plugin-web-extension`. The step also
-  renames hot update files.
+  and its public path module stay in `plugin-web-extension`.
 
 - `reload-lib/dev-content-scripts.ts` / `steps/setup-dev-content-scripts.ts`
   Chromium loads a static content script's bytes once, at extension load,
@@ -350,8 +355,9 @@ consumes that contract. It does not define it, and nothing in
 - `restart-reload-once.unit.spec.ts`, the one reload a restarted session owes
 - `reload-frame-build.unit.spec.ts`, the build name a reload frame carries
 - `setup-reload-strategy.spec.ts`, `setup-background-entry.spec.ts`,
-  background entries, the fallback background a session asks for and the
-  hot update names. The chunk loading specs live in
+  background entries and the fallback background a session asks for. The
+  hot update names are in `reload-plugin-gating.spec.ts`. The chunk
+  loading specs live in
   `plugin-web-extension/feature-chunk-loading`.
 - `plugin-boundary.spec.ts`, that this folder installs no chunk loading code
   and reaches the target only through its extension point, what it may

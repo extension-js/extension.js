@@ -28,6 +28,17 @@ describe('the error object of one failure across the commands that can raise it'
       join(projectDir, 'manifest.json'),
       JSON.stringify({manifest_version: 3, name: 'Keys', version: '1.0.0'})
     )
+
+    mkdirSync(join(work, 'throwing-config'))
+    writeFileSync(
+      join(work, 'throwing-config', 'manifest.json'),
+      JSON.stringify({manifest_version: 3, name: 'Keys', version: '1.0.0'})
+    )
+
+    writeFileSync(
+      join(work, 'throwing-config', 'extension.config.js'),
+      "throw new Error('config boom')\n"
+    )
   })
 
   afterAll(() => {
@@ -69,6 +80,21 @@ describe('the error object of one failure across the commands that can raise it'
       runs: () => [
         ['start', projectDir, '--browser', 'chromium'],
         ['preview', projectDir, '--browser', 'chromium']
+      ]
+    },
+    {
+      // The project's own file failed, which build, start and dev frame from
+      // the build step. preview has no build step and frames it the same.
+      kind: 'a config file that throws',
+      code: 'E_CONFIG_LOAD',
+      keys: ['code', 'message'],
+      runs: () => [
+        ['build', join(work, 'throwing-config')],
+        ...['dev', 'start', 'preview'].map((command) => [
+          command,
+          join(work, 'throwing-config'),
+          '--no-browser'
+        ])
       ]
     },
     {

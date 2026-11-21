@@ -50,6 +50,10 @@ vi.mock('../steps/warn-ignored-host-permissions', () => ({
   WarnIgnoredHostPermissions: recorder('WarnIgnoredHostPermissions')
 }))
 
+vi.mock('../steps/warn-prefixed-permission-items', () => ({
+  WarnPrefixedPermissionItems: recorder('WarnPrefixedPermissionItems')
+}))
+
 vi.mock('../steps/warn-content-script-host-access', () => ({
   WarnContentScriptHostAccess: recorder('WarnContentScriptHostAccess')
 }))
@@ -91,6 +95,7 @@ describe('ManifestPlugin', () => {
       'PersistManifestToDisk',
       'WarnDescriptionLength',
       'WarnIgnoredHostPermissions',
+      'WarnPrefixedPermissionItems',
       'WarnContentScriptHostAccess',
       'WarnWebAssembly',
       'AddDependencies',
@@ -128,6 +133,10 @@ describe('ManifestPlugin', () => {
     expect(optionsOf('PersistManifestToDisk')).toEqual({manifestPath})
     expect(optionsOf('WarnDescriptionLength')).toEqual({browser: 'firefox'})
     expect(optionsOf('WarnWebAssembly')).toEqual({browser: 'firefox'})
+    expect(optionsOf('WarnPrefixedPermissionItems')).toEqual({
+      browser: 'firefox'
+    })
+
     expect(optionsOf('AddDependencies')).toEqual([manifestPath])
   })
 
