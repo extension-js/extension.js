@@ -6,14 +6,13 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import * as fs from 'node:fs'
 import type {Compilation} from '@rspack/core'
+import {getOriginalManifest} from '../../../lib/manifest/manifest-content'
 import {
   filterKeysForThisBrowser,
   isStaticTheme,
   isStaticThemeSource
 } from '../../../lib/manifest-utils'
-import {parseJsonSafe} from '../../../lib/parse-json-safe'
 import type {DevOptions, Manifest} from '../../../types'
 import {
   dropPageAction,
@@ -39,86 +38,6 @@ import {
   reportIconVariantsFallback
 } from './icon-variants-fallback'
 
-// The manifest as the author wrote it rides per compilation, since later
-// steps rewrite the asset and the checks on authored fields need the source.
-const authoredManifestStore = new WeakMap<
-  Compilation,
-  {text: string; parsed?: Manifest}
->()
-
-// Text handed over by steps outside this folder. Only a compilation that
-// cannot hand its assets back, a spec double, is ever answered from it.
-const handedOverManifestText = new WeakMap<Compilation, string>()
-
-function readAssetSource(asset: {source?: unknown} | null | undefined): string {
-  if (!asset) return ''
-
-  const source = asset.source
-
-  if (typeof source === 'string') return source
-
-  if (typeof source === 'function') {
-    const out = source()
-
-    return typeof out === 'string' ? out : String(out || '')
-  }
-
-  if (source && typeof (source as {source?: unknown}).source === 'function') {
-    const out = (source as {source: () => unknown}).source()
-
-    return typeof out === 'string' ? out : String(out || '')
-  }
-
-  return ''
-}
-
-// The manifest.json asset is the one copy every step and every project
-// plugin shares, so whatever edited it last is what the next reader gets.
-export function readManifestAssetText(
-  compilation: Compilation
-): string | undefined {
-  const getAsset = compilation.getAsset
-
-  if (typeof getAsset === 'function') {
-    const text = readAssetSource(
-      getAsset.call(compilation, 'manifest.json') as
-        | {source?: unknown}
-        | null
-        | undefined
-    )
-
-    if (text) return text
-  }
-
-  return readAssetSource(compilation.assets?.['manifest.json']) || undefined
-}
-
-export function setOriginalManifestContent(
-  compilation: Compilation,
-  source: string
-): void {
-  authoredManifestStore.set(compilation, {text: source})
-}
-
-export function getOriginalManifestContent(
-  compilation: Compilation
-): string | undefined {
-  return authoredManifestStore.get(compilation)?.text
-}
-
-// One parse serves every check that only reads the authored manifest.
-// Callers must not change the object they get.
-export function getOriginalManifest(
-  compilation: Compilation
-): Manifest | undefined {
-  const entry = authoredManifestStore.get(compilation)
-  if (!entry) return undefined
-
-  entry.parsed ??= parseJsonSafe(entry.text) as Manifest
-
-  return entry.parsed
-}
-
 // A theme is told from the manifest as authored, since the dev patches add
 // keys no theme carries. The disk is read only when no step emitted one.
 export function isStaticThemeCompilation(
@@ -141,40 +60,14 @@ export function isStaticThemeCompilation(
   )
 }
 
-// Kept for the steps outside this folder that still call it. Those steps
-// update the asset in the same breath, and the asset is what gets read.
-export function setCurrentManifestContent(
-  compilation: Compilation,
-  source: string
-): void {
-  handedOverManifestText.set(compilation, source)
-}
-
-// Kept for the same callers: the text of the manifest.json asset.
-export function getCurrentManifestContent(
-  compilation: Compilation
-): string | undefined {
-  if (typeof compilation.getAsset === 'function') {
-    return readManifestAssetText(compilation)
-  }
-
-  return handedOverManifestText.get(compilation)
-}
-
-export function getManifestContent(
-  compilation: Compilation,
-  manifestPath: string
-): Manifest {
-  const text =
-    readManifestAssetText(compilation) ??
-    getOriginalManifestContent(compilation)
-
-  if (text) return parseJsonSafe(text)
-
-  // No step has emitted a manifest for this compilation yet, so the file
-  // the author saved is the only copy there is.
-  return parseJsonSafe(fs.readFileSync(manifestPath, 'utf8'))
-}
+// The manifest text store lives in lib, where every plugin may read it.
+export {
+  getManifestContent,
+  getOriginalManifest,
+  getOriginalManifestContent,
+  readManifestAssetText,
+  setOriginalManifestContent
+} from '../../../lib/manifest/manifest-content'
 
 // Re-export the canonical resolver so emission, feature-scripts, and
 // feature-html share one implementation, incl. Safari/webkit resolution.

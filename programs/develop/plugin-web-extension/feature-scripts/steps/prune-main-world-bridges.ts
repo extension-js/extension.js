@@ -9,7 +9,6 @@
 import {Compilation, type Compiler, sources} from '@rspack/core'
 import {isChromiumBasedBrowser} from '../../../lib/constants'
 import type {DevOptions} from '../../../types'
-import {setCurrentManifestContent} from '../../feature-manifest/manifest-lib/manifest'
 import {
   getCanonicalContentScriptEntryName,
   getCanonicalContentScriptJsAssetName
@@ -120,7 +119,6 @@ export class PruneMainWorldBridges {
             )
 
             const source = JSON.stringify(manifest, null, 2)
-            setCurrentManifestContent(compilation, source)
             compilation.updateAsset(
               'manifest.json',
               new sources.RawSource(source)

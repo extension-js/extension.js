@@ -23,8 +23,7 @@ import {isWebkitUnsupportedPermission} from '../manifest-lib/filter-keys-safari'
 import {
   getManifestContent,
   getOriginalManifest,
-  isStaticThemeCompilation,
-  setCurrentManifestContent
+  isStaticThemeCompilation
 } from '../manifest-lib/manifest'
 import {findShadowedPermission} from '../manifest-lib/shadowed-declaration'
 import {undeclaredPermissionWording} from '../messages'
@@ -459,7 +458,6 @@ export class ApplyDevDefaults {
 
             const source = JSON.stringify(patchedManifest, null, 2)
             const rawSource = new sources.RawSource(source)
-            setCurrentManifestContent(compilation, source)
 
             if (compilation.getAsset('manifest.json')) {
               compilation.updateAsset('manifest.json', rawSource)

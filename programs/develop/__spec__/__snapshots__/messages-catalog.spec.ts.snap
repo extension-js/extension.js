@@ -33,6 +33,10 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "shutdownTimedOut: function(1)",
     "spacerLine: function(0)",
   ],
+  "lib/css/messages.ts": [
+    "deadCssUrlRef: function(2)",
+    "withheldCssRef: function(3)",
+  ],
   "lib/messages.ts": [
     "addonLintDependencyAttribution: function(2)",
     "addonLintFailed: function(2)",
@@ -232,7 +236,6 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "cssUrlRewriteSkipped: function(2)",
     "cssUrlSheetRefsNotFollowed: function(2)",
     "deadCssRef: function(4)",
-    "deadCssUrlRef: function(2)",
     "isUsingIntegration: function(1)",
     "lateCssImportIgnored: function(2)",
     "missingSassDependency: function(1)",
@@ -246,7 +249,6 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "tailwindNotInstalled: function(2)",
     "tailwindSetupFailed: function(3)",
     "unplacedStyleImport: function(3)",
-    "withheldCssRef: function(3)",
   ],
   "plugin-js-frameworks/js-frameworks-lib/messages.ts": [
     "creatingTSConfig: function(0)",
