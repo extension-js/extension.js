@@ -20,6 +20,13 @@ function sources(dir: string, found: string[] = []): string[] {
   return found
 }
 
+// Develop files other programs hold a copy of, each with one such copy.
+// The copies read the names, and a spec there fails when the text differs.
+export const COPIED_ELSEWHERE = new Map([
+  ['lib/corepack-registry.ts', 'install/lib/corepack-registry.ts'],
+  ['lib/messaging.ts', 'extension/helpers/messaging.ts']
+])
+
 const isSpecFile = (file: string) =>
   file.split(path.sep).includes('__spec__') ||
   /\.spec\.[cm]?[jt]sx?$/.test(file)
@@ -125,7 +132,8 @@ export function exportsNoProductFileReads(): ExportUse[] {
       file.startsWith(developRoot + path.sep) &&
       !isSpecFile(file) &&
       !file.endsWith('.d.ts') &&
-      !entries.has(file)
+      !entries.has(file) &&
+      !COPIED_ELSEWHERE.has(named(file))
     ) {
       product.set(file, exportedNames(text))
     }
