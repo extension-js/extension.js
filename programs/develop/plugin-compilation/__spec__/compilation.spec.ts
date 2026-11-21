@@ -16,6 +16,17 @@ type Command = 'dev' | 'start' | 'preview' | 'build'
 
 const DYNAMIC_REQUIRE = 'module.exports = (name) => require(name)\n'
 
+// Rspack after 2.3.3 renames this warning (web-infra-dev/rspack#16771).
+const OLD_EXPRESSION_WARNING =
+  'Critical dependency: the request of a dependency is an expression'
+const NEW_EXPRESSION_WARNING =
+  'Dynamic module path: Rspack cannot determine which modules to bundle because the path is unknown at build time.'
+const EXPRESSION_WARNING =
+  /Critical dependency: the request of a dependency is an expression|Dynamic module path: Rspack cannot determine which modules to bundle because the path is unknown at build time\./
+// The printed line goes through scrubBrand, which names Extension.js.
+const PRINTED_EXPRESSION_WARNING =
+  /Critical dependency: the request of a dependency is an expression|Dynamic module path: Extension\.js cannot determine which modules to bundle because the path is unknown at build time\./
+
 function scaffold(entry = 'console.log("ran")\n') {
   const root = makeTempRoot('compilation')
   writeFiles(root, {
@@ -172,15 +183,35 @@ describe('CompilationPlugin on a real compiler', () => {
 
     expect(
       warnings.map((warning) => [warning.moduleName, warning.message])
-    ).toEqual([
-      [
-        './own.js',
-        expect.stringContaining(
-          'Critical dependency: the request of a dependency is an expression'
-        )
-      ]
-    ])
+    ).toEqual([['./own.js', expect.stringMatching(EXPRESSION_WARNING)]])
   })
+
+  const ignoreOf = (compiler: Compiler) =>
+    (compiler.options.ignoreWarnings || []).at(-1) as (
+      warning: unknown
+    ) => boolean
+  const warningFrom = (message: string, resource: string) => ({
+    message: `  ⚠ ${message}\n`,
+    module: {resource}
+  })
+
+  for (const message of [OLD_EXPRESSION_WARNING, NEW_EXPRESSION_WARNING]) {
+    const title = message.split(':')[0]
+
+    it(`hides the "${title}" warning from node_modules`, () => {
+      const ignore = ignoreOf(compilerFor(scaffold()))
+
+      expect(ignore(warningFrom(message, '/p/node_modules/dyn/index.js'))).toBe(
+        true
+      )
+    })
+
+    it(`keeps the "${title}" warning from a project module`, () => {
+      const ignore = ignoreOf(compilerFor(scaffold()))
+
+      expect(ignore(warningFrom(message, '/p/own.js'))).toBe(false)
+    })
+  }
 
   it('prints dev warnings before a later done tap such as a browser launch', async () => {
     const root = scaffold("require('./own.js')('b')\n")
@@ -194,9 +225,7 @@ describe('CompilationPlugin on a real compiler', () => {
     )
 
     expect(warn).toHaveBeenCalledTimes(1)
-    expect(String(warn.mock.calls[0][0])).toContain(
-      'Critical dependency: the request of a dependency is an expression'
-    )
+    expect(String(warn.mock.calls[0][0])).toMatch(PRINTED_EXPRESSION_WARNING)
 
     expect(launch).toHaveBeenCalledTimes(1)
     expect(warn.mock.invocationCallOrder[0]).toBeLessThan(
