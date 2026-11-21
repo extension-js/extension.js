@@ -3,6 +3,11 @@ name: CI – E2E Smoke
 # The nightly runs the whole lane and reports once a day, which is how a
 # September 7 regression stayed red until September 11. This is the same
 # lane cut to the specs that load a page and run it, on every push to main.
+#
+# The templates are read at the commit the release gates pin, so a push to
+# the templates repository cannot turn main red. The weekly gates freshness
+# job proposes the bump, and scripts/bump-release-gates.mjs moves this pin
+# with the release ones. Their dependencies still install with no lockfile.
 on:
   push:
     branches: [main]
@@ -10,6 +15,11 @@ on:
       - '**/*.md'
       - 'docs/**'
   workflow_dispatch:
+    inputs:
+      examples_ref:
+        description: 'extension-js/templates ref to read in place of the pin (sha, tag or branch)'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -50,7 +60,12 @@ jobs:
         run: pnpm compile
 
       - name: Hydrate templates from examples repo
-        run: bash scripts/hydrate-templates-from-examples.sh
+        env:
+          PINNED_EXAMPLES_REF: 983dd0447d344bc8e03f5e4b65d92267e3d6cff2
+          REQUESTED_EXAMPLES_REF: ${{ inputs.examples_ref }}
+        run: |
+          EXAMPLES_REF="${REQUESTED_EXAMPLES_REF:-$PINNED_EXAMPLES_REF}" \
+            bash scripts/hydrate-templates-from-examples.sh
 
       - name: Install Playwright Chromium
         run: |
