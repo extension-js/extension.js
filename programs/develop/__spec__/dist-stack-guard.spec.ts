@@ -174,7 +174,7 @@ describe('the stack guard in the built extension-develop entry', () => {
     const orders = [
       ['preview.mjs', 'module.mjs'],
       ['module.mjs', 'preview.mjs'],
-      ['bridge.mjs', 'manifest.mjs', 'preview.mjs', 'module.mjs']
+      ['bridge.mjs', 'preview.mjs', 'module.mjs']
     ]
 
     for (const order of orders) {

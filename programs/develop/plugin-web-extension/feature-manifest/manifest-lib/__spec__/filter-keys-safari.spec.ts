@@ -9,11 +9,7 @@ import {
   buildCanonicalManifestWithOverrides,
   filterKeysForThisBrowser
 } from '../manifest'
-import {
-  webkitDroppedSurfacePages,
-  webkitUnsupportedManifestKeys,
-  webkitUnsupportedPermissions
-} from '../webkit-unsupported-keys'
+import {webkitDroppedSurfacePages} from '../webkit-unsupported-keys'
 
 describe('filterKeysForThisBrowser (manifest-lib), Safari', () => {
   const manifest = asManifest({
@@ -462,40 +458,6 @@ describe('the dropped-keys notice reads as one block', () => {
 
     expect(lines).toHaveLength(4)
     expect(lines.join('\n')).not.toContain('Every key above')
-  })
-})
-
-describe('the exported dropped-key list', () => {
-  it('names every top-level key the filter drops, so a consumer need not copy the list', () => {
-    const listed = webkitUnsupportedManifestKeys()
-    const topLevel = listed
-      .map((entry) => entry.key)
-      .filter((key) => !key.includes('.'))
-    const manifest = asManifest({
-      name: 'x',
-      ...Object.fromEntries(topLevel.map((key) => [key, {}]))
-    })
-
-    const {dropped} = dropWebkitUnsupportedKeys(manifest, 'safari')
-
-    expect([...dropped.map((entry) => entry.path)].sort()).toEqual(
-      [...topLevel].sort()
-    )
-
-    expect(listed.every((entry) => entry.reason.length > 0)).toBe(true)
-    expect(listed.map((entry) => entry.key)).toContain('options_ui.open_in_tab')
-  })
-
-  it('names every permission the filter drops', () => {
-    const permissions = webkitUnsupportedPermissions()
-    const {dropped} = dropWebkitUnsupportedKeys(
-      asManifest({name: 'x', permissions}),
-      'safari'
-    )
-
-    expect(
-      dropped.map((entry) => entry.path.replace(/^permissions\./, ''))
-    ).toEqual(permissions)
   })
 })
 

@@ -22,10 +22,6 @@
       "types": "./dist/bridge-entry.d.ts",
       "import": "./dist/bridge.mjs"
     },
-    "./manifest": {
-      "types": "./dist/manifest-entry.d.ts",
-      "import": "./dist/manifest.mjs"
-    },
     "./contracts": {
       "types": "./dist/contracts-entry.d.ts",
       "browser": "./dist/contracts.mjs",

@@ -90,7 +90,6 @@ export const nodeEntries = {
   module: path.resolve(__dirname, './module.ts'),
   preview: path.resolve(__dirname, './preview-entry.ts'),
   bridge: path.resolve(__dirname, './bridge-entry.ts'),
-  manifest: path.resolve(__dirname, './manifest-entry.ts'),
   'ensure-hmr-for-scripts': path.resolve(
     __dirname,
     './plugin-reload/steps/ensure-hmr-for-scripts.ts'
