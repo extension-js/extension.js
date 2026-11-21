@@ -9,7 +9,12 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, sources, WebpackError} from '@rspack/core'
+import {
+  type AssetHashOptions,
+  bundledAssetOutputName
+} from '../../../lib/asset-output-name'
 import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../../../lib/constants'
+import {templateCopiedAsset} from '../../../lib/copied-asset-env'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 import {parseAuthoredJson} from '../../../lib/parse-json-safe'
 import {
@@ -18,11 +23,6 @@ import {
   rootAbsoluteClimbsOut,
   sourceFileMayShip
 } from '../../../lib/public-private-files'
-import {templateCopiedAsset} from '../../../plugin-compilation/copied-asset-env'
-import {
-  type AssetHashOptions,
-  bundledAssetOutputName
-} from '../../../plugin-static-assets/static-assets-lib/asset-output-name'
 import type {DevOptions, Manifest} from '../../../types'
 import {webAccessibleResources} from '../../feature-manifest/manifest-overrides/common/web_accessible_resources'
 import {normalizeManifestOutputPath} from '../../feature-manifest/normalize-manifest-path'

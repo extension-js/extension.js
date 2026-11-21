@@ -30,3 +30,21 @@ export function getUserTypeScriptConfigFile(projectPath: string) {
 
   return undefined
 }
+
+// A JavaScript project keeps its path aliases in jsconfig.json, which the
+// resolver reads like a tsconfig. It earns no TypeScript scaffold or parser.
+export function getUserJsConfigFile(projectPath: string) {
+  const searchDirs = [
+    findNearestProjectManifestDirSync(projectPath, 6),
+    projectPath
+  ]
+
+  for (const dir of searchDirs) {
+    if (!dir) continue
+
+    const jsconfigPath = path.join(dir, 'jsconfig.json')
+    if (fs.existsSync(jsconfigPath)) return jsconfigPath
+  }
+
+  return undefined
+}

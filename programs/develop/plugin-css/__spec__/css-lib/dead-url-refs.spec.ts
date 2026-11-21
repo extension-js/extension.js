@@ -8,7 +8,7 @@ import {
   extractCssUrlRefs,
   isDeadCssUrlRef,
   replaceCssUrlRefs
-} from '../../css-lib/dead-url-refs'
+} from '../../../lib/dead-url-refs'
 import {
   keepPublicRootRefs,
   PUBLIC_ROOT_SCHEME

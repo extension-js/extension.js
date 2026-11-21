@@ -9,7 +9,14 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {WebpackError} from '@rspack/core'
+import {
+  cssUrlRefFiles,
+  extractCssUrlRefs,
+  isDeadCssUrlRef,
+  toPosixPath
+} from '../lib/dead-url-refs'
 import {canonicalizeDir, canonicalizeResourcePath} from '../lib/resource-path'
+import {isSfcStyleBlock} from '../lib/sfc-style-block'
 import {
   publicContainmentRoot,
   resolvePublicFolder
@@ -19,12 +26,6 @@ import {
   WITHHELD_CSS_REF,
   type WithheldKind
 } from '../lib/withheld-file'
-import {
-  cssUrlRefFiles,
-  extractCssUrlRefs,
-  isDeadCssUrlRef,
-  toPosixPath
-} from './css-lib/dead-url-refs'
 import {
   rewriteInlinedCssUrls,
   toRuntimeStylesheetModule
@@ -36,7 +37,6 @@ import {
   whyNotRead
 } from './css-lib/inline-css-imports'
 import * as messages from './css-lib/messages'
-import {isSfcStyleBlock} from './css-lib/sfc-style-block'
 
 interface CompilationLike {
   warnings?: Error[]

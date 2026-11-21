@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {Compilation, type Compiler, rspack} from '@rspack/core'
+import {localeDirsWithoutMessages} from '../lib/get-locales'
 import {debugLine, isDebug} from '../lib/messaging'
 import {
   findPublicEnvFiles,
@@ -36,7 +37,6 @@ import {
   publicFolderExists
 } from '../lib/special-folders/resolve-public-folder'
 import {emitRootAbsoluteRefs} from '../plugin-web-extension/feature-html/steps/emit-root-absolute-refs'
-import {localeDirsWithoutMessages} from '../plugin-web-extension/feature-locales/get-locales'
 import {htmlPageEntries} from '../plugin-web-extension/shared/html-page-entries'
 import {getResolvedManifestFieldsData} from '../plugin-web-extension/shared/manifest-fields'
 import type {

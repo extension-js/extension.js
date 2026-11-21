@@ -7,9 +7,8 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as path from 'node:path'
+import {toPosixPath} from '../lib/dead-url-refs'
 import {canonicalizeDir, canonicalizeResourcePath} from '../lib/resource-path'
-import {toPosixPath} from './css-lib/dead-url-refs'
-import {toRuntimeStylesheetModule} from './css-lib/inline-content-script-css'
 import {
   dropSourceMapComment,
   isSfcInlineStyleBlockQuery,
@@ -18,7 +17,8 @@ import {
   moduleStyleBlockRequest,
   readStyleBlockProxyRequest,
   sfcStyleBlockId
-} from './css-lib/sfc-style-block'
+} from '../lib/sfc-style-block'
+import {toRuntimeStylesheetModule} from './css-lib/inline-content-script-css'
 import {
   type DeadCssUrlLoaderContext,
   inlineStylesheetUrls

@@ -16,6 +16,11 @@ import {
   WebpackError
 } from '@rspack/core'
 import {isGeckoBasedBrowser} from '../lib/constants'
+import {
+  checkedCssSheets,
+  cssUrlRefFiles,
+  toPosixPath
+} from '../lib/dead-url-refs'
 import {resolveDevelopDistFile} from '../lib/develop-context'
 import {extensionSchemeFor} from '../lib/extension-base-from-stack'
 import {filterKeysForThisBrowser} from '../lib/manifest-utils'
@@ -25,32 +30,27 @@ import {hasProjectDependency} from '../lib/project-manifest'
 import {toResourceKey} from '../lib/resource-path'
 import {NOT_RAW_RESOURCE_QUERY} from '../lib/resource-query'
 import {setupInOrder} from '../lib/setup-in-order'
+import {
+  SFC_INLINE_STYLE_BLOCK_QUERY,
+  SFC_MODULE_STYLE_BLOCK_QUERY,
+  SFC_STYLE_BLOCK_QUERY,
+  SVELTE_STYLE_BLOCK_TEST
+} from '../lib/sfc-style-block'
 import {publicContainmentRoot} from '../lib/special-folders/resolve-public-folder'
+import {extensionBaseAttributeFor} from '../lib/taken-extension-base'
 import {
   noteWithheldCssRef,
   WITHHELD_CSS_REF,
   type WithheldKind
 } from '../lib/withheld-file'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../plugin-web-extension/feature-scripts/contracts'
-import {extensionBaseAttributeFor} from '../plugin-web-extension/feature-scripts/scripts-lib/taken-extension-base'
 import {resolveScriptEntryPath} from '../plugin-web-extension/feature-scripts/scripts-lib/utils'
 import type {DevOptions, Manifest, PluginInterface} from '../types'
 import {usesStyleTools} from './common-style-loaders'
 import {cssInContentScriptLoader} from './css-in-content-script-loader'
 import {cssInHtmlLoader} from './css-in-html-loader'
-import {
-  checkedCssSheets,
-  cssUrlRefFiles,
-  toPosixPath
-} from './css-lib/dead-url-refs'
 import {isNamedByCssImport, whyNotRead} from './css-lib/inline-css-imports'
 import * as messages from './css-lib/messages'
-import {
-  SFC_INLINE_STYLE_BLOCK_QUERY,
-  SFC_MODULE_STYLE_BLOCK_QUERY,
-  SFC_STYLE_BLOCK_QUERY,
-  SVELTE_STYLE_BLOCK_TEST
-} from './css-lib/sfc-style-block'
 import {
   beginStyleDiagnostics,
   reportStyleDiagnostic

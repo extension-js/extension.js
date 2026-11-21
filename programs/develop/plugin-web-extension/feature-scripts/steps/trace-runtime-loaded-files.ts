@@ -23,7 +23,9 @@ import {
   isGeckoBasedBrowser,
   isWebkitBasedBrowser
 } from '../../../lib/constants'
+import {templateCopiedAsset} from '../../../lib/copied-asset-env'
 import {resolveDevelopDistFile} from '../../../lib/develop-context'
+import {importMetaUrlForEmitPath} from '../../../lib/import-meta-url'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 import {parseAuthoredJson} from '../../../lib/parse-json-safe'
 import {sourceFileMayShip} from '../../../lib/public-private-files'
@@ -35,8 +37,6 @@ import {
   type CompileMode,
   getSpecialFoldersDataForProjectRoot
 } from '../../../lib/special-folders/get-data'
-import {templateCopiedAsset} from '../../../plugin-compilation/copied-asset-env'
-import {importMetaUrlForEmitPath} from '../../../plugin-compilation/env'
 import type {DevOptions, Manifest} from '../../../types'
 import {webkitDroppedSurfacePages} from '../../feature-manifest/manifest-lib/webkit-unsupported-keys'
 import {declaredResourceSource} from '../../feature-web-resources/web-resources-lib/resolve-war'

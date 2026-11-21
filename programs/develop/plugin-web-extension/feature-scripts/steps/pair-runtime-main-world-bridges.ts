@@ -10,6 +10,7 @@ import * as path from 'node:path'
 import {Compilation, type Compiler} from '@rspack/core'
 import {prependToEmittedAsset} from '../../../lib/asset-source-maps'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
+import {extensionBaseGlobalFor} from '../../../lib/taken-extension-base'
 import type {DevOptions, FilepathList, PluginInterface} from '../../../types'
 import {BACKGROUND_ASSET} from '../../shared/background-asset'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../contracts'
@@ -22,7 +23,6 @@ import {
   findBridgePairingPages,
   findRuntimeMainWorldEntries
 } from '../scripts-lib/runtime-main-world-scripts'
-import {extensionBaseGlobalFor} from '../scripts-lib/taken-extension-base'
 import {resolveMainWorldBridgeSourcePath} from './add-content-script-wrapper/get-bridge-scripts'
 import {getBaseReaderRequirements} from './prune-main-world-bridges'
 

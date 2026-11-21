@@ -12,7 +12,7 @@ import {
   list,
   node,
   parse
-} from '../../../plugin-compatibility/compatibility-lib/free-browser-references'
+} from '../../../lib/free-browser-references'
 
 // A build constant by its spelling: capitals, digits and underscores, the way
 // define keys are written. A name with a lower case letter is never judged.

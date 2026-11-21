@@ -23,7 +23,10 @@ import {
   createNodeModulesExclude,
   resolveTranspilePackageDirs
 } from '../lib/transpile-packages'
-import {getUserTypeScriptConfigFile} from '../lib/user-tsconfig'
+import {
+  getUserJsConfigFile,
+  getUserTypeScriptConfigFile
+} from '../lib/user-tsconfig'
 import {getAssetsFromHtml} from '../plugin-web-extension/feature-html/html-lib/utils'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../plugin-web-extension/feature-scripts/contracts'
 import {htmlPageEntries} from '../plugin-web-extension/shared/html-page-entries'
@@ -50,10 +53,7 @@ import {
 } from './js-tools/react'
 import {maybeUseSolid} from './js-tools/solid'
 import {maybeUseSvelte} from './js-tools/svelte'
-import {
-  ensureTypeScriptConfig,
-  getUserJsConfigFile
-} from './js-tools/typescript'
+import {ensureTypeScriptConfig} from './js-tools/typescript'
 import {maybeUseVue} from './js-tools/vue'
 
 // What a service worker or a background scripts list runs, at any depth. It

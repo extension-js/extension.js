@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
-import {bundledAssetOutputName} from '../../../../plugin-static-assets/static-assets-lib/asset-output-name'
+import {bundledAssetOutputName} from '../../../../lib/asset-output-name'
 import {
   asCompiler,
   type TapCallback

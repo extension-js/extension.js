@@ -9,18 +9,18 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, type Compiler, sources} from '@rspack/core'
+import {
+  getLocales,
+  localeFoldersWithoutMessages,
+  localesFolderIsCopiedByPublic,
+  resolveLocalesFolder
+} from '../../lib/get-locales'
 import {debugLine, isDebug} from '../../lib/messaging'
 import {hasJsonComments, parseAuthoredJson} from '../../lib/parse-json-safe'
 import {
   privateFileKind,
   sourceFileMayShip
 } from '../../lib/public-private-files'
-import {
-  getLocales,
-  localeFoldersWithoutMessages,
-  localesFolderIsCopiedByPublic,
-  resolveLocalesFolder
-} from './get-locales'
 import * as messages from './messages'
 
 function warnLocaleFoldersWithoutMessages(

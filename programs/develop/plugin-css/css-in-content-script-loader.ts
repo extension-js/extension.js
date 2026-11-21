@@ -9,8 +9,8 @@
 import type {RuleSetRule} from '@rspack/core'
 import {isGeckoBasedBrowser} from '../lib/constants'
 import {extensionSchemeFor} from '../lib/extension-base-from-stack'
+import {extensionBaseAttributeFor} from '../lib/taken-extension-base'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../plugin-web-extension/feature-scripts/contracts'
-import {extensionBaseAttributeFor} from '../plugin-web-extension/feature-scripts/scripts-lib/taken-extension-base'
 import type {DevOptions} from '../types'
 import {
   buildCssRules,

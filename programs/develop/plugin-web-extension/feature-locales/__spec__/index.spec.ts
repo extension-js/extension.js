@@ -1,8 +1,8 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import * as getLocalesModule from '../../../lib/get-locales'
 import {asCompiler, type TapCallback} from '../../__spec__/helpers/rspack-fakes'
-import * as getLocalesModule from '../get-locales'
 import {LocalesPlugin} from '../index'
 
 function createHook() {

@@ -3,7 +3,7 @@ import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
 import {trackTempFolders} from '../../../../__spec__/helpers/temp-folders'
-import {bundledAssetOutputName} from '../../../../plugin-static-assets/static-assets-lib/asset-output-name'
+import {bundledAssetOutputName} from '../../../../lib/asset-output-name'
 import {patchHtml, patchHtmlNested} from '../../html-lib/patch-html'
 
 const tempFolder = trackTempFolders()

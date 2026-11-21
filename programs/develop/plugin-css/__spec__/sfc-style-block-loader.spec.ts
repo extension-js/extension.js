@@ -7,7 +7,7 @@ import {
   readStyleBlockProxyRequest,
   SVELTE_STYLE_BLOCK_TEST,
   sfcStyleBlockId
-} from '../css-lib/sfc-style-block'
+} from '../../lib/sfc-style-block'
 import deadCssUrlLoader from '../dead-css-url-loader'
 import sfcStyleBlockLoader, {pitch} from '../sfc-style-block-loader'
 

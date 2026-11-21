@@ -2,7 +2,7 @@ import {describe, expect, it} from 'vitest'
 import {
   mentionsBrowserName,
   referencesBrowserGlobal
-} from '../compatibility-lib/free-browser-references'
+} from '../../lib/free-browser-references'
 
 describe('referencesBrowserGlobal', () => {
   it('finds a bare browser.* call', () => {
