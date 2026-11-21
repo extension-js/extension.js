@@ -74,11 +74,6 @@ const SPEC_ONLY: Array<[file: string, name: string, why: string]> = [
     'clears the once per process icon notice between spec rows'
   ],
   [
-    'plugin-web-extension/feature-scripts/contracts.ts',
-    'isCanonicalContentScriptEntryName',
-    'the entry name rule, which two product files still spell by hand'
-  ],
-  [
     'plugin-web-extension/feature-scripts/steps/source-literals.ts',
     'keptBlankedSources',
     'reads the size of the blanked source cache, which nothing else can see'

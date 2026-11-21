@@ -8,9 +8,7 @@
 
 import {createHash} from 'node:crypto'
 import {type AssetInfo, Compilation, type Compiler, sources} from '@rspack/core'
-
-const HASHED_CONTENT_SCRIPT =
-  /^content_scripts\/content-(\d+)\.([a-f0-9]+)\.js$/
+import {parseHashedContentScriptAsset} from '../../plugin-web-extension/feature-scripts/contracts'
 
 // The hot runtime bakes the compilation hash into every chunk, so the bundler's
 // content hash moves on any edit anywhere. A content script never runs a hot
@@ -18,7 +16,7 @@ const HASHED_CONTENT_SCRIPT =
 const FULL_HASH_LITERAL = /(__webpack_require__\.h = \(\) => \()"[^"]*"(\))/g
 
 export function stableContentScriptHash(source: string, assetName: string) {
-  const index = HASHED_CONTENT_SCRIPT.exec(assetName)?.[1] ?? ''
+  const index = parseHashedContentScriptAsset(assetName, 'js')?.index ?? ''
   const normalized = source
     .replace(FULL_HASH_LITERAL, '$1""$2')
     .split(assetName.slice(assetName.lastIndexOf('/') + 1))
@@ -46,10 +44,10 @@ export class StableContentScriptNames {
           },
           () => {
             for (const asset of compilation.getAssets()) {
-              const match = HASHED_CONTENT_SCRIPT.exec(asset.name)
-              if (!match) continue
+              const hashed = parseHashedContentScriptAsset(asset.name, 'js')
+              if (!hashed) continue
 
-              const [, index, current] = match
+              const {index, hash: current} = hashed
               const source = asset.source.source().toString()
               const stable = stableContentScriptHash(source, asset.name)
 

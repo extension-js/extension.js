@@ -114,11 +114,11 @@ export function isCanonicalContentScriptEntryName(entryName: string): boolean {
 
 export function parseCanonicalContentScriptAsset(
   assetName: string
-): {index: number; extension: 'js' | 'css'} | undefined {
+): {index: number; extension: 'js' | 'css'; hash?: string} | undefined {
   // Stable: content_scripts/content-0.js. Dev names each content bundle by
   // its hash, so a second read of the file gets the new bytes.
   const match =
-    /^content_scripts\/content-(\d+)(?:\.[a-f0-9]+)?\.(js|css)$/i.exec(
+    /^content_scripts\/content-(\d+)(?:\.([a-f0-9]+))?\.(js|css)$/i.exec(
       String(assetName || '')
     )
   if (!match) return undefined
@@ -128,8 +128,32 @@ export function parseCanonicalContentScriptAsset(
 
   return {
     index,
-    extension: match[2] as 'js' | 'css'
+    extension: match[3] as 'js' | 'css',
+    ...(match[2] ? {hash: match[2]} : {})
   }
+}
+
+// The name a build without hashed names gives a group's bundle or sheet.
+export function isPlainContentScriptAsset(
+  assetName: string,
+  extension: 'js' | 'css'
+): boolean {
+  const parsed = parseCanonicalContentScriptAsset(assetName)
+
+  return parsed?.extension === extension && parsed.hash === undefined
+}
+
+// The hashed name dev gives a group's bundle or sheet, in any letter case.
+export function parseHashedContentScriptAsset(
+  assetName: string,
+  extension: 'js' | 'css'
+): {index: number; hash: string} | undefined {
+  const parsed = parseCanonicalContentScriptAsset(assetName)
+
+  if (parsed?.hash === undefined) return undefined
+  if (parsed.extension.toLowerCase() !== extension) return undefined
+
+  return {index: parsed.index, hash: parsed.hash}
 }
 
 export function isCanonicalContentScriptAsset(assetName: string): boolean {

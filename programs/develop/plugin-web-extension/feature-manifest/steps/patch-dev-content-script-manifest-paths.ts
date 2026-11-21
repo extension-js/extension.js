@@ -13,8 +13,10 @@ import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
 import type {Manifest} from '../../../types'
 import {
+  getCanonicalContentScriptEntryName,
   isCanonicalContentScriptAsset,
-  parseCanonicalContentScriptAsset
+  parseCanonicalContentScriptAsset,
+  parseHashedContentScriptAsset
 } from '../../feature-scripts/contracts'
 
 // Point manifest content_scripts at the hashed dev bundles so every read
@@ -80,16 +82,13 @@ function findHashedContentScriptAsset(
   groupIndex: number,
   ext: 'js' | 'css'
 ): string | undefined {
-  const plain = `content_scripts/content-${groupIndex}.${ext}`
+  const plain = `${getCanonicalContentScriptEntryName(groupIndex)}.${ext}`
   if (assetNames.has(plain)) return plain
 
-  const re = new RegExp(
-    `^content_scripts/content-${groupIndex}\\.[a-f0-9]+\\.${ext}$`,
-    'i'
-  )
-
   for (const name of assetNames) {
-    if (re.test(name)) return name
+    if (parseHashedContentScriptAsset(name, ext)?.index === groupIndex) {
+      return name
+    }
   }
 
   return undefined

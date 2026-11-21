@@ -82,18 +82,15 @@ function devContentScriptSheetProbeProperty(index: number): string {
   return `--extjs-dev-sheet-${index}`
 }
 
-const HASHED_CONTENT_SCRIPT_ASSET =
-  /^content_scripts\/content-(\d+)(?:\.[a-f0-9]+)?\.js$/i
-
 // The canonical entry an emitted content script bundle belongs to, or
 // undefined for anything else under content_scripts/ (stubs, css, maps).
 export function contentScriptEntryForAsset(
   assetName: string
 ): string | undefined {
-  const match = HASHED_CONTENT_SCRIPT_ASSET.exec(assetName)
-  if (!match) return undefined
+  const parsed = parseCanonicalContentScriptAsset(assetName)
+  if (parsed?.extension.toLowerCase() !== 'js') return undefined
 
-  return getCanonicalContentScriptEntryName(Number(match[1]))
+  return getCanonicalContentScriptEntryName(parsed.index)
 }
 
 function stringList(value: unknown): string[] {

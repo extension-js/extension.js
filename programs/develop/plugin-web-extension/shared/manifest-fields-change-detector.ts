@@ -13,6 +13,7 @@ import {manifestHtmlEntrypointChange} from '../feature-html/html-lib/messages'
 import {manifestIconsEntrypointChange} from '../feature-icons/messages'
 import {isCriticalJsonFeature} from '../feature-json/json-validation'
 import {serverRestartRequiredFromManifestError} from '../feature-manifest/messages'
+import {parseCanonicalContentScriptEntryIndex} from '../feature-scripts/contracts'
 import {AddContentScriptWrapper} from '../feature-scripts/steps/add-content-script-wrapper'
 import {getResolvedManifestFieldsData} from './manifest-fields'
 
@@ -87,9 +88,10 @@ function diffArray(prev: string[], next: string[]): CategoryChange | null {
 function manifestFieldOfEntry(entry: string | undefined): string | undefined {
   if (!entry) return undefined
 
-  return entry
-    .replace(/^content_scripts\/content-(\d+)$/, 'content_scripts[$1].js')
-    .replace(/\//g, '.')
+  const index = parseCanonicalContentScriptEntryIndex(entry)
+  const field = index === undefined ? entry : `content_scripts[${index}].js`
+
+  return field.replace(/\//g, '.')
 }
 
 // The same files under another key compile to other output files, so a key
