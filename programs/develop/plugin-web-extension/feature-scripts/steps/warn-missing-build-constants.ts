@@ -11,8 +11,8 @@ import {Compilation, type Compiler, WebpackError} from '@rspack/core'
 import {readProjectSource} from '../../../lib/emitted-evidence'
 import {classifyEntrySurface} from '../../../lib/split-chunks'
 import type {DevOptions, PluginInterface} from '../../../types'
-import {scannableSourcePath} from '../../feature-manifest/steps/apply-dev-defaults-lib/dev-injected-hosts'
 import {classicConcatFiles} from '../../shared/classic-concat'
+import {scannableSourcePath} from '../../shared/scannable-source-path'
 import * as messages from '../messages'
 import {
   constantFacts,

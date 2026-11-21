@@ -18,8 +18,8 @@ import {
   shippableText
 } from '../../../lib/emitted-evidence'
 import type {DevOptions, Manifest} from '../../../types'
+import {scannableSourcePath} from '../../shared/scannable-source-path'
 import * as messages from '../messages'
-import {scannableSourcePath} from './apply-dev-defaults-lib/dev-injected-hosts'
 import {
   matchesOutside,
   type Range,

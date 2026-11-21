@@ -8,6 +8,7 @@
 
 import {readProjectSource} from '../../../../lib/emitted-evidence'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../../../feature-scripts/contracts'
+import {scannableSourcePath} from '../../../shared/scannable-source-path'
 
 // The single source for the hosts the dev build grants. The manifest patch,
 // the optional-promotion warning and the undeclared-fetch warning all read
@@ -69,20 +70,6 @@ export function isHostPattern(value: string): boolean {
   return (
     value === '<all_urls>' || /^(?:\*|https?|wss?|file|ftp):\/\//.test(value)
   )
-}
-
-// The source files a dev scan reads. The module graph names an SFC block as
-// file.vue?vue&type=script, so the query goes before the extension test.
-const SCANNABLE_SOURCE_RE = /\.(?:[cm]?js|jsx|[cm]?ts|tsx|vue|svelte)$/
-
-export function scannableSourcePath(
-  resource: string | undefined
-): string | undefined {
-  if (!resource || resource.includes('node_modules')) return undefined
-
-  const bare = resource.split('?')[0]
-
-  return SCANNABLE_SOURCE_RE.test(bare) ? bare : undefined
 }
 
 function escapeForRegExp(value: string): string {

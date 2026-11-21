@@ -44,7 +44,7 @@ import {
   type WithheldKind
 } from '../lib/withheld-file'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../plugin-web-extension/feature-scripts/contracts'
-import {resolveScriptEntryPath} from '../plugin-web-extension/feature-scripts/scripts-lib/utils'
+import {resolveScriptEntryPath} from '../plugin-web-extension/shared/script-entry-path'
 import type {DevOptions, Manifest, PluginInterface} from '../types'
 import {usesStyleTools} from './common-style-loaders'
 import {cssInContentScriptLoader} from './css-in-content-script-loader'

@@ -64,15 +64,15 @@ const PRODUCT_REACHES: Array<[reach: string, why: string]> = [
     'held: the manifest reader with its browser overrides is not in lib yet'
   ],
   [
-    'plugin-compatibility -> plugin-web-extension/feature-manifest/steps/apply-dev-defaults-lib/dev-injected-hosts',
-    'held: one path test read from a private folder of the manifest feature'
-  ],
-  [
     'plugin-compatibility -> plugin-web-extension/feature-scripts/contracts',
     'web-extension names the content script layers and every other plugin reads the names'
   ],
   [
     'plugin-compatibility -> plugin-web-extension/shared/initial-files',
+    'shared/ is the folder web-extension publishes to the other plugins'
+  ],
+  [
+    'plugin-compatibility -> plugin-web-extension/shared/scannable-source-path',
     'shared/ is the folder web-extension publishes to the other plugins'
   ],
   [
@@ -84,20 +84,20 @@ const PRODUCT_REACHES: Array<[reach: string, why: string]> = [
     'web-extension names the content script layers and every other plugin reads the names'
   ],
   [
-    'plugin-css -> plugin-web-extension/feature-scripts/scripts-lib/utils',
-    'held: one entry path resolver read from a private folder of the scripts feature'
+    'plugin-css -> plugin-web-extension/shared/script-entry-path',
+    'shared/ is the folder web-extension publishes to the other plugins'
   ],
   [
     'plugin-css -> plugin-web-extension/shared/script-graph',
     'shared/ is the folder web-extension publishes to the other plugins'
   ],
   [
-    'plugin-js-frameworks -> plugin-web-extension/feature-html/html-lib/utils',
-    'held: the HTML asset reader is read from a private folder of the HTML feature'
-  ],
-  [
     'plugin-js-frameworks -> plugin-web-extension/feature-scripts/contracts',
     'web-extension names the content script layers and every other plugin reads the names'
+  ],
+  [
+    'plugin-js-frameworks -> plugin-web-extension/shared/html-assets',
+    'shared/ is the folder web-extension publishes to the other plugins'
   ],
   [
     'plugin-js-frameworks -> plugin-web-extension/shared/html-page-entries',
@@ -136,16 +136,16 @@ const PRODUCT_REACHES: Array<[reach: string, why: string]> = [
     'a registry: reload hands its part in, so web-extension never imports reload'
   ],
   [
-    'plugin-special-folders -> plugin-web-extension/feature-html/steps/emit-root-absolute-refs',
-    'held: the public copier calls a step of the HTML feature directly'
-  ],
-  [
     'plugin-special-folders -> plugin-web-extension/shared/html-page-entries',
     'shared/ is the folder web-extension publishes to the other plugins'
   ],
   [
     'plugin-special-folders -> plugin-web-extension/shared/manifest-fields',
     'shared/ is the folder web-extension publishes to the other plugins'
+  ],
+  [
+    'plugin-special-folders -> plugin-web-extension/shared/root-absolute-refs-emitter',
+    'a registry: the HTML feature hands its emitter in, so the copier never reads the feature'
   ],
   [
     'plugin-web-extension -> plugin-css/css-lib/inline-content-script-css',
