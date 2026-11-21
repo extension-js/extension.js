@@ -3,12 +3,10 @@ import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {trackTempFolders} from '../../../../__spec__/helpers/temp-folders'
 import {
-  getCurrentManifestContent,
   getManifestContent,
   getOriginalManifest,
   isStaticThemeCompilation,
   readManifestAssetText,
-  setCurrentManifestContent,
   setOriginalManifestContent
 } from '../manifest'
 
@@ -33,7 +31,6 @@ describe('reading the manifest of a compilation', () => {
   it('reads the asset, whoever wrote it last', () => {
     const {compilation, assets} = compilationWith({name: 'emitted'})
     setOriginalManifestContent(compilation, JSON.stringify({name: 'authored'}))
-    setCurrentManifestContent(compilation, JSON.stringify({name: 'handed'}))
 
     expect(getManifestContent(compilation, '/nowhere/manifest.json')).toEqual({
       name: 'emitted'
@@ -47,10 +44,6 @@ describe('reading the manifest of a compilation', () => {
     })
 
     expect(readManifestAssetText(compilation)).toBe(
-      '{"name":"edited by the project"}'
-    )
-
-    expect(getCurrentManifestContent(compilation)).toBe(
       '{"name":"edited by the project"}'
     )
   })
@@ -72,14 +65,6 @@ describe('reading the manifest of a compilation', () => {
     })
 
     expect(readManifestAssetText(compilation)).toBeUndefined()
-    expect(getCurrentManifestContent(compilation)).toBeUndefined()
-  })
-
-  it('answers from the handed-over text only when the assets cannot be read back', () => {
-    const double = {} as never
-    setCurrentManifestContent(double, '{"name":"handed"}')
-
-    expect(getCurrentManifestContent(double)).toBe('{"name":"handed"}')
   })
 
   it('parses the authored manifest once for every check that reads it', () => {

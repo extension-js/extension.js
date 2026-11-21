@@ -1,10 +1,10 @@
 import * as vm from 'node:vm'
 import {describe, expect, it} from 'vitest'
-import {TAKE_BLOCK_OPEN} from '../../../../lib/extension-base-from-stack'
 import {
   EXTENSION_ROOT_PLACEHOLDER,
   SFC_STYLE_ATTRIBUTE
-} from '../../../../plugin-css/css-lib/inline-content-script-css'
+} from '../../../../lib/css/inline-content-script-css'
+import {TAKE_BLOCK_OPEN} from '../../../../lib/extension-base-from-stack'
 import {getContentScriptCssProbeMarker} from '../../contracts'
 import {
   namesSheet,

@@ -9,9 +9,9 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import postcss, {type AtRule, type ChildNode, type Root} from 'postcss'
-import {cssUrlRefFiles, toPosixPath} from '../../lib/dead-url-refs'
-import {workspaceRootOf} from '../../lib/public-private-files'
-import type {WithheldKind} from '../../lib/withheld-file'
+import {cssUrlRefFiles, toPosixPath} from '../dead-url-refs'
+import {workspaceRootOf} from '../public-private-files'
+import type {WithheldKind} from '../withheld-file'
 
 export interface InlineCssImportsContext {
   resourcePath: string
