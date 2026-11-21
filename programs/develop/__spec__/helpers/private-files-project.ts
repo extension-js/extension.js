@@ -364,8 +364,10 @@ export function expectNothingPrivate(
   if (where === 'everywhere') expect(result.exposed.output).toEqual([])
 }
 
-// Specs pass the browser from a plain string list, so the one field is cast.
-export async function build(root: string, browser = 'chrome'): Promise<Built> {
+export async function build(
+  root: string,
+  browser: BrowserType = 'chrome'
+): Promise<Built> {
   const {extensionBuild} = await import('../../command-build')
   const lines: string[] = []
 
@@ -397,7 +399,7 @@ export async function build(root: string, browser = 'chrome'): Promise<Built> {
     // A build that fails writes no output folder and rejects with its errors.
     try {
       summary = await extensionBuild(root, {
-        browser: browser as BrowserType,
+        browser,
         silent: false,
         install: false,
         mode: 'production',
