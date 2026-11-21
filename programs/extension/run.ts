@@ -21,6 +21,7 @@ import {registerSafariCommand} from './commands/safari'
 import {registerStartCommand} from './commands/start'
 import {registerTelemetryCommand} from './commands/telemetry'
 import checkUpdates, {
+  settleUpdateCheck,
   type UpdateNotice,
   updateCheckWanted
 } from './helpers/check-updates'
@@ -265,6 +266,8 @@ async function runUntilEnd(argv: string[], deps: RunDeps): Promise<number> {
     return nextArgv.filter((arg) => arg !== '--no-browser')
   }
 
+  let pendingUpdateCheck: Promise<void> | undefined
+
   function startUpdateCheck(args: string[]): void {
     const json =
       wantsJsonOutput(args) ||
@@ -280,7 +283,7 @@ async function runUntilEnd(argv: string[], deps: RunDeps): Promise<number> {
       return
     }
 
-    void deps.checkUpdates().then((updateMessage) => {
+    pendingUpdateCheck = deps.checkUpdates().then((updateMessage) => {
       if (!updateMessage) return
 
       if (process.env.EXTENSION_CLI_BANNER_PRINTED === 'true') {
@@ -434,6 +437,13 @@ async function runUntilEnd(argv: string[], deps: RunDeps): Promise<number> {
     }
 
     await extensionJs.parseAsync(parsedArgv)
+
+    // A build ends before a registry on a real network answers. The answer is
+    // awaited, within the check's own bound, so it is told and kept for next time.
+    if (typedCommand === 'build' && pendingUpdateCheck) {
+      await settleUpdateCheck(pendingUpdateCheck)
+    }
+
     // The command wrote its own ending, so a late signal adds no frame.
     claimInterruptFrame()
     markCommandSuccess()
