@@ -7,6 +7,8 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 export interface DevAddition {
+  // What a dev session grants that production lacks, or changes in the
+  // manifest. Injected runtime code grants nothing, so it is not listed.
   kind:
     | 'permission'
     | 'host_permission'

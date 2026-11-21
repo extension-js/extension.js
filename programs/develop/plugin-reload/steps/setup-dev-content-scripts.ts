@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {Compilation, type Compiler, sources} from '@rspack/core'
 import {prependToEmittedAsset} from '../../lib/asset-source-maps'
+import {appendDevAdditions, type DevAddition} from '../../lib/dev-additions'
 import {isDevContentScriptStandInAsset} from '../../plugin-web-extension/feature-scripts/contracts'
 import {BACKGROUND_ASSET} from '../../plugin-web-extension/shared/background-asset'
 import type {Manifest} from '../../types'
@@ -21,6 +22,14 @@ import {
   planDevContentScripts
 } from '../reload-lib/dev-content-scripts'
 import {DEV_CONTENT_SCRIPTS_STAGE_AFTER_REPORT} from './stages'
+
+// The one change this step makes to the manifest itself, said in the
+// session card and the ready contract like every other dev-only change.
+const DEV_STUBS_ADDITION: DevAddition = {
+  kind: 'manifest_change',
+  value: 'content_scripts.js dev stubs',
+  reason: `Chromium caches a manifest content script when the extension loads, so the dev manifest names a stub and the worker registers the rebuilt script from ${DEV_CONTENT_SCRIPT_REGISTRY_ASSET}`
+}
 
 function putAsset(compilation: Compilation, name: string, text: string) {
   const source = new sources.RawSource(text)
@@ -173,6 +182,10 @@ export class SetupDevContentScripts {
 
             const manifestText = JSON.stringify(plan.manifest, null, 2)
             putAsset(compilation, 'manifest.json', manifestText)
+
+            if (Object.keys(plan.stubs).length > 0) {
+              appendDevAdditions(compilation, [DEV_STUBS_ADDITION])
+            }
 
             const backgroundText = background.source.source().toString()
 

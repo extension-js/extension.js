@@ -61,8 +61,9 @@
 - optional `host`, `instanceId`, `instanceExplicit`, `controlPath` and `logsPath`
 - optional `managedExtensions`: every extension the engine loads besides the
   user's, each with its `path` and `id`
-- optional `devAdditions`: under `dev`, every grant, browser flag and browser
-  preference the session has that the production build does not, with its reason
+- optional `devAdditions`: under `dev`, every grant, manifest change, browser
+  flag and browser preference the session has that the production build does
+  not, with its reason. Runtime code the session injects is not listed
 - optional `runtime` (`attached` | `detached`), `executorAttachedAt`,
   `executorDetachedAt` and `extensionBaseUrl`: stamped when the extension's
   background connects and leaves. `awaitingExecutorSince` is present while

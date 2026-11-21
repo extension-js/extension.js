@@ -2,6 +2,8 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compiler, rspack, type Stats} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
+import {devAdditionsNote} from '../dev-server/messages'
+import {devAdditionsOf} from '../lib/dev-additions'
 import {getProjectStructure} from '../lib/project'
 import webpackConfig from '../rspack-config'
 import {trackTempFolders} from './helpers/temp-folders'
@@ -119,6 +121,7 @@ interface BuiltManifest {
   permissions: string[]
   host_permissions: string[]
   web_accessible_resources?: Array<string | {resources?: string[]}>
+  content_scripts?: Array<{js?: string[]}>
 }
 
 interface DevAddition {
@@ -216,7 +219,8 @@ describe('what a dev session adds to the manifest', () => {
       'permission tabs',
       'host_permission <all_urls>',
       'web_accessible_resource hot/*',
-      'web_accessible_resource extension-js-control.json'
+      'web_accessible_resource extension-js-control.json',
+      'manifest_change content_scripts.js dev stubs'
     ])
 
     for (const entry of additions) {
@@ -247,6 +251,34 @@ describe('what a dev session adds to the manifest', () => {
         (resource) => !added('web_accessible_resource').includes(resource)
       )
     ).toEqual(exposedResources(built.manifest))
+  })
+
+  // Chromium caches a manifest content script at load, so its dev manifest
+  // names a stub in place of the script the author declared.
+  it('says in the session card that the manifest names content script stubs', async () => {
+    const root = project({manifestVersion: 3, contentScript: NAMES_THE_PAGE})
+    const dev = await compile(root, 'chrome', 'development')
+    const card = devAdditionsNote(devAdditionsOf(dev.stats.compilation) || [])
+      .split(String.fromCharCode(27))
+      .map((part, at) => (at === 0 ? part : part.slice(part.indexOf('m') + 1)))
+      .join('')
+
+    expect(dev.manifest.content_scripts?.[0].js?.[0]).toMatch(
+      /^content_scripts\/.*stub.*\.js$/
+    )
+
+    expect(card.split('\n')).toContain(
+      '    Dev only       manifest content_scripts.js dev stubs'
+    )
+  })
+
+  it('reports no stub where the manifest keeps the declared scripts', async () => {
+    const root = project({manifestVersion: 3})
+    const dev = await compile(root, 'chrome', 'development')
+
+    expect(
+      dev.ready.devAdditions.filter((entry) => entry.kind === 'manifest_change')
+    ).toEqual([])
   })
 
   it('reports the Manifest V2 shape on Firefox, hosts under permissions', async () => {
