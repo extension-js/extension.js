@@ -1,5 +1,6 @@
 import {Compilation, sources} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
+import type {BrowserType} from '../../../types'
 import {asCompiler} from '../../__spec__/helpers/rspack-fakes'
 import {getContentScriptCssProbeMarker} from '../contracts'
 import {
@@ -12,7 +13,7 @@ import {PlaceRuntimeScriptSheets} from '../steps/place-runtime-script-sheets'
 function emit(
   assets: Record<string, string>,
   options: {
-    browser?: string
+    browser?: BrowserType
     mode?: string
     includeList?: Record<string, string>
     runs?: number
@@ -49,9 +50,7 @@ function emit(
   }
 
   new PlaceRuntimeScriptSheets({
-    browser: (options.browser || 'chrome') as ConstructorParameters<
-      typeof PlaceRuntimeScriptSheets
-    >[0]['browser'],
+    browser: options.browser || 'chrome',
     includeList: options.includeList || {
       'scripts/hook': '/project/scripts/hook.js',
       'scripts/plain': '/project/scripts/plain.js'
