@@ -121,8 +121,6 @@ export function validateLocales(
           )
         )
         ;(warning as Error).name = 'LocalesLayoutWarning'
-        if (!compilation.warnings) compilation.warnings = []
-
         compilation.warnings.push(warning)
       }
     }

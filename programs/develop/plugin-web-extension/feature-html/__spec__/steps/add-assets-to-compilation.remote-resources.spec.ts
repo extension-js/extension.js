@@ -11,6 +11,7 @@ function makeCompiler(htmlAbsPath: string, htmlContent: string) {
   const warnings: BuildIssue[] = []
 
   const compilation = {
+    errors: [],
     warnings,
     hooks: {
       processAssets: {

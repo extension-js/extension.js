@@ -152,8 +152,6 @@ export class ApplyDevDefaults {
               ? new WebpackErrorCtor(text)
               : (new Error(text) as Error)
             warning.name = name
-            if (!compilation.warnings) compilation.warnings = []
-
             compilation.warnings.push(
               warning as (typeof compilation.warnings)[number]
             )

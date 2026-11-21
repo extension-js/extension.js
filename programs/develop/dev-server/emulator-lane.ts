@@ -307,7 +307,7 @@ interface EmulatorCompilerLike {
         options: {name: string; stage?: number},
         fn: (stats: {
           compilation: {
-            errors?: unknown[]
+            errors: unknown[]
             getAssets(): readonly EmulatorAssetLike[]
           }
         }) => void
@@ -328,7 +328,7 @@ export function attachEmulatorFileIndex(
   done.tap({name: 'extjs-emulator-files', stage: -100}, (stats) => {
     const errors = stats.compilation.errors
 
-    if (errors?.length) {
+    if (errors.length) {
       holder.noteCompileFailure(errors)
 
       return

@@ -18,8 +18,8 @@ import {toMachineText} from './machine-text'
 import type {Diagnostic, ErrorCode} from './messaging'
 
 interface CompilationLike {
-  errors?: unknown[]
-  warnings?: unknown[]
+  errors: unknown[]
+  warnings: unknown[]
   compiler?: {context?: string}
   entrypoints?: Map<string, {chunks?: Iterable<unknown>}>
   chunkGraph?: {
@@ -144,10 +144,8 @@ export function compilationDiagnostics(
   const compilation = input as CompilationLike | null | undefined
   const base = root ?? compilation?.compiler?.context
   const context = {contentScripts: contentScriptResources(compilation)}
-  const errors = Array.isArray(compilation?.errors) ? compilation.errors : []
-  const warnings = Array.isArray(compilation?.warnings)
-    ? compilation.warnings
-    : []
+  const errors = compilation ? compilation.errors : []
+  const warnings = compilation ? compilation.warnings : []
   const all = [
     ...errors.map((issue) => toDiagnostic(issue, 'error', base, context)),
     ...warnings.map((issue) => toDiagnostic(issue, 'warning', base, context))
@@ -165,7 +163,7 @@ export function warningCodes(input: unknown): Map<string, ErrorCode> {
   const compilation = input as CompilationLike | null | undefined
   const codes = new Map<string, ErrorCode>()
 
-  for (const issue of compilation?.warnings ?? []) {
+  for (const issue of compilation ? compilation.warnings : []) {
     const found = diagnosticCode(issue)
     if (!found) continue
 

@@ -222,7 +222,7 @@ export function reloadEachBuild(
 
   compiler.hooks.done.tapPromise('extjs-no-browser-reload', async (stats) => {
     const compilation = stats.compilation
-    if (compilation.errors && compilation.errors.length > 0) return
+    if (compilation.errors.length > 0) return
 
     if (first) {
       first = false

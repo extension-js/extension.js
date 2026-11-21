@@ -790,7 +790,7 @@ function readManifest(manifestPath: string): ManifestLike {
 // A missing default-locale folder makes the zip store-rejectable; warn up
 // front so the root cause is visible before upload.
 function warnOnMissingDefaultLocale(
-  stats: {compilation?: {warnings?: unknown[]}} | undefined,
+  stats: {compilation: {warnings: unknown[]}} | undefined,
   manifest: ManifestLike,
   localeRoot: string
 ): void {
@@ -805,7 +805,7 @@ function warnOnMissingDefaultLocale(
 
   if (fs.existsSync(messagesPath)) return
 
-  stats?.compilation?.warnings?.push(
+  stats?.compilation.warnings.push(
     new Error(
       compilationMessages.zipMissingDefaultLocale(
         String(manifest.default_locale),
@@ -920,19 +920,19 @@ export class ZipPlugin {
               )
 
             if (!files.length) {
-              stats?.compilation?.warnings?.push(
+              stats?.compilation.warnings.push(
                 new Error(compilationMessages.zipSourceEmpty())
               )
             }
 
             if (leftOut.length) {
-              stats?.compilation?.warnings?.push(
+              stats?.compilation.warnings.push(
                 new Error(compilationMessages.zipLeftOut('source', leftOut))
               )
             }
 
             if (skippedFolders.length) {
-              stats?.compilation?.warnings?.push(
+              stats?.compilation.warnings.push(
                 new Error(
                   compilationMessages.zipLeftOutSessionFolders(
                     'source',
@@ -943,7 +943,7 @@ export class ZipPlugin {
             }
 
             if (skippedLinks.length) {
-              stats?.compilation?.warnings?.push(
+              stats?.compilation.warnings.push(
                 new Error(messages.zipSkippedSymlinks(skippedLinks))
               )
             }
@@ -1001,13 +1001,13 @@ export class ZipPlugin {
               })
 
             if (leftOut.length) {
-              stats?.compilation?.warnings?.push(
+              stats?.compilation.warnings.push(
                 new Error(compilationMessages.zipLeftOut('dist', leftOut))
               )
             }
 
             if (sessionFolders.length) {
-              stats?.compilation?.warnings?.push(
+              stats?.compilation.warnings.push(
                 new Error(
                   compilationMessages.zipLeftOutSessionFolders(
                     'dist',
@@ -1037,7 +1037,7 @@ export class ZipPlugin {
             )
 
             if (edgeKey.dropped) {
-              stats?.compilation?.warnings?.push(
+              stats?.compilation.warnings.push(
                 new Error(messages.zipEdgeKeyDropped(distPath))
               )
             }

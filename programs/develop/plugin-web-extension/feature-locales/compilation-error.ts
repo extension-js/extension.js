@@ -24,9 +24,5 @@ export function pushCompilationError(
 
   if (file) error.file = file
 
-  if (!compilation.errors) {
-    compilation.errors = []
-  }
-
   compilation.errors.push(error)
 }

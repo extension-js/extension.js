@@ -43,10 +43,6 @@ function warnLocaleFoldersWithoutMessages(
     warning.file = folder
     ;(warning as Error).name = 'LocalesFolderWithoutMessages'
 
-    if (!compilation.warnings) {
-      compilation.warnings = []
-    }
-
     compilation.warnings.push(warning)
   }
 }
@@ -135,10 +131,6 @@ export function processLocaleAssets(
         // @ts-expect-error - file is not a property of Error
         warning.file = thisResource
         ;(warning as Error).name = 'LocalesPluginMissingFile'
-
-        if (!compilation.warnings) {
-          compilation.warnings = []
-        }
 
         compilation.warnings.push(warning)
         missingCount++

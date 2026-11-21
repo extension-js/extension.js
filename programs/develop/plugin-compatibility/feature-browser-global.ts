@@ -195,8 +195,6 @@ export class WarnBrowserGlobalWithoutPolyfill {
                 ? new WebpackErrorCtor(text)
                 : (new Error(text) as Error)
               warning.name = 'BrowserGlobalWithoutPolyfillWarning'
-              if (!compilation.warnings) compilation.warnings = []
-
               compilation.warnings.push(
                 warning as (typeof compilation.warnings)[number]
               )

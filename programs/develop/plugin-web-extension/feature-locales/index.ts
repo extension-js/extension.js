@@ -48,10 +48,6 @@ export class LocalesPlugin {
             // @ts-expect-error - file is not a property of Error
             error.file = String(this.manifestPath)
 
-            if (!compilation.errors) {
-              compilation.errors = []
-            }
-
             compilation.errors.push(error)
 
             return

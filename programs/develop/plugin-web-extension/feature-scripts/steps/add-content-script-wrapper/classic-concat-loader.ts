@@ -344,7 +344,7 @@ interface ClassicConcatLoaderContext {
   addMissingDependency?(dep: string): void
   callback(err: Error | null, content?: string, sourceMap?: unknown): void
   emitError?(error: Error): void
-  _compilation?: {errors?: Error[]}
+  _compilation?: {errors: Error[]}
 }
 
 // The concatenated files share one scope, exactly as the browser evaluates
@@ -588,7 +588,7 @@ export default function classicConcatLoader(
     ) as Error & {file?: string}
     report.file = displayPath(files[0])
 
-    if (this._compilation?.errors) {
+    if (this._compilation) {
       this._compilation.errors.push(report)
     } else {
       this.emitError?.(report)
