@@ -47,14 +47,19 @@ function isOn(value: string | undefined): boolean {
 export function updateCheckWanted({
   command,
   json,
+  terminal,
   env
 }: {
   command: string | undefined
   json: boolean
+  // Whether stderr is a terminal, where a person reads the notice.
+  terminal: boolean
   env: Env
 }): boolean {
   if (!command || !COMMANDS_THAT_CHECK.has(command)) return false
   if (json) return false
+  // A script that pipes the run never reads a notice, nor waits on a registry.
+  if (!terminal) return false
 
   return !(
     isOn(env.EXTENSION_NO_UPDATE_CHECK) ||

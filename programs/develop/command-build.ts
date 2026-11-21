@@ -44,6 +44,7 @@ import {
 } from './lib/atomic-dist'
 import {announceLeftoverOutputFolder} from './lib/build-output-guard'
 import type {BuildSummary} from './lib/build-summary'
+import {markBuildTold} from './lib/build-told'
 import {codedError} from './lib/coded-error'
 import {
   keepCodedWarningsOf,
@@ -573,6 +574,7 @@ async function runBuild(
     if (packagingFollows) writeReadyWhenHeld()
 
     succeeded = true
+    markBuildTold()
 
     return summary
   } catch (thrown) {

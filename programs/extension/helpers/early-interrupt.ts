@@ -19,7 +19,25 @@ const SIGNALS: Record<TerminationSignal, number> = {SIGINT: 2, SIGTERM: 15}
 const CLAIMED = Symbol.for('extension.js.interrupt-frame-claimed')
 const ENDED = Symbol.for('extension.js.interrupt-frame-written')
 
+// The engine sets the first as it prints that a build succeeded. The build
+// command sets the second for the build no other browser follows.
+const BUILD_TOLD = Symbol.for('extension.js.build-told')
+const BUILD_ENDS_RUN = Symbol.for('extension.js.build-ends-run')
+const INTERRUPTED_AFTER = Symbol.for('extension.js.interrupted-after-build')
+
 const flags = globalThis as unknown as Record<symbol, boolean | undefined>
+
+// Called before each browser is built, so one told build never stands in
+// for the next. Only the last one's success line ends the run.
+export function expectBuildTold(endsRun: boolean): void {
+  flags[BUILD_TOLD] = false
+  flags[BUILD_ENDS_RUN] = endsRun
+}
+
+// True when a signal landed after the run said its build succeeded.
+export function interruptedAfterBuildTold(): boolean {
+  return flags[INTERRUPTED_AFTER] === true
+}
 
 export function claimInterruptFrame(): void {
   flags[CLAIMED] = true
@@ -121,6 +139,14 @@ export function armEarlyInterrupt(
     const listener = () => {
       // Both go, so the listener of the other signal never reads as an owner.
       disarm()
+
+      // The build succeeded and said so. The run ends by itself in a moment,
+      // with the code and the frame that agree with what it printed.
+      if (flags[BUILD_TOLD] === true && flags[BUILD_ENDS_RUN] === true) {
+        flags[INTERRUPTED_AFTER] = true
+
+        return
+      }
 
       if (json && !interruptFrameClaimed()) {
         flags[ENDED] = true

@@ -48,7 +48,10 @@ import {
   writeStdoutFrame
 } from './helpers/cli-failure'
 import {getCliPackageJson} from './helpers/cli-package-json'
-import {claimInterruptFrame} from './helpers/early-interrupt'
+import {
+  claimInterruptFrame,
+  interruptedAfterBuildTold
+} from './helpers/early-interrupt'
 import {exitAfterDrain} from './helpers/exit-after-drain'
 import {resolveExtensionDevelopVersion} from './helpers/extension-develop-runtime'
 import * as messages from './helpers/messages'
@@ -74,6 +77,7 @@ export interface RunDeps {
   stderr: (text: string) => void
   writeFrame: (frame: unknown) => void
   checkUpdates: () => Promise<UpdateNotice | null>
+  stderrIsTerminal: () => boolean
 }
 
 export function processRunDeps(): RunDeps {
@@ -86,7 +90,8 @@ export function processRunDeps(): RunDeps {
       process.stderr.write(text)
     },
     writeFrame: writeStdoutFrame,
-    checkUpdates: () => checkUpdates()
+    checkUpdates: () => checkUpdates(),
+    stderrIsTerminal: () => process.stderr.isTTY === true
   }
 }
 
@@ -277,6 +282,7 @@ async function runUntilEnd(argv: string[], deps: RunDeps): Promise<number> {
       !updateCheckWanted({
         command: resolveCommandFromArgv(args),
         json,
+        terminal: deps.stderrIsTerminal(),
         env: process.env
       })
     ) {
@@ -440,7 +446,11 @@ async function runUntilEnd(argv: string[], deps: RunDeps): Promise<number> {
 
     // A build ends before a registry on a real network answers. The answer is
     // awaited, within the check's own bound, so it is told and kept for next time.
-    if (typedCommand === 'build' && pendingUpdateCheck) {
+    if (
+      typedCommand === 'build' &&
+      pendingUpdateCheck &&
+      !interruptedAfterBuildTold()
+    ) {
       await settleUpdateCheck(pendingUpdateCheck)
     }
 

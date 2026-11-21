@@ -124,31 +124,79 @@ describe('when the update check runs', () => {
   const rows: Array<
     [string, Parameters<typeof updateCheckWanted>[0], boolean]
   > = [
-    ['dev', {command: 'dev', json: false, env: {}}, true],
-    ['start', {command: 'start', json: false, env: {}}, true],
-    ['preview', {command: 'preview', json: false, env: {}}, true],
-    ['build', {command: 'build', json: false, env: {}}, true],
-    ['create', {command: 'create', json: false, env: {}}, false],
-    ['doctor', {command: 'doctor', json: false, env: {}}, false],
-    ['no command', {command: undefined, json: false, env: {}}, false],
-    ['build --output json', {command: 'build', json: true, env: {}}, false],
+    ['dev', {command: 'dev', json: false, terminal: true, env: {}}, true],
+    ['start', {command: 'start', json: false, terminal: true, env: {}}, true],
+    [
+      'preview',
+      {command: 'preview', json: false, terminal: true, env: {}},
+      true
+    ],
+    ['build', {command: 'build', json: false, terminal: true, env: {}}, true],
+    [
+      'create',
+      {command: 'create', json: false, terminal: true, env: {}},
+      false
+    ],
+    [
+      'doctor',
+      {command: 'doctor', json: false, terminal: true, env: {}},
+      false
+    ],
+    [
+      'no command',
+      {command: undefined, json: false, terminal: true, env: {}},
+      false
+    ],
+    [
+      'build --output json',
+      {command: 'build', json: true, terminal: true, env: {}},
+      false
+    ],
     [
       'EXTENSION_NO_UPDATE_CHECK=1',
-      {command: 'dev', json: false, env: {EXTENSION_NO_UPDATE_CHECK: '1'}},
+      {
+        command: 'dev',
+        json: false,
+        terminal: true,
+        env: {EXTENSION_NO_UPDATE_CHECK: '1'}
+      },
       false
     ],
     [
       'EXTENSION_NO_UPDATE_CHECK=0',
-      {command: 'dev', json: false, env: {EXTENSION_NO_UPDATE_CHECK: '0'}},
+      {
+        command: 'dev',
+        json: false,
+        terminal: true,
+        env: {EXTENSION_NO_UPDATE_CHECK: '0'}
+      },
       true
     ],
     [
       'NO_UPDATE_NOTIFIER=1',
-      {command: 'build', json: false, env: {NO_UPDATE_NOTIFIER: '1'}},
+      {
+        command: 'build',
+        json: false,
+        terminal: true,
+        env: {NO_UPDATE_NOTIFIER: '1'}
+      },
       false
     ],
-    ['CI=true', {command: 'build', json: false, env: {CI: 'true'}}, false],
-    ['CI=false', {command: 'build', json: false, env: {CI: 'false'}}, true]
+    [
+      'CI=true',
+      {command: 'build', json: false, terminal: true, env: {CI: 'true'}},
+      false
+    ],
+    [
+      'stderr that is not a terminal',
+      {command: 'build', json: false, terminal: false, env: {}},
+      false
+    ],
+    [
+      'CI=false',
+      {command: 'build', json: false, terminal: true, env: {CI: 'false'}},
+      true
+    ]
   ]
 
   it.each(rows)('%s', (_name, input, wanted) => {
