@@ -61,7 +61,9 @@ export default {
 `.trimStart()
     })
 
-    const config = (await loadCommandConfig(root, 'build')) as {
+    const config = (await loadCommandConfig(root, 'build', {
+      mode: 'production'
+    })) as {
       profile?: string
     }
     expect(config.profile).toBe('hello-from-env-with-sibling')
@@ -83,7 +85,9 @@ export default {
 `.trimStart()
     })
 
-    const config = (await loadCommandConfig(root, 'build')) as {
+    const config = (await loadCommandConfig(root, 'build', {
+      mode: 'production'
+    })) as {
       profile?: string
       startingUrl?: string
     }
@@ -103,7 +107,9 @@ export default {
 `.trimStart()
     })
 
-    const config = (await loadCommandConfig(root, 'build')) as {
+    const config = (await loadCommandConfig(root, 'build', {
+      mode: 'production'
+    })) as {
       profile?: string
     }
     expect(config.profile).toBe('plain')
@@ -119,7 +125,9 @@ export default {commands: {build: {profile: VALUE}}}
 `.trimStart()
     })
 
-    const config = (await loadCommandConfig(root, 'build')) as {
+    const config = (await loadCommandConfig(root, 'build', {
+      mode: 'production'
+    })) as {
       profile?: string
     }
     expect(config.profile).toBe('untouched')
@@ -251,7 +259,9 @@ describe('a config file that throws', () => {
       expect(thrown?.message).not.toMatch(/\n\s+at /)
 
       // The second loader of the same run stays as quiet as the first.
-      await expect(loadCommandConfig(root, 'dev')).rejects.toMatchObject({
+      await expect(
+        loadCommandConfig(root, 'dev', {mode: 'development'})
+      ).rejects.toMatchObject({
         code: 'E_CONFIG_LOAD'
       })
 
@@ -279,7 +289,9 @@ describe('a config file must export an object', () => {
     found
   }) => {
     const root = project({'extension.config.mjs': source})
-    const error = await loadCommandConfig(root, 'build').then(
+    const error = await loadCommandConfig(root, 'build', {
+      mode: 'production'
+    }).then(
       () => null,
       (reason: unknown) => reason
     )
@@ -296,7 +308,9 @@ describe('a config file must export an object', () => {
     const root = project({
       'extension.config.mjs': 'export default (config) => config\n'
     })
-    const error = await loadCommandConfig(root, 'build').then(
+    const error = await loadCommandConfig(root, 'build', {
+      mode: 'production'
+    }).then(
       () => null,
       (reason: unknown) => reason
     )
@@ -315,7 +329,7 @@ describe('a config file must export an object', () => {
     try {
       for (const load of [
         () => loadCustomConfig(root, context),
-        () => loadCommandConfig(root, 'build')
+        () => loadCommandConfig(root, 'build', {mode: 'production'})
       ]) {
         await expect(load()).rejects.toThrow(/must export an object/)
       }
@@ -354,7 +368,9 @@ export default {
 `.trimStart()
     })
 
-    const config = (await loadCommandConfig(root, 'build')) as {
+    const config = (await loadCommandConfig(root, 'build', {
+      mode: 'production'
+    })) as {
       profile?: string
     }
     expect(config.profile).toBe('wrapped')

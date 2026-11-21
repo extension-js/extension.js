@@ -499,7 +499,8 @@ export function registerStartCommand(
         const noBrowser = await resolveNoBrowser(
           pathOrRemoteUrl || process.cwd(),
           'start',
-          loadDevelop
+          loadDevelop,
+          list[0]
         )
 
         // The engine refuses this pair for preview, but start skips the engine

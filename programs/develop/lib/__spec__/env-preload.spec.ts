@@ -101,7 +101,9 @@ describe('env preload layering at config time', () => {
   it('layers defaults, .env and .env.local and keeps the shell value', async () => {
     process.env.EXTENSION_PUBLIC_SHELL = 'from-shell'
     const root = project({...ENV_FILES, 'extension.config.js': JS_CONFIG})
-    const config = (await loadCommandConfig(root, 'build')) as {
+    const config = (await loadCommandConfig(root, 'build', {
+      mode: 'production'
+    })) as {
       profile?: string
       zip?: boolean
     }
@@ -116,7 +118,9 @@ describe('env preload layering at config time', () => {
   it('gives the mjs config style the same winners through import.meta.env', async () => {
     process.env.EXTENSION_PUBLIC_SHELL = 'from-shell'
     const root = project({...ENV_FILES, 'extension.config.mjs': MJS_CONFIG})
-    const config = (await loadCommandConfig(root, 'build')) as {
+    const config = (await loadCommandConfig(root, 'build', {
+      mode: 'production'
+    })) as {
       profile?: string
     }
     expect(config.profile).toBe(
@@ -158,7 +162,9 @@ module.exports = {
 describe('env preload follows the running mode', () => {
   it('reads .env.production for build and leaves .env.development alone', async () => {
     const root = project({...MODE_FILES, 'extension.config.js': MODE_CONFIG})
-    const config = (await loadCommandConfig(root, 'build')) as {
+    const config = (await loadCommandConfig(root, 'build', {
+      mode: 'production'
+    })) as {
       profile?: string
     }
 
@@ -167,7 +173,9 @@ describe('env preload follows the running mode', () => {
 
   it('reads .env.development for dev', async () => {
     const root = project({...MODE_FILES, 'extension.config.js': MODE_CONFIG})
-    const config = (await loadCommandConfig(root, 'dev')) as {profile?: string}
+    const config = (await loadCommandConfig(root, 'dev', {
+      mode: 'development'
+    })) as {profile?: string}
 
     expect(config.profile).toBe('from-development')
   })
@@ -177,7 +185,9 @@ describe('env preload follows the running mode', () => {
       '.env.development': MODE_FILES['.env.development'],
       'extension.config.js': MODE_CONFIG
     })
-    const config = (await loadCommandConfig(root, 'build')) as {
+    const config = (await loadCommandConfig(root, 'build', {
+      mode: 'production'
+    })) as {
       profile?: string
     }
 
@@ -280,7 +290,9 @@ const SECOND_FILES = {
 }
 
 async function seenBy(root: string) {
-  const config = (await loadProjectConfigDefaults(root)) as {
+  const config = (await loadProjectConfigDefaults(root, {
+    mode: 'production'
+  })) as {
     perfBudgets?: {seen?: string}
   }
 

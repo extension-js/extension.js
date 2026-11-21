@@ -8,6 +8,7 @@
 
 import type {BuildSummary, SafariPackageSummary} from './lib/build-summary'
 import type {CompanionExtensionsConfig} from './lib/companion-extensions/types'
+import type {PublicConfigEnvTarget} from './lib/config-loader'
 import type {ErrorCode} from './lib/messaging'
 import {ensureRustMinStack} from './lib/rust-min-stack'
 import type {
@@ -54,8 +55,26 @@ export const extensionDev = dev.extensionDev
 export const extensionPreview = preview.extensionPreview
 export const BuildEmitter = browsers.BuildEmitter
 export type BuildEmitter = BuildEmitterInstance
-export const loadCommandConfig = config.loadCommandConfig
-export const loadProjectConfigDefaults = config.loadProjectConfigDefaults
+// A host may leave the run unnamed: the mode then follows the command, and
+// a load with no command is a build. Inside this package every load names it.
+export const loadCommandConfig = (
+  projectPath: string,
+  command: 'dev' | 'build' | 'start' | 'preview',
+  envTarget?: PublicConfigEnvTarget
+) =>
+  config.loadCommandConfig(
+    projectPath,
+    command,
+    config.envTargetOf(command, envTarget)
+  )
+export const loadProjectConfigDefaults = (
+  projectPath: string,
+  envTarget?: PublicConfigEnvTarget
+) =>
+  config.loadProjectConfigDefaults(
+    projectPath,
+    config.envTargetOf(undefined, envTarget)
+  )
 // Ends one dev session of this process as a failure the host names.
 export const endSessionAsFailed = sessionEnd.endSessionAsFailed
 
