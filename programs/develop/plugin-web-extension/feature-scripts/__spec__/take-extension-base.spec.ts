@@ -1,8 +1,7 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {Compilation, sources} from '@rspack/core'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {
   extensionBaseGlobal,
   takeBlockOpen
@@ -10,8 +9,9 @@ import {
 import {asCompiler} from '../../__spec__/helpers/rspack-fakes'
 import {getCanonicalContentScriptEntryName} from '../contracts'
 import {TakeExtensionBase} from '../steps/take-extension-base'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 
-const roots: string[] = []
+const tempFolder = trackTempFolders()
 const MANIFEST = {
   manifest_version: 3,
   name: 'take-base',
@@ -22,15 +22,8 @@ const MANIFEST = {
   ]
 }
 
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
-
 function project() {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-take-base-'))
-  )
-  roots.push(root)
+  const root = fs.realpathSync(tempFolder('extjs-take-base-'))
 
   fs.writeFileSync(path.join(root, 'manifest.json'), JSON.stringify(MANIFEST))
 

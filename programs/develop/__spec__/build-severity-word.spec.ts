@@ -1,8 +1,8 @@
 import {spawnSync} from 'node:child_process'
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // A build read through a pipe has no color, so the warning it counts and
 // the error it fails on are found by their word. The frames a machine reads
@@ -17,7 +17,7 @@ const CLI_DIST = path.join(
   'cli.cjs'
 )
 const GLYPH = '⏵⏵⏵'
-const roots: string[] = []
+const tempFolder = trackTempFolders()
 
 const AMO_WARNING =
   'addons.mozilla.org requires browser_specific_settings.gecko.data_collection_permissions for new add-ons.'
@@ -65,10 +65,7 @@ function ensureCliBuilt(): boolean {
 }
 
 function scaffold(background: string) {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-severity-word-'))
-  )
-  roots.push(root)
+  const root = fs.realpathSync(tempFolder('extjs-severity-word-'))
 
   const files: Record<string, string> = {
     'package.json': JSON.stringify({name: 'quote-keeper', private: true}),
@@ -119,12 +116,6 @@ function build(root: string, color: 'off' | 'on', flags: string[] = []) {
     }
   )
 }
-
-afterAll(() => {
-  for (const root of roots) {
-    fs.rmSync(root, {recursive: true, force: true})
-  }
-})
 
 describe('a build with one warning, read without color (built CLI)', () => {
   it('opens the warning line with the glyph and the word', () => {

@@ -74,9 +74,25 @@ export async function openDevWatchSession(
   // count it last saw, so a startup invalidation never masquerades as the edit.
   const dones: Stats[] = []
   let lastDoneAt = 0
+  // A change the watcher saw and a build that started are both a rebuild on
+  // its way, and the watcher is not idle until that one is done.
+  let rebuilding = false
+  compiler.hooks.invalid.tap('spec-dev-watch-session', () => {
+    rebuilding = true
+  })
+
+  compiler.hooks.watchRun.tap('spec-dev-watch-session', () => {
+    rebuilding = true
+  })
+
+  compiler.hooks.failed.tap('spec-dev-watch-session', () => {
+    rebuilding = false
+  })
+
   compiler.hooks.done.tap('spec-dev-watch-session', (stats) => {
     dones.push(stats)
     lastDoneAt = Date.now()
+    rebuilding = false
   })
 
   const doneAfter = (seen: number, timeoutMs = 30000) =>
@@ -102,7 +118,11 @@ export async function openDevWatchSession(
   const settle = () =>
     new Promise<number>((resolve) => {
       const poll = () => {
-        if (dones.length > 0 && Date.now() - lastDoneAt > SETTLE_QUIET_MS) {
+        if (
+          dones.length > 0 &&
+          !rebuilding &&
+          Date.now() - lastDoneAt > SETTLE_QUIET_MS
+        ) {
           return resolve(dones.length)
         }
 

@@ -6,6 +6,7 @@ import {resolveCompanionExtensionsConfig} from '../lib/companion-extensions/reso
 import {readyContractPath} from '../lib/session-paths'
 import {buildProject} from './helpers/build-project'
 import {trackTempFolders} from './helpers/temp-folders'
+import {writeExtensionProject} from './helpers/extension-project'
 
 const makeTempFolder = trackTempFolders()
 const children: ChildProcess[] = []
@@ -20,20 +21,10 @@ function linkedProject(): {real: string; linked: string} | undefined {
   const linked = path.join(base, 'linked-project')
 
   fs.mkdirSync(real)
-  fs.writeFileSync(
-    path.join(real, 'package.json'),
-    JSON.stringify({private: true, name: 'linked-compare', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(real, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'linked-compare',
-      version: '1.0.0',
-      background: {service_worker: 'background.js'}
-    })
-  )
+  writeExtensionProject(real, {
+    name: 'linked-compare',
+    manifest: {background: {service_worker: 'background.js'}}
+  })
 
   fs.writeFileSync(path.join(real, 'background.js'), 'console.log(1)\n')
 

@@ -10,6 +10,7 @@ import {
 import {afterAll, describe, expect, it} from 'vitest'
 import {getProjectStructure} from '../../lib/project'
 import webpackConfig from '../../rspack-config'
+import {writeProjectFiles} from '../../__spec__/helpers/extension-project'
 
 const WORKSPACE_MODULES = path.resolve(__dirname, '../../../../node_modules')
 const roots: string[] = []
@@ -70,11 +71,7 @@ function scaffold(
 
   mirrorWorkspaceModules(root)
 
-  for (const [relative, contents] of Object.entries(files)) {
-    const target = path.join(root, relative)
-    fs.mkdirSync(path.dirname(target), {recursive: true})
-    fs.writeFileSync(target, contents)
-  }
+  writeProjectFiles(root, files)
 
   return root
 }

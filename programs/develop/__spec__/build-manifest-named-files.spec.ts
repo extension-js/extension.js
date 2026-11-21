@@ -1,30 +1,18 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
+import {writeExtensionProject} from './helpers/extension-project'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-manifest-named-'))
-  roots.push(root)
+  const root = tempFolder('extjs-manifest-named-')
   fs.mkdirSync(path.join(root, 'lib'))
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'named', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'named',
-      version: '1.0.0',
+  writeExtensionProject(root, {
+    name: 'named',
+    manifest: {
       codename: 'release-2.1',
       homepage_url: 'https://example.com/index.html',
       background: {
@@ -33,8 +21,8 @@ function project() {
       },
       scripts_for_popup_page: ['/lib/c.js', '/lib/nowhere.js'],
       content_scripts: [{matches: ['<all_urls>'], js: ['content.js']}]
-    })
-  )
+    }
+  })
 
   fs.writeFileSync(
     path.join(root, 'sw.js'),

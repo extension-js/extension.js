@@ -23,6 +23,7 @@ import {applySplitChunksGuard} from '../lib/normalize-split-chunks'
 import type {NormalizedBrowser} from '../lib/paths'
 import type {ProjectStructure} from '../lib/project'
 import type {
+  BrowserDefaulted,
   BuildOptions,
   ConfigHookContext,
   WebpackConfigOptions
@@ -31,7 +32,7 @@ import type {
 // Builds the compiler config of one build: the stock config, the author's
 // config hooks over it, and where the output really lands.
 export async function createBuildCompilerConfig(input: {
-  buildOptions: BuildOptions | undefined
+  buildOptions: BrowserDefaulted<BuildOptions> | undefined
   mergedBuildOptions: BuildOptions
   zipDir: string | undefined
   resolvedExtensionsConfig: CompanionExtensionsConfig | undefined

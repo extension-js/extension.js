@@ -14,6 +14,7 @@ import {
   waitUntil
 } from './helpers/dev-watch-session'
 import {trackTempFolders} from './helpers/temp-folders'
+import {writeExtensionProject} from './helpers/extension-project'
 
 const makeTempFolder = trackTempFolders()
 const sessions: DevWatchSession[] = []
@@ -52,22 +53,16 @@ function linkedProject() {
 
   fs.mkdirSync(path.join(real, 'content'), {recursive: true})
   fs.mkdirSync(path.join(real, 'options'), {recursive: true})
-  fs.writeFileSync(
-    path.join(real, 'package.json'),
-    JSON.stringify({name: 'linked-root', version: '0.0.1', private: true})
-  )
-
-  fs.writeFileSync(
-    path.join(real, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'linked-root',
+  writeExtensionProject(real, {
+    name: 'linked-root',
+    manifest: {
       version: '0.0.1',
       background: {service_worker: 'background.js'},
       options_page: 'options/index.html',
       content_scripts: [{matches: ['<all_urls>'], js: ['content/scripts.js']}]
-    })
-  )
+    },
+    packageJson: {version: '0.0.1'}
+  })
 
   fs.writeFileSync(path.join(real, 'background.js'), 'console.log("bg")\n')
   fs.writeFileSync(

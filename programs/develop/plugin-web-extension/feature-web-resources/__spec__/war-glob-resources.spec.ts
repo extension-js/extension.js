@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
 import {afterEach, describe, expect, it} from 'vitest'
 import {resolveUserDeclaredWAR} from '../web-resources-lib/resolve-war'
+import {writeProjectFiles} from '../../../__spec__/helpers/extension-project'
 
 const created: string[] = []
 
@@ -19,11 +20,7 @@ function project(files: Record<string, string>) {
   )
   created.push(root)
 
-  for (const [rel, content] of Object.entries(files)) {
-    const abs = path.join(root, rel)
-    fs.mkdirSync(path.dirname(abs), {recursive: true})
-    fs.writeFileSync(abs, content)
-  }
+  writeProjectFiles(root, files)
 
   return root
 }

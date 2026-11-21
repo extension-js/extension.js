@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
 import {afterEach, describe, expect, it} from 'vitest'
 import {trackJsonDependencies} from '../track-dependencies'
+import {writeProjectFiles} from '../../../__spec__/helpers/extension-project'
 
 // Obvious fakes: no file here holds a real value.
 const MARKER = 'FAKE-MARKER-NOT-A-REAL-VALUE'
@@ -24,11 +25,7 @@ function project(files: Record<string, string>) {
   )
   holders.push(holder)
 
-  for (const [relative, contents] of Object.entries(files)) {
-    const target = path.join(holder, relative)
-    fs.mkdirSync(path.dirname(target), {recursive: true})
-    fs.writeFileSync(target, contents)
-  }
+  writeProjectFiles(holder, files)
 
   return {holder, root: path.join(holder, 'project')}
 }

@@ -2,16 +2,13 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {rspack} from '@rspack/core'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {getProjectStructure} from '../../../lib/project'
 import webpackConfig from '../../../rspack-config'
 import {AddScripts} from '../steps/add-scripts'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 type IncludeList = Record<string, string | string[]>
 
@@ -21,10 +18,7 @@ async function compile(
   include: (root: string) => IncludeList,
   beforeRun: () => void = () => {}
 ) {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-script-paths-'))
-  )
-  roots.push(root)
+  const root = fs.realpathSync(tempFolder('extjs-script-paths-'))
 
   const at = (name: string) => path.join(root, name)
 
@@ -86,10 +80,7 @@ async function buildProject(
   manifest: Record<string, unknown>,
   files: (root: string) => void = () => {}
 ) {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-script-paths-project-'))
-  )
-  roots.push(root)
+  const root = fs.realpathSync(tempFolder('extjs-script-paths-project-'))
   files(root)
 
   fs.writeFileSync(
@@ -223,10 +214,7 @@ describe('a manifest that names files that do not exist', () => {
 
 // A fake env file in the project and a file a link leads to outside it.
 function withheldFiles(root: string) {
-  const outside = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-script-paths-outside-'))
-  )
-  roots.push(outside)
+  const outside = fs.realpathSync(tempFolder('extjs-script-paths-outside-'))
 
   fs.writeFileSync(
     path.join(root, '.env.js'),

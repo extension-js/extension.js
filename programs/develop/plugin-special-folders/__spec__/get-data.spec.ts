@@ -8,6 +8,7 @@ import {
   getSpecialFoldersDataForProjectRoot,
   type ScanSpecialFolders
 } from '../get-data'
+import {writeProjectFiles} from '../../__spec__/helpers/extension-project'
 
 const tempDirs: string[] = []
 
@@ -28,11 +29,7 @@ function project(files: Record<string, string>): string {
   )
   tempDirs.push(root)
 
-  for (const [relative, contents] of Object.entries(files)) {
-    const target = path.join(root, relative)
-    fs.mkdirSync(path.dirname(target), {recursive: true})
-    fs.writeFileSync(target, contents, 'utf8')
-  }
+  writeProjectFiles(root, files)
 
   return root
 }

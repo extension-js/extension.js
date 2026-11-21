@@ -5,7 +5,8 @@ import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {
   type DevWatchSession,
   errorsOf,
-  openDevWatchSession
+  openDevWatchSession,
+  waitUntil
 } from '../../__spec__/helpers/dev-watch-session'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {reloadForBuild} from '../build-reload'
@@ -121,21 +122,36 @@ const at = (rel: string) => path.join(root, ...rel.split('/'))
 
 // Every reload the save caused, once the watcher has gone quiet again. A
 // save of a file nothing watches may start no rebuild, which reloads nothing.
-async function save(change: () => void, mayNotRebuild = false) {
+async function save(
+  change: () => void,
+  expected?: ReloadInstruction['type'] | 'none'
+) {
   const seen = await session.settle()
   const from = instructions.length
+  const caused = () =>
+    instructions.slice(from).filter(Boolean) as ReloadInstruction[]
+
   change()
 
-  if (mayNotRebuild) {
+  if (expected === 'none') {
     await session.quietFor(3000)
   } else {
     const stats = await session.doneAfter(seen, COMPILE_DEADLINE_MS)
     expect(errorsOf(stats)).toEqual([])
+
+    // The watcher may answer one save with more than one rebuild, and the
+    // first of them may not be the one that read the file.
+    if (expected) {
+      await waitUntil(
+        () => caused().some(({type}) => type === expected),
+        COMPILE_DEADLINE_MS
+      )
+    }
   }
 
   await session.settle()
 
-  return instructions.slice(from).filter(Boolean) as ReloadInstruction[]
+  return caused()
 }
 
 // A watcher that names the saved file itself, as one watching the file does,
@@ -161,25 +177,28 @@ describe('a dev session reloads only for files the build read', () => {
     const reloads = await save(() => {
       fs.writeFileSync(at('draft.txt'), 'draft')
       fs.writeFileSync(at('parts/readme.md'), '# parts')
-    }, true)
+    }, 'none')
 
     expect(reloads).toEqual([])
   }, 300000)
 
   it('an edit to the bundled content script reloads it', async () => {
-    const reloads = await save(() =>
-      fs.appendFileSync(at('content.js'), 'console.log("more")\n')
+    const reloads = await save(
+      () => fs.appendFileSync(at('content.js'), 'console.log("more")\n'),
+      'content-scripts'
     )
 
     expect(types(reloads)).toContain('content-scripts')
   }, 300000)
 
   it('a new file a glob matches reloads the content script that globs it', async () => {
-    const inFolder = await save(() =>
-      fs.writeFileSync(at('parts/b.js'), 'console.log("b")\n')
+    const inFolder = await save(
+      () => fs.writeFileSync(at('parts/b.js'), 'console.log("b")\n'),
+      'content-scripts'
     )
-    const atRoot = await save(() =>
-      fs.writeFileSync(at('circle.shape.js'), 'console.log("circle")\n')
+    const atRoot = await save(
+      () => fs.writeFileSync(at('circle.shape.js'), 'console.log("circle")\n'),
+      'content-scripts'
     )
 
     expect(types(inFolder)).toContain('content-scripts')
@@ -194,7 +213,10 @@ describe('a dev session reloads only for files the build read', () => {
   }, 300000)
 
   it('a deleted file a glob had matched reloads the content script that globbed it', async () => {
-    const reloads = await save(() => fs.rmSync(at('parts/a.js')))
+    const reloads = await save(
+      () => fs.rmSync(at('parts/a.js')),
+      'content-scripts'
+    )
 
     expect(types(reloads)).toContain('content-scripts')
     expect(reloads.flatMap((each) => each.changedAssets)).toContain(
@@ -203,37 +225,42 @@ describe('a dev session reloads only for files the build read', () => {
   }, 300000)
 
   it('a file a loader reads through addDependency reloads the bundle it feeds', async () => {
-    const reloads = await save(() =>
-      fs.writeFileSync(at('loader-input.txt'), 'v2')
+    const reloads = await save(
+      () => fs.writeFileSync(at('loader-input.txt'), 'v2'),
+      'content-scripts'
     )
 
     expect(types(reloads)).toContain('content-scripts')
   }, 300000)
 
   it('an icon the manifest names reloads the extension', async () => {
-    const reloads = await save(() =>
-      fs.writeFileSync(at('icons/icon-16.png'), png('v2'))
+    const reloads = await save(
+      () => fs.writeFileSync(at('icons/icon-16.png'), png('v2')),
+      'full'
     )
 
     expect(types(reloads)).toContain('full')
   }, 300000)
 
   it('a web accessible resource the manifest names reloads the extension', async () => {
-    const reloads = await save(() =>
-      fs.writeFileSync(at('resources/data.json'), '{"v":2}')
+    const reloads = await save(
+      () => fs.writeFileSync(at('resources/data.json'), '{"v":2}'),
+      'full'
     )
 
     expect(types(reloads)).toContain('full')
   }, 300000)
 
   it('a public/ edit, add and delete each reload the extension', async () => {
-    const edited = await save(() =>
-      fs.writeFileSync(at('public/data.json'), '{"v":2}')
+    const edited = await save(
+      () => fs.writeFileSync(at('public/data.json'), '{"v":2}'),
+      'full'
     )
-    const added = await save(() =>
-      fs.writeFileSync(at('public/added.json'), '{"v":1}')
+    const added = await save(
+      () => fs.writeFileSync(at('public/added.json'), '{"v":1}'),
+      'full'
     )
-    const deleted = await save(() => fs.rmSync(at('public/gone.json')))
+    const deleted = await save(() => fs.rmSync(at('public/gone.json')), 'full')
 
     expect(types(edited)).toContain('full')
     expect(types(added)).toContain('full')
@@ -252,7 +279,7 @@ describe('a dev session reloads only for files the build read', () => {
       const manifest = JSON.parse(fs.readFileSync(at('manifest.json'), 'utf8'))
       manifest.version = '1.0.1'
       fs.writeFileSync(at('manifest.json'), JSON.stringify(manifest))
-    })
+    }, 'full')
 
     expect(types(reloads)).toContain('full')
   }, 300000)

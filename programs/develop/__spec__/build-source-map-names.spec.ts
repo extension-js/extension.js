@@ -1,15 +1,11 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
 import {buildPages} from './helpers/page-builds'
+import {trackTempFolders} from './helpers/temp-folders'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function write(root: string, relPath: string, contents: string) {
   const abs = path.join(root, relPath)
@@ -18,8 +14,7 @@ function write(root: string, relPath: string, contents: string) {
 }
 
 function project() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-map-names-'))
-  roots.push(root)
+  const root = tempFolder('extjs-map-names-')
 
   write(
     root,
@@ -72,15 +67,7 @@ function mapSources(distDir: string): string[] {
 describe('dev source maps', () => {
   it('name the files of Extension.js under extension.js/, never by a path to the install', async () => {
     const root = project()
-    const previous = process.env.VITEST
-    process.env.VITEST = 'true'
-
-    try {
-      await buildProject(root, {mode: 'development', exitOnError: false})
-    } finally {
-      if (previous === undefined) delete process.env.VITEST
-      else process.env.VITEST = previous
-    }
+    await buildProject(root, {mode: 'development', exitOnError: false})
 
     const sources = mapSources(path.join(root, 'dist', 'chrome'))
 

@@ -1,5 +1,4 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {type Compiler, rspack} from '@rspack/core'
 import {afterAll, afterEach, describe, expect, it, vi} from 'vitest'
@@ -9,6 +8,7 @@ import {
   htmlPagesExtensionsFor
 } from '../../plugin-web-extension/shared/html-page-extensions'
 import {SetupPageReload} from '../steps/setup-page-reload'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
 const compilers: Compiler[] = []
 
@@ -57,18 +57,13 @@ function importsOf(compiler: Compiler, entry: string): string[] {
 
 // Scratch projects live under the OS temp dir, so a crashed run leaves no
 // litter in the source tree.
-const tmpRoots: string[] = []
+const tempFolder = trackTempFolders()
 
 function makeTmp(prefix: string) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `${prefix}-`))
-  tmpRoots.push(dir)
+  const dir = tempFolder(`${prefix}-`)
 
   return dir
 }
-
-afterAll(() => {
-  for (const dir of tmpRoots) fs.rmSync(dir, {recursive: true, force: true})
-})
 
 // A project with one page that names one script, the smallest shape that
 // earns the page HMR rule.
