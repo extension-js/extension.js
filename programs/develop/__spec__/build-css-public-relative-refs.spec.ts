@@ -1,15 +1,11 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {CHROMIUM_EXTENSION_ROOT} from '../plugin-web-extension/feature-scripts/scripts-lib/injected-sheet-urls'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 const MATCHES = 'https://public.example/*'
 const PUBLIC_BYTES = Buffer.alloc(40_000, 'p')
@@ -28,8 +24,7 @@ function write(root: string, relPath: string, contents: string | Buffer) {
 }
 
 function project(reference: string) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-css-public-rel-'))
-  roots.push(root)
+  const root = tempFolder('extjs-css-public-rel-')
 
   write(
     root,

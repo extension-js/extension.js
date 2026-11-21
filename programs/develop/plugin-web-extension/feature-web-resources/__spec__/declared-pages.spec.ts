@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
 import {discoverWebAccessiblePages} from '../web-resources-lib/declared-pages'
+import {writeProjectFiles} from '../../../__spec__/helpers/extension-project'
 
 const created: string[] = []
 
@@ -14,11 +15,7 @@ function project(manifest: unknown, files: Record<string, string>) {
 
   const all = {'src/manifest.json': JSON.stringify(manifest), ...files}
 
-  for (const [rel, content] of Object.entries(all)) {
-    const abs = path.join(root, rel)
-    fs.mkdirSync(path.dirname(abs), {recursive: true})
-    fs.writeFileSync(abs, content)
-  }
+  writeProjectFiles(root, all)
 
   return {root, manifestPath: path.join(root, 'src', 'manifest.json')}
 }

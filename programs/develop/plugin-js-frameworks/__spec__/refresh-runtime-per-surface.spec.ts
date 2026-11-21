@@ -5,6 +5,7 @@ import {rspack, type Stats} from '@rspack/core'
 import {afterAll, describe, expect, it} from 'vitest'
 import {getProjectStructure} from '../../lib/project'
 import webpackConfig from '../../rspack-config'
+import {writeExtensionProject} from '../../__spec__/helpers/extension-project'
 
 const WORKSPACE_MODULES = path.resolve(__dirname, '../../../../node_modules')
 const roots: string[] = []
@@ -20,20 +21,8 @@ function scaffold() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-refresh-surface-'))
   roots.push(root)
 
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({
-      private: true,
-      name: 'extjs-refresh-surface',
-      version: '0.0.0',
-      dependencies: {react: '*', 'react-dom': '*'}
-    })
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
+  writeExtensionProject(root, {
+    manifest: {
       name: 'refresh-surface',
       version: '0.0.0',
       action: {default_popup: 'popup.html'},
@@ -41,8 +30,12 @@ function scaffold() {
         {js: ['main.jsx'], world: 'MAIN', matches: ['<all_urls>']},
         {js: ['isolated.jsx'], matches: ['<all_urls>']}
       ]
-    })
-  )
+    },
+    packageJson: {
+      name: 'extjs-refresh-surface',
+      dependencies: {react: '*', 'react-dom': '*'}
+    }
+  })
 
   fs.writeFileSync(
     path.join(root, 'popup.html'),

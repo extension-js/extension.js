@@ -1,15 +1,13 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it, vi} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
+import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
+import {writeProjectFiles} from './helpers/extension-project'
 
 // A wasm runtime such as @ffmpeg/core ships files its `exports` field does
 // not list. The build resolves them like any package file, with no alias.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 const REQUEST = '@ffmpeg/core/dist/esm/ffmpeg-core.js'
 
@@ -31,10 +29,7 @@ const ALIAS_CONFIG = [
 
 // A fake package named like the real one, written here. Nothing is installed.
 function project(config?: string) {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-hidden-subpath-'))
-  )
-  roots.push(root)
+  const root = fs.realpathSync(tempFolder('extjs-hidden-subpath-'))
 
   const files: Record<string, string> = {
     'package.json': JSON.stringify({
@@ -59,17 +54,12 @@ function project(config?: string) {
     ...(config ? {'extension.config.js': config} : {})
   }
 
-  for (const [relative, contents] of Object.entries(files)) {
-    const target = path.join(root, relative)
-    fs.mkdirSync(path.dirname(target), {recursive: true})
-    fs.writeFileSync(target, contents)
-  }
+  writeProjectFiles(root, files)
 
   return root
 }
 
 async function build(root: string) {
-  const {extensionBuild} = await import('../command-build')
   const printed: string[] = []
   const spies = (['log', 'error', 'warn', 'info'] as const).map((method) =>
     vi.spyOn(console, method).mockImplementation((...args: unknown[]) => {
@@ -78,11 +68,10 @@ async function build(root: string) {
   )
 
   try {
-    const summary = await extensionBuild(root, {
-      browser: 'chrome',
-      install: false,
+    const summary = await buildProject(root, {
+      silent: undefined,
       mode: 'production'
-    } as Parameters<typeof import('../command-build').extensionBuild>[1])
+    })
 
     return {printed, errors: summary.errors_count, thrown: undefined}
   } catch (error) {

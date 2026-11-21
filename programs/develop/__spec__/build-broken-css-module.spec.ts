@@ -1,14 +1,10 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 const BROKEN =
   '.alpha { color: red }\n.beta { content: "unterminated; }\n.gamma { color: green }\n'
@@ -16,8 +12,7 @@ const VALID =
   '.alpha { color: red }\n.beta { color: blue }\n.gamma { color: green }\n'
 
 function project(css: string, importKind: 'named' | 'sideEffect') {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-broken-module-'))
-  roots.push(root)
+  const root = tempFolder('extjs-broken-module-')
 
   const files: Record<string, string> = {
     'package.json': JSON.stringify({

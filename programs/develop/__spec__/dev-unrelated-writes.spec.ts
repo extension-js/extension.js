@@ -12,6 +12,7 @@ import {
   errorsOf,
   openDevWatchSession
 } from './helpers/dev-watch-session'
+import {writeExtensionProject} from './helpers/extension-project'
 
 const roots: string[] = []
 const sessions: DevWatchSession[] = []
@@ -30,22 +31,16 @@ function project() {
   roots.push(root)
   fs.mkdirSync(path.join(root, 'options'), {recursive: true})
   fs.mkdirSync(path.join(root, 'content'), {recursive: true})
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({name: 'unrelated-write', version: '0.0.1', private: true})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'unrelated-write',
+  writeExtensionProject(root, {
+    name: 'unrelated-write',
+    manifest: {
       version: '0.0.1',
       background: {service_worker: 'background.js'},
       options_page: 'options/index.html',
       content_scripts: [{matches: ['<all_urls>'], js: ['content/scripts.js']}]
-    })
-  )
+    },
+    packageJson: {version: '0.0.1'}
+  })
 
   fs.writeFileSync(path.join(root, 'background.js'), 'console.log("bg")\n')
   fs.writeFileSync(

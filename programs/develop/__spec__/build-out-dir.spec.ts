@@ -5,6 +5,7 @@ import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
 import {readyContractPath} from '../lib/session-paths'
 import {buildProject} from './helpers/build-project'
+import {writeExtensionProject} from './helpers/extension-project'
 
 const roots: string[] = []
 const children: ChildProcess[] = []
@@ -18,20 +19,10 @@ function project(config?: string) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-out-dir-'))
   roots.push(root)
 
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'out-dir', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'out-dir',
-      version: '1.0.0',
-      background: {service_worker: 'background.js'}
-    })
-  )
+  writeExtensionProject(root, {
+    name: 'out-dir',
+    manifest: {background: {service_worker: 'background.js'}}
+  })
 
   fs.writeFileSync(path.join(root, 'background.js'), 'console.log(1)\n')
 

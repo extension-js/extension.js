@@ -8,6 +8,7 @@ import {
   findPageRelativeScriptPaths,
   findRuntimeMainWorldEntries
 } from '../runtime-main-world-scripts'
+import {writeProjectFiles} from '../../../../__spec__/helpers/extension-project'
 
 const roots: string[] = []
 
@@ -21,11 +22,7 @@ function project(files: Record<string, string>) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-rt-main-find-'))
   roots.push(root)
 
-  for (const [name, contents] of Object.entries(files)) {
-    const file = path.join(root, name)
-    fs.mkdirSync(path.dirname(file), {recursive: true})
-    fs.writeFileSync(file, contents, 'utf8')
-  }
+  writeProjectFiles(root, files)
 
   const at = (name: string) => path.join(root, name)
   const find = (

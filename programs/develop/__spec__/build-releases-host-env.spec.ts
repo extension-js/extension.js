@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {trackTempFolders} from './helpers/temp-folders'
+import {buildProject} from './helpers/build-project'
 
 // A library host that runs a build keeps running after it. The env files the
 // config loaded and the card the build claimed must not stay in its process.
@@ -75,21 +76,18 @@ function quiet() {
 }
 
 async function build(root: string, options: Record<string, unknown> = {}) {
-  const {extensionBuild, resetBuildToolchainLine} = await import(
-    '../command-build'
-  )
+  const {resetBuildToolchainLine} = await import('../command-build')
 
   resetBuildToolchainLine()
   quiet()
 
   try {
-    await extensionBuild(root, {
-      browser: 'chrome',
-      install: false,
+    await buildProject(root, {
+      silent: undefined,
       mode: 'production',
       exitOnError: false,
       ...options
-    } as never)
+    })
 
     return undefined
   } catch (error) {
@@ -201,9 +199,7 @@ describe('a library host after a build (real rspack)', () => {
 
   it('gives the card back when printing it throws', async () => {
     const root = project()
-    const {extensionBuild, resetBuildToolchainLine} = await import(
-      '../command-build'
-    )
+    const {resetBuildToolchainLine} = await import('../command-build')
 
     resetBuildToolchainLine()
     quiet()
@@ -213,12 +209,11 @@ describe('a library host after a build (real rspack)', () => {
       }
     })
 
-    await extensionBuild(root, {
-      browser: 'chrome',
-      install: false,
+    await buildProject(root, {
+      silent: undefined,
       mode: 'production',
       exitOnError: false
-    } as never).catch(() => undefined)
+    }).catch(() => undefined)
 
     vi.restoreAllMocks()
 

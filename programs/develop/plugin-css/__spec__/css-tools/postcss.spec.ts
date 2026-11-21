@@ -1,15 +1,22 @@
 import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
-import postcss from 'postcss'
+import postcss, {type AcceptedPlugin} from 'postcss'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {
   isUsingPostCss,
   loadUserPostCssConfigObject,
-  maybeUsePostCss
+  maybeUsePostCss,
+  type PostCssLoaderRule,
+  type PostCssRule
 } from '../../css-tools/postcss'
 import {cssProjects} from '../helpers/css-project'
 import {canImportTypeScript} from '../helpers/typescript-import'
+
+// A PostCSS project gets the loader rule. A row that reads its options from
+// a rule without them still fails at the read.
+const postcssOptionsOf = (rule: PostCssRule) =>
+  (rule as PostCssLoaderRule).options.postcssOptions
 
 const makeProject = cssProjects()
 const POSTCSS_LOADER = createRequire(import.meta.url).resolve('postcss-loader')
@@ -86,17 +93,11 @@ function captureConsole() {
   }
 }
 
-// The postcss-loader rule hands its plugins to postcss under these options.
-interface PostCssRule {
-  options: {postcssOptions: {plugins: unknown[]}}
-}
-
-function pluginNames(rule: Record<string, unknown>) {
-  return (rule as unknown as PostCssRule).options.postcssOptions.plugins.map(
-    (plugin) =>
-      plugin && typeof plugin === 'object' && 'postcssPlugin' in plugin
-        ? plugin.postcssPlugin
-        : plugin
+function pluginNames(rule: PostCssRule) {
+  return (postcssOptionsOf(rule).plugins as unknown[]).map((plugin) =>
+    plugin && typeof plugin === 'object' && 'postcssPlugin' in plugin
+      ? plugin.postcssPlugin
+      : plugin
   )
 }
 
@@ -198,7 +199,7 @@ describe('maybeUsePostCss reads each config shape', () => {
 
     const rule = await maybeUsePostCss(root, {mode: 'production'})
 
-    expect(rule.options.postcssOptions).toEqual({
+    expect(postcssOptionsOf(rule)).toEqual({
       cwd: root,
       config: false,
       plugins: [{postcssPlugin: 'fake-plugin'}]
@@ -242,7 +243,7 @@ describe('maybeUsePostCss reads each config shape', () => {
 
     const rule = await maybeUsePostCss(root, {mode: 'development'})
 
-    expect(rule.options.postcssOptions).toEqual({
+    expect(postcssOptionsOf(rule)).toEqual({
       cwd: root,
       config: false,
       plugins: [{postcssPlugin: 'fake-plugin'}, {postcssPlugin: 'local-plugin'}]
@@ -256,7 +257,7 @@ describe('maybeUsePostCss reads each config shape', () => {
 
     const rule = await maybeUsePostCss(root, {mode: 'development'})
 
-    expect(rule.options.postcssOptions).toEqual({
+    expect(postcssOptionsOf(rule)).toEqual({
       cwd: root,
       config: path.join(root, '.postcssrc.yml')
     })
@@ -267,7 +268,7 @@ describe('maybeUsePostCss reads each config shape', () => {
 
     const rule = await maybeUsePostCss(root, {mode: 'development'})
 
-    expect(rule.options.postcssOptions).toEqual({cwd: root, config: root})
+    expect(postcssOptionsOf(rule)).toEqual({cwd: root, config: root})
   })
 
   it.each([
@@ -347,7 +348,7 @@ describe('maybeUsePostCss reports a config it cannot use', () => {
 
     const rule = await maybeUsePostCss(root, {mode: 'development'})
 
-    expect(rule.options.postcssOptions).toEqual(
+    expect(postcssOptionsOf(rule)).toEqual(
       (await canImportTypeScript())
         ? {cwd: root, config: false, plugins: [{postcssPlugin: 'fake-plugin'}]}
         : {cwd: root, config: path.join(root, 'postcss.config.ts')}
@@ -392,7 +393,7 @@ describe('maybeUsePostCss with Tailwind', () => {
 
     const rule = await maybeUsePostCss(root, {mode: 'development'})
 
-    expect(rule.options.postcssOptions).toEqual({
+    expect(postcssOptionsOf(rule)).toEqual({
       cwd: root,
       config: root,
       plugins: [...SHIMS, {postcssPlugin: '@tailwindcss/postcss'}]
@@ -412,7 +413,7 @@ describe('maybeUsePostCss with Tailwind', () => {
 
     const rule = await maybeUsePostCss(root, {mode: 'development'})
 
-    expect(rule.options.postcssOptions).toEqual({
+    expect(postcssOptionsOf(rule)).toEqual({
       cwd: root,
       config: path.join(root, 'postcss.config.js')
     })
@@ -453,7 +454,7 @@ describe('maybeUsePostCss with Tailwind', () => {
     })
 
     expect(rule.loader).toBe(POSTCSS_LOADER)
-    expect(rule.options.postcssOptions).toEqual({cwd: root, config: root})
+    expect(postcssOptionsOf(rule)).toEqual({cwd: root, config: root})
     expect(warned).toEqual([
       [
         "⏵⏵⏵ Warning: Couldn't find the Tailwind PostCSS plugin in this project, so the build ran without it.",
@@ -487,7 +488,7 @@ describe('maybeUsePostCss with Tailwind', () => {
         warn: (message) => warned.push(message)
       })
 
-      expect(rule.options.postcssOptions).toEqual({cwd: root, config: root})
+      expect(postcssOptionsOf(rule)).toEqual({cwd: root, config: root})
       expect(calls(outside)).toEqual([])
       expect(warned).toHaveLength(1)
     } finally {
@@ -537,7 +538,7 @@ describe('maybeUsePostCss with Tailwind', () => {
     const rule = await maybeUsePostCss(root, {mode: 'development'})
     const instance = {postcssPlugin: '@tailwindcss/postcss'}
 
-    expect(rule.options.postcssOptions).toEqual(
+    expect(postcssOptionsOf(rule)).toEqual(
       (await canImportTypeScript())
         ? {cwd: root, config: false, plugins: [instance]}
         : {
@@ -559,10 +560,13 @@ describe('maybeUsePostCss with Tailwind', () => {
     })
 
     const rule = await maybeUsePostCss(root, {mode: 'development'})
-    const plugins = rule.options.postcssOptions.plugins
-    const out = await postcss([plugins[2]]).process('@import "tailwindcss";', {
-      from: undefined
-    })
+    const plugins = postcssOptionsOf(rule).plugins
+    const out = await postcss([(plugins as AcceptedPlugin[])[2]]).process(
+      '@import "tailwindcss";',
+      {
+        from: undefined
+      }
+    )
 
     expect(out.css).toBe(
       '@import "tailwindcss";.from-\\[\\#1a1333\\]{--tw-gradient-from:#1a1333}'
@@ -579,7 +583,7 @@ describe('maybeUsePostCss with Tailwind', () => {
 
     const rule = await maybeUsePostCss(root, {mode: 'development'})
 
-    expect(rule.options.postcssOptions).toEqual({
+    expect(postcssOptionsOf(rule)).toEqual({
       cwd: root,
       config: false,
       plugins: [{postcssPlugin: '@tailwindcss/postcss'}]
@@ -613,7 +617,7 @@ describe('maybeUsePostCss with Tailwind', () => {
 
     const rule = await maybeUsePostCss(root, {mode: 'development'})
 
-    expect(rule.options.postcssOptions).toEqual({
+    expect(postcssOptionsOf(rule)).toEqual({
       cwd: root,
       config: false,
       plugins: [{postcssPlugin: 'tailwindcss'}]
@@ -637,7 +641,7 @@ describe('maybeUsePostCss with Tailwind', () => {
 
     const rule = await maybeUsePostCss(app, {mode: 'development'})
 
-    expect(rule.options.postcssOptions.plugins).toEqual([
+    expect(postcssOptionsOf(rule).plugins).toEqual([
       {postcssPlugin: 'tailwindcss'}
     ])
 
@@ -656,7 +660,7 @@ describe('maybeUsePostCss with Tailwind', () => {
 
     const rule = await maybeUsePostCss(root, {mode: 'development'})
 
-    expect(rule.options.postcssOptions).toEqual({
+    expect(postcssOptionsOf(rule)).toEqual({
       cwd: root,
       config: false,
       plugins: [{postcssPlugin: '@tailwindcss/postcss'}]
@@ -678,7 +682,7 @@ describe('maybeUsePostCss with Tailwind', () => {
 
     const rule = await maybeUsePostCss(root, {mode: 'development'})
 
-    expect(rule.options.postcssOptions).toEqual({
+    expect(postcssOptionsOf(rule)).toEqual({
       cwd: root,
       config: false,
       plugins: [{postcssPlugin: 'tailwindcss'}, {postcssPlugin: 'autoprefixer'}]
@@ -699,7 +703,7 @@ describe('maybeUsePostCss with Tailwind', () => {
 
     const rule = await maybeUsePostCss(root, {mode: 'development'})
 
-    expect(rule.options.postcssOptions).toEqual({
+    expect(postcssOptionsOf(rule)).toEqual({
       cwd: root,
       config: false,
       plugins: [...SHIMS, {postcssPlugin: 'tailwindcss'}]
@@ -725,7 +729,7 @@ describe('maybeUsePostCss with Tailwind', () => {
 
     const rule = await maybeUsePostCss(root, {mode: 'development'})
 
-    expect(rule.options.postcssOptions).toEqual({
+    expect(postcssOptionsOf(rule)).toEqual({
       cwd: root,
       config: false,
       plugins: [
@@ -796,7 +800,7 @@ describe('maybeUsePostCss with Tailwind', () => {
 
     const rule = await maybeUsePostCss(root, {mode: 'development'})
 
-    expect(rule.options.postcssOptions).toEqual({
+    expect(postcssOptionsOf(rule)).toEqual({
       cwd: root,
       config: false,
       plugins: [

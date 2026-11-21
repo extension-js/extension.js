@@ -1,33 +1,24 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
+import {
+  writeExtensionProject,
+  writeProjectFiles
+} from './helpers/extension-project'
 
 // Two theme images that share a basename in different folders are two
 // files. The built manifest must name two output paths and dist must hold
 // each file's own bytes, or additional_backgrounds pairs up with the wrong
 // alignment and tiling entries in silence.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project(files: Record<string, string>, images: unknown) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-theme-images-'))
-  roots.push(root)
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'theme', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
+  const root = tempFolder('extjs-theme-images-')
+  writeExtensionProject(root, {
+    manifest: {
       name: 'Theme',
-      version: '1.0.0',
       theme: {
         images,
         colors: {frame: [1, 2, 3]},
@@ -36,14 +27,11 @@ function project(files: Record<string, string>, images: unknown) {
           additional_backgrounds_tiling: ['no-repeat', 'repeat']
         }
       }
-    })
-  )
+    },
+    packageJson: {name: 'theme'}
+  })
 
-  for (const [rel, content] of Object.entries(files)) {
-    const abs = path.join(root, rel)
-    fs.mkdirSync(path.dirname(abs), {recursive: true})
-    fs.writeFileSync(abs, content)
-  }
+  writeProjectFiles(root, files)
 
   return root
 }

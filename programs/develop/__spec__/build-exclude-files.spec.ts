@@ -1,20 +1,17 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 // The published type, so a config a project annotates with it is what the
 // fixtures write and the typecheck gate fails once the type drops the key.
 import type {FileConfig} from '../../extension/config-types'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
+import {writeProjectFiles} from './helpers/extension-project'
 
 // An offscreen document only Chromium opens lives in pages/ beside a page
 // every browser ships. `browser.firefox.exclude` leaves it out of the Firefox
 // build at the entry level: no HTML, no chunk, nothing the manifest names.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function stripAnsi(value: string): string {
   // eslint-disable-next-line no-control-regex
@@ -26,8 +23,7 @@ function project(
   config: FileConfig,
   manifest: Record<string, unknown> = {}
 ) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-exclude-'))
-  roots.push(root)
+  const root = tempFolder('extjs-exclude-')
 
   fs.writeFileSync(
     path.join(root, 'package.json'),
@@ -50,11 +46,7 @@ function project(
     `module.exports = ${JSON.stringify(config)}\n`
   )
 
-  for (const [rel, content] of Object.entries(files)) {
-    const abs = path.join(root, rel)
-    fs.mkdirSync(path.dirname(abs), {recursive: true})
-    fs.writeFileSync(abs, content)
-  }
+  writeProjectFiles(root, files)
 
   return root
 }

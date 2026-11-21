@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {withheldCssRefs} from '../../lib/withheld-file'
 import {cssProjects, expectNoWorkspaceAbove} from './helpers/css-project'
+import {buildProject} from '../../__spec__/helpers/build-project'
 
 const makeProject = cssProjects()
 const CAPTURED = '__extjsWithheldCssRefSpecCompilation'
@@ -82,19 +83,11 @@ interface Finding {
 }
 
 async function build(app: string) {
-  const {extensionBuild} = await import('../../command-build')
-  const previous = process.env.VITEST
-
-  process.env.VITEST = 'true'
-
   try {
-    const summary = (await extensionBuild(app, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
+    const summary = (await buildProject(app, {
       mode: 'production',
       exitOnError: false
-    } as never)) as {errors_count: number; warnings?: string[]}
+    })) as {errors_count: number; warnings?: string[]}
 
     return {summary, failed: undefined}
   } catch (error) {
@@ -102,9 +95,6 @@ async function build(app: string) {
     if (!Array.isArray(failed)) throw error
 
     return {summary: undefined, failed}
-  } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
   }
 }
 

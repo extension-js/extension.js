@@ -118,8 +118,13 @@ export interface RunAddonLintInput {
 // library host looping over targets read it once, not once per target.
 const hintedProjects = new Set<string>()
 
+// The linter's module or a namespace whose default export is that module.
+type MaybeLinter = {createInstance?: unknown; default?: MaybeLinter} | undefined
+
 function toModule(loaded: AnyModule): LinterModule {
-  const candidate = loaded?.createInstance ? loaded : loaded?.default
+  const candidate = (loaded as MaybeLinter)?.createInstance
+    ? (loaded as MaybeLinter)
+    : (loaded as MaybeLinter)?.default
 
   if (typeof candidate?.createInstance !== 'function') {
     throw codedError(

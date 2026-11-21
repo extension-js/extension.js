@@ -1,21 +1,14 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {patchHtml, patchHtmlNested} from '../../html-lib/patch-html'
+import {trackTempFolders} from '../../../../__spec__/helpers/temp-folders'
 
-const tmpRoots: string[] = []
-
-afterAll(() => {
-  for (const root of tmpRoots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function makeTmp(name: string) {
-  const created = fs.mkdtempSync(
-    path.join(os.tmpdir(), `extjs-patch-html-${name}-`)
-  )
-  tmpRoots.push(created)
+  const created = tempFolder(`extjs-patch-html-${name}-`)
 
   return fs.realpathSync(created)
 }

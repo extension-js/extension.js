@@ -2,15 +2,16 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {type Compiler, rspack} from '@rspack/core'
-import {afterAll, afterEach, describe, expect, it} from 'vitest'
+import {afterEach, describe, expect, it} from 'vitest'
 import type {DevOptions, FilepathList} from '../../../types'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../contracts'
 import {AddScripts} from '../steps/add-scripts'
 import {CompileMainWorldScripts} from '../steps/compile-main-world-scripts'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 
 // One file per manifest field in a real watch session: the file is deleted
 // after the first build, then written back with new text.
-const roots: string[] = []
+const tempFolder = trackTempFolders()
 const watching: Compiler[] = []
 
 afterEach(async () => {
@@ -18,10 +19,6 @@ afterEach(async () => {
     const compiler = watching.pop()!
     await new Promise<void>((resolve) => compiler.close(() => resolve()))
   }
-})
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
 })
 
 interface Report {
@@ -163,10 +160,7 @@ const HOT_RUNTIME = '__webpack_require__.hmrC'
 // With `imported`, the named file imports that one, which is the file
 // deleted and written back.
 function session(row: Row, imported?: string) {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-entry-written-back-'))
-  )
-  roots.push(root)
+  const root = fs.realpathSync(tempFolder('extjs-entry-written-back-'))
 
   const at = (...parts: string[]) => path.join(root, ...parts)
   const named = at(...row.named.split('/'))

@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import type {Compiler, SwcLoaderOptions} from '@rspack/core'
+import type {Compiler, RuleSetRule, SwcLoaderOptions} from '@rspack/core'
 import {filterKeysForThisBrowser} from '../lib/manifest-utils'
 import {debugLine, isDebug} from '../lib/messaging'
 import {ensureOptionalPackageResolved} from '../lib/optional-deps-resolver'
@@ -641,8 +641,9 @@ export class JsFrameworksPlugin {
       })
     }
 
+    // The swc and Babel rules are built loose, so they are read as rules here.
     compiler.options.module.rules = [
-      ...swcRules,
+      ...(swcRules as RuleSetRule[]),
       ...(maybeInstallReact?.loaders || []),
       ...(maybeInstallPreact?.loaders || []),
       ...vueLoadersToAdd,
@@ -650,7 +651,7 @@ export class JsFrameworksPlugin {
       // Solid's compiler sees the JSX before swc gets the plain output.
       ...(maybeInstallSolid?.loaders || []),
       ...(maybeInstallSvelte?.loaders || []),
-      ...babelRules,
+      ...(babelRules as RuleSetRule[]),
       ...existingRules
     ].filter(Boolean)
 

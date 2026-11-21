@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
 import {categorizeAsset} from '../plugin-perf-budgets/categorize'
 import {buildProject} from './helpers/build-project'
+import {writeProjectFiles} from './helpers/extension-project'
 
 const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGBgAAAABQAB' +
@@ -74,11 +75,7 @@ function project() {
     'public/css/file.css': 'h1 { color: tomato; }\n'
   }
 
-  for (const [rel, content] of Object.entries(files)) {
-    const abs = path.join(root, rel)
-    fs.mkdirSync(path.dirname(abs), {recursive: true})
-    fs.writeFileSync(abs, content)
-  }
+  writeProjectFiles(root, files)
 
   return root
 }

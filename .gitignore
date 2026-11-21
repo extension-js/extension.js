@@ -16,7 +16,7 @@ programs/**/*.d.ts
 node_modules
 .pnp
 .pnp.js
- 
+
 # testing
 coverage
 

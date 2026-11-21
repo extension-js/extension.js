@@ -78,18 +78,17 @@ describe('what plugin-reload reaches in the dev server and the browsers', () => 
   })
 
   it('reads the control bridge and nothing else of the dev server', () => {
-    const allowed = new Set([
-      'control-bridge/contracts',
-      'control-bridge/producer-runtime'
-    ])
     const reached = files.flatMap(({text}) =>
       specifiers(text)
         .filter((from) => from.includes('/dev-server/'))
         .map((from) => from.split('/dev-server/')[1])
     )
 
-    expect(reached.length).toBeGreaterThan(0)
-    expect(reached.filter((from) => !allowed.has(from))).toEqual([])
+    // An exact list, so a module that moved or is no longer read is named.
+    expect([...new Set(reached)].sort()).toEqual([
+      'control-bridge/contracts',
+      'control-bridge/producer-runtime'
+    ])
   })
 
   // Every step that prepends to the background, the reload runtime and the
