@@ -7,6 +7,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {loadCommandConfig, loadCustomConfig} from '../config-loader'
 import {configLoadingError} from '../messages'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+import {writeProjectFiles} from '../../__spec__/helpers/extension-project'
 
 const KEYS = ['MY_CFG_VALUE', 'EXTENSION_PUBLIC_A']
 const tempFolder = trackTempFolders()
@@ -39,11 +40,7 @@ function project(files: Record<string, string>) {
     JSON.stringify({private: true, name: 'cfg-identity', version: '0.0.0'})
   )
 
-  for (const [name, contents] of Object.entries(files)) {
-    const target = path.join(root, name)
-    fs.mkdirSync(path.dirname(target), {recursive: true})
-    fs.writeFileSync(target, contents, 'utf-8')
-  }
+  writeProjectFiles(root, files)
 
   return root
 }

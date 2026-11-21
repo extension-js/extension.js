@@ -10,6 +10,10 @@ import * as messages from '../messages'
 import {listOutputFiles} from '../output-files'
 import {buildProject} from '../../__spec__/helpers/build-project'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+import {
+  writeExtensionProject,
+  writeProjectFiles
+} from '../../__spec__/helpers/extension-project'
 
 const tempFolder = trackTempFolders()
 
@@ -23,11 +27,7 @@ const BIG = 300 * 1024
 function folder(files: Record<string, Buffer | string>) {
   const root = tempFolder('extjs-dupes-')
 
-  for (const [name, content] of Object.entries(files)) {
-    const target = path.join(root, name)
-    fs.mkdirSync(path.dirname(target), {recursive: true})
-    fs.writeFileSync(target, content)
-  }
+  writeProjectFiles(root, files)
 
   return root
 }
@@ -125,20 +125,10 @@ describe('the duplicate files warning', () => {
 describe('a production build with the same bytes under two names', () => {
   it('warns once with both paths and records it in the summary', async () => {
     const root = tempFolder('extjs-dupes-build-')
-    fs.writeFileSync(
-      path.join(root, 'package.json'),
-      JSON.stringify({private: true, name: 'dupes', version: '0.0.0'})
-    )
-
-    fs.writeFileSync(
-      path.join(root, 'manifest.json'),
-      JSON.stringify({
-        name: 'dupes',
-        version: '1.0.0',
-        manifest_version: 3,
-        background: {service_worker: 'background.js'}
-      })
-    )
+    writeExtensionProject(root, {
+      name: 'dupes',
+      manifest: {background: {service_worker: 'background.js'}}
+    })
 
     fs.writeFileSync(path.join(root, 'background.js'), 'console.log("hi")\n')
     fs.mkdirSync(path.join(root, 'public', 'nested'), {recursive: true})

@@ -11,6 +11,7 @@ import {
 } from '../config-loader'
 import {buildProject} from '../../__spec__/helpers/build-project'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+import {writeExtensionProject} from '../../__spec__/helpers/extension-project'
 
 // Env files reach the config in the usual layers: .env.defaults only fills
 // gaps, .env is the base, .env.local overrides it, and a value the shell
@@ -44,20 +45,10 @@ afterEach(() => {
 
 function project(files: Record<string, string>) {
   const root = tempFolder('extjs-env-preload-')
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'env-preload', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'env-preload',
-      version: '1.0.0',
-      background: {service_worker: 'background.js'}
-    })
-  )
+  writeExtensionProject(root, {
+    name: 'env-preload',
+    manifest: {background: {service_worker: 'background.js'}}
+  })
 
   fs.writeFileSync(path.join(root, 'background.js'), 'console.log("bg")\n')
 
@@ -497,20 +488,10 @@ function workspacePackage(
 
   const dir = path.join(root, 'packages', 'extension')
   fs.mkdirSync(dir, {recursive: true})
-  fs.writeFileSync(
-    path.join(dir, 'package.json'),
-    JSON.stringify({private: true, name: 'env-workspace', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(dir, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'env-workspace',
-      version: '1.0.0',
-      background: {service_worker: 'background.js'}
-    })
-  )
+  writeExtensionProject(dir, {
+    name: 'env-workspace',
+    manifest: {background: {service_worker: 'background.js'}}
+  })
 
   fs.writeFileSync(
     path.join(dir, 'background.js'),
