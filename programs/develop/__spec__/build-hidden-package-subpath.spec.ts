@@ -82,7 +82,7 @@ async function build(root: string) {
       browser: 'chrome',
       install: false,
       mode: 'production'
-    } as any)
+    } as Parameters<typeof import('../command-build').extensionBuild>[1])
 
     return {printed, errors: summary.errors_count, thrown: undefined}
   } catch (error) {

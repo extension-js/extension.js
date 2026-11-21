@@ -13,7 +13,7 @@ const HOOKS = [
 ] as const
 
 type HookName = (typeof HOOKS)[number]
-type Callback = (...args: any[]) => unknown
+type Callback = (...args: unknown[]) => unknown
 
 export interface FakeCompilationOptions {
   context: string

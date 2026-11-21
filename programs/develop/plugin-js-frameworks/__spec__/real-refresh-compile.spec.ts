@@ -72,7 +72,7 @@ async function compileDev(root: string) {
     metadataCommand: 'dev',
     silent: true,
     output: {clean: false, path: path.join(root, 'dist', 'chrome')}
-  } as any)
+  } as Parameters<typeof webpackConfig>[1])
   config.plugins = (config.plugins || []).filter(
     (plugin) =>
       plugin?.constructor.name !== 'plugin-browsers' &&
@@ -92,7 +92,7 @@ async function compileDev(root: string) {
 
   const distPath = path.join(root, 'dist', 'chrome')
   const emitted = fs
-    .readdirSync(distPath, {recursive: true} as any)
+    .readdirSync(distPath, {recursive: true})
     .map((entry) => String(entry))
     .filter((entry) => entry.endsWith('.js'))
     .map((entry) => fs.readFileSync(path.join(distPath, entry), 'utf-8'))

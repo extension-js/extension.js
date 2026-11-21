@@ -87,7 +87,13 @@ function record(cmdId: string): ActionRecord {
   }
 }
 
-function rows(file: string): any[] {
+// A row read back from an NDJSON file: a header, an action or a log event.
+interface Row {
+  messageParts: unknown[]
+  [field: string]: unknown
+}
+
+function rows(file: string): Row[] {
   if (!fs.existsSync(file)) return []
 
   return fs

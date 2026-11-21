@@ -50,7 +50,7 @@ async function build(root: string, options: Record<string, unknown> = {}) {
     install: false,
     mode: 'production',
     ...options
-  } as any)
+  } as Parameters<typeof import('../command-build').extensionBuild>[1])
 }
 
 const zipsIn = (dir: string) =>

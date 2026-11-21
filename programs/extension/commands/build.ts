@@ -265,7 +265,8 @@ export function registerBuildCommand(
           ((await resolveConfigBrowser(
             pathOrRemoteUrl || process.cwd(),
             'build',
-            loadDevelop
+            loadDevelop,
+            buildOptions.mode?.trim().toLowerCase()
           )) as BuildOptions['browser']) ??
           'chromium'
 

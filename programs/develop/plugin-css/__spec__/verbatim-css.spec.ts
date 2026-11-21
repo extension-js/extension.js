@@ -33,9 +33,11 @@ describe('verbatim css restore', () => {
         store.set(name, source)
     }
     expect(verbatimCssPlaceholder(id)).toContain(id)
-    expect(restoreVerbatimCssAssets(compilation as any)).toEqual([
-      'content_scripts/content-0.css'
-    ])
+    expect(
+      restoreVerbatimCssAssets(
+        compilation as unknown as Parameters<typeof restoreVerbatimCssAssets>[0]
+      )
+    ).toEqual(['content_scripts/content-0.css'])
 
     expect(
       store.get('content_scripts/content-0.css')?.source().toString()

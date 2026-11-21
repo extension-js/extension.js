@@ -8,6 +8,9 @@ import {getProjectStructure} from '../../lib/project'
 import webpackConfig from '../../rspack-config'
 import {skipWithoutDevelopDist} from './helpers/develop-dist'
 
+type WebpackConfigOptions = Parameters<typeof webpackConfig>[1]
+type DevServerOptions = ConstructorParameters<typeof RspackDevServer>[0]
+
 const roots: string[] = []
 
 function scaffold() {
@@ -55,7 +58,7 @@ async function startServer(root: string) {
     metadataCommand: 'dev',
     silent: true,
     output: {clean: false, path: path.join(root, 'dist', 'chrome')}
-  } as any)
+  } as WebpackConfigOptions)
   config.plugins = (config.plugins || []).filter(
     (plugin) =>
       plugin?.constructor.name !== 'plugin-browsers' &&
@@ -67,12 +70,12 @@ async function startServer(root: string) {
   const compiler = rspack(config)
   // Port 0 lets the OS pick, so a busy runner never collides with this spec.
   const server = new RspackDevServer(
-    {port: 0, host: '127.0.0.1', hot: true, client: false} as any,
+    {port: 0, host: '127.0.0.1', hot: true, client: false} as DevServerOptions,
     compiler
   )
   await server.start()
 
-  const address = (server.server as any)?.address()
+  const address = server.server?.address()
   const port = typeof address === 'object' && address ? address.port : 0
 
   return {server, port}

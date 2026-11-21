@@ -81,6 +81,12 @@ afterAll(() => {
   fs.rmSync(ROOT, {recursive: true, force: true})
 })
 
+// The globals the bundle leaves on the sandbox the rows read.
+interface PageContext {
+  document: {title: string}
+  Handlebars?: unknown
+}
+
 describe('build: HTML page with a linked stylesheet (real rspack)', () => {
   it('emits a page bundle whose startup only calls modules it defines', async () => {
     const summary = await buildFixture()
@@ -103,7 +109,7 @@ describe('build: HTML page with a linked stylesheet (real rspack)', () => {
     // The failing shape threw after the page's own module ran, so the title
     // alone would not catch it. The run itself has to be clean.
     expect(run).not.toThrow()
-    expect((context as any).document.title).toBe('page ran')
+    expect((context as PageContext).document.title).toBe('page ran')
   }, 120_000)
 
   it('keeps @rspack/core pinned to an exact version', () => {

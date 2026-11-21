@@ -52,7 +52,7 @@ async function build(
     silent: true,
     install: false,
     mode: 'production'
-  } as any)
+  } as Parameters<typeof import('../command-build').extensionBuild>[1])
 }
 
 function polyfillWarnings(summary: {warnings?: string[]}) {

@@ -97,7 +97,7 @@ async function compileDev(root: string, options: CompileOptions = {}) {
     silent: true,
     define: options.define,
     output: {clean: false, path: path.join(root, 'dist', 'chrome')}
-  } as any)
+  } as Parameters<typeof webpackConfig>[1])
   config.plugins = [
     ...(config.plugins || []).filter(
       (plugin) =>
@@ -120,7 +120,7 @@ async function compileDev(root: string, options: CompileOptions = {}) {
 
   const distPath = path.join(root, 'dist', 'chrome')
   const entries = fs.existsSync(distPath)
-    ? (fs.readdirSync(distPath, {recursive: true} as any) as unknown[])
+    ? (fs.readdirSync(distPath, {recursive: true}) as unknown[])
     : []
   const emitted = entries
     .map((entry) => String(entry))

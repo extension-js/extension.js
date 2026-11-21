@@ -85,7 +85,7 @@ async function bundled(
             ? [contentScriptReinject]
             : []
         })
-      } as any,
+      } as unknown as ThisParameterType<typeof contentScriptWrapper>,
       source
     )
   )
