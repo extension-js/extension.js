@@ -7,8 +7,8 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {humanLine, isDebug} from '../../../helpers/messaging'
-import type {BrowserType} from '../../browsers-types'
 import * as messages from '../../browsers-lib/messages'
+import type {BrowserType} from '../../browsers-types'
 
 export function logChromiumDryRun(
   browser: BrowserType,
