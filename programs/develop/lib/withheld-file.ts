@@ -25,7 +25,7 @@ export function withheldFileLines(
 
 export const WITHHELD_CSS_REF = 'CssWithheldRef'
 
-export interface WithheldCssRef {
+interface WithheldCssRef {
   name: typeof WITHHELD_CSS_REF
   // The reference as the stylesheet writes it.
   ref: string

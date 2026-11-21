@@ -12,7 +12,7 @@ import * as path from 'node:path'
 
 // Why a name under public/ never ships. An env file is the one kind a project
 // put there on purpose, so it alone is named in a warning.
-export type PrivateFileKind = 'os' | 'env' | 'tooling'
+type PrivateFileKind = 'os' | 'env' | 'tooling'
 
 // Whole names of a file or a folder, matched in any letter case. `*` stands
 // for any run of characters. Dot-files not listed here ship as authored.
@@ -142,7 +142,7 @@ export function rootAbsolutePathIsWithheld(ref: string): boolean {
 
 // How the build came to a source path. `named`: the author wrote the path
 // of this one file. `walked`: a folder entry or a pattern reached it.
-export type SourceAsk = 'named' | 'walked'
+type SourceAsk = 'named' | 'walked'
 
 function isNodeModules(name: string): boolean {
   return name.toLowerCase() === 'node_modules'

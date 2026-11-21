@@ -23,7 +23,7 @@ export const ADDON_REVIEWER_NOTE_STALE_FILE = 'amo-reviewer-note.stale.md'
 
 // What a reviewer rebuilding the package needs to match it, written into the
 // note itself so the paste the note asks for already carries the versions.
-export interface ReviewerNoteBuild {
+interface ReviewerNoteBuild {
   toolchain?: BuildToolchain
   commit?: string | null
   date?: string
@@ -65,19 +65,19 @@ export function reviewerNoteBuildLine(build: ReviewerNoteBuild): string {
 // chrome.offscreen, whatever else the same file bundles.
 export const AUTHOR_ONLY_CODES = new Set(['UNSUPPORTED_API'])
 
-export interface PackageFacts {
+interface PackageFacts {
   version: string | null
   license: string | null
 }
 
-export interface ReviewerNotePackage extends PackageFacts {
+interface ReviewerNotePackage extends PackageFacts {
   name: string
   // Lines the package may account for, keyed by chunk file, with whether that
   // file also carries the author's own modules.
   findings: Array<{line: AddonLintLine; mixed: boolean}>
 }
 
-export interface ReviewerNote {
+interface ReviewerNote {
   packages: ReviewerNotePackage[]
   own: AddonLintLine[]
 }
@@ -346,7 +346,7 @@ export function addonReviewerNotePath(distPath: string): string {
   )
 }
 
-export interface WriteAddonReviewerNoteInput {
+interface WriteAddonReviewerNoteInput {
   projectPath: string
   distPath: string
   distDisplay: string

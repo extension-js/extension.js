@@ -27,7 +27,6 @@ import {asAskedPath, displayPath} from './paths'
 
 // Imported for local use and re-exported: consumers and snapshots read fmt
 // from this module, and the definition now lives in messaging.ts.
-export {fmt}
 
 function getLoggingPrefix(type: Channel, text?: string): string {
   return prefix(type, text)

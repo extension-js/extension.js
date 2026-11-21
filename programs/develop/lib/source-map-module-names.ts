@@ -8,7 +8,7 @@
 
 import * as path from 'node:path'
 
-export interface SourceMapModuleInfo {
+interface SourceMapModuleInfo {
   absoluteResourcePath: string
   resourcePath: string
   namespace: string

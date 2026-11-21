@@ -207,12 +207,12 @@ export const fmt = {
   }
 }
 
-export interface CardRow {
+interface CardRow {
   label: string
   value?: string
 }
 
-export interface CardInput {
+interface CardInput {
   version?: string
   suffix?: string
   rows?: CardRow[]
@@ -379,7 +379,7 @@ export function artifactNoun(browser: string): 'Add-on' | 'Extension' {
   return 'Extension'
 }
 
-export const ENVELOPE_SCHEMA = 1
+const ENVELOPE_SCHEMA = 1
 
 // Stable identifiers for a failure class. The message beside them is free copy
 // and may be rewritten at any time; the code is the part consumers match on.
@@ -569,7 +569,7 @@ export const CODES = {
 export type ErrorCode = (typeof CODES)[keyof typeof CODES]
 
 // The classes a CDP fault can warn under when the session carried on.
-export const CDP_FAULT_STEMS = [
+const CDP_FAULT_STEMS = [
   'CDP_NOT_CONNECTED',
   'CDP_TIMEOUT',
   'CDP_OP_FAILED',
@@ -588,7 +588,7 @@ export function cdpFaultWarningCode(code: string): ErrorCode {
 
 // The actionable parts a message or hint names, carried beside the sentence so
 // a consumer can render its own copy instead of rewriting the engine's.
-export interface EnvelopeErrorRefs {
+interface EnvelopeErrorRefs {
   flag?: string
   command?: string
   path?: string
@@ -609,7 +609,7 @@ export interface Diagnostic {
 
 // name and engine exist so the act frame stays a subset of this shape: the MCP
 // reads frame.error.message and frame.error.hint today and must keep working.
-export interface EnvelopeError {
+interface EnvelopeError {
   code: ErrorCode
   message: string
   name?: string
@@ -635,7 +635,7 @@ export interface Envelope<T = unknown> {
   warnings: string[]
 }
 
-export interface EnvelopeExtras {
+interface EnvelopeExtras {
   hint?: string
   warnings?: string[]
   truncated?: boolean

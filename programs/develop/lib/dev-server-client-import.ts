@@ -73,7 +73,7 @@ function resolveHmrHotPath(): string {
 }
 
 // The stock socket class the dev server provides to its client.
-export const STOCK_SOCKET_CLIENT_SPECIFIER =
+const STOCK_SOCKET_CLIENT_SPECIFIER =
   '@rspack/dev-server/client/clients/WebSocketClient.js'
 
 export function resolveStockSocketClientPath(): string | undefined {
@@ -88,7 +88,7 @@ export function resolveStockSocketClientPath(): string | undefined {
 
 // Where the session that builds this compiler listens. The environment is
 // never read: the newest session in the process would have written it.
-export type DevServerSession = Partial<
+type DevServerSession = Partial<
   Pick<DevSessionCoordinates, 'protocol' | 'host' | 'connectableHost' | 'path'>
 > & {port?: string | number}
 

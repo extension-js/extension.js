@@ -7,14 +7,6 @@ export interface WildcardModuleDeclaration {
 
 export declare const EXTENSION_ENV_WILDCARD_MODULES: readonly WildcardModuleDeclaration[]
 
-export declare function renderWildcardModuleDeclarations(
-  modules?: readonly WildcardModuleDeclaration[]
-): string
-
-export declare function renderDefineDeclarations(
-  defineTypes?: Readonly<Record<string, string>>
-): string
-
 export interface RenderExtensionEnvTypesOptions {
   readonly inlineAssetTypes?: boolean
   readonly ownChromeTypes?: boolean

@@ -11,13 +11,13 @@ import {processStartedAtMs, processStartId} from './process-started-at'
 import {readReadyRecord} from './ready-contract-writer'
 import {readyContractPath} from './session-paths'
 
-export interface LiveDevSession {
+interface LiveDevSession {
   distPath: string
   pid: number
 }
 
 // EPERM is a process that exists under another user: alive, not ours to signal.
-export function isProcessAlive(pid: number): boolean {
+function isProcessAlive(pid: number): boolean {
   try {
     process.kill(pid, 0)
 

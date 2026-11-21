@@ -233,7 +233,7 @@ export function foldersRoots(
   return roots
 }
 
-export interface MiscasedEntryFolder {
+interface MiscasedEntryFolder {
   name: SpecialFolderName
   dir: string
 }
@@ -260,7 +260,7 @@ export function scriptsFolderRoot(
   return projectRoot ? foldersRoots(projectRoot).scripts : undefined
 }
 
-export type PublicFolderSetting =
+type PublicFolderSetting =
   | {kind: 'default'}
   | {kind: 'off'}
   | {kind: 'path'; dir: string}

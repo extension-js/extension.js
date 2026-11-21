@@ -448,7 +448,7 @@ function listDirectories(dir: string): string[] {
 // cache root, keyed per archive and reused, or one explicit folder.
 export type RemoteArchiveTarget = {cacheRoot: string} | {destination: string}
 
-export interface ProjectPathOptions {
+interface ProjectPathOptions {
   remoteArchive?: RemoteArchiveTarget
   // The command loads a folder and compiles nothing, which its notices say.
   previewing?: boolean
