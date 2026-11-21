@@ -427,10 +427,14 @@ describe('the update check of a spawned CLI', () => {
         'the built line'
       )
 
+      // The engine prints the line a moment before the command returns and
+      // the wait starts, so the signal is held back into the wait itself.
+      await new Promise((resolve) => setTimeout(resolve, 750))
+
       const signaledAt = Date.now()
 
       expect(await session.stop(signal)).toEqual({status: 0, signal: null})
-      expect(Date.now() - signaledAt).toBeLessThan(BOUND_MS - 500)
+      expect(Date.now() - signaledAt).toBeLessThan(1000)
       expect(session.read().stderr).toBe('')
     } finally {
       session.killGroup()
