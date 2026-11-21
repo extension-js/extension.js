@@ -1070,7 +1070,7 @@ export async function loadDefineTypes(
   return types
 }
 
-type ProjectConfigDefaults = Pick<
+export type ProjectConfigDefaults = Pick<
   FileConfig,
   | 'extensions'
   | 'transpilePackages'
@@ -1139,7 +1139,7 @@ type CommandConfigs = NonNullable<FileConfig['commands']>
 
 // The commands.<cmd> layer alone. Top-level keys come from
 // loadProjectConfigDefaults so each keeps its own specificity.
-type CommandLayerConfig = Partial<
+export type CommandLayerConfig = Partial<
   CommandConfigs['dev'] &
     CommandConfigs['build'] &
     CommandConfigs['start'] &
