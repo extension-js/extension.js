@@ -10,7 +10,8 @@ import {
   parseProcessTable,
   type RunCommandOptions,
   runCommand,
-  type SpawnProcess
+  type SpawnProcess,
+  windowsTaskkillPath
 } from '../lib/runner'
 
 // The child is always this node binary, by absolute path, running a script
@@ -640,7 +641,7 @@ describe('runCommand with a real child', () => {
       const windows: SpawnProcess = (command, args, options) => {
         calls.push([command, args, options])
 
-        if (command !== 'taskkill') {
+        if (command !== windowsTaskkillPath()) {
           installer = tracked(command, args, options)
 
           return installer
@@ -662,10 +663,121 @@ describe('runCommand with a real child', () => {
       expect(calls).toHaveLength(2)
       expect(calls[0][2].detached).toBe(false)
       expect(calls[1]).toEqual([
-        'taskkill',
+        windowsTaskkillPath(),
         ['/pid', String(started[0]), '/T', '/F'],
         {stdio: 'ignore'}
       ])
+    })
+
+    // A slow machine can take longer than the grace to start taskkill. A kill
+    // in that window ends the shim alone and orphans what it started.
+    it('waits for a slow taskkill on Windows before it kills anything', async () => {
+      let installer: ReturnType<SpawnProcess> | undefined
+      let aliveWhenTaskkillRan: boolean | undefined
+
+      const windows: SpawnProcess = (command, args, options) => {
+        if (command !== windowsTaskkillPath()) {
+          installer = tracked(command, args, options)
+
+          return installer
+        }
+
+        const taskkill = new EventEmitter()
+
+        setTimeout(() => {
+          aliveWhenTaskkillRan =
+            installer?.exitCode === null && installer?.signalCode === null
+
+          installer?.kill('SIGKILL')
+          taskkill.emit('close', 0)
+        }, 400)
+
+        return taskkill as ReturnType<SpawnProcess>
+      }
+
+      const result = await start(IDLE, {
+        platform: 'win32',
+        spawnProcess: windows,
+        timeoutMs: 150,
+        graceMs: 100
+      })
+
+      expect(result.timedOut).toBe(true)
+      expect(aliveWhenTaskkillRan).toBe(true)
+    })
+
+    it('kills the shim itself when taskkill cannot start', async () => {
+      const commands: string[] = []
+
+      const windows: SpawnProcess = (command, args, options) => {
+        commands.push(command)
+
+        if (command !== windowsTaskkillPath()) {
+          return tracked(command, args, options)
+        }
+
+        const taskkill = new EventEmitter()
+
+        queueMicrotask(() =>
+          taskkill.emit('error', new Error('spawn taskkill ENOENT'))
+        )
+
+        return taskkill as ReturnType<SpawnProcess>
+      }
+
+      const result = await start(IDLE, {
+        platform: 'win32',
+        spawnProcess: windows,
+        timeoutMs: 150,
+        graceMs: 100
+      })
+
+      expect(result.timedOut).toBe(true)
+      expect(commands).toEqual([NODE, windowsTaskkillPath()])
+    })
+  })
+
+  // The child here is a stand-in on a held clock, so the 30 s bound is read
+  // without waiting for it.
+  describe('a taskkill that never answers', () => {
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('still ends the run, once the bound and the grace have passed', async () => {
+      vi.useFakeTimers()
+      const shim = Object.assign(new EventEmitter(), {
+        pid: 4242,
+        stdout: null,
+        stderr: null,
+        signals: [] as string[],
+        kill(signal: NodeJS.Signals) {
+          shim.signals.push(signal)
+          queueMicrotask(() => shim.emit('close', null, signal))
+
+          return true
+        }
+      })
+      const windows: SpawnProcess = (command) =>
+        (command === windowsTaskkillPath()
+          ? new EventEmitter()
+          : shim) as ReturnType<SpawnProcess>
+
+      const run = runCommand(NODE, ['-e', ''], {
+        cwd: scratch,
+        env: {...process.env},
+        platform: 'win32',
+        spawnProcess: windows,
+        timeoutMs: 150,
+        graceMs: 100
+      })
+
+      await vi.advanceTimersByTimeAsync(150 + 29_000)
+      expect(shim.signals).toEqual([])
+
+      await vi.advanceTimersByTimeAsync(1_000 + 100)
+      await expect(run).resolves.toMatchObject({timedOut: true})
+      expect(shim.signals[0]).toBe('SIGKILL')
     })
   })
 })

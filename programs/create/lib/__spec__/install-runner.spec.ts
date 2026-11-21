@@ -266,6 +266,37 @@ describe('install-runner runInstall', () => {
       expect(calls[0].signals).toEqual([])
     })
 
+    // The shim is killed only once taskkill has failed: a kill before it ran
+    // would end the shim alone and orphan the manager it started.
+    it.each([
+      ['cannot start', ['SIGKILL'], {error: missingBinary('taskkill')}],
+      ['refuses', ['SIGKILL'], {exit: 1}],
+      ['ends the tree', [], {exit: 0}]
+    ])('on Windows, when taskkill %s, the shim receives %j', async (_case, signals, taskkill) => {
+      vi.useFakeTimers()
+      const {spawn, calls} = fakeSpawn((command) =>
+        command === windowsTaskkillPath() ? taskkill : {}
+      )
+
+      const run = runInstall('pnpm', ['install'], {
+        cwd: os.tmpdir(),
+        stdio: 'pipe',
+        spawn,
+        platform: 'win32',
+        timeoutMs: 5000
+      })
+
+      await vi.advanceTimersByTimeAsync(5000)
+      await expect(run).resolves.toMatchObject({code: null})
+
+      expect(calls.map((call) => call.command)).toEqual([
+        'pnpm',
+        windowsTaskkillPath()
+      ])
+
+      expect(calls[0].signals).toEqual(signals)
+    })
+
     // A taskkill earlier on PATH, such as one a project folder ships, never runs.
     it.each([
       [{SystemRoot: 'D:\\Windows'}, 'D:\\Windows\\System32\\taskkill.exe'],

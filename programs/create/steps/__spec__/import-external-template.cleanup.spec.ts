@@ -11,7 +11,8 @@ import {
 import {extensionCreate} from '../../module'
 import {
   cleanupFailedImport,
-  importExternalTemplate
+  importExternalTemplate,
+  putBackOwnerHiddenFiles
 } from '../import-external-template'
 
 const noopLogger = {log: () => {}, error: () => {}}
@@ -215,4 +216,50 @@ describe('a create that fails partway in an existing folder', () => {
       ])
     }
   )
+
+  // A read-only owner file stops the copy before it is replaced, so it still
+  // holds the owner's bytes and nothing is missing to report.
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'says nothing about an owner file the failed copy never replaced',
+    async () => {
+      const mcpConfig = path.join(project, '.mcp.json')
+      await fsp.chmod(mcpConfig, 0o444)
+
+      const error = (await importExternalTemplate(
+        project,
+        'project',
+        template,
+        noopLogger
+      ).catch((thrown: Error) => thrown)) as Error
+      const frame = String(error.message).replace(ANSI, '')
+
+      expect(frame.match(/⏵⏵⏵/g)).toHaveLength(1)
+      expect(frame).not.toContain("Couldn't put back")
+      expect(await fsp.readFile(mcpConfig, 'utf8')).toBe(OWNER_MCP_CONFIG)
+      expect(await fsp.readFile(path.join(project, '.gitignore'), 'utf8')).toBe(
+        OWNER_GITIGNORE
+      )
+    }
+  )
+
+  // Read-only is a file attribute on Windows too, so this runs everywhere.
+  it('writes back only an owner file that no longer holds its bytes', async () => {
+    const gitignore = path.join(project, '.gitignore')
+    const mcpConfig = path.join(project, '.mcp.json')
+    await fsp.writeFile(gitignore, 'template-rule\n')
+    await fsp.chmod(mcpConfig, 0o444)
+
+    try {
+      const notRestored = await putBackOwnerHiddenFiles(project, {
+        gitignore: OWNER_GITIGNORE,
+        mcpConfig: Buffer.from(OWNER_MCP_CONFIG)
+      })
+
+      expect(notRestored).toEqual([])
+      expect(await fsp.readFile(gitignore, 'utf8')).toBe(OWNER_GITIGNORE)
+      expect(await fsp.readFile(mcpConfig, 'utf8')).toBe(OWNER_MCP_CONFIG)
+    } finally {
+      await fsp.chmod(mcpConfig, 0o644)
+    }
+  })
 })

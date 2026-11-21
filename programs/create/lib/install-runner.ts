@@ -277,14 +277,28 @@ export function endProcessTree(
   signalGroup?: SignalGroup
 ) {
   if (platform === 'win32' && child.pid !== undefined) {
+    // Only once taskkill has failed: a kill before it runs would end the shim
+    // alone and orphan the manager it started.
+    const killShim = () => {
+      try {
+        child.kill('SIGKILL')
+      } catch {
+        // Already gone.
+      }
+    }
+
     try {
       spawnProcess(
         windowsTaskkillPath(),
         ['/pid', String(child.pid), '/T', '/F'],
         {stdio: 'ignore'}
-      ).on('error', () => {})
+      )
+        .on('error', killShim)
+        .on('close', (code: number | null) => {
+          if (code !== 0) killShim()
+        })
     } catch {
-      // The child is already gone, and the timeout is still what gets reported.
+      killShim()
     }
 
     return
