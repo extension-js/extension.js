@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import type {SessionCommand} from '../types'
 import {trackTempFolders} from './helpers/temp-folders'
 
 // With no browser asked for, a command reads the config once to learn
@@ -65,7 +66,7 @@ function quiet() {
 const seen = () =>
   (globalThis as {__configProbeSeen?: unknown[]}).__configProbeSeen || []
 
-async function firstRead(command: string, root: string, options = {}) {
+async function firstRead(command: SessionCommand, root: string, options = {}) {
   quiet()
 
   const run =
@@ -74,16 +75,16 @@ async function firstRead(command: string, root: string, options = {}) {
           install: false,
           noBrowser: true,
           ...options
-        } as never)
+        })
       : command === 'build'
         ? (await import('../command-build')).extensionBuild(root, {
             install: false,
             exitOnError: false,
             ...options
-          } as never)
+          })
         : (await import('../command-preview')).extensionPreview(
             root,
-            {metadataCommand: command, noBrowser: true, ...options} as never,
+            {metadataCommand: command, noBrowser: true, ...options},
             async () => undefined
           )
 
@@ -102,7 +103,7 @@ describe('the first config read of a command with no browser asked for', () => {
     ['build', '.env.chromium'],
     ['preview', '.env.chromium'],
     ['start', '.env.chromium']
-  ])('%s reads %s, the stock default browser file', async (command, file) => {
+  ] as const)('%s reads %s, the stock default browser file', async (command, file) => {
     const {failure, read} = await firstRead(command, project(file))
 
     expect(String(failure?.message)).toContain('no-such-browser')

@@ -52,7 +52,7 @@ async function preview(
     browser: 'chrome',
     noBrowser: true,
     ...options
-  } as never)
+  })
   const text = (calls: unknown[][]) =>
     calls.map((call) => String(call[0])).join('\n')
 
@@ -170,7 +170,7 @@ describe('a named companion that is not an extension, with no browser', () => {
 
     const withBrowser = await extensionPreview(
       root,
-      {browser: 'chrome', extensions: named} as never,
+      {browser: 'chrome', extensions: named},
       async () => {}
     )
 
@@ -241,7 +241,7 @@ describe('a named companion that is not an extension, with no browser', () => {
 
     const withBrowser = await extensionPreview(
       root,
-      {browser: 'chrome', ...declared} as never,
+      {browser: 'chrome', ...declared},
       async () => {}
     )
 
@@ -263,7 +263,7 @@ describe('a named companion that is not an extension, with no browser', () => {
         {
           browser: 'chrome',
           extensions: ['abcdefghijklmnopabcdefghijklmnop']
-        } as never,
+        },
         async () => {}
       )
     ).rejects.toThrow('looks like a store id')

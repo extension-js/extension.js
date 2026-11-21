@@ -53,7 +53,7 @@ describe('a Safari build whose packaging step fails', () => {
         safariPackager: async () => {
           throw new Error('the app could not be built')
         }
-      } as never)
+      })
     )
     const ready = readyOf(root, 'safari')
 
@@ -76,7 +76,7 @@ describe('a Safari build whose packaging step fails', () => {
       buildProject(root, {
         browser: 'safari',
         safariPackager: async () => ({})
-      } as never)
+      })
     )
     const ready = readyOf(root, 'safari')
 
@@ -96,7 +96,7 @@ describe('a Safari build whose packaging step fails', () => {
 
         return {}
       }
-    } as never)
+    })
 
     expect(statusWhilePackaging).toBe('starting')
     expect(readyOf(root, 'safari').status).toBe('ready')

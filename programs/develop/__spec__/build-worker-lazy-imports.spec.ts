@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as vm from 'node:vm'
 import {describe, expect, it} from 'vitest'
+import type {BrowserType} from '../types'
 import {buildProject} from './helpers/build-project'
 import {trackTempFolders} from './helpers/temp-folders'
 
@@ -66,7 +67,7 @@ function project(background: Record<string, unknown>) {
 
 type Mode = 'development' | 'production'
 
-async function build(root: string, browser: string, mode: Mode) {
+async function build(root: string, browser: BrowserType, mode: Mode) {
   const summary = await buildProject(root, {browser, mode})
   expect(summary.errors_count).toBe(0)
 

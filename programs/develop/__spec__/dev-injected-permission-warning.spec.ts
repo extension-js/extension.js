@@ -69,7 +69,7 @@ async function devCompile(background: string) {
     metadataCommand: 'dev',
     silent: true,
     output: {clean: false, path: path.join(root, 'dist', 'firefox')}
-  } as never)
+  })
   config.plugins = (config.plugins || []).filter(
     (plugin) =>
       plugin?.constructor.name !== 'plugin-browsers' &&
