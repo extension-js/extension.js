@@ -13,26 +13,17 @@ import webpackConfig from '../../rspack-config'
 import {withSessionStartPrune} from '../session-start-prune'
 import {skipWithoutDevelopDist} from './helpers/develop-dist'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+import {writeExtensionProject} from '../../__spec__/helpers/extension-project'
 
 const tempFolder = trackTempFolders()
 
 function scaffold() {
   const root = tempFolder('extjs-start-prune-')
 
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'start-prune', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'start-prune',
-      version: '0.0.0',
-      action: {default_popup: 'popup.html'}
-    })
-  )
+  writeExtensionProject(root, {
+    name: 'start-prune',
+    manifest: {version: '0.0.0', action: {default_popup: 'popup.html'}}
+  })
 
   fs.writeFileSync(
     path.join(root, 'popup.html'),
