@@ -10,6 +10,17 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {WebpackError} from '@rspack/core'
 import {
+  rewriteInlinedCssUrls,
+  toRuntimeStylesheetModule
+} from '../lib/css/inline-content-script-css'
+import {
+  inlineCssImports,
+  isNamedByCssImport,
+  readCssImports,
+  whyNotRead
+} from '../lib/css/inline-css-imports'
+import {withheldCssRef} from '../lib/css/messages'
+import {
   cssUrlRefFiles,
   extractCssUrlRefs,
   isDeadCssUrlRef,
@@ -26,16 +37,6 @@ import {
   WITHHELD_CSS_REF,
   type WithheldKind
 } from '../lib/withheld-file'
-import {
-  rewriteInlinedCssUrls,
-  toRuntimeStylesheetModule
-} from './css-lib/inline-content-script-css'
-import {
-  inlineCssImports,
-  isNamedByCssImport,
-  readCssImports,
-  whyNotRead
-} from './css-lib/inline-css-imports'
 import * as messages from './css-lib/messages'
 
 interface CompilationLike {
@@ -80,7 +81,7 @@ function pushDeadRef(
   const compilation = loader._compilation
   const report = new WebpackError(
     withheld
-      ? messages.withheldCssRef(
+      ? withheldCssRef(
           issuerPath,
           request,
           withheld.kind,

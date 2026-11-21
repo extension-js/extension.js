@@ -1,6 +1,7 @@
 import * as vm from 'node:vm'
 import {rspack} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
+import {toRuntimeStylesheetModule} from '../../../lib/css/inline-content-script-css'
 import {
   EXTENSION_BASE_ATTRIBUTE,
   EXTENSION_BASE_GLOBAL,
@@ -8,7 +9,6 @@ import {
   extensionBaseGlobal,
   extensionSchemeFor
 } from '../../../lib/extension-base-from-stack'
-import {toRuntimeStylesheetModule} from '../../../plugin-css/css-lib/inline-content-script-css'
 import {PublicPathRuntimeModule} from '../../feature-chunk-loading/runtime-modules/public-path'
 import {buildMainWorldBridgePairingSource} from '../scripts-lib/main-world-bridge-pairing'
 import {baseUriRuntimeSource} from '../steps/add-base-uri-runtime-module'
