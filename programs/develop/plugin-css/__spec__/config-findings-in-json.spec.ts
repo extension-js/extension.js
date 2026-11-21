@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest'
-import {cssProjects} from './helpers/css-project'
 import {buildProject} from '../../__spec__/helpers/build-project'
+import {cssProjects} from './helpers/css-project'
 
 const makeProject = cssProjects()
 

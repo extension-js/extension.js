@@ -2,9 +2,9 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {writeProjectFiles} from '../../__spec__/helpers/extension-project'
 import {getBuildSummary} from '../build-summary'
 import {foldOutputFiles, listOutputFiles} from '../output-files'
-import {writeProjectFiles} from '../../__spec__/helpers/extension-project'
 
 const roots: string[] = []
 

@@ -14,7 +14,7 @@ import {isOsPathUnder} from '../../../lib/real-path'
 import {
   findPublicFile,
   inspectPublicFolders
-} from '../../../plugin-special-folders/resolve-public-folder'
+} from '../../../lib/special-folders/resolve-public-folder'
 import type {FilepathList, PluginInterface} from '../../../types'
 import {sourceMayShip} from '../../feature-html/html-lib/source-may-ship'
 import {

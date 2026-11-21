@@ -2,11 +2,11 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
-import {trackTempFolders} from './helpers/temp-folders'
 import {
   writeExtensionProject,
   writeProjectFiles
 } from './helpers/extension-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // Two theme images that share a basename in different folders are two
 // files. The built manifest must name two output paths and dist must hold

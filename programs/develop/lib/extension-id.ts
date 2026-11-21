@@ -90,7 +90,7 @@ function readManifest(extensionDir: string): Record<string, unknown> | null {
       path.join(extensionDir, 'manifest.json'),
       'utf-8'
     )
-    const parsed = parseAuthoredJson(raw)
+    const parsed = parseAuthoredJson<Record<string, unknown> | null>(raw)
 
     return parsed && typeof parsed === 'object' ? parsed : null
   } catch {

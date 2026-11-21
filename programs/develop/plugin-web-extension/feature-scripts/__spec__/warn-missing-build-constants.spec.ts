@@ -3,8 +3,8 @@ import os from 'node:os'
 import path from 'node:path'
 import {rspack} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
-import {WarnMissingBuildConstants} from '../steps/warn-missing-build-constants'
 import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
+import {WarnMissingBuildConstants} from '../steps/warn-missing-build-constants'
 
 const tempFolder = trackTempFolders()
 

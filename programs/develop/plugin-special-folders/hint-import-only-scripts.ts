@@ -9,7 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, type Compiler, WebpackError} from '@rspack/core'
-import {scriptsFolderRoot} from './folders-config'
+import {scriptsFolderRoot} from '../lib/special-folders/folders-config'
 import {
   collectReferenceCorpus,
   getSpecialFoldersDataForCompiler,

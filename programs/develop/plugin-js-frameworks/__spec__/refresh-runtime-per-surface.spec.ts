@@ -3,9 +3,9 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {rspack, type Stats} from '@rspack/core'
 import {afterAll, describe, expect, it} from 'vitest'
+import {writeExtensionProject} from '../../__spec__/helpers/extension-project'
 import {getProjectStructure} from '../../lib/project'
 import webpackConfig from '../../rspack-config'
-import {writeExtensionProject} from '../../__spec__/helpers/extension-project'
 
 const WORKSPACE_MODULES = path.resolve(__dirname, '../../../../node_modules')
 const roots: string[] = []

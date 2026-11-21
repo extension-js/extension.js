@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {findPublicFile} from '../../plugin-special-folders/resolve-public-folder'
+import {findPublicFile} from '../../lib/special-folders/resolve-public-folder'
 
 export function normalizeManifestOutputPath(originalPath: string) {
   if (!originalPath) return originalPath

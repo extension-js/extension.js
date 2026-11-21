@@ -11,7 +11,7 @@ import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import {Compilation} from '@rspack/core'
 import {isOsPathUnder} from '../../../lib/real-path'
-import {publicContainmentRoot} from '../../../plugin-special-folders/resolve-public-folder'
+import {publicContainmentRoot} from '../../../lib/special-folders/resolve-public-folder'
 import type {FilepathList, PluginInterface} from '../../../types'
 import {isFolder} from '../../shared/paths'
 import {

@@ -2,13 +2,13 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../../../__spec__/helpers/temp-folders'
 import {
   needsOptionsDialogFloor,
   OPTIONS_DIALOG_FLOOR_CSS,
   OPTIONS_DIALOG_FLOOR_FILE
 } from '../../html-lib/options-dialog-floor'
 import {patchHtml} from '../../html-lib/patch-html'
-import {trackTempFolders} from '../../../../__spec__/helpers/temp-folders'
 
 const tempFolder = trackTempFolders()
 

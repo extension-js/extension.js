@@ -3,15 +3,15 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {stripVTControlCharacters as stripAnsi} from 'node:util'
 import {afterEach, describe, expect, it} from 'vitest'
+import {rememberSpecialFoldersConfig} from '../../lib/special-folders/folders-config'
+import {inspectPublicFolders} from '../../lib/special-folders/resolve-public-folder'
 import {SpecialFoldersPlugin} from '..'
 import {scanEntryFolder} from '../entry-folders'
-import {rememberSpecialFoldersConfig} from '../folders-config'
 import {
   getSpecialFoldersDataForCompiler,
   getSpecialFoldersDataForProjectRoot,
   walkedEntriesLeftOut
 } from '../get-data'
-import {inspectPublicFolders} from '../resolve-public-folder'
 import {WarnUponFolderChanges} from '../warn-upon-folder-changes'
 import {
   closeCompiler,

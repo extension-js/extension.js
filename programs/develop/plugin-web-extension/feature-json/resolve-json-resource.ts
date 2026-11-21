@@ -12,7 +12,7 @@ import type {Compilation} from '@rspack/core'
 import {parseJsonSafe} from '../../lib/parse-json-safe'
 import {rootAbsoluteClimbsOut} from '../../lib/public-private-files'
 import {isInsidePath, isOsPathUnder} from '../../lib/real-path'
-import {inspectPublicFolders} from '../../plugin-special-folders/resolve-public-folder'
+import {inspectPublicFolders} from '../../lib/special-folders/resolve-public-folder'
 import {getOriginalManifestContent} from '../feature-manifest/manifest-lib/manifest'
 
 export interface ResolvedJsonResource {

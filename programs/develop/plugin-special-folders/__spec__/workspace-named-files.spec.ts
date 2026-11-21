@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {beforeAll, describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {
   build,
   canLink,
@@ -9,7 +10,6 @@ import {
   MARKER,
   PAGE
 } from './helpers/private-files-project'
-import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
 // Whole production builds of a project two folders below a workspace root:
 // each route names files of the workspace, and a row says where each landed.

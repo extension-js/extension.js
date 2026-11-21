@@ -25,12 +25,12 @@ import {hasProjectDependency} from '../lib/project-manifest'
 import {toResourceKey} from '../lib/resource-path'
 import {NOT_RAW_RESOURCE_QUERY} from '../lib/resource-query'
 import {setupInOrder} from '../lib/setup-in-order'
+import {publicContainmentRoot} from '../lib/special-folders/resolve-public-folder'
 import {
   noteWithheldCssRef,
   WITHHELD_CSS_REF,
   type WithheldKind
 } from '../lib/withheld-file'
-import {publicContainmentRoot} from '../plugin-special-folders/resolve-public-folder'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../plugin-web-extension/feature-scripts/contracts'
 import {extensionBaseAttributeFor} from '../plugin-web-extension/feature-scripts/scripts-lib/taken-extension-base'
 import {resolveScriptEntryPath} from '../plugin-web-extension/feature-scripts/scripts-lib/utils'

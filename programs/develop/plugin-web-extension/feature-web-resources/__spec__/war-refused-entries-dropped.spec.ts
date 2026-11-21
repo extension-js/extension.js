@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {beforeAll, describe, expect, it, vi} from 'vitest'
+import {buildProject} from '../../../__spec__/helpers/build-project'
 import {
   type Built,
   build,
@@ -10,7 +11,6 @@ import {
   notFoundPaths,
   project
 } from '../../../plugin-special-folders/__spec__/helpers/private-files-project'
-import {buildProject} from '../../../__spec__/helpers/build-project'
 
 // Whole production builds: an entry the build copies nothing for is named
 // in a warning, and the manifest in the output folder does not list it.

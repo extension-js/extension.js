@@ -3,12 +3,12 @@ import * as path from 'node:path'
 import {type Compiler, rspack} from '@rspack/core'
 import {beforeEach, describe, expect, it} from 'vitest'
 import {devWatchOptions} from '../../__spec__/helpers/dev-watch-options'
+import {writeExtensionProject} from '../../__spec__/helpers/extension-project'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {getProjectStructure} from '../../lib/project'
 import {eventsPath, readyContractPath} from '../../lib/session-paths'
 import webpackConfig from '../../rspack-config'
 import {skipWithoutDevelopDist} from './helpers/develop-dist'
-import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
-import {writeExtensionProject} from '../../__spec__/helpers/extension-project'
 
 const tempFolder = trackTempFolders()
 

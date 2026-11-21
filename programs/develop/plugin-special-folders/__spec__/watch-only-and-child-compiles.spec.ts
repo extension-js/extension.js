@@ -1,8 +1,8 @@
 import * as path from 'node:path'
 import {type Compiler, EntryPlugin} from '@rspack/core'
 import {afterEach, describe, expect, it} from 'vitest'
+import {rememberSpecialFoldersConfig} from '../../lib/special-folders/folders-config'
 import {SpecialFoldersPlugin} from '..'
-import {rememberSpecialFoldersConfig} from '../folders-config'
 import {HintImportOnlyScripts} from '../hint-import-only-scripts'
 import {
   closeCompiler,

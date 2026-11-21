@@ -626,7 +626,10 @@ function readManifestProvenance(...manifestPaths: Array<string | undefined>): {
     if (!manifestPath) continue
 
     try {
-      const manifest = parseJsonSafe(fs.readFileSync(manifestPath, 'utf-8'))
+      const manifest = parseJsonSafe<{
+        name?: unknown
+        version?: unknown
+      } | null>(fs.readFileSync(manifestPath, 'utf-8'))
       const extensionName =
         typeof manifest?.name === 'string' ? manifest.name : undefined
       const extensionVersion =

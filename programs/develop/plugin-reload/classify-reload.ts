@@ -1014,7 +1014,9 @@ export function readContentScriptCount(
     const manifestPath = path.join(outputPath, 'manifest.json')
 
     if (fs.existsSync(manifestPath)) {
-      const manifest = parseAuthoredJson(fs.readFileSync(manifestPath, 'utf8'))
+      const manifest = parseAuthoredJson<{content_scripts?: unknown} | null>(
+        fs.readFileSync(manifestPath, 'utf8')
+      )
       const list = manifest?.content_scripts
       if (Array.isArray(list)) return list.length
     }
