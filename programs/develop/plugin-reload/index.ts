@@ -14,7 +14,6 @@ import {noteManifestPath} from './reload-dispatch'
 import {isReloadSession} from './reload-session'
 import {AddContentScriptReinject} from './steps/add-content-script-reinject'
 import {
-  type BridgeCoordinates,
   InjectBridgeProducer,
   readBootRegistrations,
   readDevBuild
@@ -96,19 +95,15 @@ export class ReloadPlugin {
   public readonly manifestPath: string
   public readonly browser?: DevOptions['browser']
   private readonly devSession?: boolean
-  private readonly bridge: BridgeCoordinates
+  private readonly session?: PluginInterface['session']
 
   // Each dev session names its own bridge. A config built without one has
   // none, whatever another session left in the environment.
-  constructor(options: PluginInterface & BridgeCoordinates) {
+  constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
     this.devSession = options.devSession
-    this.bridge = {
-      instanceId: options.instanceId,
-      controlPort: options.controlPort,
-      connectableHost: options.connectableHost
-    }
+    this.session = options.session
   }
 
   public apply(compiler: Compiler): void {
@@ -164,13 +159,11 @@ export class ReloadPlugin {
     if (!isEmulatorBrowser(this.browser)) {
       // Inject the agent-bridge producer so the background SW forwards console
       // output to the dev-server control WS; no-op when the bridge is unavailable.
-      new InjectBridgeProducer(this.bridge).apply(compiler)
+      new InjectBridgeProducer(this.session).apply(compiler)
 
       // Forward content-script console to the SW relay (multi-context logs).
       // No-ops when the control bridge is unavailable.
-      new InjectBridgeRelay({controlPort: this.bridge.controlPort}).apply(
-        compiler
-      )
+      new InjectBridgeRelay(this.session).apply(compiler)
     }
 
     // Hot chunks are fetched from the extension origin (disk), so prune superseded

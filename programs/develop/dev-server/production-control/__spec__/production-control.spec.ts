@@ -227,8 +227,11 @@ describe('startProductionControl', () => {
     )
     expect(controlled).not.toContain(first)
     const perProducer = buildDevProducerSource({
-      controlPort: session.controlPort,
-      instanceId: session.instanceId
+      session: {
+        controlPort: session.controlPort,
+        instanceId: session.instanceId,
+        connectableHost: ''
+      }
     }).split('__extjsBridgeProducerInstalled').length
     expect(controlled.split('__extjsBridgeProducerInstalled').length).toBe(
       perProducer

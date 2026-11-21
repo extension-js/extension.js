@@ -1,6 +1,9 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import {ReloadPlugin} from '../../plugin-reload'
+import {buildDevProducerSource} from '../../plugin-reload/reload-lib/producer-reload'
+import type {PluginInterface} from '../../types'
 import {devSessionCoordinates} from '../dev-session-coordinates'
 
 const session = {
@@ -72,5 +75,55 @@ describe('the coordinates of a dev session', () => {
     ).toBeNull()
 
     expect(options).toContain('session?: Readonly<DevSessionCoordinates>')
+  })
+
+  // A plugin takes the same record. A host, a port or an id handed beside it
+  // could disagree with it, so the option types have no such field.
+  it('are the only way a plugin learns them too', () => {
+    const develop = path.resolve(__dirname, '..', '..')
+    const types = fs
+      .readFileSync(path.join(develop, 'types.ts'), 'utf8')
+      .replace(/\r\n/g, '\n')
+    const start = types.indexOf('export type PluginInterface = {')
+    const plugin = types.slice(start, types.indexOf('\n}\n', start))
+
+    expect(start).toBeGreaterThan(-1)
+    expect(plugin).toContain('session?: Readonly<DevSessionCoordinates>')
+    expect(plugin.match(/^ {2}(?:connectableHost|port)\?:/gm)).toBeNull()
+
+    const loose = [
+      'plugin-reload/index.ts',
+      'plugin-reload/steps/inject-bridge-producer.ts',
+      'plugin-reload/steps/inject-bridge-relay.ts',
+      'plugin-reload/steps/setup-page-reload.ts',
+      'plugin-web-extension/index.ts',
+      'plugin-web-extension/feature-manifest/index.ts',
+      'plugin-web-extension/feature-manifest/steps/apply-dev-defaults.ts'
+    ].filter((file) =>
+      /options\.(?:instanceId|controlPort|connectableHost|port)\b|BridgeCoordinates/.test(
+        fs.readFileSync(path.join(develop, file), 'utf8')
+      )
+    )
+
+    expect(loose).toEqual([])
+  })
+
+  it('cannot be handed to a plugin as loose values', () => {
+    // Never called: the compiler is what refuses each of these.
+    const loose = () => {
+      // @ts-expect-error a plugin is handed the session record, not a host
+      const host: PluginInterface = {manifestPath: 'm', connectableHost: 'h'}
+      // @ts-expect-error a plugin is handed the session record, not a port
+      const port: PluginInterface = {manifestPath: 'm', port: 8080}
+
+      // @ts-expect-error the reload plugin reads its bridge from the record
+      new ReloadPlugin({manifestPath: 'm', instanceId: 'one'})
+      // @ts-expect-error the producer is built for a session, not loose values
+      buildDevProducerSource({controlPort: 9000, instanceId: 'one'})
+
+      return [host, port]
+    }
+
+    expect(typeof loose).toBe('function')
   })
 })

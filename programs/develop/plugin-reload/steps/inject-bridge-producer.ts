@@ -10,6 +10,7 @@ import {createHash} from 'node:crypto'
 import {Compilation, type Compiler, sources} from '@rspack/core'
 import {CONTROL_PORT_ASSET_NAME} from '../../dev-server/control-bridge/producer-runtime'
 import {prependToEmittedAsset} from '../../lib/asset-source-maps'
+import type {DevSessionCoordinates} from '../../lib/dev-session-coordinates'
 import {
   type EmittedCompilation,
   type EmittedModule,
@@ -108,38 +109,25 @@ function digestBuild(compilation: Compilation): string {
   return digest.digest('hex').slice(0, 16)
 }
 
-export interface BridgeCoordinates {
-  instanceId?: string
-  // Null when the session has no control bridge, which the environment of
-  // another session in the same host must not fill in.
-  controlPort?: number | null
-  // The host this session's browser dials, so another session's environment
-  // in the same host process does not name it.
-  connectableHost?: string
-}
-
 // Prepends the agent-bridge producer to the compiled background SW; control
 // port + instanceId come from the session, nothing injected when unavailable.
 export class InjectBridgeProducer {
-  private readonly coordinates: BridgeCoordinates
+  private readonly session?: Readonly<DevSessionCoordinates>
 
-  constructor(coordinates: BridgeCoordinates = {}) {
-    this.coordinates = coordinates
+  constructor(session?: Readonly<DevSessionCoordinates>) {
+    this.session = session
   }
 
   apply(compiler: Compiler) {
-    const controlPort = Number(this.coordinates.controlPort ?? Number.NaN)
-    const instanceId = String(this.coordinates.instanceId ?? '')
-    // Connectable host of the control WS (loopback locally; the public host for
-    // remote/devcontainer). Resolved once per session by dev-server/index.ts.
-    const host =
-      String(this.coordinates.connectableHost ?? '').trim() || '127.0.0.1'
+    // A config built with no session has no bridge to open.
+    if (!this.session) return
+
+    const controlPort = Number(this.session.controlPort ?? Number.NaN)
+    const instanceId = this.session.instanceId
     const source = buildDevProducerSource({
-      controlPort: Number.isFinite(controlPort) ? controlPort : null,
-      instanceId,
+      session: this.session,
       sessionFromFile: true,
-      context: 'background',
-      host
+      context: 'background'
     })
 
     if (!source) return
