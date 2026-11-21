@@ -1706,6 +1706,11 @@ function getWarningBody(warning: LooseBuildWarning): string {
     .join('\n')
 }
 
+// Why the check for a second copy of a build package did not run.
+export function debugManagedDepsSkipped(error: unknown) {
+  return `${prefix('debug')} managed-deps skipped=${describeThrown(error)}`
+}
+
 export function debugConfigFileInUse(fileName: string) {
   return `${prefix('debug')} config   using=${fileName}`
 }
@@ -2012,7 +2017,7 @@ export function configUnknownNestedKey(
 
 export function configLoadingError(configPath: string, error: unknown) {
   return (
-    `${getLoggingPrefix('error')} Couldn't load ${colors.blue('extension.config.js')}.\n` +
+    `${getLoggingPrefix('error')} Couldn't load ${colors.blue(path.basename(configPath) || 'extension.config.js')}.\n` +
     `${fmt.label('PATH')} ${fmt.val(configPath)}\n` +
     `${colors.red(describeThrown(error))}\n` +
     `Fix the config file, then run the command again.`
