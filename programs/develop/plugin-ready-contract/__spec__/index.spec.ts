@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import {sessionOf} from '../../__spec__/helpers/dev-session'
 import {
   formatStatsErrors,
   getReadyContractDir,
@@ -55,7 +56,7 @@ describe('plugin-ready-contract metadata writer', () => {
       mode: 'development',
       outputPath: path.join(projectRoot, 'dist', browser),
       manifestPath: path.join(projectRoot, 'manifest.json'),
-      port: 8080,
+      session: sessionOf({port: 8080}),
       ...options
     })
   }
@@ -238,7 +239,7 @@ describe('plugin-ready-contract metadata writer', () => {
         browser: 'chrome',
         mode: 'production',
         command: 'start',
-        port: null,
+        session: undefined,
         launchFollows: true
       })
     )
@@ -253,6 +254,44 @@ describe('plugin-ready-contract metadata writer', () => {
     expect(
       eventsIn(projectRoot, 'chrome').map((event) => event.type)
     ).toContain('compile_success')
+  })
+
+  it('names the port, host, id and control port of the session record', () => {
+    const projectRoot = createTempProject()
+    const taps = applyToFakeCompiler(
+      makePlugin(projectRoot, {
+        session: sessionOf({
+          port: 9191,
+          host: '0.0.0.0',
+          connectableHost: 'dev.test',
+          instanceId: 'one',
+          controlPort: 9292
+        })
+      })
+    )
+
+    taps.done(doneStats())
+
+    expect(readyIn(projectRoot, 'chromium')).toMatchObject({
+      port: 9191,
+      host: 'dev.test',
+      instanceId: 'one',
+      controlPort: 9292
+    })
+  })
+
+  it('names no port for a command that hands no session', () => {
+    const projectRoot = createTempProject()
+    const taps = applyToFakeCompiler(
+      makePlugin(projectRoot, {command: 'build', session: undefined})
+    )
+
+    taps.done(doneStats())
+
+    expect(readyIn(projectRoot, 'chromium')).toMatchObject({
+      port: null,
+      controlPort: null
+    })
   })
 })
 

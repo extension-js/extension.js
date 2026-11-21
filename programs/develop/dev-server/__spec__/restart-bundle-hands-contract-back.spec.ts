@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import {sessionOf} from '../../__spec__/helpers/dev-session'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {
   holdServingContract,
@@ -33,8 +34,8 @@ function compilerOf(root: string) {
     mode: 'development',
     outputPath: path.join(root, 'dist', 'chrome'),
     manifestPath: path.join(root, 'manifest.json'),
-    port: 8080
-  } as never).apply(compiler as never)
+    session: sessionOf({port: 8080})
+  }).apply(compiler as never)
 
   return {
     compiler,
