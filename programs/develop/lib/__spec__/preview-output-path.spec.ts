@@ -3,7 +3,6 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
 import {computePreviewOutputPath} from '../paths'
-import type {ProjectStructure} from '../project'
 
 const roots: string[] = []
 
@@ -26,7 +25,7 @@ function project(withPackageJson: boolean, built: boolean) {
     packageJsonPath: withPackageJson
       ? path.join(root, 'package.json')
       : undefined
-  } as unknown as ProjectStructure
+  }
 
   return {root, struct}
 }

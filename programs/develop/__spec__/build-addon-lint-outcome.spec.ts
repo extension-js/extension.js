@@ -13,6 +13,7 @@ import {
 } from '../lib/addon-reviewer-note'
 import type {BuildSummary} from '../lib/build-summary'
 import {buildSummaryPath} from '../lib/session-paths'
+import type {BrowserType} from '../types'
 import {buildProject} from './helpers/build-project'
 import {writeExtensionProject} from './helpers/extension-project'
 import {trackTempFolders} from './helpers/temp-folders'
@@ -82,7 +83,7 @@ const absent: LoadAddonLinter = async () => {
 
 async function build(
   root: string,
-  options: {addonLint?: boolean; debug?: boolean; browser?: string} = {}
+  options: {addonLint?: boolean; debug?: boolean; browser?: BrowserType} = {}
 ) {
   const browser = options.browser || 'firefox'
   const env = {

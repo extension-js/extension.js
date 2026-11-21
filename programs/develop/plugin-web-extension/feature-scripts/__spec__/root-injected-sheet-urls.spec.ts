@@ -1,5 +1,6 @@
 import {Compilation, sources} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
+import type {BrowserType} from '../../../types'
 import {asCompiler} from '../../__spec__/helpers/rspack-fakes'
 import {
   CHROMIUM_EXTENSION_ROOT,
@@ -13,7 +14,7 @@ import {RootInjectedSheetUrls} from '../steps/root-injected-sheet-urls'
 function emit(
   assets: Record<string, string>,
   options: {
-    browser?: string
+    browser?: BrowserType
     runs?: number
     named?: string[]
     inPublic?: string[]
@@ -59,9 +60,7 @@ function emit(
   }
 
   new RootInjectedSheetUrls({
-    browser: (options.browser || 'chrome') as ConstructorParameters<
-      typeof RootInjectedSheetUrls
-    >[0]['browser'],
+    browser: options.browser || 'chrome',
     includeList: {'scripts/hook': '/project/scripts/hook.js'}
   }).apply(
     asCompiler({
@@ -127,13 +126,17 @@ describe('the step that names an injected sheet url() from the extension', () =>
     expect(built.updated).toEqual([])
   })
 
-  it.each(['chrome', 'edge', 'chromium-based'])('runs for %s', (browser) => {
+  it.each<BrowserType>([
+    'chrome',
+    'edge',
+    'chromium-based'
+  ])('runs for %s', (browser) => {
     const built = emit({'content_scripts/content-0.css': ROOTED}, {browser})
 
     expect(built.text('content_scripts/content-0.css')).toBe(FIXED)
   })
 
-  it.each([
+  it.each<BrowserType>([
     'firefox',
     'gecko-based',
     'firefox-based',

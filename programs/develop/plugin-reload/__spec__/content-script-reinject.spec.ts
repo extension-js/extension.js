@@ -285,7 +285,7 @@ describe('when the reload plugin adds the reinject runtime', () => {
       manifestPath: path.join(os.tmpdir(), 'absent', 'manifest.json'),
       browser: 'chrome',
       devSession: true
-    } as ConstructorParameters<typeof ReloadPlugin>[0])
+    })
 
     plugin.apply(compiler)
     plugin.apply(compiler)
@@ -472,7 +472,7 @@ describe('a dev session build of a content script', () => {
       metadataCommand: 'dev',
       silent: true,
       output: {clean: true, path: distPath}
-    } as Parameters<typeof webpackConfig>[1])
+    })
     config.plugins = (config.plugins || []).filter(
       (plugin) =>
         plugin?.constructor.name !== 'plugin-browsers' &&

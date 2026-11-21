@@ -143,7 +143,7 @@ describe('ManifestPlugin', () => {
   })
 
   it('builds for chrome when no browser is named', () => {
-    const plugin = new ManifestPlugin({manifestPath} as never)
+    const plugin = new ManifestPlugin({manifestPath})
     plugin.apply({hooks: {}} as never)
 
     expect(plugin.browser).toBe('chrome')

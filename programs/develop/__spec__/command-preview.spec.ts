@@ -11,6 +11,7 @@ import type {
   ProductionControlSession
 } from '../dev-server/production-control'
 import type {PreviewOptions} from '../types'
+import {bridgeBrokerFake} from './helpers/bridge-broker-fake'
 import {
   type ExtensionProject,
   type ProjectFile,
@@ -113,10 +114,10 @@ function launched(): ResolvedPreviewOptions {
 
 function preview(
   source: string,
-  options: Record<string, unknown> = {},
+  options: Parameters<typeof extensionPreview>[1] = {},
   launch: Launcher = launcher
 ) {
-  return extensionPreview(source, options as unknown as PreviewOptions, launch)
+  return extensionPreview(source, options, launch)
 }
 
 // A session whose background never answers, answers after the given wait,
@@ -141,9 +142,10 @@ function armControlSession(attachAfter?: number | 'held') {
       controlledPath,
       logsPath: 'dist/extension-js/chrome/logs.ndjson',
       backgroundAssets: ['background/service_worker.js'],
-      broker: {},
+      // Preview never reaches the broker in these rows.
+      broker: bridgeBrokerFake({}),
       close: async () => {}
-    } as unknown as ProductionControlSession
+    }
   }
 
   return session
@@ -615,12 +617,8 @@ describe('extensionPreview, which runs what a build left', () => {
 
     const fresh = await import('../command-preview')
 
-    return (root: string, options: Record<string, unknown>) =>
-      fresh.extensionPreview(
-        root,
-        options as unknown as PreviewOptions,
-        launcher
-      )
+    return (root: string, options: Parameters<typeof extensionPreview>[1]) =>
+      fresh.extensionPreview(root, options, launcher)
   }
 
   it.each([

@@ -124,7 +124,7 @@ describe('templated JSON and HTML assets of every kind', () => {
         'public/pub.html': '<p>pub $EXTENSION_PUBLIC_X</p>'
       })
 
-      for (const browser of ['chrome', 'firefox']) {
+      for (const browser of ['chrome', 'firefox'] as const) {
         const result = await build(root, browser)
         const read = (file: string) =>
           fs.readFileSync(path.join(root, 'dist', browser, file), 'utf8')

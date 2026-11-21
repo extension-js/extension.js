@@ -100,7 +100,7 @@ async function runStart(opts?: {extensions?: string[]}) {
         browser: BROWSER,
         metadataCommand: 'start',
         ...(opts?.extensions ? {extensions: opts.extensions} : {extensions: []})
-      } as never,
+      },
       async () => {
         await new Promise((resolve) => setTimeout(resolve, 20))
       }
@@ -202,7 +202,7 @@ describe('start run receipt (real build + preview)', () => {
         browser: BROWSER,
         metadataCommand: 'start',
         extensions: []
-      } as never,
+      },
       async () => {}
     )
 
@@ -215,7 +215,7 @@ describe('start run receipt (real build + preview)', () => {
   }, 120_000)
 
   it('warns about a named companion that is not an extension and builds on', async () => {
-    const options = {
+    const options: Parameters<typeof buildProject>[1] = {
       browser: BROWSER,
       silent: true,
       install: false,

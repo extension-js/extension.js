@@ -102,9 +102,7 @@ describe('the session restart signal', () => {
       new ManifestFieldsChangeDetector({
         manifestPath: '/root/manifest.json',
         browser: 'chrome'
-      } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0]).apply(
-        asCompiler(compiler)
-      )
+      }).apply(asCompiler(compiler))
 
       await compiler._triggerWatchRun()
       mockFields = {
@@ -136,7 +134,7 @@ describe('ManifestFieldsChangeDetector', () => {
     const plugin = new ManifestFieldsChangeDetector({
       manifestPath: '/root/manifest.json',
       browser: 'chrome'
-    } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0])
+    })
 
     plugin.apply(asCompiler(compiler))
     await compiler._triggerWatchRun()
@@ -164,7 +162,7 @@ describe('ManifestFieldsChangeDetector', () => {
     const plugin = new ManifestFieldsChangeDetector({
       manifestPath: '/root/manifest.json',
       browser: 'chrome'
-    } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0])
+    })
 
     plugin.apply(asCompiler(compiler))
     await compiler._triggerWatchRun()
@@ -193,7 +191,7 @@ describe('ManifestFieldsChangeDetector', () => {
     const plugin = new ManifestFieldsChangeDetector({
       manifestPath: '/root/manifest.json',
       browser: 'chrome'
-    } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0])
+    })
 
     plugin.apply(asCompiler(compiler))
     await compiler._triggerWatchRun()
@@ -221,7 +219,7 @@ describe('ManifestFieldsChangeDetector', () => {
     const plugin = new ManifestFieldsChangeDetector({
       manifestPath: '/root/manifest.json',
       browser: 'chrome'
-    } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0])
+    })
 
     plugin.apply(asCompiler(compiler))
     await compiler._triggerWatchRun()
@@ -255,7 +253,7 @@ describe('ManifestFieldsChangeDetector', () => {
     const plugin = new ManifestFieldsChangeDetector({
       manifestPath: '/root/manifest.json',
       browser: 'chrome'
-    } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0])
+    })
 
     plugin.apply(asCompiler(compiler))
     await compiler._triggerWatchRun()
@@ -281,7 +279,7 @@ describe('ManifestFieldsChangeDetector', () => {
     const plugin = new ManifestFieldsChangeDetector({
       manifestPath: '/root/manifest.json',
       browser: 'chrome'
-    } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0])
+    })
 
     plugin.apply(asCompiler(compiler))
     await compiler._triggerWatchRun()
@@ -308,7 +306,7 @@ describe('ManifestFieldsChangeDetector', () => {
     const plugin = new ManifestFieldsChangeDetector({
       manifestPath: '/root/manifest.json',
       browser: 'chrome'
-    } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0])
+    })
 
     plugin.apply(compiler)
     expect(registered).toBe(false)
@@ -326,7 +324,7 @@ describe('ManifestFieldsChangeDetector', () => {
     const plugin = new ManifestFieldsChangeDetector({
       manifestPath: '/root/manifest.json',
       browser: 'chrome'
-    } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0])
+    })
 
     plugin.apply(asCompiler(compiler))
     await compiler._triggerWatchRun()
@@ -372,7 +370,7 @@ describe('ManifestFieldsChangeDetector', () => {
     const plugin = new ManifestFieldsChangeDetector({
       manifestPath: '/root/manifest.json',
       browser: 'chrome'
-    } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0])
+    })
 
     plugin.apply(asCompiler(compiler))
     await compiler._triggerWatchRun()
@@ -414,7 +412,7 @@ describe('ManifestFieldsChangeDetector', () => {
     const plugin = new ManifestFieldsChangeDetector({
       manifestPath: '/root/manifest.json',
       browser: 'firefox'
-    } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0])
+    })
 
     plugin.apply(asCompiler(compiler))
     await compiler._triggerWatchRun()
@@ -443,7 +441,7 @@ describe('ManifestFieldsChangeDetector', () => {
     const plugin = new ManifestFieldsChangeDetector({
       manifestPath: '/root/manifest.json',
       browser: 'firefox'
-    } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0])
+    })
 
     plugin.apply(asCompiler(compiler))
     await compiler._triggerWatchRun()
@@ -481,7 +479,7 @@ describe('ManifestFieldsChangeDetector', () => {
     const plugin = new ManifestFieldsChangeDetector({
       manifestPath: '/root/manifest.json',
       browser: 'chrome'
-    } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0])
+    })
 
     plugin.apply(asCompiler(compiler))
     await compiler._triggerWatchRun()
@@ -511,7 +509,7 @@ describe('ManifestFieldsChangeDetector', () => {
     const plugin = new ManifestFieldsChangeDetector({
       manifestPath: '/root/manifest.json',
       browser: 'chrome'
-    } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0])
+    })
     plugin.apply(asCompiler(compiler))
     await compiler._triggerWatchRun()
 
@@ -551,7 +549,7 @@ describe('ManifestFieldsChangeDetector', () => {
     const plugin = new ManifestFieldsChangeDetector({
       manifestPath: '/root/manifest.json',
       browser: 'chrome'
-    } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0])
+    })
     plugin.apply(asCompiler(compiler))
     await compiler._triggerWatchRun()
 
@@ -591,7 +589,7 @@ describe('ManifestFieldsChangeDetector', () => {
     const plugin = new ManifestFieldsChangeDetector({
       manifestPath: '/root/manifest.json',
       browser: 'chrome'
-    } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0])
+    })
     plugin.apply(asCompiler(compiler))
     await compiler._triggerWatchRun()
 
@@ -625,7 +623,7 @@ describe('ManifestFieldsChangeDetector', () => {
     const plugin = new ManifestFieldsChangeDetector({
       manifestPath: '/root/manifest.json',
       browser: 'chrome'
-    } as ConstructorParameters<typeof ManifestFieldsChangeDetector>[0])
+    })
     plugin.apply(asCompiler(compiler))
     await compiler._triggerWatchRun()
 
