@@ -433,7 +433,7 @@ const WARNS_UNDER_THE_E_NAME: Record<string, [string, string, string]> = {
   W_CSS_DEAD_REF: [
     'develop/plugin-css/index.ts',
     "'CssDeadRef'",
-    ': compilation?.warnings'
+    ': compilation.warnings).push('
   ],
   W_LOCALES_LAYOUT: [
     'develop/plugin-web-extension/feature-locales/validation.ts',
