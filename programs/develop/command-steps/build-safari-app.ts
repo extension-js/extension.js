@@ -14,7 +14,7 @@ import {CODES} from '../lib/messaging'
 import type {NormalizedBrowser} from '../lib/paths'
 import type {resolveSafariIdentity} from '../lib/safari-identity'
 import {buildSummaryPath} from '../lib/session-paths'
-import {stampReadyKnownExtensionId} from '../plugin-playwright'
+import {stampReadyKnownExtensionId} from '../plugin-ready-contract'
 import type {BuildOptions} from '../types'
 import {printedBuildFailures} from './build-failure'
 

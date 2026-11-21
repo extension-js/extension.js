@@ -387,7 +387,7 @@ describe('the content script wrapper on default export shapes', () => {
     expect(result.page.label).toBe('app')
     expect(result.warned).toHaveLength(1)
     expect(result.warned[0]).toContain(
-      'Extension.js: the content script default export failed to run.'
+      'Extension.js W_CONTENT_SCRIPT_MOUNT: the content script default export failed to run.'
     )
   })
 

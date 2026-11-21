@@ -5,16 +5,16 @@
 
 [![Empowering Extension.js][powered-image]][powered-url] [![Pull requests welcome][pr-welcome-image]][pr-welcome-url]
 
-# plugin-playwright
+# plugin-ready-contract
 
-> The session contract: `ready.json` and `events.ndjson`, the machine-readable state of a `dev`, `start`, `preview` or `build` run. Despite the folder name, nothing here runs Playwright.
+> The session contract: `ready.json` and `events.ndjson`, the machine-readable state of a `dev`, `start`, `preview` or `build` run.
 
 ### What it does
 
-- **PlaywrightPlugin**: Hooks compiler lifecycle and writes deterministic metadata to:
+- **ReadyContractPlugin**: Hooks compiler lifecycle and writes deterministic metadata to:
   - `dist/extension-js/<browser>/ready.json`
   - `dist/extension-js/<browser>/events.ndjson`
-- **createPlaywrightMetadataWriter**: The writer behind the plugin. The dev server and `preview` also open one directly, for the stamps no compile makes (the runtime attach and detach, a reload, the end of the launch, the shutdown).
+- **createReadyContractWriter**: The writer behind the plugin. The dev server and `preview` also open one directly, for the stamps no compile makes (the runtime attach and detach, a reload, the end of the launch, the shutdown).
 
 ### Contract
 
@@ -43,7 +43,7 @@
 - `manifestPath`
 - `port`
 - `pid`
-- `ts`: when `status` was last written. Both writers move it only with the
+- `ts`: when `status` was last written. Every caller moves it only with the
   status, never for a fact stamped beside it, so a reader can date the status
   by it
 - `compiledAt`
@@ -171,7 +171,7 @@ valid JSON, so a consumer always parses line by line.
 In bundler config (`dev`/watch-oriented):
 
 ```ts
-new PlaywrightPlugin({
+new ReadyContractPlugin({
   packageJsonDir,
   browser, // optional (defaults to "chromium")
   mode, // used to derive command when command is omitted
@@ -185,7 +185,7 @@ new PlaywrightPlugin({
 In run-only command flows:
 
 ```ts
-const metadata = createPlaywrightMetadataWriter({
+const metadata = createReadyContractWriter({
   packageJsonDir,
   browser,
   command: 'preview',
@@ -200,6 +200,18 @@ metadata.writeReady()
 // ... or on failure ...
 metadata.writeError('preview_manifest_missing', 'Expected manifest at ...')
 ```
+
+### One writer
+
+`lib/ready-contract-writer.ts` is the only module that writes `ready.json`. It owns the atomic write (a temp file renamed over the target), the retry of a rename that a Windows reader holds (the `renameRetry` seam), the carry of every field it did not compute across a rewrite, and the identity fields (`pid`, `pidStartedAt`, `pidStartId`, and the browser and launcher pid, start time and start id).
+
+Three callers hand it a patch and write nothing themselves:
+
+- this folder, for the status and everything a compile or the dev server learns
+- `plugin-browsers/launch-timeout-stamp.ts`, for a launch the compile stopped waiting for
+- `programs/extension/browsers/browsers-lib/ready-stamp.ts`, the CLI browser launcher, which compiles the writer into its own bundle
+
+`__spec__/ready-contract-one-writer.spec.ts` fails when a second write or rename of the file appears in either program.
 
 ### Notes
 

@@ -5,7 +5,7 @@ import type {AddressInfo} from 'node:net'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
-import {createPlaywrightMetadataWriter} from '../../plugin-playwright'
+import {createReadyContractWriter} from '../../plugin-ready-contract'
 import {
   attachEmulatorFileIndex,
   buildEmulatorFileIndex,
@@ -460,7 +460,7 @@ describe('ready.json engine marker', () => {
     write('src/manifest.json', '{"name":"x","version":"1.0.0"}')
     write(`dist/${browser}/manifest.json`, '{"name":"x","version":"1.0.0"}')
 
-    return createPlaywrightMetadataWriter({
+    return createReadyContractWriter({
       packageJsonDir: dir,
       browser,
       command: 'dev',

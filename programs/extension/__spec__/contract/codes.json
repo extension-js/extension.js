@@ -705,6 +705,31 @@
       "area": "debug-protocol",
       "summary": "The extension id could not be determined over CDP after launch, and the dev, start or preview session stayed ready. Reload and HMR cannot attach.",
       "warn": true
+    },
+    "W_RELOAD_NOT_APPLIED": {
+      "area": "dev-server",
+      "summary": "Printed in the browser console of a dev session: a reload or hot update could not be applied there, so the open page or extension keeps the build it has.",
+      "warn": true
+    },
+    "W_CONTENT_SCRIPT_NOT_INJECTED": {
+      "area": "dev-server",
+      "summary": "Printed in the background console of a dev session: the background could not answer a page that asks for its content script, so that page runs without it.",
+      "warn": true
+    },
+    "W_CONTENT_SCRIPT_CLEANUP": {
+      "area": "browser-runtime",
+      "summary": "Printed in the page console: the cleanup function a content script returned threw, so what the script left on the page may stay.",
+      "warn": true
+    },
+    "W_CONTENT_SCRIPT_MOUNT": {
+      "area": "browser-runtime",
+      "summary": "Printed in the page console: the default export of a content script threw when it ran.",
+      "warn": true
+    },
+    "W_DEV_SERVER_SOCKET": {
+      "area": "dev-server",
+      "summary": "Printed in the console of an extension page in a dev session: the socket to the dev server failed, so edits show after the page is reloaded.",
+      "warn": true
     }
   },
   "legacy": {

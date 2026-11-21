@@ -320,7 +320,7 @@ consumes that contract. It does not define it, and nothing in
   nothing reads reloads nothing, and a glob add or delete, a loader input,
   an icon, a web resource, `public/` and the manifest still reload
 - `reload-stamp.unit.spec.ts`, the reload kind a dispatch stamps into
-  `ready.json`, through the broker and the Playwright metadata writer
+  `ready.json`, through the broker and the ready contract writer
 - `loaded-content-scripts.spec.ts`, `web-resources.unit.spec.ts`, what the
   browser last read
 - `reload-after-package.unit.spec.ts`, the trim and the burst merge for a
@@ -377,3 +377,7 @@ How `BrowsersPlugin` and `SafariDevPlugin` call this API is covered from
 `safari-dev-coalesce.unit.spec.ts`). Behavioral reload
 verification is covered by the scripts templates in the public
 [extension-js/templates](https://github.com/extension-js/templates) repo.
+
+## What the browser console says
+
+A line the reload code prints in the browser for a failure or a warning reads `Extension.js <CODE>: <text>`, with the code from the shared table, so a reader can look it up the way a terminal reader does. The codes are `W_RELOAD_NOT_APPLIED` (a reload or a hot update did not land), `W_CONTENT_SCRIPT_NOT_INJECTED` (the background cannot answer a page asking for its content script) and `W_DEV_SERVER_SOCKET` (a page lost its dev server socket). The content script wrapper prints `W_CONTENT_SCRIPT_CLEANUP` and `W_CONTENT_SCRIPT_MOUNT` the same way. A line that only informs, such as `[Extension.js] Reloading <label>…` in open tabs, carries no code. `__spec__/browser-console-codes.spec.ts` pins both rules.

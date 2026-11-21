@@ -22,6 +22,7 @@ import {
 } from '../helpers/cli-failure'
 import {getCliPackageJson} from '../helpers/cli-package-json'
 import {resolveConfigBrowser} from '../helpers/config-browser'
+import {expectBuildTold} from '../helpers/early-interrupt'
 import {exitWithFailure} from '../helpers/exit-after-drain'
 import {
   type DevelopBrowser,
@@ -431,7 +432,9 @@ export function registerBuildCommand(
         const built: string[] = []
         const summaries: unknown[] = []
 
-        for (const vendor of list) {
+        for (const [index, vendor] of list.entries()) {
+          expectBuildTold(index === list.length - 1)
+
           try {
             const summary = await extensionBuild(pathOrRemoteUrl, {
               browser: vendor as DevelopBrowser,

@@ -1,0 +1,1 @@
+process.stderr.isTTY = true

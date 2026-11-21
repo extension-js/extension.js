@@ -9,6 +9,12 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {
+  type PidStartProbes,
+  patchReadyRecord,
+  type ReadyRecord,
+  stampLaunchedProcess
+} from '../../../develop/lib/ready-contract-writer'
+import {
   isDevSessionStarting,
   readyContractPathBesideBuild,
   releaseHeldReady,
@@ -16,7 +22,6 @@ import {
 } from '../../../develop/lib/session-contract'
 import {cdpFaultWarningCode, stripChannelPrefix} from '../../helpers/messaging'
 import {pidStartedAtIso, pidStartId} from './resolve-live-pid'
-import {writeJsonAtomic} from './write-json-atomic'
 
 // A run-only session loading a source folder keeps its contract under the
 // project's dist, a place the loaded directory cannot name, so it claims it.
@@ -122,6 +127,24 @@ function dateStatus(ready: {ts?: unknown}) {
   ready.ts = new Date().toISOString()
 }
 
+// Every stamp is a patch of the record on disk, handed to the one writer of
+// ready.json. Best-effort: a stamp never blocks a launch or a close handler.
+function patchReady(
+  extensionOutputPath: string | undefined,
+  runId: string | undefined,
+  patch: (ready: ReadyRecord) => boolean | undefined
+) {
+  try {
+    if (!extensionOutputPath) return
+
+    patchReadyRecord(readyPathFor(extensionOutputPath), (ready) =>
+      isForeignRun(ready, runId) ? false : patch(ready)
+    )
+  } catch {
+    // A stamp that could not be made leaves the record as it was.
+  }
+}
+
 // Publish the Gecko RDP debugger-server port next to Chromium's cdpPort so
 // downstream tooling can pair protocol clients from the ready contract alone.
 export function stampReadyRdpPort(
@@ -129,28 +152,18 @@ export function stampReadyRdpPort(
   rdpPort: number,
   runId?: string
 ) {
-  try {
-    if (!extensionOutputPath || !Number.isFinite(rdpPort)) return
+  if (!Number.isFinite(rdpPort)) return
 
-    const readyPath = readyPathFor(extensionOutputPath)
-    if (!fs.existsSync(readyPath)) return
-
-    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-    if (isForeignRun(ready, runId)) return
-
+  patchReady(extensionOutputPath, runId, (ready) => {
     const held = isDevSessionStarting(ready)
-    if (ready.rdpPort === rdpPort && !ready.rdpPortError && !held) return
+    if (ready.rdpPort === rdpPort && !ready.rdpPortError && !held) return false
 
     // The port, or the reason there is none, is what a held dev compile
     // waits for, so the stamp that names it is the one that turns it ready.
     ready.rdpPort = rdpPort
     delete ready.rdpPortError
     if (releaseHeldReady(ready, {rdpPort: true})) dateStatus(ready)
-
-    writeJsonAtomic(readyPath, ready)
-  } catch {
-    // best-effort; never block launch on this
-  }
+  })
 }
 
 // Firefox never opened its debugger port, or never got the chance to. The
@@ -160,26 +173,14 @@ export function stampReadyRdpPortError(
   reason: string,
   runId?: string
 ) {
-  try {
-    if (!extensionOutputPath) return
-
-    const readyPath = readyPathFor(extensionOutputPath)
-    if (!fs.existsSync(readyPath)) return
-
-    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-    if (isForeignRun(ready, runId)) return
-
+  patchReady(extensionOutputPath, runId, (ready) => {
     delete ready.rdpPort
     ready.rdpPortError =
       String(reason || '').trim() ||
       'Firefox did not open its remote debugging port'
 
     if (releaseHeldReady(ready, {rdpPort: true})) dateStatus(ready)
-
-    writeJsonAtomic(readyPath, ready)
-  } catch {
-    // best-effort; never block launch on this
-  }
+  })
 }
 
 // Publish the CDP port a client can attach to. Every Chromium session that
@@ -189,25 +190,15 @@ export function stampReadyCdpPort(
   cdpPort: number,
   runId?: string
 ) {
-  try {
-    if (!extensionOutputPath || !Number.isFinite(cdpPort)) return
+  if (!Number.isFinite(cdpPort)) return
 
-    const readyPath = readyPathFor(extensionOutputPath)
-    if (!fs.existsSync(readyPath)) return
-
-    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-    if (isForeignRun(ready, runId)) return
-
+  patchReady(extensionOutputPath, runId, (ready) => {
     const held = isDevSessionStarting(ready)
-    if (ready.cdpPort === cdpPort && !held) return
+    if (ready.cdpPort === cdpPort && !held) return false
 
     ready.cdpPort = cdpPort
     if (releaseHeldReady(ready, {cdpPort: true})) dateStatus(ready)
-
-    writeJsonAtomic(readyPath, ready)
-  } catch {
-    // best-effort; never block launch on this
-  }
+  })
 }
 
 // The port turned out to be closed or another browser's, so the contract
@@ -216,20 +207,11 @@ export function clearReadyCdpPort(
   extensionOutputPath: string | undefined,
   runId?: string
 ) {
-  try {
-    if (!extensionOutputPath) return
-
-    const readyPath = readyPathFor(extensionOutputPath)
-    if (!fs.existsSync(readyPath)) return
-
-    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-    if (isForeignRun(ready, runId) || !('cdpPort' in ready)) return
+  patchReady(extensionOutputPath, runId, (ready) => {
+    if (!('cdpPort' in ready)) return false
 
     delete ready.cdpPort
-    writeJsonAtomic(readyPath, ready)
-  } catch {
-    // best-effort; never block launch on this
-  }
+  })
 }
 
 // Publish the safaridriver session the launcher holds beside the app, or why
@@ -245,15 +227,7 @@ export function stampReadyWebDriver(
   },
   runId?: string
 ) {
-  try {
-    if (!extensionOutputPath) return
-
-    const readyPath = readyPathFor(extensionOutputPath)
-    if (!fs.existsSync(readyPath)) return
-
-    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-    if (isForeignRun(ready, runId)) return
-
+  patchReady(extensionOutputPath, runId, (ready) => {
     const sessionId = String(details?.sessionId || '').trim()
     const port = details?.port
     const requestPath = String(details?.requestPath || '').trim()
@@ -267,21 +241,13 @@ export function stampReadyWebDriver(
     } else {
       const reason = String(details?.unavailableReason || '').trim()
 
-      if (!reason) {
-        if (requestPath) writeJsonAtomic(readyPath, ready)
-
-        return
-      }
+      if (!reason) return Boolean(requestPath)
 
       delete ready.webdriverPort
       delete ready.webdriverSessionId
       ready.webdriverUnavailableReason = reason
     }
-
-    writeJsonAtomic(readyPath, ready)
-  } catch {
-    // best-effort; never block launch on this
-  }
+  })
 }
 
 export interface SafariEnableStamp {
@@ -313,15 +279,7 @@ export function stampReadySafariEnable(
   details: SafariEnableStamp,
   runId?: string
 ) {
-  try {
-    if (!extensionOutputPath) return
-
-    const readyPath = readyPathFor(extensionOutputPath)
-    if (!fs.existsSync(readyPath)) return
-
-    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-    if (isForeignRun(ready, runId)) return
-
+  patchReady(extensionOutputPath, runId, (ready) => {
     const safari: Record<string, unknown> = {
       bundleId: details.bundleId,
       extensionId: details.extensionId,
@@ -342,10 +300,7 @@ export function stampReadySafariEnable(
     }
 
     ready.safari = safari
-    writeJsonAtomic(readyPath, ready)
-  } catch {
-    // best-effort; never block launch on this
-  }
+  })
 }
 
 // Publish whether the starting URL reached the window, or why it did not.
@@ -356,59 +311,19 @@ export function stampReadyStartingUrl(
   details: {url: string; opened: boolean; reason?: string},
   runId?: string
 ) {
-  try {
-    if (!extensionOutputPath) return
-
-    const readyPath = readyPathFor(extensionOutputPath)
-    if (!fs.existsSync(readyPath)) return
-
-    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-    if (isForeignRun(ready, runId)) return
-
+  patchReady(extensionOutputPath, runId, (ready) => {
     ready.startingUrl = details.url
     ready.startingUrlOpened = details.opened
 
     if (details.opened) delete ready.startingUrlUnopenedReason
     else ready.startingUrlUnopenedReason = String(details.reason || '').trim()
-
-    writeJsonAtomic(readyPath, ready)
-  } catch {
-    // best-effort; never block launch on this
-  }
+  })
 }
 
 // A pid alone cannot prove the process behind it is still this session's: the
 // number is reused once its owner exits, so each pid is stamped with when the
-// process table says it started. The table is asked once per pid, a later
-// stamp naming the same pid keeps the answer, and a pid the table cannot date
-// (gone already, or a probe past its bound) carries no time rather than a guess.
-function stampPidWithStart(
-  ready: Record<string, unknown>,
-  pidKey: 'browserPid' | 'launcherPid',
-  startKey: 'browserStartedAt' | 'launcherStartedAt',
-  idKey: 'browserStartId' | 'launcherStartId',
-  pid: number,
-  probes: PidStartProbes
-) {
-  if (ready[pidKey] === pid) return
-
-  ready[pidKey] = pid
-
-  const startedAt = probes.startedAt(pid)
-  if (startedAt) ready[startKey] = startedAt
-  else delete ready[startKey]
-
-  // Linux alone names a run of a pid, so the id is absent everywhere else.
-  const startId = probes.startId(pid)
-  if (startId) ready[idKey] = startId
-  else delete ready[idKey]
-}
-
-// How a stamp dates and names a pid, so any host can stand in for Linux.
-export interface PidStartProbes {
-  startedAt: (pid: number) => string | undefined
-  startId: (pid: number) => string | undefined
-}
+// process table says it started.
+export type {PidStartProbes}
 
 const pidStartProbes: PidStartProbes = {
   startedAt: (pid) => pidStartedAtIso(pid),
@@ -442,15 +357,7 @@ export function stampReadyBrowserLaunch(
   runId?: string,
   probes: PidStartProbes = pidStartProbes
 ) {
-  try {
-    if (!extensionOutputPath) return
-
-    const readyPath = readyPathFor(extensionOutputPath)
-    if (!fs.existsSync(readyPath)) return
-
-    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-    if (isForeignRun(ready, runId)) return
-
+  patchReady(extensionOutputPath, runId, (ready) => {
     const profilePath = String(details?.profilePath || '').trim()
     if (profilePath) ready.profilePath = profilePath
 
@@ -462,28 +369,14 @@ export function stampReadyBrowserLaunch(
       typeof details?.browserPid === 'number' &&
       Number.isFinite(details.browserPid)
     ) {
-      stampPidWithStart(
-        ready,
-        'browserPid',
-        'browserStartedAt',
-        'browserStartId',
-        details.browserPid,
-        probes
-      )
+      stampLaunchedProcess(ready, 'browser', details.browserPid, probes)
     }
 
     if (
       typeof details?.launcherPid === 'number' &&
       Number.isFinite(details.launcherPid)
     ) {
-      stampPidWithStart(
-        ready,
-        'launcherPid',
-        'launcherStartedAt',
-        'launcherStartId',
-        details.launcherPid,
-        probes
-      )
+      stampLaunchedProcess(ready, 'launcher', details.launcherPid, probes)
     }
 
     const extensionId = String(details?.extensionId || '').trim()
@@ -519,11 +412,7 @@ export function stampReadyBrowserLaunch(
         dateStatus(ready)
       }
     }
-
-    writeJsonAtomic(readyPath, ready)
-  } catch {
-    // best-effort; never block launch on this
-  }
+  })
 }
 
 // Whether the runtime inside the guest has connected for THIS run. The dev
@@ -560,25 +449,13 @@ export function stampReadyBrowserUpNotAttached(
   details: {waitedMs: number; hint: string},
   runId?: string
 ) {
-  try {
-    if (!extensionOutputPath) return
-
-    const readyPath = readyPathFor(extensionOutputPath)
-    if (!fs.existsSync(readyPath)) return
-
-    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-    if (isForeignRun(ready, runId)) return
-
+  patchReady(extensionOutputPath, runId, (ready) => {
     ready.browserUpNotAttachedAt = new Date().toISOString()
     ready.browserUpNotAttachedWaitMs = details.waitedMs
     ready.browserUpNotAttachedHint =
       String(details.hint || '').trim() ||
       'the browser is up, but the extension has not connected'
-
-    writeJsonAtomic(readyPath, ready)
-  } catch {
-    // best-effort; never block launch on this
-  }
+  })
 }
 
 // The reason a launch failed, as one plain line: a thrown human frame carries
@@ -604,21 +481,13 @@ export function stampReadyBrowserLaunchFailed(
   runId?: string,
   errorCode?: string
 ) {
-  try {
-    if (!extensionOutputPath) return
-
-    const readyPath = readyPathFor(extensionOutputPath)
-    if (!fs.existsSync(readyPath)) return
-
-    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-    if (isForeignRun(ready, runId)) return
-
+  patchReady(extensionOutputPath, runId, (ready) => {
     if (
       ready.status === 'error' &&
       ready.code &&
       ready.code !== 'browser_launch_failed'
     ) {
-      return
+      return false
     }
 
     const detail =
@@ -633,11 +502,7 @@ export function stampReadyBrowserLaunchFailed(
     // The coded class of the refusal, so a reader can tell a bad pin, which
     // is a value to change, from a browser that would not start.
     if (errorCode) ready.browserLaunchFailedCode = errorCode
-
-    writeJsonAtomic(readyPath, ready)
-  } catch {
-    // best-effort, never block launch on this
-  }
+  })
 }
 
 // The code a launcher refusal was thrown with, when it carries one.
@@ -704,15 +569,9 @@ function stampReadyLauncherAddition(
   named: (value: string) => string,
   runId?: string
 ) {
-  try {
-    if (!extensionOutputPath || !entry?.value) return
+  if (!entry?.value) return
 
-    const readyPath = readyPathFor(extensionOutputPath)
-    if (!fs.existsSync(readyPath)) return
-
-    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-    if (isForeignRun(ready, runId)) return
-
+  patchReady(extensionOutputPath, runId, (ready) => {
     ready.devAdditions = [
       ...devAdditionEntries(ready.devAdditions).filter(
         (earlier) =>
@@ -723,11 +582,7 @@ function stampReadyLauncherAddition(
       ),
       entry
     ]
-
-    writeJsonAtomic(readyPath, ready)
-  } catch {
-    // best-effort, never block launch on this
-  }
+  })
 }
 
 // Name a launch flag that changes what the developer sees, and how to flip
@@ -768,15 +623,9 @@ export function stampReadyCdpFault(
   detail: string,
   runId?: string
 ) {
-  try {
-    if (!extensionOutputPath || !code) return
+  if (!code) return
 
-    const readyPath = readyPathFor(extensionOutputPath)
-    if (!fs.existsSync(readyPath)) return
-
-    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-    if (isForeignRun(ready, runId)) return
-
+  patchReady(extensionOutputPath, runId, (ready) => {
     // The session carried on, so the fault reads under a warning name.
     ready.cdpFaultCode = cdpFaultWarningCode(code)
     ready.cdpFaultMessage =
@@ -785,11 +634,7 @@ export function stampReadyCdpFault(
     // The browser is up with no port to name, which is all a held dev
     // contract was waiting to learn.
     if (releaseHeldReady(ready, {cdpPort: true})) dateStatus(ready)
-
-    writeJsonAtomic(readyPath, ready)
-  } catch {
-    // best-effort, never block launch on this
-  }
+  })
 }
 
 // Publish the id the browser serves the extension under. Launch stamps the
@@ -799,26 +644,17 @@ export function stampReadyExtensionId(
   extensionId: string | undefined,
   runId?: string
 ) {
-  try {
-    const id = String(extensionId || '').trim()
-    if (!extensionOutputPath || !id) return
+  const id = String(extensionId || '').trim()
+  if (!id) return
 
-    const readyPath = readyPathFor(extensionOutputPath)
-    if (!fs.existsSync(readyPath)) return
-
-    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-    if (isForeignRun(ready, runId)) return
-
+  patchReady(extensionOutputPath, runId, (ready) => {
     if (ready.extensionId === id && ready.extensionIdSource === 'browser') {
-      return
+      return false
     }
 
     ready.extensionId = id
     ready.extensionIdSource = 'browser'
-    writeJsonAtomic(readyPath, ready)
-  } catch {
-    // best-effort; never block launch on this
-  }
+  })
 }
 
 // Publish the address the browser serves the extension from. Firefox picks a
@@ -828,22 +664,14 @@ export function stampReadyExtensionBaseUrl(
   extensionBaseUrl: string | undefined,
   runId?: string
 ) {
-  try {
-    const base = String(extensionBaseUrl || '').trim()
-    if (!extensionOutputPath || !base) return
+  const base = String(extensionBaseUrl || '').trim()
+  if (!base) return
 
-    const readyPath = readyPathFor(extensionOutputPath)
-    if (!fs.existsSync(readyPath)) return
-
-    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-    if (isForeignRun(ready, runId)) return
-    if (ready.extensionBaseUrl === base) return
+  patchReady(extensionOutputPath, runId, (ready) => {
+    if (ready.extensionBaseUrl === base) return false
 
     ready.extensionBaseUrl = base
-    writeJsonAtomic(readyPath, ready)
-  } catch {
-    // best-effort, never block launch on this
-  }
+  })
 }
 
 // Stamp a browser-side load refusal into ready.json. Unlike a browser exit this
@@ -855,15 +683,7 @@ export function stampReadyExtensionLoadRefused(
   runId?: string,
   cause?: string
 ) {
-  try {
-    if (!extensionOutputPath) return
-
-    const readyPath = readyPathFor(extensionOutputPath)
-    if (!fs.existsSync(readyPath)) return
-
-    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-    if (isForeignRun(ready, runId)) return
-
+  patchReady(extensionOutputPath, runId, (ready) => {
     ready.status = 'error'
     ready.code = 'extension_load_refused'
     dateStatus(ready)
@@ -886,11 +706,7 @@ export function stampReadyExtensionLoadRefused(
       delete ready.extensionId
       delete ready.extensionIdSource
     }
-
-    writeJsonAtomic(readyPath, ready)
-  } catch {
-    // best-effort; never block launch on this
-  }
+  })
 }
 
 // Stamp a profile another live session already holds. The browser never starts,
@@ -900,15 +716,7 @@ export function stampReadyProfileLocked(
   details: {message?: string; owner?: {host: string; pid: number}},
   runId?: string
 ) {
-  try {
-    if (!extensionOutputPath) return
-
-    const readyPath = readyPathFor(extensionOutputPath)
-    if (!fs.existsSync(readyPath)) return
-
-    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-    if (isForeignRun(ready, runId)) return
-
+  patchReady(extensionOutputPath, runId, (ready) => {
     ready.status = 'error'
     ready.code = 'profile_locked'
     dateStatus(ready)
@@ -918,11 +726,7 @@ export function stampReadyProfileLocked(
 
     ready.profileLockedAt = new Date().toISOString()
     if (details?.owner) ready.profileLockOwner = details.owner
-
-    writeJsonAtomic(readyPath, ready)
-  } catch {
-    // best-effort; never block launch on this
-  }
+  })
 }
 
 // Stamp an unexpected browser exit into the session's ready.json so automation
@@ -936,15 +740,7 @@ export function stampReadyBrowserExited(
   runId?: string,
   details: {beforeReady?: boolean} = {}
 ) {
-  try {
-    if (!extensionOutputPath) return
-
-    const readyPath = readyPathFor(extensionOutputPath)
-    if (!fs.existsSync(readyPath)) return
-
-    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-    if (isForeignRun(ready, runId)) return
-
+  patchReady(extensionOutputPath, runId, (ready) => {
     ready.browserExitedAt = new Date().toISOString()
     ready.browserExitCode = code
     // The ports closed with the browser, and a client that dialed one would
@@ -969,9 +765,5 @@ export function stampReadyBrowserExited(
       dateStatus(ready)
       ready.message = `the ${ready.browser || 'browser'} process exited (${how}) before the extension loaded, nothing is running`
     }
-
-    writeJsonAtomic(readyPath, ready)
-  } catch {
-    // best-effort; never throw from a close handler
-  }
+  })
 }

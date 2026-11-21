@@ -690,7 +690,7 @@ export default function contentScriptWrapper(
     '  if (__EXTENSIONJS_CLEANUP_FAILED) return;\n' +
     '  __EXTENSIONJS_CLEANUP_FAILED = true;\n' +
     `  try { console.warn(${JSON.stringify(
-      `Extension.js: the cleanup of ${projectRelativePath} failed, so what it left on the page may stay.`
+      `Extension.js W_CONTENT_SCRIPT_CLEANUP: the cleanup of ${projectRelativePath} failed, so what it left on the page may stay.`
     )}, error); } catch (ignored) {}\n` +
     '}\n' +
     'function __EXTENSIONJS_runCleanups(list){\n' +
@@ -811,7 +811,7 @@ export default function contentScriptWrapper(
     at('after-mount') +
     '      try { __EXTENSIONJS_scheduleBundleCssHydration(); } catch (error) {}\n' +
     '    } catch (error) {\n' +
-    '      try { console.warn("Extension.js: the content script default export failed to run.", error); } catch (ignored) {}\n' +
+    '      try { console.warn("Extension.js W_CONTENT_SCRIPT_MOUNT: the content script default export failed to run.", error); } catch (ignored) {}\n' +
     at('mount-failed') +
     '    }\n' +
     '  }\n' +

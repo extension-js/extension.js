@@ -94,7 +94,7 @@ export async function createBuildCompilerConfig(input: {
   const buildPlugins = baseConfig.plugins?.filter((plugin) => {
     const name = plugin?.constructor.name
 
-    return !(liveDevSession && name === 'plugin-playwright')
+    return !(liveDevSession && name === 'plugin-ready-contract')
   })
 
   const hookContext: ConfigHookContext = {

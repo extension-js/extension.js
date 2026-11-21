@@ -8,8 +8,8 @@
 
 import * as path from 'node:path'
 
-// ready.json has two writers, the build engine and the CLI browser launcher.
-// The CLI compiles this file into its own bundle, so it imports node:path only.
+// The build engine and the CLI browser launcher both stamp ready.json and
+// both find it here. The CLI bundles this file, so it imports node:path only.
 export function sessionArtifactsRootDir(projectPath: string): string {
   return path.resolve(projectPath, 'dist', 'extension-js')
 }

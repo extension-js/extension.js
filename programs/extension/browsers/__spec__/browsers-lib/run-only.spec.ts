@@ -88,7 +88,7 @@ vi.mock('../../browsers-lib/debug-port-claim', async (importOriginal) => {
   }
 })
 
-import {createPlaywrightMetadataWriter} from '../../../../develop/plugin-playwright'
+import {createReadyContractWriter} from '../../../../develop/plugin-ready-contract'
 import {
   runOnlyPreviewBrowser,
   warnIgnoredHostPermissionPatterns
@@ -693,7 +693,7 @@ describe('a preview launched over a live dev session', () => {
 
     // The engine's half: the preview writer leaves the dev record alone.
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const writer = createPlaywrightMetadataWriter({
+    const writer = createReadyContractWriter({
       packageJsonDir: dir,
       browser: 'chrome',
       command: 'preview',

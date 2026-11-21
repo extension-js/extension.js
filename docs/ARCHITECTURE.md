@@ -48,6 +48,7 @@ Eval also needs `--allow-eval` and a per-session token stored in a mode 0600 fil
 ## Session artifacts
 
 Each session writes `ready.json` and `events.ndjson` under `dist/extension-js/<browser>/` in the project.
+The engine's `plugin-ready-contract` keeps both, and one module, `programs/develop/lib/ready-contract-writer.ts`, makes every write of `ready.json`: the engine and the CLI browser launcher hand it their changes.
 The control port and the eval token live under `.extension-js/`.
 Tools and agents read these files to find the ports and the session state.
 
