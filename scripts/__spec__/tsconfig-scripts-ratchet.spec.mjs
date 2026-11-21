@@ -58,9 +58,9 @@ test('the typecheck script runs the scripts project', () => {
   assert.match(scripts.typecheck, /tsc --noEmit -p tsconfig\.scripts-lib\.json/)
 })
 
-// Explicit any is an error everywhere except the spec folders that still hold
-// it. A new folder starts clean and stays clean.
-test('biome reports explicit any outside the pinned spec folders', () => {
+// Explicit any is an error in every folder, spec files included. No
+// override may switch the rule off again.
+test('biome reports explicit any everywhere, with no override', () => {
   const biome = JSON.parse(
     fs.readFileSync(path.join(root, 'biome.json'), 'utf8')
   )
@@ -68,13 +68,7 @@ test('biome reports explicit any outside the pinned spec folders', () => {
   assert.equal(biome.linter.rules.suspicious.noExplicitAny, 'error')
 
   const off = biome.overrides.filter(
-    (entry) => entry.linter?.rules?.suspicious?.noExplicitAny === 'off'
+    (entry) => entry.linter?.rules?.suspicious?.noExplicitAny !== undefined
   )
-  assert.equal(off.length, 1)
-  assert.deepEqual(off[0].includes, [
-    'programs/develop/**/__spec__/**',
-    'programs/develop/**/*.spec.ts',
-    'programs/extension/**/__spec__/**',
-    'programs/extension/**/*.spec.ts'
-  ])
+  assert.deepEqual(off, [])
 })
