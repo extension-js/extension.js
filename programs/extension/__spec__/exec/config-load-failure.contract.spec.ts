@@ -99,6 +99,39 @@ describe('a throwing extension.config.js', () => {
     expect(message).not.toMatch(/\n\s+at /)
   })
 
+  // One reader works on all four: the same keys, and a hint that names the
+  // command to run again.
+  it.each(
+    commands
+  )('gives the %s frame the keys and the hint every command gives', async (command, flags) => {
+    const run = await runCli([
+      command,
+      projectDir,
+      ...flags,
+      '--output',
+      'json'
+    ])
+    const [frame] = framesIn<Record<string, unknown>>(run.stdout)
+
+    expect(Object.keys(frame).sort()).toEqual([
+      'command',
+      'error',
+      'hint',
+      'ok',
+      'schema',
+      'status',
+      'value',
+      'warnings'
+    ])
+
+    expect(Object.keys(frame.error as object).sort()).toEqual([
+      'code',
+      'message'
+    ])
+
+    expect(frame.hint).toBe(`Fix the error above and run ${command} again.`)
+  })
+
   it.each(
     commands
   )('prints %s one block that names the file and the reason', async (command, flags) => {
