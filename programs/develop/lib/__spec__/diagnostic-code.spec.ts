@@ -450,7 +450,7 @@ describe('the warning class', () => {
   })
 
   it('finds the W_ names in the catalog', () => {
-    expect(WARNING_NAMES.length).toBe(46)
+    expect(WARNING_NAMES.length).toBe(51)
   })
 
   it.each(WARNING_NAMES)('reports %s on a warning as it is', (code) => {

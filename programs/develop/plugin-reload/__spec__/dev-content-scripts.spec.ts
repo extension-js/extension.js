@@ -1253,7 +1253,7 @@ describe('dev content scripts runtime', () => {
     vi.useRealTimers()
 
     expect(w.warned).toEqual([
-      'Extension.js: the extension could not be reloaded for content_scripts/content-1, so open tabs keep the build they have. Reload it from the extensions page. Error: Extension context invalidated.'
+      'Extension.js W_RELOAD_NOT_APPLIED: the extension could not be reloaded for content_scripts/content-1, so open tabs keep the build they have. Reload it from the extensions page. Error: Extension context invalidated.'
     ])
   })
 
@@ -1262,7 +1262,7 @@ describe('dev content scripts runtime', () => {
     await w.settle()
 
     expect(w.warned).toEqual([
-      'Extension.js: the background could not listen for content script stand-ins, so a page that asks for its content script gets no answer. Error: onMessage is not available'
+      'Extension.js W_CONTENT_SCRIPT_NOT_INJECTED: the background could not listen for content script stand-ins, so a page that asks for its content script gets no answer. Error: onMessage is not available'
     ])
 
     expect(w.hooks()).toBeDefined()

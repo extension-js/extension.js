@@ -6,7 +6,7 @@ import {afterAll, describe, expect, it} from 'vitest'
 import {HtmlPlugin} from '../../plugin-web-extension/feature-html'
 import {SetupPageReload} from '../steps/setup-page-reload'
 
-const PRELUDE_MARK = 'Error clearing HTML containers'
+const PRELUDE_MARK = 'the page could not be cleared for the hot update'
 const tmpRoots: string[] = []
 
 afterAll(() => {
