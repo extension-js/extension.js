@@ -307,6 +307,18 @@ const LONGEST_TIMER_MS = 2_147_483_647
 const KILL_GRACE_MS = 2_000
 // How long the runner waits for the pipes to close after the kill.
 const KILL_SETTLE_MS = 1_000
+// A taskkill that never answers still lets the run end.
+const TASKKILL_BOUND_MS = 30_000
+
+// The system copy, so a taskkill earlier on PATH, such as one a project
+// folder ships, never runs.
+export function windowsTaskkillPath(
+  env: Record<string, string | undefined> = process.env
+) {
+  const root = env.SystemRoot || env.windir || 'C:\\Windows'
+
+  return path.win32.join(root, 'System32', 'taskkill.exe')
+}
 
 // sudo's own default for how long it waits for a password.
 export const PRIVILEGE_PROMPT_WAIT_MS = 5 * 60_000
@@ -445,6 +457,8 @@ export async function runCommand(
     let interrupted: ForwardedSignal | undefined
     let killTimer: NodeJS.Timeout | undefined
     let settleTimer: NodeJS.Timeout | undefined
+    let taskkillTimer: NodeJS.Timeout | undefined
+    let ending = false
     let promptTimer: NodeJS.Timeout | undefined
     let promptState: 'unannounced' | 'waiting' | 'answered' = opts.promptWaitMs
       ? 'unannounced'
@@ -488,23 +502,10 @@ export async function runCommand(
       }
     }
 
-    const endChild = (signal: NodeJS.Signals) => {
-      if (killTimer) return
+    const armKill = () => {
+      if (killTimer || settled) return
 
-      if (platform === 'win32' && child.pid !== undefined) {
-        // A .cmd shim runs the manager as a grandchild of cmd.exe, which a
-        // plain kill would orphan, so Windows ends the whole tree.
-        try {
-          spawnProcess('taskkill', ['/pid', String(child.pid), '/T', '/F'], {
-            stdio: 'ignore'
-          }).on('error', () => {})
-        } catch {
-          // The timeout is still what gets reported.
-        }
-      } else {
-        signalChild(signal)
-      }
-
+      clearTimeout(taskkillTimer)
       killTimer = setTimeout(() => {
         signalChild('SIGKILL')
         // A grandchild that left the group can hold the pipes open, and
@@ -515,6 +516,33 @@ export async function runCommand(
           finish(null, 'SIGKILL')
         }, KILL_SETTLE_MS)
       }, graceMs)
+    }
+
+    const endChild = (signal: NodeJS.Signals) => {
+      if (ending) return
+
+      ending = true
+
+      if (platform === 'win32' && child.pid !== undefined) {
+        // A .cmd shim would orphan the manager under a plain kill, so taskkill
+        // ends the tree first and the grace waits for it.
+        try {
+          spawnProcess(
+            windowsTaskkillPath(),
+            ['/pid', String(child.pid), '/T', '/F'],
+            {stdio: 'ignore'}
+          )
+            .on('error', armKill)
+            .on('close', armKill)
+
+          taskkillTimer = setTimeout(armKill, TASKKILL_BOUND_MS)
+        } catch {
+          armKill()
+        }
+      } else {
+        signalChild(signal)
+        armKill()
+      }
     }
 
     // The wait starts at the root-switch line and ends at the next output,
@@ -588,6 +616,7 @@ export async function runCommand(
       clearTimeout(timer)
       clearTimeout(killTimer)
       clearTimeout(settleTimer)
+      clearTimeout(taskkillTimer)
       clearTimeout(promptTimer)
       signals.off('SIGINT', onInterrupt)
       signals.off('SIGTERM', onTerminate)
