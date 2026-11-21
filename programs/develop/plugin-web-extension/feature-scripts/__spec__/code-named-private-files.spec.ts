@@ -12,7 +12,7 @@ import {
   manifest,
   notFoundPaths,
   project
-} from '../../../plugin-special-folders/__spec__/helpers/private-files-project'
+} from '../../../__spec__/helpers/private-files-project'
 
 // Whole production builds, one per target: the background worker names that
 // target in code, and the row says what the output folder holds.

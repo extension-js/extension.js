@@ -44,6 +44,7 @@ import {
 } from './lib/atomic-dist'
 import {announceLeftoverOutputFolder} from './lib/build-output-guard'
 import type {BuildSummary} from './lib/build-summary'
+import {markBuildTold} from './lib/build-told'
 import {codedError} from './lib/coded-error'
 import {
   keepCodedWarningsOf,
@@ -93,7 +94,7 @@ import {
   rememberSpecialFoldersConfig
 } from './lib/special-folders/folders-config'
 import {parkForStartLaunch} from './lib/start-launch-handoff'
-import {createPlaywrightMetadataWriter} from './plugin-playwright'
+import {createReadyContractWriter} from './plugin-ready-contract'
 import type {
   BrowserDefaulted,
   BuildOptions,
@@ -208,7 +209,7 @@ async function runBuild(
       if (findLiveDevSession(packageJsonDir, browser)) return
 
       writeFailedReceipt(
-        createPlaywrightMetadataWriter({
+        createReadyContractWriter({
           packageJsonDir,
           browser: String(browser),
           command: buildOptions?.metadataCommand || 'build',
@@ -573,6 +574,7 @@ async function runBuild(
     if (packagingFollows) writeReadyWhenHeld()
 
     succeeded = true
+    markBuildTold()
 
     return summary
   } catch (thrown) {

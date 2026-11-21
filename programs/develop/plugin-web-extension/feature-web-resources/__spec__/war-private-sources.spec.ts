@@ -11,7 +11,7 @@ import {
   manifest,
   PAGE,
   project
-} from '../../../plugin-special-folders/__spec__/helpers/private-files-project'
+} from '../../../__spec__/helpers/private-files-project'
 
 // Whole production builds, one per entry: web_accessible_resources names a
 // file, a folder or a pattern, and the row says what the output folder holds.

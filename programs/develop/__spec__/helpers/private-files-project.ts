@@ -364,7 +364,7 @@ export function expectNothingPrivate(
 }
 
 export async function build(root: string, browser = 'chrome'): Promise<Built> {
-  const {extensionBuild} = await import('../../../command-build')
+  const {extensionBuild} = await import('../../command-build')
   const lines: string[] = []
 
   const keep = (...parts: unknown[]) => {

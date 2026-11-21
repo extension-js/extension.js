@@ -31,12 +31,12 @@ import {
   excludedFiles,
   isExcludedEntry
 } from '../../../lib/special-folders/folders-config'
-import {templateCopiedAsset} from '../../../plugin-compilation/copied-asset-env'
-import {importMetaUrlForEmitPath} from '../../../plugin-compilation/env'
 import {
   type CompileMode,
   getSpecialFoldersDataForProjectRoot
-} from '../../../plugin-special-folders/get-data'
+} from '../../../lib/special-folders/get-data'
+import {templateCopiedAsset} from '../../../plugin-compilation/copied-asset-env'
+import {importMetaUrlForEmitPath} from '../../../plugin-compilation/env'
 import type {DevOptions, Manifest} from '../../../types'
 import {webkitDroppedSurfacePages} from '../../feature-manifest/manifest-lib/webkit-unsupported-keys'
 import {declaredResourceSource} from '../../feature-web-resources/web-resources-lib/resolve-war'

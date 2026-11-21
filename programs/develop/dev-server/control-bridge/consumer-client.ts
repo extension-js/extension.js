@@ -9,7 +9,7 @@
 import * as fs from 'node:fs'
 import {WebSocket} from 'ws'
 import {readyContractPath} from '../../lib/session-paths'
-import type {ReadyMetadata} from '../../plugin-playwright'
+import type {ReadyContract} from '../../types'
 import {
   CONTROL_ENVELOPE_VERSION,
   CONTROL_WS_PATH,
@@ -23,7 +23,7 @@ export interface ReadyContractInfo {
   controlPort: number
   instanceId: string
   runId: string
-  /** Ready-contract version, `ReadyMetadata['schemaVersion']` on current engines. */
+  /** Ready-contract version, `ReadyContract['schemaVersion']` on current engines. */
   schemaVersion?: number
   /** Result-envelope capability advertisement, `1` on current engines. */
   schema?: number
@@ -63,7 +63,7 @@ export interface ReadyContractInfo {
 
 // The whole ready contract, exactly as the engine wrote it. Optional because a
 // reader may hold a file an older or newer engine produced.
-export type ReadyContractDocument = Partial<ReadyMetadata> &
+export type ReadyContractDocument = Partial<ReadyContract> &
   Record<string, unknown>
 
 // The documented reader: passes the whole document through so no field the

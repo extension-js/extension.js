@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
-import {PlaywrightPlugin} from '../index'
+import {ReadyContractPlugin} from '../index'
 import {
   applyToFakeCompiler,
   contractPath,
@@ -101,7 +101,7 @@ describe('a Gecko dev contract holds ready until the RDP port is known', () => {
 
   it('the plugin holds a Firefox dev compile and lets a Chromium one go ready', () => {
     const compileOnce = (browser: string) => {
-      const plugin = new PlaywrightPlugin({
+      const plugin = new ReadyContractPlugin({
         packageJsonDir: tmp,
         browser,
         mode: 'development',

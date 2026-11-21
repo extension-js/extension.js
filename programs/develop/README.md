@@ -362,7 +362,7 @@ dist/
 | plugin-special-folders | core | - Copies `public/` to the output root<br/>- Builds the pages in `pages/` and the scripts in `scripts/`<br/>- Resolves companion extensions from `extensions/`<br/>- Applies the `include` and `exclude` lists |
 | plugin-perf-budgets  | core  | - Size budgets per extension surface<br/>- Replaces the bundler's single size threshold |
 | plugin-reload        | dev   | - Reload and HMR strategy of `extension dev`<br/>- Injects the dev reload runtime<br/>- Classifies each change and dispatches the reload<br/>- Does nothing outside a dev session |
-| plugin-playwright    | dev   | - Writes the session contract (`ready.json`, `events.ndjson`) under `dist/extension-js/<browser>`<br/>- Read by `--wait`, `logs` and automation |
+| plugin-ready-contract | dev   | - Writes the session contract (`ready.json`, `events.ndjson`) under `dist/extension-js/<browser>`<br/>- Read by `--wait`, `logs` and automation |
 | plugin-browsers      | dev   | - Launches the target browser with the built extension loaded<br/>- Passed in by the CLI, absent under `--no-browser` |
 
 ## Notes and compatibility

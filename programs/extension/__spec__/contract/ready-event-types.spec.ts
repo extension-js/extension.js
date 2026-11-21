@@ -8,14 +8,14 @@ import {READY_EVENT_TYPES} from '../../helpers/ready-contract-codes'
 const here = path.dirname(fileURLToPath(import.meta.url))
 const writerPath = path.resolve(
   here,
-  '../../../develop/plugin-playwright/index.ts'
+  '../../../develop/plugin-ready-contract/index.ts'
 )
 
 // The engine declares the events it writes as a type, which no runtime can
 // read, so this reads the union off the source the way a reviewer would.
 function eventTypesTheWriterDeclares(): string[] {
   const source = fs.readFileSync(writerPath, 'utf8').replace(/\r\n/g, '\n')
-  const declared = source.indexOf('export type PlaywrightAutomationEvent = {')
+  const declared = source.indexOf('export type ReadyContractEvent = {')
 
   expect(declared).toBeGreaterThan(-1)
 

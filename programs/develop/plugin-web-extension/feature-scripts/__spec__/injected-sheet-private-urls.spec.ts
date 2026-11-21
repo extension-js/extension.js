@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {beforeAll, describe, expect, it} from 'vitest'
-import {listOutput} from '../../../plugin-special-folders/__spec__/helpers/compile-harness'
+import {listOutput} from '../../../__spec__/helpers/compile-harness'
 import {
   build,
   canLink,
@@ -10,7 +10,7 @@ import {
   MARKER,
   manifest,
   project
-} from '../../../plugin-special-folders/__spec__/helpers/private-files-project'
+} from '../../../__spec__/helpers/private-files-project'
 
 // Whole production builds, one per target: a stylesheet the extension puts
 // on a page names that target in a url(), and the row says what the output

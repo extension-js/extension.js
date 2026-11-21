@@ -1,18 +1,18 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
-import {
-  getSpecialFoldersDataForProjectRoot,
-  walkedEntriesLeftOut
-} from '../get-data'
-import {listOutput} from './helpers/compile-harness'
+import {listOutput} from '../../__spec__/helpers/compile-harness'
 import {
   build,
   canLink,
   expectNothingPrivate,
   MARKER,
   project
-} from './helpers/private-files-project'
+} from '../../__spec__/helpers/private-files-project'
+import {
+  getSpecialFoldersDataForProjectRoot,
+  walkedEntriesLeftOut
+} from '../../lib/special-folders/get-data'
 
 // Whole production builds of a project whose scripts/ folder holds files no
 // field names: the walk of the folder finds them. Each file logs its own

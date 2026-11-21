@@ -5,7 +5,7 @@ import {quietBroker} from '../../__spec__/helpers/quiet-broker'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {recordCodedWarning, takeCodedWarnings} from '../../lib/coded-warnings'
 import {CODES} from '../../lib/messaging'
-import {createPlaywrightMetadataWriter} from '../../plugin-playwright'
+import {createReadyContractWriter} from '../../plugin-ready-contract'
 import {dispatchReload, type ReloadBroker} from '../../plugin-reload'
 import {createLifecycleStream} from '../lifecycle-stream'
 import {reportSessionWarnings} from '../session-warnings'
@@ -37,7 +37,7 @@ afterEach(() => {
 
 function session(broker: ReloadBroker) {
   const root = tempFolder('extjs-session-warning-')
-  const metadata = createPlaywrightMetadataWriter({
+  const metadata = createReadyContractWriter({
     packageJsonDir: root,
     browser: 'chromium',
     command: 'dev',

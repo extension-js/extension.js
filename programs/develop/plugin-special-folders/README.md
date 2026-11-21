@@ -121,7 +121,7 @@ export class SpecialFoldersPlugin {
 }
 ```
 
-The plugin owns the scan, the copy and the warnings. Two sets of answers that the commands, the dev server and the other plugins also ask live in `lib/special-folders`: `folders-config.ts` says what the `folders` config, the dev-only names and the exclude list mean, and `resolve-public-folder.ts` says where `public/` is and which file a root-absolute reference names.
+The plugin owns the copy of `public/`, the watch and the warnings. The answers that the commands, the dev server and the other plugins also ask live in `lib/special-folders`: `folders-config.ts` says what the `folders` config, the dev-only names and the exclude list mean, `resolve-public-folder.ts` says where `public/` is and which file a root-absolute reference names, and `get-data.ts` (with `entry-folders.ts` and `walked-entries.ts`) says which files `pages/` and `scripts/` enroll as entries. No other plugin imports this one.
 
 ## Examples
 

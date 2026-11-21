@@ -2,6 +2,17 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
 import {
+  buildWith,
+  compileFixture,
+  type FixtureBuild,
+  type FixtureFiles,
+  fixtureCompiler,
+  makeFixtureRoot,
+  removeFixtureRoots,
+  watchFixture,
+  writeFixtureFiles
+} from '../../__spec__/helpers/compile-harness'
+import {
   browserSpellings,
   climbsOut,
   findPublicEnvFiles,
@@ -12,17 +23,6 @@ import {
   sourceFileMayShip
 } from '../../lib/public-private-files'
 import {SpecialFoldersPlugin} from '..'
-import {
-  buildWith,
-  compileFixture,
-  type FixtureBuild,
-  type FixtureFiles,
-  fixtureCompiler,
-  makeFixtureRoot,
-  removeFixtureRoots,
-  watchFixture,
-  writeFixtureFiles
-} from './helpers/compile-harness'
 
 afterEach(() => {
   removeFixtureRoots()

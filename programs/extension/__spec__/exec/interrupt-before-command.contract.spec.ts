@@ -7,6 +7,7 @@ import {
   rmSync,
   writeFileSync
 } from 'node:fs'
+import * as http from 'node:http'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
@@ -31,6 +32,24 @@ const HELD_BUILD_CONFIG = `const fs = require('node:fs')
 const held = {
   apply(compiler) {
     compiler.hooks.afterEmit.tapPromise('extjs-spec-hold', async () => {
+      fs.writeFileSync(process.env.EXTJS_SPEC_HELD, '')
+      while (!fs.existsSync(process.env.EXTJS_SPEC_RELEASE)) {
+        await new Promise((resolve) => setTimeout(resolve, 25))
+      }
+    })
+  }
+}
+module.exports = {
+  config: (config) => ({...config, plugins: [...(config.plugins || []), held]})
+}
+`
+
+// Holds the command after the engine said the build succeeded: the compiler
+// is closed last, behind the line, and this keeps it from closing.
+const HELD_CLOSE_CONFIG = `const fs = require('node:fs')
+const held = {
+  apply(compiler) {
+    compiler.hooks.shutdown.tapPromise('extjs-spec-hold-close', async () => {
       fs.writeFileSync(process.env.EXTJS_SPEC_HELD, '')
       while (!fs.existsSync(process.env.EXTJS_SPEC_RELEASE)) {
         await new Promise((resolve) => setTimeout(resolve, 25))
@@ -309,5 +328,120 @@ describe.skipIf(process.platform === 'win32')(
         )
       ).toEqual([])
     }, 120_000)
+
+    // The build succeeded and said so. The exit code agrees with that line,
+    // whatever lands between it and the command's return.
+    describe('a build signaled after it said it succeeded', () => {
+      function heldAfterTold(args: string[], env: Record<string, string> = {}) {
+        const {work, projectDir} = createProject()
+
+        writeFileSync(
+          join(projectDir, 'extension.config.js'),
+          HELD_CLOSE_CONFIG
+        )
+
+        const held = join(work, 'held')
+        const release = join(work, 'release')
+        const session = startCli(['build', projectDir, ...args], {
+          stderrTerminal: true,
+          env: {EXTJS_SPEC_HELD: held, EXTJS_SPEC_RELEASE: release, ...env}
+        })
+
+        return {
+          session,
+          release,
+          told: () =>
+            session.waitFor(() => existsSync(held), 60_000, 'the held close')
+        }
+      }
+
+      // Ends with the run when the signal ended it, or once it had its time.
+      const settled = (session: ReturnType<typeof startCli>) =>
+        Promise.race([
+          session.closed,
+          new Promise((resolve) => setTimeout(resolve, 500))
+        ])
+
+      it.each([
+        'SIGINT',
+        'SIGTERM'
+      ] as const)('exits 0 on %s in text mode, and does not wait on the registry after', async (signal) => {
+        const silent = http.createServer(() => {})
+
+        await new Promise<void>((resolve) =>
+          silent.listen(0, '127.0.0.1', resolve)
+        )
+
+        const address = silent.address()
+        const port = typeof address === 'object' && address ? address.port : 0
+        const {session, release, told} = heldAfterTold(
+          ['--browser', 'chromium'],
+          {npm_registry: `http://127.0.0.1:${port}/`}
+        )
+
+        try {
+          await told()
+          await session.waitFor(
+            () => session.read().stdout.includes('built for production'),
+            10_000,
+            'the built line'
+          )
+
+          session.child.kill(signal)
+          await settled(session)
+          writeFileSync(release, '')
+
+          const releasedAt = Date.now()
+
+          expect(await session.closed).toEqual({status: 0, signal: null})
+          // The update check's bound is two seconds, and it was not waited.
+          expect(Date.now() - releasedAt).toBeLessThan(1500)
+        } finally {
+          session.killGroup()
+          silent.closeAllConnections()
+          await new Promise<void>((resolve) => silent.close(() => resolve()))
+        }
+      }, 120_000)
+
+      it('ends a json run on its own built frame, exit 0', async () => {
+        const {session, release, told} = heldAfterTold([
+          '--browser',
+          'chromium',
+          '--output',
+          'json'
+        ])
+
+        try {
+          await told()
+          session.child.kill('SIGINT')
+          await settled(session)
+          writeFileSync(release, '')
+
+          expect(await session.closed).toEqual({status: 0, signal: null})
+          expect(
+            session.frames<Frame>().map(({ok, status}) => ({ok, status}))
+          ).toEqual([{ok: true, status: 'built'}])
+        } finally {
+          session.killGroup()
+        }
+      }, 120_000)
+
+      it('still stops a list of browsers signaled after the first one was told', async () => {
+        const {session, told} = heldAfterTold(['--browser', 'chromium,firefox'])
+
+        try {
+          await told()
+
+          expect(await session.stop('SIGINT', 20_000)).toEqual({
+            status: 130,
+            signal: null
+          })
+
+          expect(session.read().stdout).not.toContain('firefox')
+        } finally {
+          session.killGroup()
+        }
+      }, 120_000)
+    })
   }
 )
