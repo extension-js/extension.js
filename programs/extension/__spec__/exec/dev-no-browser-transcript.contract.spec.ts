@@ -92,7 +92,7 @@ describe('dev --no-browser boot transcript', () => {
         '    Dev only       permissions scripting, tabs, storage',
         '    Dev only       host access <all_urls>',
         '    Dev only       web_accessible_resources hot/*, extension-js-control.json',
-        '    Dev only       manifest background.service_worker background/service_worker.js'
+        '    Dev only       manifest background.service_worker background/service_worker.js, content_scripts.js dev stubs'
       ])
 
       expect(lines[headIndex + 8]).toBe(' ')
