@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import {writeProjectFiles} from '../../../__spec__/helpers/extension-project'
 import {asCompiler, type TapCallback} from '../../__spec__/helpers/rspack-fakes'
 import {
   extractRuntimeSurfaceReferences,
@@ -35,11 +36,7 @@ function createTempProject(
     'utf8'
   )
 
-  for (const [rel, content] of Object.entries(files)) {
-    const abs = path.join(dir, rel)
-    fs.mkdirSync(path.dirname(abs), {recursive: true})
-    fs.writeFileSync(abs, content, 'utf8')
-  }
+  writeProjectFiles(dir, files)
 
   return dir
 }

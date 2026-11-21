@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {beforeAll, describe, expect, it, vi} from 'vitest'
+import {buildProject} from '../../../__spec__/helpers/build-project'
 import {
   type Built,
   build,
@@ -208,7 +209,6 @@ describe.each([
 // A development build with no session: the manifest it writes, and whether
 // the build said the entry.
 async function developmentBuild(root: string) {
-  const {extensionBuild} = await import('../../../command-build')
   const lines: string[] = []
 
   const keep = (...parts: unknown[]) => {
@@ -231,13 +231,11 @@ async function developmentBuild(root: string) {
   ]
 
   try {
-    const summary = await extensionBuild(root, {
-      browser: 'chrome',
+    const summary = await buildProject(root, {
       silent: false,
-      install: false,
       mode: 'development',
       exitOnError: false
-    } as never)
+    })
 
     return {
       printed: [lines.join('\n'), JSON.stringify(summary)].join('\n'),

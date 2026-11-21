@@ -45,3 +45,16 @@ test('the local optional-deps fixture folder stays ignored', () => {
 
   assert.equal(ignored, 'extensions/browser-extension/package.json')
 })
+
+// A line of spaces reads as a rule: `git check-ignore` then answers that every
+// folder asked about with a trailing slash is ignored.
+test('no line of the root .gitignore is made of spaces only', () => {
+  const blankRules = fs
+    .readFileSync(path.join(root, '.gitignore'), 'utf8')
+    .split('\n')
+    .map((line, index) => ({line, number: index + 1}))
+    .filter(({line}) => line.length > 0 && line.trim() === '')
+    .map(({number}) => number)
+
+  assert.deepEqual(blankRules, [])
+})

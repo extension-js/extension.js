@@ -1,8 +1,12 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 
-// Text is written as it is. Anything else is written as JSON.
-export type ProjectFile = string | Record<string, unknown> | unknown[]
+// Text and bytes are written as they are. Anything else is written as JSON.
+export type ProjectFile =
+  | string
+  | Uint8Array
+  | Record<string, unknown>
+  | unknown[]
 
 export interface ExtensionProject {
   name?: string
@@ -27,7 +31,9 @@ export function writeProjectFiles(
     fs.mkdirSync(path.dirname(file), {recursive: true})
     fs.writeFileSync(
       file,
-      typeof content === 'string' ? content : JSON.stringify(content, null, 2)
+      typeof content === 'string' || content instanceof Uint8Array
+        ? content
+        : JSON.stringify(content, null, 2)
     )
   }
 }

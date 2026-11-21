@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterAll, afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {buildProject} from '../../__spec__/helpers/build-project'
+import {writeProjectFiles} from '../../__spec__/helpers/extension-project'
 import {templateCopiedAsset} from '../../lib/copied-asset-env'
 import {EnvPlugin} from '../env'
 import {compile, makeTempRoot, removeTempRoots} from './helpers/real-compile'
@@ -31,11 +32,7 @@ const UTF16_WITH_PLACEHOLDER = Buffer.concat([
 ])
 
 function writeBytes(root: string, files: Record<string, Buffer | string>) {
-  for (const [relative, contents] of Object.entries(files)) {
-    const target = path.join(root, relative)
-    fs.mkdirSync(path.dirname(target), {recursive: true})
-    fs.writeFileSync(target, contents)
-  }
+  writeProjectFiles(root, files)
 }
 
 beforeEach(() => {

@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import {writeProjectFiles} from '../../../__spec__/helpers/extension-project'
 import {asCompiler, type TapCallback} from '../../__spec__/helpers/rspack-fakes'
 import {TraceRuntimeLoadedFiles} from '../steps/trace-runtime-loaded-files'
 
@@ -33,12 +34,7 @@ function project(files: Record<string, string>) {
     ...files
   }
 
-  for (const [rel, content] of Object.entries(all)) {
-    const abs = path.join(dir, rel)
-
-    fs.mkdirSync(path.dirname(abs), {recursive: true})
-    fs.writeFileSync(abs, content, 'utf8')
-  }
+  writeProjectFiles(dir, all)
 
   return dir
 }

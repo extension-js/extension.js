@@ -46,12 +46,12 @@ import {
 } from './plugin-browsers'
 import {SafariDevPlugin} from './plugin-browsers/safari-dev-plugin'
 import {resolvePerfBudgets} from './plugin-perf-budgets'
-import type {BrowserConfig, DevOptions} from './types'
+import type {BrowserConfig, BrowserDefaulted, DevOptions} from './types'
 
 export async function extensionDev(
   pathOrRemoteUrl: string | undefined,
   // The mode is the engine's to set: a dev session always compiles in development.
-  devOptions: Omit<DevOptions, 'mode'> & {
+  devOptions: BrowserDefaulted<Omit<DevOptions, 'mode'>> & {
     // Called once when the session is usable: the browser opened with the
     // extension loaded, or the first compile finished when none is launched.
     onReady?: () => void

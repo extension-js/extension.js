@@ -2,22 +2,16 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {rspack} from '@rspack/core'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {CompileMainWorldScripts} from '../steps/compile-main-world-scripts'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 // A real dev build of one MAIN world group, with and without the step that
 // moves it into a child compilation, written to a temp folder.
 async function build(main: string, withStep: boolean) {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-main-failure-'))
-  )
-  roots.push(root)
+  const root = fs.realpathSync(tempFolder('extjs-main-failure-'))
 
   const at = (name: string) => path.join(root, name)
 

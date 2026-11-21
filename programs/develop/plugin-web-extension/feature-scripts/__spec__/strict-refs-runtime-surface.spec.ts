@@ -2,21 +2,18 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {rspack} from '@rspack/core'
-import {afterAll, afterEach, describe, expect, it} from 'vitest'
+import {afterEach, describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {TraceRuntimeLoadedFiles} from '../steps/trace-runtime-loaded-files'
 
 // A surface the background names at runtime (an icon, a popup, a panel)
 // whose file is absent, in a real compilation of that background.
-const roots: string[] = []
+const tempFolder = trackTempFolders()
 const before = process.env.EXTENSION_STRICT_REFS
 
 afterEach(() => {
   if (before === undefined) delete process.env.EXTENSION_STRICT_REFS
   else process.env.EXTENSION_STRICT_REFS = before
-})
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
 })
 
 interface Report {
@@ -26,10 +23,7 @@ interface Report {
 }
 
 async function compiled(background: string, files: Record<string, string>) {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-strict-surface-'))
-  )
-  roots.push(root)
+  const root = fs.realpathSync(tempFolder('extjs-strict-surface-'))
 
   const at = (...parts: string[]) => path.join(root, ...parts)
 

@@ -1,26 +1,20 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, beforeAll, describe, expect, it} from 'vitest'
+import {beforeAll, describe, expect, it} from 'vitest'
 import {
   build,
   expectNothingPrivate,
   expectNoWorkspaceAboveTemp,
   MARKER
 } from '../../../__spec__/helpers/private-files-project'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 
 // Whole production builds: a manifest at the root or in src/ names, by exact
 // path, a file two folders up, with or without a sheet that names it too.
 
-const holders: string[] = []
+const tempFolder = trackTempFolders()
 
 beforeAll(expectNoWorkspaceAboveTemp)
-
-afterAll(() => {
-  for (const holder of holders) {
-    fs.rmSync(holder, {recursive: true, force: true})
-  }
-})
 
 const MATCHES = 'https://outside-project.example/*'
 
@@ -36,10 +30,7 @@ function write(file: string, contents: string) {
 }
 
 function fixture(layout: Layout) {
-  const holder = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-war-outside-named-'))
-  )
-  holders.push(holder)
+  const holder = fs.realpathSync(tempFolder('extjs-war-outside-named-'))
 
   const root = path.join(holder, 'project')
   const manifestDir = path.join(root, layout.manifestIn)

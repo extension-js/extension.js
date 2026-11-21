@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import {type Compiler, rspack, type Stats} from '@rspack/core'
 import {RspackDevServer} from '@rspack/dev-server'
 import {afterAll, beforeEach, describe, expect, it} from 'vitest'
+import {writeProjectFiles} from '../../__spec__/helpers/extension-project'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {getProjectStructure} from '../../lib/project'
 import webpackConfig from '../../rspack-config'
@@ -66,12 +67,7 @@ function scaffold() {
     'bundled/companion/note.txt': 'beside the companion manifest\n'
   }
 
-  for (const [relative, content] of Object.entries(files)) {
-    const absolute = path.join(root, relative)
-
-    fs.mkdirSync(path.dirname(absolute), {recursive: true})
-    fs.writeFileSync(absolute, content)
-  }
+  writeProjectFiles(root, files)
 
   return root
 }

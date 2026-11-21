@@ -1,15 +1,11 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import * as vm from 'node:vm'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 // A module service worker whose bundle builds a worker URL: the bundler
 // resolves that URL against its base URI runtime, which used to read
@@ -31,8 +27,7 @@ const SERVICE_WORKER = [
 ].join('\n')
 
 function project(background: Record<string, unknown>) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-worker-base-'))
-  roots.push(root)
+  const root = tempFolder('extjs-worker-base-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'worker-base', version: '0.0.0'})

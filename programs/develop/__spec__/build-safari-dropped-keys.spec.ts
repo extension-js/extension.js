@@ -1,14 +1,10 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g')
 
@@ -17,8 +13,7 @@ function stripAnsi(value: string): string {
 }
 
 function project(name: string, manifest: Record<string, unknown>) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), `extjs-${name}-`))
-  roots.push(root)
+  const root = tempFolder(`extjs-${name}-`)
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name, version: '0.0.0'})

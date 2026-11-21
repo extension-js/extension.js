@@ -1,17 +1,13 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // A stylesheet the parser rejects ships as authored with one warning in
 // development. Production must keep every rule development keeps: the
 // minimizer may not drop a sheet, or half of one, that the browser accepts.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 const CASES = {
   'unclosed-at-rule':
@@ -36,8 +32,7 @@ interface ProjectOptions {
 
 function project(css: string, options: ProjectOptions = {}) {
   const {surface = 'content', postcss = false} = options
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-css-parity-'))
-  roots.push(root)
+  const root = tempFolder('extjs-css-parity-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({

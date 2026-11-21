@@ -1,18 +1,14 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // Every framework's pages must parse, ship a bundle the page can run no
 // matter how the entry is written, and pull the JSX runtime of the framework
 // the project installed. Content scripts keep classic script handling.
 // The runtimes below are stand-ins that mark which package the bundle pulled.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function write(root: string, rel: string, content: string) {
   const file = path.join(root, rel)
@@ -152,8 +148,7 @@ function project(
   entries: Record<string, string>,
   options: {tsconfig?: boolean; module?: boolean} = {}
 ) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-jsx-pages-'))
-  roots.push(root)
+  const root = tempFolder('extjs-jsx-pages-')
   const dependencies = installFramework(root, framework)
   write(
     root,

@@ -1,22 +1,15 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {type Compiler, rspack} from '@rspack/core'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {HtmlPlugin} from '../index'
 
-const tmpRoots: string[] = []
-
-afterAll(() => {
-  for (const dir of tmpRoots) fs.rmSync(dir, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function writeProject() {
   // The real path, so the rule's include matches what rspack resolves.
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-page-info-'))
-  )
-  tmpRoots.push(root)
+  const root = fs.realpathSync(tempFolder('extjs-page-info-'))
   const src = path.join(root, 'src')
   fs.mkdirSync(path.join(src, 'newtab'), {recursive: true})
   fs.writeFileSync(

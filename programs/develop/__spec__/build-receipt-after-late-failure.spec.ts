@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {readyContractPath} from '../lib/session-paths'
 import {buildProject} from './helpers/build-project'
+import {writeExtensionProject} from './helpers/extension-project'
 import {trackTempFolders} from './helpers/temp-folders'
 
 // A build can fail after its compile passed. The receipt then says failed,
@@ -12,20 +13,10 @@ const tempFolder = trackTempFolders()
 function project(config?: string) {
   const root = fs.realpathSync(tempFolder('extjs-late-failure-'))
 
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({name: 'probe', version: '1.0.0', private: true})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'Probe',
-      version: '1.0.0',
-      background: {service_worker: 'background.js'}
-    })
-  )
+  writeExtensionProject(root, {
+    manifest: {name: 'Probe', background: {service_worker: 'background.js'}},
+    packageJson: {name: 'probe', version: '1.0.0'}
+  })
 
   fs.writeFileSync(path.join(root, 'background.js'), 'console.log(1)\n')
   if (config) fs.writeFileSync(path.join(root, 'extension.config.js'), config)

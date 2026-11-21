@@ -6,7 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import type {Compiler, Stats} from '@rspack/core'
+import type {Compiler} from '@rspack/core'
 import {devAdditionsOf} from '../lib/dev-additions'
 import {humanLine} from '../lib/messaging'
 import * as messages from './messages'
@@ -25,8 +25,21 @@ export function setupCompilerLifecycleHooks(compiler: Compiler): void {
   })
 }
 
+// What the banner reads from a finished compile.
+export interface FirstDoneStats {
+  hasErrors(): boolean
+  compilation?: object
+}
+
+// The banner taps one hook, so a host hands it no more than that.
+export interface DoneHookHost {
+  hooks: {
+    done: {tap(name: string, fn: (stats: FirstDoneStats) => void): void}
+  }
+}
+
 export function setupNoBrowserBannerOnFirstDone(opts: {
-  compiler: Compiler
+  compiler: DoneHookHost
   browser: string
   manifestPath: string
   readyPath: string
@@ -35,7 +48,7 @@ export function setupNoBrowserBannerOnFirstDone(opts: {
   let printed = false
   opts.compiler.hooks.done.tap(
     'extension.js:no-browser-banner',
-    (stats: Stats) => {
+    (stats: FirstDoneStats) => {
       if (printed) return
       if (stats?.hasErrors?.()) return
 
