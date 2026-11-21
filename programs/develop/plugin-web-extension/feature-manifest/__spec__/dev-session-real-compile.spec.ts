@@ -3,6 +3,7 @@ import {createRequire, syncBuiltinESMExports} from 'node:module'
 import * as path from 'node:path'
 import {type Compiler, rspack, type Stats} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
+import {ageProjectFiles} from '../../../__spec__/helpers/dev-watch-session'
 import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {appendDevAdditions, devAdditionsOf} from '../../../lib/dev-additions'
 import {getProjectStructure} from '../../../lib/project'
@@ -45,6 +46,9 @@ async function devSession(
   root: string,
   tap: (compiler: Compiler) => void = () => {}
 ): Promise<DevSession> {
+  // A fixture as new as the first build makes the watcher build once more.
+  ageProjectFiles(root)
+
   const distPath = path.join(root, 'dist', 'chrome')
   const config = webpackConfig(await getProjectStructure(root), {
     browser: 'chrome',
@@ -64,16 +68,27 @@ async function devSession(
   const release = writeOutputAsADevSessionDoes(compiler, distPath)
   tap(compiler)
 
+  let builds = 0
+  let wanted: ((stats: Stats) => boolean) | undefined
   let finished: ((stats: Stats) => void) | undefined
-  const nextBuild = () =>
+  const buildThat = (matches: (stats: Stats) => boolean) =>
     new Promise<Stats>((resolve) => {
+      wanted = matches
       finished = resolve
     })
-  const firstBuild = nextBuild()
+
+  compiler.hooks.watchRun.tap('spec:dev-session', () => {
+    builds += 1
+  })
+
+  const firstBuild = buildThat(() => true)
   const watching = compiler.watch({aggregateTimeout: 20}, (_error, stats) => {
+    if (!stats || !wanted?.(stats)) return
+
     const done = finished
+    wanted = undefined
     finished = undefined
-    if (stats) done?.(stats)
+    done?.(stats)
   })
   const first = await firstBuild
   // The watcher needs its baseline before a save counts as a change.
@@ -83,7 +98,16 @@ async function devSession(
     distPath,
     first,
     save(file, text) {
-      const build = nextBuild()
+      const before = builds
+      // A build already running may have read the file before this write, so
+      // only one that starts later and names the file has compiled the save.
+      const build = buildThat(
+        () =>
+          builds > before &&
+          [...(compiler.modifiedFiles || [])].some(
+            (changed) => path.basename(changed) === file
+          )
+      )
       fs.writeFileSync(path.join(root, file), text)
 
       return build

@@ -9,6 +9,7 @@ import {
   sources
 } from '@rspack/core'
 import {describe, expect, it} from 'vitest'
+import {ageProjectFiles} from '../../../__spec__/helpers/dev-watch-session'
 import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {diagnosticCode} from '../../../lib/diagnostic-code'
 import {getProjectStructure} from '../../../lib/project'
@@ -236,17 +237,27 @@ describe('a dev rebuild', () => {
 
   it('reads the manifest from disk once, when it is emitted', async () => {
     const root = project()
+    // A fixture as new as the first build makes the watcher build once more.
+    ageProjectFiles(root)
+
     const manifestPath = path.join(root, 'manifest.json')
     const {config} = await configure(root, 'development')
     const compiler: Compiler = rspack(config)
     const readers: string[] = []
     const realRead = cjsFs.readFileSync
     let counting = false
+    let builds = 0
+    let wanted: (() => boolean) | undefined
     let finished: (() => void) | undefined
-    const nextBuild = () =>
+    const buildThat = (matches: () => boolean) =>
       new Promise<void>((resolve) => {
+        wanted = matches
         finished = resolve
       })
+
+    compiler.hooks.watchRun.tap('spec:dev-rebuild', () => {
+      builds += 1
+    })
 
     cjsFs.readFileSync = function (this: unknown, ...args: unknown[]) {
       if (counting && args[0] === manifestPath) {
@@ -261,9 +272,12 @@ describe('a dev rebuild', () => {
     syncBuiltinESMExports()
 
     try {
-      const first = nextBuild()
+      const first = buildThat(() => true)
       const watching = compiler.watch({aggregateTimeout: 20}, () => {
+        if (!wanted?.()) return
+
         const done = finished
+        wanted = undefined
         finished = undefined
         done?.()
       })
@@ -271,7 +285,16 @@ describe('a dev rebuild', () => {
       await new Promise((resolve) => setTimeout(resolve, 300))
 
       counting = true
-      const second = nextBuild()
+      const before = builds
+      // Only a build that starts after the write and names the file has
+      // compiled it, and a build already running is not that one.
+      const second = buildThat(
+        () =>
+          builds > before &&
+          [...(compiler.modifiedFiles || [])].some(
+            (changed) => path.basename(changed) === 'background.js'
+          )
+      )
       fs.writeFileSync(path.join(root, 'background.js'), 'console.log(2)\n')
       await second
       counting = false
