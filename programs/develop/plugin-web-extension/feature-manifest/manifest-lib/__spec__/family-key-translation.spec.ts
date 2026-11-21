@@ -7,7 +7,7 @@ function canonical(manifest: Record<string, unknown>, browser: string) {
     '/p/manifest.json',
     manifest as unknown as Manifest,
     browser as never
-  ).manifest as Record<string, any>
+  ).manifest
 }
 
 describe('sidebar pair translation', () => {
@@ -205,7 +205,7 @@ describe('toolbar key translation for a resolved Manifest V2 build', () => {
       'chrome'
     )
 
-    expect(result.browser_action.default_popup).toBe('action/index.html')
+    expect(result.browser_action?.default_popup).toBe('action/index.html')
     expect(result).not.toHaveProperty('page_action')
     expect(result).not.toHaveProperty('action')
   })
@@ -214,7 +214,7 @@ describe('toolbar key translation for a resolved Manifest V2 build', () => {
     const result = canonical(crossBrowser, 'chrome')
 
     expect(result.manifest_version).toBe(3)
-    expect(result.action.default_popup).toBe('action/index.html')
+    expect(result.action?.default_popup).toBe('action/index.html')
     expect(result).not.toHaveProperty('browser_action')
   })
 
@@ -230,8 +230,8 @@ describe('toolbar key translation for a resolved Manifest V2 build', () => {
       'firefox'
     )
 
-    expect(result.action.default_popup).toBe('action/index.html')
-    expect(result.browser_action.default_popup).toBe(
+    expect(result.action?.default_popup).toBe('action/index.html')
+    expect(result.browser_action?.default_popup).toBe(
       'browser_action/index.html'
     )
   })

@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {sources} from '@rspack/core'
+import {type Compilation, type Compiler, sources} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {DEV_BOOT_REGISTERS_GLOBAL} from '../reload-lib/producer-reload'
 import {
@@ -50,8 +50,8 @@ function build(
 ) {
   const taps: Array<() => void> = []
   const assets: Record<string, {name: string; source: sources.Source}> = {}
-  let compilation: any
-  const compiler: any = {
+  let compilation: Record<string, unknown> = {}
+  const compiler = {
     hooks: {
       thisCompilation: {
         tap: (_name: string, cb: (c: unknown) => void) => {
@@ -77,7 +77,7 @@ function build(
         }
       }
     }
-  }
+  } as unknown as Compiler
 
   new InjectBridgeProducer(sessionBridge()).apply(compiler)
 
@@ -98,7 +98,7 @@ function build(
   }
 
   return {
-    compilation,
+    compilation: compilation as unknown as Compilation,
     background: String(assets['background/service_worker.js'].source.source())
   }
 }

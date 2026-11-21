@@ -1,5 +1,6 @@
 import {describe, expect, it} from 'vitest'
 import {buildCanonicalManifestWithOverrides} from '../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
+import type {Manifest} from '../../types'
 import {dropEdgeStoreKey} from '../zip-edge-key'
 
 describe('dropEdgeStoreKey', () => {
@@ -7,7 +8,7 @@ describe('dropEdgeStoreKey', () => {
     name: 'x',
     manifest_version: 3,
     key: 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A'
-  } as any
+  }
 
   it('drops the key on an edge build, since Edge Add-ons rejects the field', () => {
     const out = dropEdgeStoreKey(withKey, 'edge')
@@ -29,14 +30,17 @@ describe('dropEdgeStoreKey', () => {
       'firefox',
       'safari'
     ]) {
-      const out = dropEdgeStoreKey(withKey, browser as any)
+      const out = dropEdgeStoreKey(
+        withKey,
+        browser as Parameters<typeof dropEdgeStoreKey>[1]
+      )
       expect(out.dropped).toBe(false)
       expect(out.manifest).toHaveProperty('key')
     }
   })
 
   it('reports nothing when the manifest carries no key', () => {
-    const out = dropEdgeStoreKey({name: 'x'} as any, 'edge')
+    const out = dropEdgeStoreKey({name: 'x'}, 'edge')
     expect(out.dropped).toBe(false)
   })
 
@@ -46,9 +50,9 @@ describe('dropEdgeStoreKey', () => {
     for (const prefixed of ['edge:key', 'chromium:key']) {
       const resolved = buildCanonicalManifestWithOverrides(
         '/tmp/manifest.json',
-        {name: 'x', manifest_version: 3, [prefixed]: 'store-key'} as any,
+        {name: 'x', manifest_version: 3, [prefixed]: 'store-key'} as Manifest,
         'edge'
-      ).manifest as any
+      ).manifest as Record<string, unknown>
       expect(resolved.key).toBe('store-key')
       expect(dropEdgeStoreKey(resolved, 'edge').manifest).not.toHaveProperty(
         'key'
@@ -59,9 +63,9 @@ describe('dropEdgeStoreKey', () => {
   it('does not disturb a chrome build, where the key is legitimate', () => {
     const resolved = buildCanonicalManifestWithOverrides(
       '/tmp/manifest.json',
-      {name: 'x', manifest_version: 3, 'chrome:key': 'store-key'} as any,
+      {name: 'x', manifest_version: 3, 'chrome:key': 'store-key'} as Manifest,
       'chrome'
-    ).manifest as any
+    ).manifest as Record<string, unknown>
     expect(dropEdgeStoreKey(resolved, 'chrome').manifest.key).toBe('store-key')
   })
 })

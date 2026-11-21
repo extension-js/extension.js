@@ -2,6 +2,8 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import {writeProjectFiles} from '../../../__spec__/helpers/extension-project'
+import {asCompiler, type TapCallback} from '../../__spec__/helpers/rspack-fakes'
 import {
   extractCssSubresourceLiterals,
   extractInjectedFileLiterals,
@@ -9,6 +11,12 @@ import {
   provenReferenceForms,
   TraceRuntimeLoadedFiles
 } from '../steps/trace-runtime-loaded-files'
+
+// A diagnostic as the step under test reports it.
+type Reported = Error & {file?: string}
+
+// An asset as the fake compilation keeps it.
+type EmittedAsset = {name: string; source: {source(): string | Buffer}}
 
 const tempDirs: string[] = []
 
@@ -31,11 +39,7 @@ function createTempProject(
     'utf8'
   )
 
-  for (const [rel, content] of Object.entries(files)) {
-    const abs = path.join(dir, rel)
-    fs.mkdirSync(path.dirname(abs), {recursive: true})
-    fs.writeFileSync(abs, content, 'utf8')
-  }
+  writeProjectFiles(dir, files)
 
   return dir
 }
@@ -46,40 +50,40 @@ async function runTrace(
   entry: Record<string, unknown> = {},
   development?: {modules: string[]}
 ) {
-  const emitted = new Map(
+  const emitted = new Map<string, EmittedAsset>(
     Object.entries(assets).map(([name, src]) => [
       name,
       {name, source: {source: () => src}}
     ])
   )
-  const compilation: any = {
-    warnings: [],
-    errors: [],
+  const compilation = {
+    warnings: [] as Reported[],
+    errors: [] as Reported[],
     fileDependencies: new Set<string>(),
     modules: (development?.modules ?? []).map((rel) => ({
       resource: path.join(projectDir, rel)
     })),
     getAsset: (name: string) => emitted.get(name),
     getAssets: () => Array.from(emitted.values()),
-    emitAsset: (name: string, source: any) => {
+    emitAsset: (name: string, source: EmittedAsset['source']) => {
       emitted.set(name, {name, source})
     },
-    updateAsset: (name: string, source: any) => {
+    updateAsset: (name: string, source: EmittedAsset['source']) => {
       emitted.set(name, {name, source})
     },
     createChildCompiler: () => {
       throw new Error('unexpected child compilation in a unit fixture')
     },
     hooks: {
-      processAssets: {tapPromise: (_opts: any, fn: any) => fn()}
+      processAssets: {tapPromise: (_opts: unknown, fn: TapCallback) => fn()}
     }
   }
-  const compiler: any = {
+  const compiler = asCompiler({
     options: {entry, mode: development ? 'development' : 'production'},
     hooks: {
-      thisCompilation: {tap: (_n: string, fn: any) => fn(compilation)}
+      thisCompilation: {tap: (_n: string, fn: TapCallback) => fn(compilation)}
     }
-  }
+  })
 
   new TraceRuntimeLoadedFiles({
     manifestPath: path.join(projectDir, 'manifest.json')

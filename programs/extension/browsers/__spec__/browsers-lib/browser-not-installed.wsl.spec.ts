@@ -22,7 +22,7 @@ describe('browserNotInstalledError (WSL)', () => {
 
   it('includes a WSL hint when running under WSL env', () => {
     vi.stubEnv('WSL_DISTRO_NAME', 'Ubuntu')
-    const msg = browserNotInstalledError('chrome' as any, '')
+    const msg = browserNotInstalledError('chrome', '')
     expect(msg).toMatch(/WSL detected/)
     expect(msg).toMatch(/--chromium-binary/)
     expect(msg).toMatch(/\/mnt\/c\//)
@@ -32,7 +32,7 @@ describe('browserNotInstalledError (WSL)', () => {
     vi.stubEnv('WSL_DISTRO_NAME', undefined)
     vi.stubEnv('WSL_INTEROP', undefined)
     vi.stubEnv('WSLENV', undefined)
-    const msg = browserNotInstalledError('chrome' as any, '')
+    const msg = browserNotInstalledError('chrome', '')
     expect(msg).not.toMatch(/WSL detected/)
   })
 
@@ -41,7 +41,7 @@ describe('browserNotInstalledError (WSL)', () => {
     vi.stubEnv('WSLENV', 'FOO/p')
     vi.stubEnv('WSL_DISTRO_NAME', undefined)
     vi.stubEnv('WSL_INTEROP', undefined)
-    const msg = browserNotInstalledError('chrome' as any, '')
+    const msg = browserNotInstalledError('chrome', '')
     expect(msg).not.toMatch(/WSL detected/)
   })
 })

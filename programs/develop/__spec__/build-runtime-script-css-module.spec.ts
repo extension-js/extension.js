@@ -1,23 +1,18 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import * as vm from 'node:vm'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {SFC_STYLE_ATTRIBUTE} from '../plugin-css/css-lib/inline-content-script-css'
 import {SHEET_BLOCK_OPEN} from '../plugin-web-extension/feature-scripts/scripts-lib/runtime-script-sheet'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // The author's own call injects a scripts/ file and names only that file,
 // so the sheet of the CSS modules it imports has to arrive with it.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-runtime-sheet-'))
-  roots.push(root)
+  const root = tempFolder('extjs-runtime-sheet-')
 
   const files: Record<string, string | Buffer> = {
     'package.json': JSON.stringify({

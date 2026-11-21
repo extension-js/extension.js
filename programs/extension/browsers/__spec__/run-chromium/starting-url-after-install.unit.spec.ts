@@ -3,10 +3,22 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {expectedChromiumExtensionId} from '../../browsers-lib/banner'
+import type {CompilationLike} from '../../browsers-types'
 import {CDPExtensionController} from '../../run-chromium/cdp/cdp-extension-controller'
 import {chromiumLaunchPlan} from '../../run-chromium/chromium-launch/browser-config'
-import {browserConfig as firefoxBrowserConfig} from '../../run-firefox/firefox-launch/browser-config'
+import {
+  type BrowserConfigOptions,
+  browserConfig as firefoxBrowserConfig
+} from '../../run-firefox/firefox-launch/browser-config'
 import {openStartingUrlAfterBackground} from '../../run-firefox/rdp/remote-firefox/starting-url'
+import {controllerInternals} from '../cdp-controller-fakes'
+
+// The rows set only the launch fields the starting url decision reads.
+function firefoxOptions(
+  fields: Partial<BrowserConfigOptions>
+): BrowserConfigOptions {
+  return fields as BrowserConfigOptions
+}
 
 // A page the launch argv opens starts loading while the extension is still
 // being installed, so its document_start content scripts and CSS never reach
@@ -54,8 +66,8 @@ describe('the launch argv', () => {
   it('opens a blank tab that carries the launch mark on Firefox', async () => {
     const out = makeDist({manifest_version: 3})
     const args = await firefoxBrowserConfig(
-      {options: {mode: 'production', context: out, output: {path: out}}} as any,
-      {extension: out, browser: 'firefox', startingUrl: URL} as any
+      {options: {mode: 'production', context: out, output: {path: out}}},
+      firefoxOptions({extension: out, browser: 'firefox', startingUrl: URL})
     )
 
     expect(args).not.toContain(URL)
@@ -66,9 +78,9 @@ describe('the launch argv', () => {
   // the launch names no url at all and Firefox shows what it normally would.
   it('names no url on Firefox when the session has no starting url', async () => {
     const out = makeDist({manifest_version: 3})
-    const compilation = {
+    const compilation: CompilationLike = {
       options: {mode: 'production', context: out, output: {path: out}}
-    } as any
+    }
 
     for (const options of [
       {},
@@ -76,11 +88,10 @@ describe('the launch argv', () => {
       {noOpen: true, startingUrl: URL},
       {startingUrl: ''}
     ]) {
-      const args = await firefoxBrowserConfig(compilation, {
-        extension: out,
-        browser: 'firefox',
-        ...options
-      } as any)
+      const args = await firefoxBrowserConfig(
+        compilation,
+        firefoxOptions({extension: out, browser: 'firefox', ...options})
+      )
 
       expect(args).not.toContain('--url')
       expect(args).not.toContain('extension-js-launch')
@@ -91,12 +102,14 @@ describe('the launch argv', () => {
 
 describe('Chromium opens the starting url after install', () => {
   function makeController(outPath: string, targetLists: unknown[][]) {
-    const controller = new CDPExtensionController({
-      outPath,
-      browser: 'chrome',
-      cdpPort: 9222,
-      extensionPaths: [outPath]
-    }) as any
+    const controller = controllerInternals(
+      new CDPExtensionController({
+        outPath,
+        browser: 'chrome',
+        cdpPort: 9222,
+        extensionPaths: [outPath]
+      })
+    )
     const commands: Array<[string, unknown, string | undefined]> = []
     let listing = 0
 

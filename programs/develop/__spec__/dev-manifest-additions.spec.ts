@@ -1,16 +1,12 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {type Compiler, rspack, type Stats} from '@rspack/core'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {getProjectStructure} from '../lib/project'
 import webpackConfig from '../rspack-config'
+import {trackTempFolders} from './helpers/temp-folders'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 const NAMES_THE_PAGE =
   'window.addEventListener("open-demo", () => chrome.runtime.sendMessage({open: "pages/demo.html"}))\n'
@@ -22,8 +18,7 @@ function project(options: {
   contentScript?: string
   declared?: boolean
 }) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-additions-'))
-  roots.push(root)
+  const root = tempFolder('extjs-dev-additions-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'dev-additions', version: '0.0.0'})
@@ -78,7 +73,7 @@ async function compile(
     metadataCommand: mode === 'development' ? 'dev' : 'build',
     silent: true,
     output: {clean: false, path: distPath}
-  } as any)
+  } as Parameters<typeof webpackConfig>[1])
   config.plugins = (config.plugins || []).filter(
     (plugin) => plugin?.constructor.name !== 'plugin-browsers'
   )
@@ -112,17 +107,31 @@ async function compile(
     stats,
     manifest: JSON.parse(
       fs.readFileSync(path.join(distPath, 'manifest.json'), 'utf8')
-    ) as Record<string, any>,
+    ) as BuiltManifest,
     ready: (fs.existsSync(readyPath)
       ? JSON.parse(fs.readFileSync(readyPath, 'utf8'))
-      : {}) as Record<string, any>
+      : {}) as {devAdditions: DevAddition[]}
   }
 }
 
-function exposedResources(manifest: Record<string, any>): string[] {
+// The manifest fields and ready.json additions the rows read back.
+interface BuiltManifest {
+  permissions: string[]
+  host_permissions: string[]
+  web_accessible_resources?: Array<string | {resources?: string[]}>
+}
+
+interface DevAddition {
+  kind: string
+  value: string
+  reason: string
+  matches?: string[]
+}
+
+function exposedResources(manifest: BuiltManifest): string[] {
   const declared = manifest.web_accessible_resources || []
 
-  return declared.flatMap((entry: any) =>
+  return declared.flatMap((entry) =>
     typeof entry === 'string' ? [entry] : entry.resources || []
   )
 }
@@ -200,7 +209,7 @@ describe('what a dev session adds to the manifest', () => {
     const root = project({manifestVersion: 3, contentScript: NAMES_THE_PAGE})
     const dev = await compile(root, 'chrome', 'development')
     const built = await compile(root, 'chrome', 'production')
-    const additions = dev.ready.devAdditions as Array<Record<string, any>>
+    const additions = dev.ready.devAdditions
 
     expect(additions.map((entry) => `${entry.kind} ${entry.value}`)).toEqual([
       'permission scripting',
@@ -251,9 +260,7 @@ describe('what a dev session adds to the manifest', () => {
     ])
 
     expect(
-      (dev.ready.devAdditions as Array<Record<string, any>>).map(
-        (entry) => `${entry.kind} ${entry.value}`
-      )
+      dev.ready.devAdditions.map((entry) => `${entry.kind} ${entry.value}`)
     ).toEqual([
       'permission tabs',
       'host_permission <all_urls>',

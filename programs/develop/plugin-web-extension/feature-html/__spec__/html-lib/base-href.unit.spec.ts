@@ -36,7 +36,7 @@ describe('bakeBaseHref', () => {
         '<a href="mailto:a@b.c">m</a><a href="https://other.test/">o</a>' +
         '<form action="send"></form><img src="/assets/logo.png"></body></html>'
     )
-    bakeBaseHref(doc as any)
+    bakeBaseHref(doc)
     const html = parse5utilities.stringify(doc)
     expect(html).not.toContain('<base')
     expect(html).toContain('href="https://cdn.example.com/x/page.html"')
@@ -51,7 +51,7 @@ describe('bakeBaseHref', () => {
     const doc = parse5utilities.parse(
       '<html><head><base href="sub/" target="_blank"></head><body></body></html>'
     )
-    bakeBaseHref(doc as any)
+    bakeBaseHref(doc)
     const html = parse5utilities.stringify(doc)
     expect(html).toContain('<base target="_blank">')
     expect(html).not.toContain('href=')
@@ -61,7 +61,7 @@ describe('bakeBaseHref', () => {
     const source =
       '<html><head></head><body><a href="page.html">l</a></body></html>'
     const doc = parse5utilities.parse(source)
-    bakeBaseHref(doc as any)
+    bakeBaseHref(doc)
     expect(parse5utilities.stringify(doc)).toBe(source)
   })
 })

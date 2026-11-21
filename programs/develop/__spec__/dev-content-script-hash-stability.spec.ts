@@ -1,22 +1,17 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // Development content-script bundles carry a per-entry content hash, so a
 // save must rename only the script it touched, the manifest on disk must
 // only ever name files that exist beside it, and a compile error must leave
 // the last working extension in place. Real builds, no browser.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-cs-hash-'))
-  roots.push(root)
+  const root = tempFolder('extjs-cs-hash-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'cs-hash', version: '0.0.0'})

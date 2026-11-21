@@ -1,9 +1,10 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import vm from 'node:vm'
 import {rspack, type Stats} from '@rspack/core'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
+import {writeProjectFiles} from '../../../__spec__/helpers/extension-project'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {
   EXTENSION_BASE_GLOBAL,
   readTakeBlock
@@ -14,7 +15,7 @@ import {MAIN_WORLD_COPY_SUFFIX} from '../contracts'
 import {CHROMIUM_EXTENSION_ROOT} from '../scripts-lib/injected-sheet-urls'
 import {extensionBaseAttributeFor} from '../scripts-lib/taken-extension-base'
 
-const roots: string[] = []
+const tempFolder = trackTempFolders()
 const EXTENSION_BASE = 'chrome-extension://abcdefghijklmnop/'
 
 // Chromium fills the extension id in as it hands a sheet over, a fetch too.
@@ -48,10 +49,7 @@ function takenAttribute(bundle: string): string {
 }
 
 function scaffold(name: string, files: Record<string, string | Buffer>) {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), `extjs-exposure-${name}-`))
-  )
-  roots.push(root)
+  const root = fs.realpathSync(tempFolder(`extjs-exposure-${name}-`))
 
   fs.writeFileSync(
     path.join(root, 'package.json'),
@@ -62,11 +60,7 @@ function scaffold(name: string, files: Record<string, string | Buffer>) {
     })
   )
 
-  for (const [relative, contents] of Object.entries(files)) {
-    const target = path.join(root, relative)
-    fs.mkdirSync(path.dirname(target), {recursive: true})
-    fs.writeFileSync(target, contents)
-  }
+  writeProjectFiles(root, files)
 
   return root
 }
@@ -84,7 +78,7 @@ async function compile(
     metadataCommand: mode === 'production' ? 'build' : 'dev',
     silent: true,
     output: {clean: true, path: distPath}
-  } as any)
+  } as Parameters<typeof webpackConfig>[1])
   config.plugins = (config.plugins || []).filter(
     (plugin) =>
       plugin?.constructor.name !== 'plugin-browsers' &&
@@ -102,9 +96,7 @@ async function compile(
     })
   })
 
-  const emitted = (
-    fs.readdirSync(distPath, {recursive: true} as any) as unknown[]
-  )
+  const emitted = (fs.readdirSync(distPath, {recursive: true}) as unknown[])
     .map((entry) => String(entry).split(path.sep).join('/'))
     .filter((entry) => fs.statSync(path.join(distPath, entry)).isFile())
     .sort()
@@ -369,12 +361,6 @@ function firefoxPage(answer: () => string) {
       )
   }
 }
-
-afterAll(() => {
-  for (const root of roots) {
-    fs.rmSync(root, {recursive: true, force: true})
-  }
-})
 
 describe('a stylesheet a production content script declares', () => {
   const manifest = JSON.stringify({

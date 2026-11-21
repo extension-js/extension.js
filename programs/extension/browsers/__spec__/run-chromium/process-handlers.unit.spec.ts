@@ -1,4 +1,20 @@
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import type {ChildProcess} from 'node:child_process'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type Mock,
+  vi
+} from 'vitest'
+
+type Handler = (...args: unknown[]) => void
+
+// A child with only the two members the teardown reads.
+function fakeChild(killed: boolean) {
+  return {killed, kill: vi.fn()} as unknown as ChildProcess & {kill: Mock}
+}
 
 // Windows asks taskkill to close the tree instead of signaling the child.
 function expectAskedToStop(child: {kill: unknown}) {
@@ -13,19 +29,21 @@ function expectAskedToStop(child: {kill: unknown}) {
 // and a made-up number can name a real process.
 describe('Chromium setupProcessSignalHandlers', () => {
   let originalProcessOn: typeof process.on
-  let registeredHandlers: Map<string, Function[]>
+  let registeredHandlers: Map<string, Handler[]>
 
   beforeEach(async () => {
     registeredHandlers = new Map()
     originalProcessOn = process.on
 
-    ;(process as any).on = vi.fn((event: string, handler: Function) => {
-      const existing = registeredHandlers.get(event) || []
-      existing.push(handler)
-      registeredHandlers.set(event, existing)
+    ;(process as {on: unknown}).on = vi.fn(
+      (event: string, handler: Handler) => {
+        const existing = registeredHandlers.get(event) || []
+        existing.push(handler)
+        registeredHandlers.set(event, existing)
 
-      return process
-    })
+        return process
+      }
+    )
 
     const mod = await import(
       '../../run-chromium/chromium-launch/process-handlers'
@@ -43,7 +61,7 @@ describe('Chromium setupProcessSignalHandlers', () => {
       '../../run-chromium/chromium-launch/process-handlers'
     )
 
-    const child: any = {killed: false, kill: vi.fn()}
+    const child = fakeChild(false)
     const cleanupInstance = vi.fn()
 
     setupProcessSignalHandlers('chrome', child, cleanupInstance)
@@ -61,7 +79,7 @@ describe('Chromium setupProcessSignalHandlers', () => {
       '../../run-chromium/chromium-launch/process-handlers'
     )
 
-    const child: any = {killed: false, kill: vi.fn()}
+    const child = fakeChild(false)
     const cleanupInstance = vi.fn()
 
     setupProcessSignalHandlers('chrome', child, cleanupInstance)
@@ -78,7 +96,7 @@ describe('Chromium setupProcessSignalHandlers', () => {
       '../../run-chromium/chromium-launch/process-handlers'
     )
 
-    const child: any = {killed: true, kill: vi.fn()}
+    const child = fakeChild(true)
     const cleanupInstance = vi.fn()
 
     setupProcessSignalHandlers('chrome', child, cleanupInstance)
@@ -97,7 +115,7 @@ describe('Chromium setupProcessSignalHandlers', () => {
       '../../run-chromium/chromium-launch/process-handlers'
     )
 
-    const child: any = {killed: false, kill: vi.fn()}
+    const child = fakeChild(false)
     const cleanupInstance = vi.fn()
     const cleanupOnExit = vi.fn()
 
@@ -117,7 +135,7 @@ describe('Chromium setupProcessSignalHandlers', () => {
       '../../run-chromium/chromium-launch/process-handlers'
     )
 
-    const child: any = {killed: false, kill: vi.fn()}
+    const child = fakeChild(false)
     const cleanupOnExit = vi.fn()
 
     setupProcessSignalHandlers('chrome', child, vi.fn(), cleanupOnExit)()
@@ -133,7 +151,7 @@ describe('Chromium setupProcessSignalHandlers', () => {
       '../../run-chromium/chromium-launch/process-handlers'
     )
 
-    const child: any = {killed: false, kill: vi.fn()}
+    const child = fakeChild(false)
     const cleanupInstance = vi.fn()
     const exitSpy = vi
       .spyOn(process, 'exit')
@@ -165,7 +183,7 @@ describe('Chromium setupProcessSignalHandlers', () => {
       '../../run-chromium/chromium-launch/process-handlers'
     )
 
-    const child: any = {killed: false, kill: vi.fn()}
+    const child = fakeChild(false)
 
     const dispose1 = setupProcessSignalHandlers('chrome', child, vi.fn())
     const dispose2 = setupProcessSignalHandlers('chrome', child, vi.fn())
@@ -187,7 +205,7 @@ describe('Chromium setupProcessSignalHandlers', () => {
     const {setupProcessSignalHandlers, __activeChromiumInstanceCount} =
       await import('../../run-chromium/chromium-launch/process-handlers')
 
-    const child: any = {killed: false, kill: vi.fn()}
+    const child = fakeChild(false)
     const base = __activeChromiumInstanceCount()
 
     const dispose = setupProcessSignalHandlers('chrome', child, vi.fn())
@@ -200,18 +218,20 @@ describe('Chromium setupProcessSignalHandlers', () => {
 
 describe('Firefox setupFirefoxProcessHandlers', () => {
   let originalProcessOn: typeof process.on
-  let registeredHandlers: Map<string, Function[]>
+  let registeredHandlers: Map<string, Handler[]>
 
   beforeEach(async () => {
     registeredHandlers = new Map()
     originalProcessOn = process.on
-    ;(process as any).on = vi.fn((event: string, handler: Function) => {
-      const existing = registeredHandlers.get(event) || []
-      existing.push(handler)
-      registeredHandlers.set(event, existing)
+    ;(process as {on: unknown}).on = vi.fn(
+      (event: string, handler: Handler) => {
+        const existing = registeredHandlers.get(event) || []
+        existing.push(handler)
+        registeredHandlers.set(event, existing)
 
-      return process
-    })
+        return process
+      }
+    )
 
     const mod = await import(
       '../../run-firefox/firefox-launch/process-handlers'
@@ -229,7 +249,7 @@ describe('Firefox setupFirefoxProcessHandlers', () => {
       '../../run-firefox/firefox-launch/process-handlers'
     )
 
-    const child: any = {killed: false, kill: vi.fn()}
+    const child = fakeChild(false)
     const cleanupInstance = vi.fn(async () => {})
 
     setupFirefoxProcessHandlers('firefox', () => child, cleanupInstance)
@@ -251,7 +271,7 @@ describe('Firefox setupFirefoxProcessHandlers', () => {
       '../../run-firefox/firefox-launch/process-handlers'
     )
 
-    const child: any = {killed: false, kill: vi.fn()}
+    const child = fakeChild(false)
     const cleanupInstance = vi.fn(async () => {})
 
     setupFirefoxProcessHandlers('firefox', () => child, cleanupInstance)
@@ -269,7 +289,7 @@ describe('Firefox setupFirefoxProcessHandlers', () => {
       '../../run-firefox/firefox-launch/process-handlers'
     )
 
-    const child: any = {killed: false, kill: vi.fn()}
+    const child = fakeChild(false)
     const childRef = vi.fn(() => child)
     const cleanupInstance = vi.fn(async () => {})
 
@@ -289,7 +309,7 @@ describe('Firefox setupFirefoxProcessHandlers', () => {
       '../../run-firefox/firefox-launch/process-handlers'
     )
 
-    const child: any = {killed: false, kill: vi.fn()}
+    const child = fakeChild(false)
     const cleanupInstance = vi.fn(async () => {})
     const exitSpy = vi
       .spyOn(process, 'exit')

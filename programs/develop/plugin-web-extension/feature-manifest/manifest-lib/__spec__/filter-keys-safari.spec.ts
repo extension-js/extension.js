@@ -1,4 +1,5 @@
 import {describe, expect, it} from 'vitest'
+import {asBrowser, asManifest} from '../../__spec__/helpers/manifest-fakes'
 import * as messages from '../../messages'
 import {
   dropWebkitUnsupportedKeys,
@@ -13,54 +14,48 @@ import {
 } from '../manifest'
 
 describe('filterKeysForThisBrowser (manifest-lib), Safari', () => {
-  const manifest = {
+  const manifest = asManifest({
     name: 'x',
     'chromium:manifest_version': 3,
     'firefox:manifest_version': 2,
     'chromium:action': {default_title: 'Chromium'},
     'firefox:action': {default_title: 'Firefox'}
-  } as any
+  })
 
   it('resolves chromium manifest_version and keys for safari', () => {
-    const patched = filterKeysForThisBrowser(manifest, 'safari') as any
+    const patched = filterKeysForThisBrowser(manifest, 'safari')
     expect(patched.manifest_version).toBe(3)
     expect(patched.action).toEqual({default_title: 'Chromium'})
   })
 
   it('resolves chromium keys for webkit-based targets', () => {
-    const patched = filterKeysForThisBrowser(
-      manifest,
-      'webkit-based' as any
-    ) as any
+    const patched = filterKeysForThisBrowser(manifest, 'webkit-based')
     expect(patched.manifest_version).toBe(3)
   })
 
   it('still resolves gecko keys for firefox (no chromium bleed-through)', () => {
-    const patched = filterKeysForThisBrowser(manifest, 'firefox') as any
+    const patched = filterKeysForThisBrowser(manifest, 'firefox')
     expect(patched.manifest_version).toBe(2)
     expect(patched.action).toEqual({default_title: 'Firefox'})
   })
 
   describe('safari:/webkit: prefixes', () => {
-    const prefixed = {
+    const prefixed = asManifest({
       name: 'x',
       'chromium:action': {default_title: 'Chromium'},
       'safari:action': {default_title: 'Safari'},
       permissions: ['storage'],
       'webkit:permissions': ['storage', 'nativeMessaging']
-    } as any
+    })
 
     it('safari: wins over chromium-family keys for --browser=safari', () => {
-      const patched = filterKeysForThisBrowser(prefixed, 'safari') as any
+      const patched = filterKeysForThisBrowser(prefixed, 'safari')
       expect(patched.action).toEqual({default_title: 'Safari'})
       expect(patched.permissions).toEqual(['storage', 'nativeMessaging'])
     })
 
     it('safari:/webkit: resolve identically for --browser=webkit-based', () => {
-      const patched = filterKeysForThisBrowser(
-        prefixed,
-        'webkit-based' as any
-      ) as any
+      const patched = filterKeysForThisBrowser(prefixed, 'webkit-based')
       expect(patched.action).toEqual({default_title: 'Safari'})
       expect(patched.permissions).toEqual(['storage', 'nativeMessaging'])
     })
@@ -68,39 +63,39 @@ describe('filterKeysForThisBrowser (manifest-lib), Safari', () => {
     it('safari:/webkit: resolve identically for any webkit-flavored fork name', () => {
       const patched = filterKeysForThisBrowser(
         prefixed,
-        'acme-webkit' as any
-      ) as any
+        asBrowser('acme-webkit')
+      )
       expect(patched.action).toEqual({default_title: 'Safari'})
       expect(patched.permissions).toEqual(['storage', 'nativeMessaging'])
       // Still inherits chromium-family keys when no safari/webkit override.
-      const chromiumOnly = {
+      const chromiumOnly = asManifest({
         name: 'x',
         'chromium:manifest_version': 3,
         'firefox:manifest_version': 2
-      } as any
+      })
       const inherited = filterKeysForThisBrowser(
         chromiumOnly,
-        'acme-webkit' as any
-      ) as any
+        asBrowser('acme-webkit')
+      )
       expect(inherited.manifest_version).toBe(3)
     })
 
     it('safari: wins regardless of key order in the source manifest', () => {
-      const reversed = {
+      const reversed = asManifest({
         'safari:action': {default_title: 'Safari'},
         'chromium:action': {default_title: 'Chromium'},
         name: 'x'
-      } as any
-      const patched = filterKeysForThisBrowser(reversed, 'safari') as any
+      })
+      const patched = filterKeysForThisBrowser(reversed, 'safari')
       expect(patched.action).toEqual({default_title: 'Safari'})
     })
 
     it('safari: keys are dropped for chromium and firefox targets', () => {
-      const chrome = filterKeysForThisBrowser(prefixed, 'chrome') as any
+      const chrome = filterKeysForThisBrowser(prefixed, 'chrome')
       expect(chrome.action).toEqual({default_title: 'Chromium'})
       expect(chrome.permissions).toEqual(['storage'])
 
-      const firefox = filterKeysForThisBrowser(prefixed, 'firefox') as any
+      const firefox = filterKeysForThisBrowser(prefixed, 'firefox')
       expect(firefox.action).toBeUndefined()
       expect(firefox.permissions).toEqual(['storage'])
     })
@@ -111,8 +106,8 @@ describe('filterKeysForThisBrowser (manifest-lib), Safari', () => {
 // some of them. The converter names each one it rejects, and these cases pin
 // the ones MDN browser-compat-data agrees are unsupported or inert.
 describe('dropWebkitUnsupportedKeys', () => {
-  const drop = (manifest: any, browser = 'safari') =>
-    dropWebkitUnsupportedKeys(manifest, browser as any)
+  const drop = (manifest: unknown, browser = 'safari') =>
+    dropWebkitUnsupportedKeys(asManifest(manifest), asBrowser(browser))
 
   // The floor of another browser means nothing to Safari, so it goes with no
   // word: nothing the author asked Safari for was taken away.
@@ -356,13 +351,13 @@ describe('omitWebkitDroppedEntries', () => {
 
   it('removes every entry a dropped top-level key owns', () => {
     const {dropped} = dropWebkitUnsupportedKeys(
-      {
+      asManifest({
         name: 'x',
         sandbox: {pages: ['sbx.html']},
         sidebar_action: {default_panel: 'side.html'},
         user_scripts: {api_script: 'api.js'},
         options_ui: {page: 'options.html', open_in_tab: true}
-      } as any,
+      }),
       'safari'
     )
 
@@ -374,7 +369,7 @@ describe('omitWebkitDroppedEntries', () => {
 
   it('returns the entries untouched when nothing was dropped', () => {
     const {dropped} = dropWebkitUnsupportedKeys(
-      {name: 'x', sandbox: {pages: ['sbx.html']}} as any,
+      asManifest({name: 'x', sandbox: {pages: ['sbx.html']}}),
       'chrome'
     )
 
@@ -385,20 +380,20 @@ describe('omitWebkitDroppedEntries', () => {
 // The overrides rewrite side_panel and sandbox paths, so the drop has to run
 // after them or the key comes back on the way out.
 describe('safari drops survive the manifest overrides', () => {
-  const source = {
+  const source = asManifest({
     name: 'x',
     'chromium:manifest_version': 3,
     'chromium:side_panel': {default_path: 'sidebar/index.html'},
     'chromium:permissions': ['sidePanel'],
     sandbox: {pages: ['sandbox/index.html']}
-  } as any
+  })
 
   it('emits no side_panel, sandbox or sidePanel for a safari build', () => {
     const result = buildCanonicalManifestWithOverrides(
       '/p/manifest.json',
       source,
       'safari'
-    ).manifest as any
+    ).manifest
 
     expect(result.manifest_version).toBe(3)
     expect(result).not.toHaveProperty('side_panel')
@@ -411,7 +406,7 @@ describe('safari drops survive the manifest overrides', () => {
       '/p/manifest.json',
       source,
       'chrome'
-    ).manifest as any
+    ).manifest
 
     expect(result.side_panel).toBeDefined()
     expect(result.sandbox).toBeDefined()
@@ -474,10 +469,10 @@ describe('the exported dropped-key list', () => {
     const topLevel = listed
       .map((entry) => entry.key)
       .filter((key) => !key.includes('.'))
-    const manifest = {
+    const manifest = asManifest({
       name: 'x',
       ...Object.fromEntries(topLevel.map((key) => [key, {}]))
-    } as any
+    })
 
     const {dropped} = dropWebkitUnsupportedKeys(manifest, 'safari')
 
@@ -492,7 +487,7 @@ describe('the exported dropped-key list', () => {
   it('names every permission the filter drops', () => {
     const permissions = webkitUnsupportedPermissions()
     const {dropped} = dropWebkitUnsupportedKeys(
-      {name: 'x', permissions} as any,
+      asManifest({name: 'x', permissions}),
       'safari'
     )
 

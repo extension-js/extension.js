@@ -1,7 +1,9 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, afterEach, beforeEach, describe, expect, it} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it} from 'vitest'
+import {buildProject} from '../../__spec__/helpers/build-project'
+import {writeExtensionProject} from '../../__spec__/helpers/extension-project'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {getEnvFileCandidates} from '../../plugin-compilation/env'
 import {
   envFileCandidates,
@@ -24,7 +26,7 @@ const KEYS = [
   'EXTENSION_PUBLIC_ONLY_FIRST',
   'EXTENSION_PUBLIC_BOTH'
 ]
-const roots: string[] = []
+const tempFolder = trackTempFolders()
 const saved: Record<string, string | undefined> = {}
 
 beforeEach(() => {
@@ -41,27 +43,12 @@ afterEach(() => {
   }
 })
 
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
-
 function project(files: Record<string, string>) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-env-preload-'))
-  roots.push(root)
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'env-preload', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'env-preload',
-      version: '1.0.0',
-      background: {service_worker: 'background.js'}
-    })
-  )
+  const root = tempFolder('extjs-env-preload-')
+  writeExtensionProject(root, {
+    name: 'env-preload',
+    manifest: {background: {service_worker: 'background.js'}}
+  })
 
   fs.writeFileSync(path.join(root, 'background.js'), 'console.log("bg")\n')
 
@@ -114,7 +101,9 @@ describe('env preload layering at config time', () => {
   it('layers defaults, .env and .env.local and keeps the shell value', async () => {
     process.env.EXTENSION_PUBLIC_SHELL = 'from-shell'
     const root = project({...ENV_FILES, 'extension.config.js': JS_CONFIG})
-    const config = (await loadCommandConfig(root, 'build')) as {
+    const config = (await loadCommandConfig(root, 'build', {
+      mode: 'production'
+    })) as {
       profile?: string
       zip?: boolean
     }
@@ -129,7 +118,9 @@ describe('env preload layering at config time', () => {
   it('gives the mjs config style the same winners through import.meta.env', async () => {
     process.env.EXTENSION_PUBLIC_SHELL = 'from-shell'
     const root = project({...ENV_FILES, 'extension.config.mjs': MJS_CONFIG})
-    const config = (await loadCommandConfig(root, 'build')) as {
+    const config = (await loadCommandConfig(root, 'build', {
+      mode: 'production'
+    })) as {
       profile?: string
     }
     expect(config.profile).toBe(
@@ -139,23 +130,11 @@ describe('env preload layering at config time', () => {
 
   it('ships the zip a config toggles from a .env value', async () => {
     const root = project({...ENV_FILES, 'extension.config.js': JS_CONFIG})
-    const {extensionBuild} = await import('../../command-build')
-    const previous = process.env.VITEST
-    process.env.VITEST = 'true'
-
-    try {
-      const summary = await extensionBuild(root, {
-        browser: 'chrome',
-        silent: true,
-        install: false,
-        mode: 'production',
-        exitOnError: false
-      } as any)
-      expect(summary.errors_count).toBe(0)
-    } finally {
-      if (previous === undefined) delete process.env.VITEST
-      else process.env.VITEST = previous
-    }
+    const summary = await buildProject(root, {
+      mode: 'production',
+      exitOnError: false
+    })
+    expect(summary.errors_count).toBe(0)
 
     const zips = fs
       .readdirSync(path.join(root, 'dist'), {recursive: true})
@@ -183,7 +162,9 @@ module.exports = {
 describe('env preload follows the running mode', () => {
   it('reads .env.production for build and leaves .env.development alone', async () => {
     const root = project({...MODE_FILES, 'extension.config.js': MODE_CONFIG})
-    const config = (await loadCommandConfig(root, 'build')) as {
+    const config = (await loadCommandConfig(root, 'build', {
+      mode: 'production'
+    })) as {
       profile?: string
     }
 
@@ -192,7 +173,9 @@ describe('env preload follows the running mode', () => {
 
   it('reads .env.development for dev', async () => {
     const root = project({...MODE_FILES, 'extension.config.js': MODE_CONFIG})
-    const config = (await loadCommandConfig(root, 'dev')) as {profile?: string}
+    const config = (await loadCommandConfig(root, 'dev', {
+      mode: 'development'
+    })) as {profile?: string}
 
     expect(config.profile).toBe('from-development')
   })
@@ -202,7 +185,9 @@ describe('env preload follows the running mode', () => {
       '.env.development': MODE_FILES['.env.development'],
       'extension.config.js': MODE_CONFIG
     })
-    const config = (await loadCommandConfig(root, 'build')) as {
+    const config = (await loadCommandConfig(root, 'build', {
+      mode: 'production'
+    })) as {
       profile?: string
     }
 
@@ -266,22 +251,8 @@ describe('env preload follows the running mode', () => {
       'console.log("stage", process.env.EXTENSION_PUBLIC_STAGE)\n'
     )
 
-    const {extensionBuild} = await import('../../command-build')
-    const previous = process.env.VITEST
-    process.env.VITEST = 'true'
-
-    try {
-      const summary = await extensionBuild(root, {
-        browser: 'chrome',
-        silent: true,
-        install: false,
-        exitOnError: false
-      } as any)
-      expect(summary.errors_count).toBe(0)
-    } finally {
-      if (previous === undefined) delete process.env.VITEST
-      else process.env.VITEST = previous
-    }
+    const summary = await buildProject(root, {exitOnError: false})
+    expect(summary.errors_count).toBe(0)
 
     const bundle = fs.readFileSync(
       path.join(root, 'dist', 'chrome', 'background', 'service_worker.js'),
@@ -319,7 +290,9 @@ const SECOND_FILES = {
 }
 
 async function seenBy(root: string) {
-  const config = (await loadProjectConfigDefaults(root)) as {
+  const config = (await loadProjectConfigDefaults(root, {
+    mode: 'production'
+  })) as {
     perfBudgets?: {seen?: string}
   }
 
@@ -473,22 +446,8 @@ describe('env preload keeps two projects apart', () => {
 
     await seenBy(first)
 
-    const {extensionBuild} = await import('../../command-build')
-    const previous = process.env.VITEST
-    process.env.VITEST = 'true'
-
-    try {
-      const summary = await extensionBuild(second, {
-        browser: 'chrome',
-        silent: true,
-        install: false,
-        exitOnError: false
-      } as any)
-      expect(summary.errors_count).toBe(0)
-    } finally {
-      if (previous === undefined) delete process.env.VITEST
-      else process.env.VITEST = previous
-    }
+    const summary = await buildProject(second, {exitOnError: false})
+    expect(summary.errors_count).toBe(0)
 
     const bundle = fs.readFileSync(
       path.join(second, 'dist', 'chrome', 'background', 'service_worker.js'),
@@ -529,10 +488,7 @@ function workspacePackage(
   rootFiles: Record<string, string>,
   packageFiles: Record<string, string>
 ) {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-env-workspace-'))
-  )
-  roots.push(root)
+  const root = fs.realpathSync(tempFolder('extjs-env-workspace-'))
   fs.writeFileSync(
     path.join(root, 'pnpm-workspace.yaml'),
     "packages:\n  - 'packages/*'\n"
@@ -544,20 +500,10 @@ function workspacePackage(
 
   const dir = path.join(root, 'packages', 'extension')
   fs.mkdirSync(dir, {recursive: true})
-  fs.writeFileSync(
-    path.join(dir, 'package.json'),
-    JSON.stringify({private: true, name: 'env-workspace', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(dir, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'env-workspace',
-      version: '1.0.0',
-      background: {service_worker: 'background.js'}
-    })
-  )
+  writeExtensionProject(dir, {
+    name: 'env-workspace',
+    manifest: {background: {service_worker: 'background.js'}}
+  })
 
   fs.writeFileSync(
     path.join(dir, 'background.js'),
@@ -655,22 +601,8 @@ require('node:fs').writeFileSync(require('node:path').join(__dirname, 'seen.txt'
 `
       })
 
-      const {extensionBuild} = await import('../../command-build')
-      const previous = process.env.VITEST
-      process.env.VITEST = 'true'
-
-      try {
-        const summary = await extensionBuild(dir, {
-          browser: 'chrome',
-          silent: true,
-          install: false,
-          exitOnError: false
-        } as any)
-        expect(summary.errors_count).toBe(0)
-      } finally {
-        if (previous === undefined) delete process.env.VITEST
-        else process.env.VITEST = previous
-      }
+      const summary = await buildProject(dir, {exitOnError: false})
+      expect(summary.errors_count).toBe(0)
 
       const bundle = fs.readFileSync(
         path.join(dir, 'dist', 'chrome', 'background', 'service_worker.js'),

@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {getBuildSummary} from '../../develop/lib/build-summary'
 import {registerBuildCommand} from '../commands/build'
+import type {Envelope} from '../helpers/messaging'
 import {SUPPORTED_BROWSER_TARGETS} from '../helpers/vendors'
 import {
   makeProgram,
@@ -111,7 +112,10 @@ function run(argv: string[]) {
   )
 }
 
-function frames(): any[] {
+// The build rows read value as the summary object a success frame carries.
+type BuildFrame = Omit<Envelope, 'value'> & {value: Record<string, unknown>}
+
+function frames(): BuildFrame[] {
   return stdout.map((line) => JSON.parse(line))
 }
 
@@ -273,7 +277,21 @@ describe('extension build flag forwarding', () => {
 
   it('reads the project config for the build command before it picks a browser', async () => {
     expect(await run(['build', PROJECT])).toBe(0)
-    expect(configReads[0]).toEqual([PROJECT, 'build'])
+    // No browser is known yet, so the probe reads as the stock one would.
+    expect(configReads[0]).toEqual([
+      PROJECT,
+      'build',
+      {mode: undefined, browser: 'chromium'}
+    ])
+  })
+
+  it('reads the project config in the mode the build was asked for', async () => {
+    expect(await run(['build', PROJECT, '--mode', 'development'])).toBe(0)
+    expect(configReads[0]).toEqual([
+      PROJECT,
+      'build',
+      {mode: 'development', browser: 'chromium'}
+    ])
   })
 })
 
@@ -526,7 +544,7 @@ describe.each(
 
   it('exits 1 with one frame under --output json', async () => {
     expect(await run(['build', '.', '--output', 'json'])).toBe(1)
-    expect(frames().map((frame) => [frame.status, frame.error.code])).toEqual([
+    expect(frames().map((frame) => [frame.status, frame.error?.code])).toEqual([
       ['build-failed', code]
     ])
 
@@ -786,7 +804,10 @@ describe('extension build', () => {
 
       expect(await run(argv)).toBe(0)
 
-      return frames().at(-1)
+      const frame = frames().at(-1)
+      if (!frame) throw new Error('the build printed no frame')
+
+      return frame
     }
 
     it('names every key the command actually puts in value', async () => {

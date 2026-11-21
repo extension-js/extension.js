@@ -131,7 +131,7 @@ describe('build: a content-script stylesheet under a symlinked project path (rea
     expect(chunks).toEqual([])
 
     const fonts = fs
-      .readdirSync(distDir, {recursive: true} as any)
+      .readdirSync(distDir, {recursive: true})
       .map((entry) => String(entry).split(path.sep).join('/'))
       .filter((entry) => entry.endsWith('.woff2'))
 

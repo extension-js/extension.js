@@ -1,4 +1,5 @@
 import {describe, expect, it} from 'vitest'
+import type {Manifest} from '../../../../types'
 import {buildCanonicalManifestWithOverrides} from '../../manifest-lib/manifest'
 import {sanitizeFatalManifestShapes} from '../../manifest-lib/sanitize-fatal-shapes'
 import {getManifestOverrides} from '../../manifest-overrides'
@@ -14,21 +15,21 @@ describe('hasMv3StringPolicy', () => {
       hasMv3StringPolicy({
         manifest_version: 3,
         content_security_policy: PAGES
-      } as any)
+      } as Manifest)
     ).toBe(true)
 
     expect(
       hasMv3StringPolicy({
         manifest_version: 3,
         content_security_policy: {extension_pages: PAGES}
-      } as any)
+      } as Manifest)
     ).toBe(false)
 
     expect(
       hasMv3StringPolicy({
         manifest_version: 2,
         content_security_policy: PAGES
-      } as any)
+      } as Manifest)
     ).toBe(false)
   })
 })
@@ -41,7 +42,7 @@ describe('MV3 content_security_policy through getManifestOverrides', () => {
         version: '1.0.0',
         manifest_version: 3,
         content_security_policy: PAGES
-      } as any)
+      } as Manifest)
     )
     expect(result.content_security_policy).toEqual({extension_pages: PAGES})
   })
@@ -53,7 +54,7 @@ describe('MV3 content_security_policy through getManifestOverrides', () => {
         version: '1.0.0',
         manifest_version: 3,
         content_security_policy: {extension_pages: PAGES, sandbox: SANDBOX}
-      } as any)
+      } as Manifest)
     )
     expect(result.content_security_policy).toEqual({
       extension_pages: PAGES,
@@ -68,7 +69,7 @@ describe('MV3 content_security_policy through getManifestOverrides', () => {
         version: '1.0.0',
         manifest_version: 2,
         content_security_policy: PAGES
-      } as any)
+      } as Manifest)
     )
     expect(result.content_security_policy).toBe(PAGES)
   })
@@ -83,9 +84,9 @@ describe('MV3 content_security_policy through buildCanonicalManifestWithOverride
         version: '1.0.0',
         manifest_version: 3,
         content_security_policy: PAGES
-      } as any,
+      } as Manifest,
       'chrome'
-    ).manifest as any
+    ).manifest as Manifest
     expect(result.content_security_policy).toEqual({extension_pages: PAGES})
   })
 
@@ -97,12 +98,12 @@ describe('MV3 content_security_policy through buildCanonicalManifestWithOverride
         version: '1.0.0',
         manifest_version: 3,
         content_security_policy: "script-src 'self' 'unsafe-inline'"
-      } as any,
+      } as Manifest,
       'chrome'
     ).manifest
     const sanitized = sanitizeFatalManifestShapes(canonical, '/p')
     expect(
-      (sanitized.manifest as any).content_security_policy.extension_pages
+      (sanitized.manifest as Manifest).content_security_policy?.extension_pages
     ).not.toContain('unsafe-inline')
 
     expect(sanitized.fixes.map((fix) => fix.field)).toContain(
@@ -116,7 +117,7 @@ describe('patchV3CSP', () => {
     const patched = patchV3CSP({
       manifest_version: 3,
       content_security_policy: PAGES
-    } as any)
+    } as Manifest)
     expect(typeof patched).toBe('object')
     expect(typeof patched.extension_pages).toBe('string')
     expect(patched.extension_pages).toContain("script-src 'self'")

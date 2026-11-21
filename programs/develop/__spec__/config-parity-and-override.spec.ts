@@ -32,6 +32,9 @@ afterEach(() => {
   created.length = 0
 })
 
+// Rows name a browser through the config's own custom names.
+type BrowserName = Parameters<typeof loadBrowserConfig>[1]
+
 describe('extension.config object-merge and command/browser defaults', () => {
   it('merges plain object config on top of base using deep merge', async () => {
     const dir = tmpDir('extjs-cfg-')
@@ -45,7 +48,7 @@ describe('extension.config object-merge and command/browser defaults', () => {
       rspack
     })
     const base = {resolve: {alias: {baz: 'qux'}}}
-    const merged = hook(base as any) as any
+    const merged = hook(base as Parameters<typeof hook>[0]) as typeof base
     expect(merged.resolve.alias).toMatchObject({baz: 'qux', foo: 'bar'})
   })
 
@@ -75,16 +78,20 @@ describe('extension.config object-merge and command/browser defaults', () => {
     }`
     fs.writeFileSync(path.join(dir, 'extension.config.mjs'), cfg, 'utf-8')
 
-    const buildCfg = await loadCommandConfig(dir, 'build')
+    const buildCfg = await loadCommandConfig(dir, 'build', {mode: 'production'})
     expect(buildCfg).toMatchObject({zip: true})
 
-    const startCfg = await loadCommandConfig(dir, 'start')
+    const startCfg = await loadCommandConfig(dir, 'start', {mode: 'production'})
     expect(startCfg).toMatchObject({polyfill: true, profile: 'user'})
 
-    const previewCfg = await loadCommandConfig(dir, 'preview')
+    const previewCfg = await loadCommandConfig(dir, 'preview', {
+      mode: 'production'
+    })
     expect(previewCfg).toMatchObject({profile: 'user'})
 
-    const browserCfg = await loadBrowserConfig(dir, 'chrome')
+    const browserCfg = await loadBrowserConfig(dir, 'chrome', {
+      mode: 'production'
+    })
     expect(browserCfg).toMatchObject({
       browser: 'chrome',
       browserFlags: ['--headless=new'],
@@ -92,7 +99,9 @@ describe('extension.config object-merge and command/browser defaults', () => {
       persistProfile: true
     })
 
-    const chromiumBasedCfg = await loadBrowserConfig(dir, 'chromium-based')
+    const chromiumBasedCfg = await loadBrowserConfig(dir, 'chromium-based', {
+      mode: 'production'
+    })
     expect(chromiumBasedCfg).toMatchObject({
       browser: 'chromium-based',
       browserFlags: ['--foo'],
@@ -101,7 +110,9 @@ describe('extension.config object-merge and command/browser defaults', () => {
       profile: './dist/chromium-profile'
     })
 
-    const chromiumCfg = await loadBrowserConfig(dir, 'chromium')
+    const chromiumCfg = await loadBrowserConfig(dir, 'chromium', {
+      mode: 'production'
+    })
     expect(chromiumCfg).toMatchObject({browser: 'chromium'})
   })
 
@@ -127,20 +138,26 @@ describe('extension.config object-merge and command/browser defaults', () => {
     }`
     fs.writeFileSync(path.join(dir, 'extension.config.mjs'), cfg, 'utf-8')
 
-    const chromiumBasedCfg = await loadBrowserConfig(dir, 'chromium-based')
+    const chromiumBasedCfg = await loadBrowserConfig(dir, 'chromium-based', {
+      mode: 'production'
+    })
     expect(chromiumBasedCfg).toMatchObject({
       browser: 'chromium',
       browserFlags: ['--chromium-flag']
     })
 
-    const geckoBasedCfg = await loadBrowserConfig(dir, 'gecko-based')
+    const geckoBasedCfg = await loadBrowserConfig(dir, 'gecko-based', {
+      mode: 'production'
+    })
     expect(geckoBasedCfg).toMatchObject({
       browser: 'firefox',
       browserFlags: ['--firefox-flag']
     })
 
     // webkit-based must adopt browser.safari the same way the other families do
-    const webkitBasedCfg = await loadBrowserConfig(dir, 'webkit-based')
+    const webkitBasedCfg = await loadBrowserConfig(dir, 'webkit-based', {
+      mode: 'production'
+    })
     expect(webkitBasedCfg).toMatchObject({
       browser: 'safari',
       appName: 'MySafariApp',
@@ -165,7 +182,9 @@ describe('extension.config object-merge and command/browser defaults', () => {
     }`
     fs.writeFileSync(path.join(dir, 'extension.config.mjs'), cfg, 'utf-8')
 
-    const webkitBasedCfg = await loadBrowserConfig(dir, 'webkit-based')
+    const webkitBasedCfg = await loadBrowserConfig(dir, 'webkit-based', {
+      mode: 'production'
+    })
     expect(webkitBasedCfg).toMatchObject({
       browser: 'webkit-based',
       appName: 'FromWebkitBased'
@@ -187,7 +206,13 @@ describe('extension.config object-merge and command/browser defaults', () => {
     )
 
     // Exact fork block wins when present.
-    const exact = await loadBrowserConfig(withExact, 'acme-webkit' as any)
+    const exact = await loadBrowserConfig(
+      withExact,
+      'acme-webkit' as BrowserName,
+      {
+        mode: 'production'
+      }
+    )
     expect(exact).toMatchObject({browser: 'acme-webkit', appName: 'FromAcme'})
 
     // Prefer webkit-based over safari when both exist and the fork has no block.
@@ -205,7 +230,8 @@ describe('extension.config object-merge and command/browser defaults', () => {
 
     const engineCfg = await loadBrowserConfig(
       withEngine,
-      'internal-webkit' as any
+      'internal-webkit' as BrowserName,
+      {mode: 'production'}
     )
     expect(engineCfg).toMatchObject({
       browser: 'webkit-based',
@@ -226,7 +252,8 @@ describe('extension.config object-merge and command/browser defaults', () => {
 
     const forkCfg = await loadBrowserConfig(
       safariOnly,
-      'internal-webkit' as any
+      'internal-webkit' as BrowserName,
+      {mode: 'production'}
     )
     expect(forkCfg).toMatchObject({
       browser: 'safari',
@@ -247,18 +274,22 @@ describe('extension.config object-merge and command/browser defaults', () => {
 
     // The top-level value is its own (weakest) layer; a command layer only
     // carries what commands.<cmd> sets, so browser.<vendor> can outrank it.
-    const projectCfg = await loadProjectConfigDefaults(dir)
+    const projectCfg = await loadProjectConfigDefaults(dir, {
+      mode: 'production'
+    })
     expect(projectCfg).toEqual({extensions: {dir: './extensions'}})
 
-    const devCfg = await loadCommandConfig(dir, 'dev')
+    const devCfg = await loadCommandConfig(dir, 'dev', {mode: 'development'})
     expect(devCfg).toMatchObject({
       extensions: ['./explicit-a', './explicit-b']
     })
 
-    const startCfg = await loadCommandConfig(dir, 'start')
+    const startCfg = await loadCommandConfig(dir, 'start', {mode: 'production'})
     expect(startCfg).toEqual({})
 
-    const previewCfg = await loadCommandConfig(dir, 'preview')
+    const previewCfg = await loadCommandConfig(dir, 'preview', {
+      mode: 'production'
+    })
     expect(previewCfg).toEqual({profile: 'user'})
     expect(
       mergeOptionLayers(
@@ -280,13 +311,15 @@ describe('extension.config object-merge and command/browser defaults', () => {
     }`
     fs.writeFileSync(path.join(dir, 'extension.config.mjs'), cfg, 'utf-8')
 
-    const projectCfg = await loadProjectConfigDefaults(dir)
+    const projectCfg = await loadProjectConfigDefaults(dir, {
+      mode: 'production'
+    })
     expect(projectCfg).toEqual({transpilePackages: ['@workspace/ui']})
 
-    const devCfg = await loadCommandConfig(dir, 'dev')
+    const devCfg = await loadCommandConfig(dir, 'dev', {mode: 'development'})
     expect(devCfg).toEqual({})
 
-    const buildCfg = await loadCommandConfig(dir, 'build')
+    const buildCfg = await loadCommandConfig(dir, 'build', {mode: 'production'})
     expect(buildCfg).toMatchObject({
       transpilePackages: ['@workspace/ui', '@workspace/icons']
     })

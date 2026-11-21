@@ -1,21 +1,25 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {trackTempFolders} from '../../../../__spec__/helpers/temp-folders'
+import type {PluginInterface} from '../../../../types'
+import {
+  asCompiler,
+  type TapCallback
+} from '../../../__spec__/helpers/rspack-fakes'
 import {patchHtml} from '../../html-lib/patch-html'
 import {UpdateHtmlFile} from '../../steps/update-html-file'
+import {
+  type BuildIssue,
+  type FakeAsset,
+  type FakeSource,
+  readSource
+} from '../helpers/html-fakes'
 
-const tmpRoots: string[] = []
-
-afterAll(() => {
-  for (const root of tmpRoots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function makeTmp(name: string) {
-  const created = fs.mkdtempSync(
-    path.join(os.tmpdir(), `extjs-update-html-${name}-`)
-  )
-  tmpRoots.push(created)
+  const created = tempFolder(`extjs-update-html-${name}-`)
 
   return fs.realpathSync(created)
 }
@@ -44,33 +48,35 @@ describe('UpdateHtmlFile', () => {
     // The asset already differs from the file on disk, as it does once the
     // env step has templated it. The step must patch the asset, not the file.
     const templated = '<html><head><title>envBar</title></head></html>'
-    const assets: Record<string, any> = {
+    const assets: Record<string, FakeSource | FakeAsset> = {
       'feature/index.html': {source: () => templated}
     }
     // The compilation owns the assets, so the step can find and replace them.
-    const innerCompilation: any = {
-      hooks: {processAssets: {tap: (_: any, cb: any) => cb()}},
+    const innerCompilation = {
+      hooks: {processAssets: {tap: (_: unknown, cb: TapCallback) => cb()}},
       assets,
-      updateAsset: (name: string, src: any) => {
+      updateAsset: (name: string, src: unknown) => {
         assets[name] = {
-          source: {source: () => (src.source ? src.source() : src)}
+          source: {source: () => readSource(src)}
         }
       },
-      errors: [] as any[]
+      errors: [] as BuildIssue[]
     }
-    const c: any = {
+    const c = {
       options: {mode: 'production'},
       hooks: {
-        thisCompilation: {tap: (_: any, fn: any) => fn(innerCompilation)}
+        thisCompilation: {
+          tap: (_: unknown, fn: TapCallback) => fn(innerCompilation)
+        }
       }
     }
     new UpdateHtmlFile({
       manifestPath,
       includeList: {'feature/index': html}
-    } as any).apply(c as any)
+    }).apply(asCompiler(c))
 
     expect(assets['feature/index.html']).toBeTruthy()
-    expect(assets['feature/index.html'].source.source()).toBe(
+    expect((assets['feature/index.html'] as FakeAsset).source.source()).toBe(
       '<html><body>UPDATED</body></html>'
     )
 
@@ -86,28 +92,30 @@ describe('UpdateHtmlFile', () => {
     const html = path.join(tmp, 'index.html')
     fs.writeFileSync(html, '<html></html>')
     const templated = Buffer.from('<html><body>from-asset</body></html>')
-    const innerCompilation: any = {
-      hooks: {processAssets: {tap: (_: any, cb: any) => cb()}},
+    const innerCompilation = {
+      hooks: {processAssets: {tap: (_: unknown, cb: TapCallback) => cb()}},
       getAsset: (name: string) =>
         name === 'feature/index.html'
           ? {name, source: {source: () => templated}, info: {}}
           : undefined,
       updateAsset: vi.fn(),
-      errors: [] as any[]
+      errors: [] as BuildIssue[]
     }
-    const c: any = {
+    const c = {
       options: {mode: 'production'},
       hooks: {
-        thisCompilation: {tap: (_: any, fn: any) => fn(innerCompilation)}
+        thisCompilation: {
+          tap: (_: unknown, fn: TapCallback) => fn(innerCompilation)
+        }
       }
     }
     new UpdateHtmlFile({
       manifestPath,
       includeList: {'feature/index': html}
-    } as any).apply(c as any)
+    }).apply(asCompiler(c))
 
-    const call = vi.mocked(patchHtml).mock.calls.at(-1) as any[]
-    expect(call[6]).toBe(templated.toString('utf8'))
+    const call = vi.mocked(patchHtml).mock.calls.at(-1)
+    expect(call?.[6]).toBe(templated.toString('utf8'))
     expect(innerCompilation.updateAsset).toHaveBeenCalledTimes(1)
   })
 
@@ -130,41 +138,40 @@ describe('UpdateHtmlFile', () => {
 
     let emitted: Record<string, string> = {}
 
-    const run = (browser: string) => {
+    const run = (browser: PluginInterface['browser']) => {
       vi.mocked(patchHtml).mockClear()
       emitted = {}
-      const assets: Record<string, any> = {
+      const assets: Record<string, FakeSource | FakeAsset> = {
         'options/index.html': {source: () => '<html></html>'},
         'action/index.html': {source: () => '<html></html>'}
       }
-      const innerCompilation: any = {
-        hooks: {processAssets: {tap: (_: any, cb: any) => cb()}},
+      const innerCompilation = {
+        hooks: {processAssets: {tap: (_: unknown, cb: TapCallback) => cb()}},
         assets,
         updateAsset: vi.fn(),
         emitAsset: (name: string, source: {source: () => string}) => {
           emitted[name] = String(source.source())
         },
-        errors: [] as any[]
+        errors: [] as BuildIssue[]
       }
-      const c: any = {
+      const c = {
         options: {mode: 'production'},
         hooks: {
-          thisCompilation: {tap: (_: any, fn: any) => fn(innerCompilation)}
+          thisCompilation: {
+            tap: (_: unknown, fn: TapCallback) => fn(innerCompilation)
+          }
         }
       }
       new UpdateHtmlFile({
         manifestPath,
         browser,
         includeList: {'options/index': options, 'action/index': popup}
-      } as any).apply(c as any)
+      }).apply(asCompiler(c))
 
       return Object.fromEntries(
         vi
           .mocked(patchHtml)
-          .mock.calls.map((call: any[]) => [
-            call[1],
-            call[7]?.optionsDialogFloor
-          ])
+          .mock.calls.map((call) => [call[1], call[7]?.optionsDialogFloor])
       )
     }
 

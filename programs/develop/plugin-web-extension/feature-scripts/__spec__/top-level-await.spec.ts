@@ -1,19 +1,16 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import * as vm from 'node:vm'
 import {rspack} from '@rspack/core'
-import {afterAll, describe, expect, it, vi} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
+import {buildProject} from '../../../__spec__/helpers/build-project'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {getProjectStructure} from '../../../lib/project'
 import webpackConfig from '../../../rspack-config'
 
 // A content script that awaits at the top level, built whole the way
 // `extension build` and `extension dev` compile it.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function write(root: string, rel: string, content: string) {
   const file = path.join(root, rel)
@@ -22,10 +19,7 @@ function write(root: string, rel: string, content: string) {
 }
 
 function project(files: Record<string, string>, js: string[]) {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-top-level-await-'))
-  )
-  roots.push(root)
+  const root = fs.realpathSync(tempFolder('extjs-top-level-await-'))
 
   const typed = js.some((file) => /\.ts$/.test(file))
 
@@ -72,30 +66,18 @@ interface Diagnostic {
 
 // `extension build`: the shipped bundle, read through the build summary.
 async function built(root: string): Promise<Diagnostic[]> {
-  const {extensionBuild} = await import('../../../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
   const spies = (['log', 'warn', 'error'] as const).map((method) =>
     vi.spyOn(console, method).mockImplementation(() => {})
   )
 
   try {
-    await extensionBuild(root, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      mode: 'production',
-      exitOnError: false
-    } as any)
+    await buildProject(root, {mode: 'production', exitOnError: false})
 
     return []
   } catch (error) {
     return (error as {diagnostics?: Diagnostic[]}).diagnostics || []
   } finally {
     for (const spy of spies) spy.mockRestore()
-
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
   }
 }
 
@@ -108,7 +90,7 @@ async function devSession(root: string): Promise<Diagnostic[]> {
     metadataCommand: 'dev',
     silent: true,
     output: {clean: true, path: path.join(root, 'dist', 'chrome')}
-  } as any)
+  } as Parameters<typeof webpackConfig>[1])
 
   config.plugins = (config.plugins || []).filter(
     (plugin) =>

@@ -1,23 +1,18 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // Both engines read options_ui.page first and treat options_page as the
 // fallback, so the one compiled options page must come from the modern key.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 const LEGACY_MARK = 'LEGACY_OPTIONS_MARK_4d1b'
 const MODERN_MARK = 'MODERN_OPTIONS_MARK_8e7c'
 
 function project(manifestExtra: Record<string, unknown>) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-options-page-'))
-  roots.push(root)
+  const root = tempFolder('extjs-options-page-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'options-page', version: '0.0.0'})
@@ -61,7 +56,7 @@ async function build(root: string) {
 
 async function buildAndRead(manifestExtra: Record<string, unknown>) {
   const root = project(manifestExtra)
-  const summary: any = await build(root)
+  const summary = await build(root)
   expect(summary.errors_count).toBe(0)
   const distDir = path.join(root, 'dist', 'chrome')
 

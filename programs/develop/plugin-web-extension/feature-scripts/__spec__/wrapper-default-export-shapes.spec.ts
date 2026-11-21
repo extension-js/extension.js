@@ -3,23 +3,17 @@ import os from 'node:os'
 import path from 'node:path'
 import vm from 'node:vm'
 import {rspack} from '@rspack/core'
-import {Parser} from 'acorn'
-import {afterAll, describe, expect, it, vi} from 'vitest'
+import {Parser, type Program} from 'acorn'
+import {describe, expect, it, vi} from 'vitest'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {diagnosticCode} from '../../../lib/diagnostic-code'
 import {readDefaultExport} from '../scripts-lib/default-export'
 import contentScriptWrapper from '../steps/add-content-script-wrapper/content-script-wrapper'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project(file: string, siblings: Record<string, string>) {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-default-shapes-'))
-  )
-  roots.push(root)
+  const root = fs.realpathSync(tempFolder('extjs-default-shapes-'))
 
   fs.writeFileSync(path.join(root, 'package.json'), '{"name":"fixture"}\n')
   fs.mkdirSync(path.join(root, 'content'))
@@ -65,7 +59,7 @@ function wrap(
           manifestPath: path.join(root, 'manifest.json'),
           mode
         })
-      } as any,
+      } as unknown as ThisParameterType<typeof contentScriptWrapper>,
       source
     )
   )
@@ -93,7 +87,7 @@ function asJavaScript(text: string, file: string) {
 
 // How many default exports acorn finds, or the reason it reads no module.
 function defaultExports(text: string, file: string) {
-  let body: any[]
+  let body: Program['body']
 
   try {
     body = Parser.parse(asJavaScript(text, file), {
@@ -104,7 +98,8 @@ function defaultExports(text: string, file: string) {
     return String((error as Error).message)
   }
 
-  const named = (node: any) => node?.name ?? node?.value
+  const named = (node: {name?: unknown; value?: unknown} | null | undefined) =>
+    node?.name ?? node?.value
 
   return body.filter(
     (node) =>
@@ -112,7 +107,7 @@ function defaultExports(text: string, file: string) {
       (node.type === 'ExportAllDeclaration' &&
         named(node.exported) === 'default') ||
       (node.type === 'ExportNamedDeclaration' &&
-        node.specifiers.some((one: any) => named(one.exported) === 'default'))
+        node.specifiers.some((one) => named(one.exported) === 'default'))
   ).length
 }
 

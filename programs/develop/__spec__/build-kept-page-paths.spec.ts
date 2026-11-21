@@ -1,19 +1,15 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {stripVTControlCharacters} from 'node:util'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {writeProjectFiles} from './helpers/extension-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project(files: Record<string, string>) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-kept-page-'))
-  roots.push(root)
+  const root = tempFolder('extjs-kept-page-')
 
   const all: Record<string, string> = {
     'package.json': JSON.stringify({
@@ -24,11 +20,7 @@ function project(files: Record<string, string>) {
     ...files
   }
 
-  for (const [rel, content] of Object.entries(all)) {
-    const abs = path.join(root, rel)
-    fs.mkdirSync(path.dirname(abs), {recursive: true})
-    fs.writeFileSync(abs, content)
-  }
+  writeProjectFiles(root, all)
 
   return root
 }
@@ -52,8 +44,16 @@ function read(root: string, rel: string, browser = 'chrome') {
   return fs.readFileSync(dist(root, rel, browser), 'utf8')
 }
 
+// The page slots of a built manifest the rows read.
+interface PageManifest {
+  action: {default_popup?: string}
+  options_ui: {page?: string}
+  side_panel: {default_path?: string}
+  devtools_page?: string
+}
+
 function manifestOf(root: string, browser = 'chrome') {
-  return JSON.parse(read(root, 'manifest.json', browser)) as Record<string, any>
+  return JSON.parse(read(root, 'manifest.json', browser)) as PageManifest
 }
 
 const POPUP_PAGE =
@@ -273,13 +273,7 @@ describe('a page whose authored path a script holds as a string', () => {
     }
 
     try {
-      const {extensionBuild} = await import('../command-build')
-
-      await extensionBuild(root, {
-        browser: 'chrome',
-        install: false,
-        mode: 'production'
-      } as never)
+      await buildProject(root, {silent: undefined, mode: 'production'})
     } finally {
       console.log = log
     }

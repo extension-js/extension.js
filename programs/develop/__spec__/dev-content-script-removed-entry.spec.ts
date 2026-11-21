@@ -1,16 +1,12 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {type Compiler, rspack, type Stats} from '@rspack/core'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {getProjectStructure} from '../lib/project'
 import webpackConfig from '../rspack-config'
+import {trackTempFolders} from './helpers/temp-folders'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 type ContentScript = {matches: string[]; js: string[]}
 
@@ -37,8 +33,7 @@ function writeManifest(root: string, contentScripts?: ContentScript[]) {
 }
 
 function project() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-removed-entry-'))
-  roots.push(root)
+  const root = tempFolder('extjs-removed-entry-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'removed-entry', version: '0.0.0'})
@@ -67,7 +62,7 @@ async function compileOnce(root: string) {
     metadataCommand: 'dev',
     silent: true,
     output: {clean: false, path: distPath}
-  } as any)
+  } as Parameters<typeof webpackConfig>[1])
   config.plugins = (config.plugins || []).filter(
     (plugin) =>
       plugin?.constructor.name !== 'plugin-browsers' &&

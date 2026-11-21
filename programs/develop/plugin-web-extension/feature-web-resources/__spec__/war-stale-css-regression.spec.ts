@@ -1,8 +1,9 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import type {Compilation, Compiler} from '@rspack/core'
+import type {Compiler} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {asCompilation} from '../../__spec__/helpers/rspack-fakes'
 import {keepResourcesReachable} from '../../shared/kept-resource-extensions'
 import {generateManifestPatches} from '../web-resources-lib/generate-manifest'
 
@@ -56,7 +57,7 @@ describe('web_accessible_resources: stale on-disk content-script CSS', () => {
     const manifestSource = {source: () => JSON.stringify(manifest)}
     const updateAsset = vi.fn()
     const compiler = {}
-    const compilation: any = {
+    const compilation = {
       compiler,
       getAsset: vi.fn(() => ({name: 'manifest.json', source: manifestSource})),
       assets: {
@@ -69,7 +70,7 @@ describe('web_accessible_resources: stale on-disk content-script CSS', () => {
       options: {mode: 'development', output: {path: outputPath}}
     }
 
-    generateManifestPatches(compilation as Compilation, manifestPath, {})
+    generateManifestPatches(asCompilation(compilation), manifestPath, {})
 
     const unasked = JSON.parse(updateAsset.mock.calls[0][1].source().toString())
 
@@ -82,7 +83,7 @@ describe('web_accessible_resources: stale on-disk content-script CSS', () => {
 
     updateAsset.mockClear()
     keepSheetsLeftOnDisk(compiler, outputPath)
-    generateManifestPatches(compilation as Compilation, manifestPath, {})
+    generateManifestPatches(asCompilation(compilation), manifestPath, {})
 
     const patched = JSON.parse(updateAsset.mock.calls[0][1].source().toString())
     const allWarResources = (patched.web_accessible_resources || []).flatMap(
@@ -112,7 +113,7 @@ describe('web_accessible_resources: stale on-disk content-script CSS', () => {
     const manifestSource = {source: () => JSON.stringify(manifest)}
     const updateAsset = vi.fn()
     const compiler = {}
-    const compilation: any = {
+    const compilation = {
       compiler,
       getAsset: vi.fn(() => ({name: 'manifest.json', source: manifestSource})),
       assets: {
@@ -127,7 +128,7 @@ describe('web_accessible_resources: stale on-disk content-script CSS', () => {
     }
 
     keepSheetsLeftOnDisk(compiler, outputPath)
-    generateManifestPatches(compilation as Compilation, manifestPath, {})
+    generateManifestPatches(asCompilation(compilation), manifestPath, {})
 
     const patched = JSON.parse(updateAsset.mock.calls[0][1].source().toString())
     const listed = (patched.web_accessible_resources || []).flatMap(

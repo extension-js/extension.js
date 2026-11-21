@@ -4,7 +4,9 @@ import {BridgeBroker} from '../broker'
 import {
   CLOSE_BAD_HELLO,
   CLOSE_BAD_INSTANCE,
-  CONTROL_WS_PATH
+  CONTROL_WS_PATH,
+  type ReloadFrame,
+  type ServerFrame
 } from '../contracts'
 import {
   type ControlServer,
@@ -63,7 +65,10 @@ function opened(ws: WebSocket): Promise<void> {
   })
 }
 
-function nextFrame(ws: WebSocket, timeoutMs = 2000): Promise<any> {
+function nextFrame<T = ServerFrame>(
+  ws: WebSocket,
+  timeoutMs = 2000
+): Promise<T> {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error('no frame')), timeoutMs)
     ws.once('message', (data) => {
@@ -125,7 +130,7 @@ describe('emulator viewer admission', () => {
     ws.send(hello('viewer'))
     await nextFrame(ws)
 
-    const frame = nextFrame(ws)
+    const frame = nextFrame<ReloadFrame>(ws)
     broker.broadcastReload({type: reloadType, label: 'x'})
     expect((await frame).reloadType).toBe(reloadType)
   })
@@ -136,7 +141,7 @@ describe('emulator viewer admission', () => {
 
     const ws = dial(ENGINE)
     await opened(ws)
-    const frames: any[] = []
+    const frames: ServerFrame[] = []
     ws.on('message', (d) => frames.push(JSON.parse(d.toString())))
     ws.send(hello('viewer'))
     await new Promise((r) => setTimeout(r, 150))
@@ -149,7 +154,7 @@ describe('emulator viewer admission', () => {
 
     const again = dial(ENGINE)
     await opened(again)
-    const replay: any[] = []
+    const replay: ServerFrame[] = []
     again.on('message', (d) => replay.push(JSON.parse(d.toString())))
     again.send(hello('viewer'))
     await new Promise((r) => setTimeout(r, 150))

@@ -8,9 +8,15 @@ import {
   requestDevSessionRestart,
   unbindDevSessionRestart
 } from '../../../dev-server/session-restart'
+import {
+  asCompilation,
+  asCompiler,
+  type TapCallback
+} from '../../__spec__/helpers/rspack-fakes'
 import {markPageReportedMissing} from '../../shared/reported-missing-pages'
 import * as messages from '../messages'
 import {PersistManifestToDisk} from '../steps/persist-manifest'
+import type {FakeSource, StepDiagnostic} from './helpers/manifest-fakes'
 
 const makeTempFolder = trackTempFolders()
 
@@ -19,10 +25,10 @@ afterEach(() => {
 })
 
 type FakeCompilation = {
-  errors: any[]
+  errors: StepDiagnostic[]
   outputOptions: {path: string}
-  hooks: {afterProcessAssets: {tap: (opts: any, fn: () => void) => void}}
-  getAsset: (name: string) => any
+  hooks: {afterProcessAssets: {tap: (opts: unknown, fn: () => void) => void}}
+  getAsset: (name: string) => {source: FakeSource} | undefined
 }
 
 function makeCompiler(
@@ -31,36 +37,37 @@ function makeCompiler(
 ) {
   const compilation = buildCompilation()
   let processAssetsFn: (() => void) | undefined
-  let afterEmitFn: ((c: FakeCompilation) => void) | undefined
+  let afterEmitFn: TapCallback | undefined
 
-  const compilationProxy: any = {
+  const proxy: FakeCompilation = {
     ...compilation,
     hooks: {
       afterProcessAssets: {
-        tap: (_opts: any, fn: () => void) => {
+        tap: (_opts: unknown, fn: () => void) => {
           processAssetsFn = fn
         }
       }
     }
   }
+  const compilationProxy = asCompilation(proxy)
 
-  const compiler: any = {
+  const compiler = asCompiler({
     options: {output: {path: outputDir}},
     hooks: {
       thisCompilation: {
-        tap: (_name: string, fn: (c: any) => void) => fn(compilationProxy)
+        tap: (_name: string, fn: TapCallback) => fn(compilationProxy)
       },
       afterEmit: {
-        tap: (_name: string, fn: (c: any) => void) => {
+        tap: (_name: string, fn: TapCallback) => {
           afterEmitFn = fn
         }
       }
     }
-  }
+  })
 
   return {
     compiler,
-    compilation: compilationProxy as FakeCompilation,
+    compilation: proxy,
     runProcessAssets: () => processAssetsFn?.(),
     runAfterEmit: () => afterEmitFn?.(compilationProxy)
   }
@@ -107,7 +114,7 @@ describe('PersistManifestToDisk', () => {
     const lastGood = '{\n  "name": "last-good"\n}'
     fs.writeFileSync(path.join(outputDir, 'manifest.json'), lastGood)
 
-    const compilationErrors: any[] = [new Error('Unexpected token')]
+    const compilationErrors: StepDiagnostic[] = [new Error('Unexpected token')]
     let manifestSource = '{\n  "name": "from-the-broken-pass"\n}'
     const {compiler, runProcessAssets, runAfterEmit} = makeCompiler(
       outputDir,
@@ -162,7 +169,7 @@ describe('PersistManifestToDisk', () => {
       '// content 0'
     )
 
-    const compilationErrors: any[] = []
+    const compilationErrors: StepDiagnostic[] = []
     const {compiler, runProcessAssets, runAfterEmit} = makeCompiler(
       outputDir,
       () => ({
@@ -193,7 +200,7 @@ describe('PersistManifestToDisk', () => {
       manifest_version: 3,
       side_panel: {default_path: 'sidebar/index.html'}
     })
-    const compilationErrors: any[] = []
+    const compilationErrors: StepDiagnostic[] = []
     const {compiler, compilation, runProcessAssets, runAfterEmit} =
       makeCompiler(outputDir, () => ({
         errors: compilationErrors,
@@ -222,7 +229,7 @@ describe('PersistManifestToDisk', () => {
       manifest_version: 3,
       side_panel: {default_path: 'sidebar/index.html'}
     })
-    const compilationErrors: any[] = []
+    const compilationErrors: StepDiagnostic[] = []
     const {compiler, runProcessAssets, runAfterEmit} = makeCompiler(
       outputDir,
       () => ({
@@ -276,7 +283,7 @@ describe('PersistManifestToDisk', () => {
       '// content 1'
     )
 
-    const compilationErrors: any[] = []
+    const compilationErrors: StepDiagnostic[] = []
     const {compiler, runProcessAssets, runAfterEmit} = makeCompiler(
       outputDir,
       () => ({
@@ -308,7 +315,7 @@ describe('PersistManifestToDisk', () => {
       manifest_version: 3,
       content_scripts: [{js: ['content_scripts/content-1.aaaaaaaa.js']}]
     })
-    const compilationErrors: any[] = []
+    const compilationErrors: StepDiagnostic[] = []
     const {compiler, runProcessAssets, runAfterEmit} = makeCompiler(
       outputDir,
       () => ({
@@ -344,7 +351,7 @@ describe('PersistManifestToDisk', () => {
       manifest_version: 3,
       content_scripts: [{js: files}]
     })
-    const compilationErrors: any[] = []
+    const compilationErrors: StepDiagnostic[] = []
     const {compiler, runProcessAssets, runAfterEmit} = makeCompiler(
       outputDir,
       () => ({
@@ -384,7 +391,7 @@ describe('PersistManifestToDisk', () => {
       recursive: true
     })
 
-    const compilationErrors: any[] = []
+    const compilationErrors: StepDiagnostic[] = []
     const {compiler, runProcessAssets, runAfterEmit} = makeCompiler(
       outputDir,
       () => ({

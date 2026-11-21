@@ -1,20 +1,14 @@
 import * as fs from 'node:fs'
 import os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {tsconfigCanIncludeFile} from '../tsconfig-includes-file'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function tree(files: Record<string, unknown>) {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-tsconfig-includes-'))
-  )
-  roots.push(root)
+  const root = fs.realpathSync(tempFolder('extjs-tsconfig-includes-'))
 
   for (const [name, content] of Object.entries(files)) {
     const file = path.join(root, name)

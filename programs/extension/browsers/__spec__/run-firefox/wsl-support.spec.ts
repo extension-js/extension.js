@@ -24,11 +24,7 @@ const getSpawnMock = async () => {
 }
 
 const createChild = () => {
-  const child = new EventEmitter() as any
-  child.stdout = null
-  child.stderr = null
-
-  return child
+  return Object.assign(new EventEmitter(), {stdout: null, stderr: null})
 }
 
 describe('firefox wsl-support', () => {

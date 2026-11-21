@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, beforeAll, describe, expect, it, vi} from 'vitest'
 import {eventsPath, readyContractPath} from '../lib/session-paths'
+import {buildProject} from './helpers/build-project'
 
 const ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-start-receipt-'))
 const BROWSER = 'chrome'
@@ -75,18 +76,15 @@ async function runStart(opts?: {extensions?: string[]}) {
   Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
 
   try {
-    const {extensionBuild} = await import('../command-build')
     const {extensionPreview} = await import('../command-preview')
 
-    await extensionBuild(ROOT, {
+    await buildProject(ROOT, {
       browser: BROWSER,
-      silent: true,
-      install: false,
       mode: 'production',
       exitOnError: false,
       metadataCommand: 'start',
       ...(opts?.extensions ? {extensions: opts.extensions} : {extensions: []})
-    } as never)
+    })
 
     const afterBuild = {
       ready: readReady(),
@@ -217,7 +215,6 @@ describe('start run receipt (real build + preview)', () => {
   }, 120_000)
 
   it('warns about a named companion that is not an extension and builds on', async () => {
-    const {extensionBuild} = await import('../command-build')
     const options = {
       browser: BROWSER,
       silent: true,
@@ -231,10 +228,10 @@ describe('start run receipt (real build + preview)', () => {
       lines.filter((line) => line.includes('./extensions/gone'))
 
     try {
-      const started = await extensionBuild(ROOT, {
+      const started = await buildProject(ROOT, {
         ...options,
         metadataCommand: 'start'
-      } as never)
+      })
       const coded = aboutCompanion(started.warnings)
 
       expect(started.errors_count).toBe(0)
@@ -246,7 +243,7 @@ describe('start run receipt (real build + preview)', () => {
       ).toHaveLength(1)
 
       // A plain build loads no companion, so the same entry is not its concern.
-      const built = await extensionBuild(ROOT, options as never)
+      const built = await buildProject(ROOT, options)
 
       expect(aboutCompanion(built.warnings)).toEqual([])
     } finally {

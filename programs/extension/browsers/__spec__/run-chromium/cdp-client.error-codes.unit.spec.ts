@@ -1,4 +1,3 @@
-import {EventEmitter} from 'node:events'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import WebSocket from 'ws'
 
@@ -22,6 +21,12 @@ vi.mock('../../run-chromium/cdp/extensions', () => ({
 import {CDPClient} from '../../run-chromium/cdp/cdp-client'
 import {codedError} from '../../run-chromium/cdp/coded-error'
 import {establishBrowserConnection} from '../../run-chromium/cdp/ws'
+import {
+  asWebSocket,
+  clientInternals,
+  type FakeSocket,
+  fakeSocket
+} from '../cdp-client-fakes'
 
 const rejection = (promise: Promise<unknown>) =>
   promise.then(
@@ -31,20 +36,14 @@ const rejection = (promise: Promise<unknown>) =>
 
 describe('CDPClient error codes', () => {
   let client: CDPClient
-  let mockWs: any
+  let mockWs: FakeSocket
 
   beforeEach(() => {
     vi.useFakeTimers()
     client = new CDPClient(9222, '127.0.0.1')
 
-    mockWs = new EventEmitter()
-    mockWs.readyState = WebSocket.OPEN
-    mockWs.close = vi.fn(() => {
-      mockWs.readyState = WebSocket.CLOSED
-    })
-
-    mockWs.send = vi.fn()
-    ;(client as any).ws = mockWs
+    mockWs = fakeSocket(WebSocket.OPEN, WebSocket.CLOSED)
+    clientInternals(client).ws = mockWs
   })
 
   afterEach(() => {
@@ -81,7 +80,7 @@ describe('CDPClient error codes', () => {
     )
     const sent = JSON.parse(mockWs.send.mock.calls[0][0])
 
-    ;(client as any).handleMessage(
+    clientInternals(client).handleMessage(
       JSON.stringify({
         id: sent.id,
         error: {code: -32000, message: 'Extension not found'}
@@ -148,7 +147,7 @@ describe('CDPClient error codes', () => {
       async (_url, _isDev, _onMessage, onRejectPending) => {
         dropWire = onRejectPending
 
-        return mockWs
+        return asWebSocket(mockWs)
       }
     )
 
@@ -167,7 +166,7 @@ describe('CDPClient error codes', () => {
   it('codes a command left pending when the pipe closes as E_BROWSER_CONNECTION_CLOSED', async () => {
     const promise = rejection(client.sendCommand('Browser.getVersion'))
 
-    ;(client as any).rejectAllPending('CDP pipe closed')
+    clientInternals(client).rejectAllPending('CDP pipe closed')
     const error = await promise
 
     expect(error?.message).toBe('CDP pipe closed')

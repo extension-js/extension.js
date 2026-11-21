@@ -1,7 +1,8 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
-import {extensionBuild} from '../command-build'
+import {buildProject} from './helpers/build-project'
+import {writeExtensionProject} from './helpers/extension-project'
 import {trackTempFolders} from './helpers/temp-folders'
 
 // A build is no dev session, so its receipt names no dev server host, and
@@ -16,20 +17,10 @@ afterEach(() => {
 function project() {
   const root = fs.realpathSync(tempFolder('extjs-receipt-host-'))
 
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'receipt-host', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'receipt-host',
-      version: '1.0.0',
-      background: {service_worker: 'background.js'}
-    })
-  )
+  writeExtensionProject(root, {
+    name: 'receipt-host',
+    manifest: {background: {service_worker: 'background.js'}}
+  })
 
   fs.writeFileSync(path.join(root, 'background.js'), 'console.log(1)\n')
 
@@ -43,12 +34,7 @@ describe('the receipt of a build beside a dev session', () => {
 
     const root = project()
 
-    await extensionBuild(root, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      mode: 'production'
-    } as never)
+    await buildProject(root, {mode: 'production'})
 
     const receipt = fs.readFileSync(
       path.join(root, 'dist', 'extension-js', 'chrome', 'ready.json'),

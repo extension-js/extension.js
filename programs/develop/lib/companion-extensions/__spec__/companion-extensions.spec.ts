@@ -31,11 +31,13 @@ function writeManifest(dir: string) {
 
 function mockFetchSuccess(onFetch?: (outDir: string) => void) {
   const fetchMock = vi.mocked(fetchExtensionFromStore)
-  fetchMock.mockImplementation(async (_url: string, options: any) => {
-    if (onFetch && options?.outDir) {
-      onFetch(String(options.outDir))
+  fetchMock.mockImplementation(
+    async (_url: string, options?: {outDir?: string}) => {
+      if (onFetch && options?.outDir) {
+        onFetch(String(options.outDir))
+      }
     }
-  })
+  )
 
   return fetchMock
 }

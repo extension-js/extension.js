@@ -1,16 +1,15 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import * as vm from 'node:vm'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {getEnvFileCandidates} from '../plugin-compilation/env'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
-const ROOTS: string[] = []
+const tempFolder = trackTempFolders()
 
 function makeFixture(envFiles: Record<string, string>): string {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-build-env-'))
-  ROOTS.push(root)
+  const root = tempFolder('extjs-build-env-')
 
   fs.writeFileSync(
     path.join(root, 'package.json'),
@@ -89,12 +88,6 @@ function runWorker(root: string): string[] {
   return logs
 }
 
-afterAll(() => {
-  for (const root of ROOTS) {
-    fs.rmSync(root, {recursive: true, force: true})
-  }
-})
-
 describe('build: .env injection (real rspack)', () => {
   it('resolves .env.chrome family-wide for a chromium build and never crashes on undefined vars', async () => {
     const root = makeFixture({
@@ -147,7 +140,7 @@ describe('build: .env injection (real rspack)', () => {
 
 describe('getEnvFileCandidates', () => {
   it('mirrors the manifest-prefix family contract', () => {
-    const chromium = getEnvFileCandidates('chromium' as any, 'production')
+    const chromium = getEnvFileCandidates('chromium', 'production')
     expect(chromium.indexOf('.env.chromium')).toBeLessThan(
       chromium.indexOf('.env.chrome')
     )
@@ -157,12 +150,12 @@ describe('getEnvFileCandidates', () => {
     expect(chromium).toContain('.env.chromium-based')
     expect(chromium[chromium.length - 1]).toBe('.env')
 
-    const firefox = getEnvFileCandidates('firefox' as any, 'development')
+    const firefox = getEnvFileCandidates('firefox', 'development')
     expect(firefox).toContain('.env.firefox.development')
     expect(firefox).toContain('.env.gecko-based')
     expect(firefox).not.toContain('.env.chrome')
 
-    expect(getEnvFileCandidates('safari' as any, 'production')).toContain(
+    expect(getEnvFileCandidates('safari', 'production')).toContain(
       '.env.chrome'
     )
   })

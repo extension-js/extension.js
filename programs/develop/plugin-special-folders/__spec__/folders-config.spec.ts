@@ -1,7 +1,9 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import type {Compiler} from '@rspack/core'
 import {afterEach, describe, expect, it} from 'vitest'
+import {writeProjectFiles} from '../../__spec__/helpers/extension-project'
 import {
   excludedFiles,
   isDevOnlyEntry,
@@ -35,11 +37,7 @@ function project(files: Record<string, string>) {
 
   fs.writeFileSync(path.join(root, 'manifest.json'), '{"manifest_version":3}')
 
-  for (const [rel, content] of Object.entries(files)) {
-    const abs = path.join(root, rel)
-    fs.mkdirSync(path.dirname(abs), {recursive: true})
-    fs.writeFileSync(abs, content)
-  }
+  writeProjectFiles(root, files)
 
   return root
 }
@@ -216,7 +214,8 @@ describe('development-only entries', () => {
       keys(development.pages)
     )
 
-    const compiler = (mode: string) => ({options: {context: root, mode}}) as any
+    const compiler = (mode: string) =>
+      ({options: {context: root, mode}}) as unknown as Compiler
     expect(
       keys(getSpecialFoldersDataForCompiler(compiler('production')).pages)
     ).toEqual(['pages/engine'])
@@ -307,7 +306,9 @@ describe('excluded entries', () => {
       expect(keys(data.scripts)).toEqual(['scripts/content'])
     }
 
-    const compiler = {options: {context: root, mode: 'development'}} as any
+    const compiler = {
+      options: {context: root, mode: 'development'}
+    } as unknown as Compiler
     expect(keys(getSpecialFoldersDataForCompiler(compiler).pages)).toEqual([
       'pages/settings'
     ])

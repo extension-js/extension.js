@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import {asCompilation} from '../../__spec__/helpers/rspack-fakes'
 import {trackLocaleDependencies} from '../track-dependencies'
 
 const dirs: string[] = []
@@ -29,12 +30,17 @@ function project() {
 describe('trackLocaleDependencies', () => {
   it('keeps tracking locale files when the compilation already has errors', () => {
     const root = project()
-    const compilation: any = {
+    const compilation = {
       errors: [new Error('broken messages.json')],
       fileDependencies: new Set<string>(),
       missingDependencies: new Set<string>()
     }
-    trackLocaleDependencies(compilation, path.join(root, 'manifest.json'), root)
+    trackLocaleDependencies(
+      asCompilation(compilation),
+      path.join(root, 'manifest.json'),
+      root
+    )
+
     expect(
       compilation.fileDependencies.has(
         path.join(root, '_locales', 'en', 'messages.json')
@@ -50,12 +56,16 @@ describe('trackLocaleDependencies', () => {
     fs.mkdirSync(path.dirname(icon), {recursive: true})
     fs.writeFileSync(icon, '<svg/>')
 
-    const compilation: any = {
+    const compilation = {
       errors: [],
       fileDependencies: new Set<string>(),
       missingDependencies: new Set<string>()
     }
-    trackLocaleDependencies(compilation, path.join(root, 'manifest.json'), root)
+    trackLocaleDependencies(
+      asCompilation(compilation),
+      path.join(root, 'manifest.json'),
+      root
+    )
 
     expect(compilation.fileDependencies.has(notes)).toBe(true)
     expect(compilation.fileDependencies.has(icon)).toBe(true)
@@ -63,13 +73,17 @@ describe('trackLocaleDependencies', () => {
 
   it('watches the folder itself, so a new locale or a new file rebuilds', () => {
     const root = project()
-    const compilation: any = {
+    const compilation = {
       errors: [],
       fileDependencies: new Set<string>(),
       contextDependencies: new Set<string>(),
       missingDependencies: new Set<string>()
     }
-    trackLocaleDependencies(compilation, path.join(root, 'manifest.json'), root)
+    trackLocaleDependencies(
+      asCompilation(compilation),
+      path.join(root, 'manifest.json'),
+      root
+    )
 
     expect([...compilation.contextDependencies]).toEqual([
       path.join(root, '_locales')
@@ -79,14 +93,14 @@ describe('trackLocaleDependencies', () => {
   it('watches for the folder when the project has none yet', () => {
     const root = project()
     fs.rmSync(path.join(root, '_locales'), {recursive: true, force: true})
-    const compilation: any = {
+    const compilation = {
       errors: [],
       fileDependencies: new Set<string>(),
       contextDependencies: new Set<string>(),
       missingDependencies: new Set<string>()
     }
     trackLocaleDependencies(
-      compilation,
+      asCompilation(compilation),
       path.join(root, 'src', 'manifest.json'),
       root
     )

@@ -2,6 +2,8 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {buildProject} from './helpers/build-project'
+import {writeExtensionProject} from './helpers/extension-project'
 import {trackTempFolders} from './helpers/temp-folders'
 
 // A build replaces its output folder whole, so the folder is checked before
@@ -29,20 +31,10 @@ function project(outputPath?: string) {
   const root = path.join(parent, 'project')
   fs.mkdirSync(root)
 
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'guard', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'guard',
-      version: '1.0.0',
-      background: {service_worker: 'background.js'}
-    })
-  )
+  writeExtensionProject(root, {
+    name: 'guard',
+    manifest: {background: {service_worker: 'background.js'}}
+  })
 
   fs.writeFileSync(path.join(root, 'background.js'), 'console.log(1)\n')
 
@@ -59,21 +51,16 @@ function project(outputPath?: string) {
 }
 
 async function build(root: string, options: Record<string, unknown> = {}) {
-  const {extensionBuild} = await import('../command-build')
-
   vi.spyOn(console, 'error').mockImplementation(() => {})
 
-  let summary: Awaited<ReturnType<typeof extensionBuild>> | undefined
+  let summary: Awaited<ReturnType<typeof buildProject>> | undefined
   let failure: (Error & {code?: string}) | undefined
 
   try {
-    summary = await extensionBuild(root, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
+    summary = await buildProject(root, {
       mode: 'production',
       ...options
-    } as never)
+    })
   } catch (error) {
     failure = error as Error & {code?: string}
   }

@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {Compilation} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
+import {buildProject} from '../../../__spec__/helpers/build-project'
 import {openDevWatchSession} from '../../../__spec__/helpers/dev-watch-session'
 import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 
@@ -232,24 +233,13 @@ function shippedIcons(root: string, distPath: string, fixture: Fixture) {
 
 async function productionBuild(fixture: Fixture) {
   const root = project(fixture)
-  const {extensionBuild} = await import('../../../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
+  const summary = await buildProject(root, {
+    browser: fixture.browser,
+    mode: 'production',
+    exitOnError: false
+  })
 
-  try {
-    const summary = await extensionBuild(root, {
-      browser: fixture.browser,
-      silent: true,
-      install: false,
-      mode: 'production',
-      exitOnError: false
-    } as any)
-
-    expect(summary.errors_count).toBe(0)
-  } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
-  }
+  expect(summary.errors_count).toBe(0)
 
   return shippedIcons(root, path.join(root, 'dist', fixture.browser), fixture)
 }

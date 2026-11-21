@@ -33,6 +33,11 @@ type VueLoaderPluginCtor = new (
   ...args: unknown[]
 ) => {apply(compiler: unknown): void}
 
+// vue-loader names the plugin, directly or on its default export.
+type VueLoaderModule =
+  | {VueLoaderPlugin?: unknown; default?: {VueLoaderPlugin?: unknown}}
+  | undefined
+
 export function isUsingVue(projectPath: string, notice?: Notice) {
   const using = usesVue(projectPath)
 
@@ -215,8 +220,9 @@ export async function maybeUseVue(
       projectPath,
       dependencyId: 'vue-loader',
       moduleAdapter: (mod) => {
-        return (mod?.VueLoaderPlugin ||
-          mod?.default?.VueLoaderPlugin) as VueLoaderPluginCtor
+        return ((mod as VueLoaderModule)?.VueLoaderPlugin ||
+          (mod as VueLoaderModule)?.default
+            ?.VueLoaderPlugin) as VueLoaderPluginCtor
       }
     })
 

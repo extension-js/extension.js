@@ -1,7 +1,8 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
+import {writeProjectFiles} from '../../__spec__/helpers/extension-project'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {toResourceKey} from '../../lib/resource-path'
 import {findDeclaredContentScriptFiles} from '../index'
 import unplacedStyleImportLoader, {
@@ -11,23 +12,12 @@ import unplacedStyleImportLoader, {
 
 // eslint-disable-next-line no-control-regex
 const ANSI = /\u001b\[[0-9;]*m/g
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project(files: Record<string, string>) {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-unplaced-style-'))
-  )
-  roots.push(root)
+  const root = fs.realpathSync(tempFolder('extjs-unplaced-style-'))
 
-  for (const [name, contents] of Object.entries(files)) {
-    const file = path.join(root, name)
-    fs.mkdirSync(path.dirname(file), {recursive: true})
-    fs.writeFileSync(file, contents)
-  }
+  writeProjectFiles(root, files)
 
   return root
 }

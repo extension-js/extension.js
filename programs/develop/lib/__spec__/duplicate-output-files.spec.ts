@@ -1,7 +1,12 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
+import {buildProject} from '../../__spec__/helpers/build-project'
+import {
+  writeExtensionProject,
+  writeProjectFiles
+} from '../../__spec__/helpers/extension-project'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import type {BuildSummary} from '../build-summary'
 import {
   findDuplicateOutputFiles,
@@ -10,11 +15,7 @@ import {
 import * as messages from '../messages'
 import {listOutputFiles} from '../output-files'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function stripAnsi(value: string): string {
   // eslint-disable-next-line no-control-regex
@@ -24,14 +25,9 @@ function stripAnsi(value: string): string {
 const BIG = 300 * 1024
 
 function folder(files: Record<string, Buffer | string>) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dupes-'))
-  roots.push(root)
+  const root = tempFolder('extjs-dupes-')
 
-  for (const [name, content] of Object.entries(files)) {
-    const target = path.join(root, name)
-    fs.mkdirSync(path.dirname(target), {recursive: true})
-    fs.writeFileSync(target, content)
-  }
+  writeProjectFiles(root, files)
 
   return root
 }
@@ -128,22 +124,11 @@ describe('the duplicate files warning', () => {
 
 describe('a production build with the same bytes under two names', () => {
   it('warns once with both paths and records it in the summary', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dupes-build-'))
-    roots.push(root)
-    fs.writeFileSync(
-      path.join(root, 'package.json'),
-      JSON.stringify({private: true, name: 'dupes', version: '0.0.0'})
-    )
-
-    fs.writeFileSync(
-      path.join(root, 'manifest.json'),
-      JSON.stringify({
-        name: 'dupes',
-        version: '1.0.0',
-        manifest_version: 3,
-        background: {service_worker: 'background.js'}
-      })
-    )
+    const root = tempFolder('extjs-dupes-build-')
+    writeExtensionProject(root, {
+      name: 'dupes',
+      manifest: {background: {service_worker: 'background.js'}}
+    })
 
     fs.writeFileSync(path.join(root, 'background.js'), 'console.log("hi")\n')
     fs.mkdirSync(path.join(root, 'public', 'nested'), {recursive: true})
@@ -151,23 +136,9 @@ describe('a production build with the same bytes under two names', () => {
     fs.writeFileSync(path.join(root, 'public', 'model.bin'), bytes)
     fs.writeFileSync(path.join(root, 'public', 'nested', 'model.bin'), bytes)
 
-    const {extensionBuild} = await import('../../command-build')
-    const env = {VITEST: process.env.VITEST}
-    process.env.VITEST = 'true'
     let summary: BuildSummary
 
-    try {
-      summary = await extensionBuild(root, {
-        browser: 'chrome',
-        silent: true,
-        install: false,
-        mode: 'production',
-        exitOnError: false
-      } as any)
-    } finally {
-      if (env.VITEST === undefined) delete process.env.VITEST
-      else process.env.VITEST = env.VITEST
-    }
+    summary = await buildProject(root, {mode: 'production', exitOnError: false})
 
     const warning = (summary.warnings || []).find((line) =>
       /byte for byte/.test(line)

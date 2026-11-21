@@ -8,8 +8,13 @@ import {
   vi
 } from 'vitest'
 import {appendDevAdditions} from '../../lib/dev-additions'
-import {setupNoBrowserBannerOnFirstDone} from '../compiler-hooks'
+import {
+  type FirstDoneStats,
+  setupNoBrowserBannerOnFirstDone
+} from '../compiler-hooks'
 import {devAdditionsNote} from '../messages'
+
+type DoneTap = (stats: FirstDoneStats) => void
 
 const plain = (text: string) => text.replace(/\u001b\[[0-9;]*m/g, '')
 
@@ -94,7 +99,9 @@ describe('the no-browser card', () => {
   })
 
   const firstDone = (compilation: object) => {
-    const compiler: any = {hooks: {done: {tap: vi.fn()}}}
+    const compiler = {
+      hooks: {done: {tap: vi.fn<(name: string, fn: DoneTap) => void>()}}
+    }
 
     setupNoBrowserBannerOnFirstDone({
       compiler,

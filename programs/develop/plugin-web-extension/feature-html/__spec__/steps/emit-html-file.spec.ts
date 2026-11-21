@@ -1,7 +1,13 @@
 import * as fs from 'node:fs'
 import type {Compilation, Compiler} from '@rspack/core'
 import {beforeEach, describe, expect, it, vi} from 'vitest'
+import {
+  asCompilation,
+  asCompiler,
+  type TapCallback
+} from '../../../__spec__/helpers/rspack-fakes'
 import {EmitHtmlFile} from '../../steps/emit-html-file'
+import type {BuildIssue} from '../helpers/html-fakes'
 
 vi.mock('fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs')>()
@@ -29,33 +35,33 @@ describe('EmitHtmlFile', () => {
       includeList: {
         'action/index': '/test/project/popup.html',
         'pages/main': '/test/project/pages/main.html'
-      } as any
+      }
     })
 
-    mockCompilation = {
-      warnings: [],
+    mockCompilation = asCompilation({
+      warnings: [] as BuildIssue[],
       emitAsset: vi.fn(),
       hooks: {
         processAssets: {
-          tap: (_opts: any, fn: any) => fn()
+          tap: (_opts: unknown, fn: TapCallback) => fn()
         }
       }
-    } as any
+    })
 
-    mockCompiler = {
-      options: {devServer: {browser: 'chrome'}} as any,
+    mockCompiler = asCompiler({
+      options: {devServer: {browser: 'chrome'}},
       hooks: {
         thisCompilation: {
-          tap: vi.fn((name, callback) => {
+          tap: vi.fn((_name, callback) => {
             callback(mockCompilation)
           })
         }
       }
-    } as any
+    })
   })
 
   it('warns only for non-entrypoint pages when HTML file is missing', () => {
-    vi.mocked(fs.readFileSync).mockImplementation((p: any) => {
+    vi.mocked(fs.readFileSync).mockImplementation((p) => {
       if (String(p).endsWith('manifest.json')) {
         return Buffer.from('{"name":"X"}')
       }
@@ -63,18 +69,18 @@ describe('EmitHtmlFile', () => {
       return Buffer.from('')
     })
 
-    vi.mocked(fs.existsSync).mockImplementation((_p: any) => false)
+    vi.mocked(fs.existsSync).mockImplementation((_p) => false)
     plugin.apply(mockCompiler)
 
     const names = (list: Array<{message: string}>) =>
       list.map((finding) => String(finding.message).split('\n')[0])
 
-    expect(names((mockCompilation as any).warnings)).toEqual([
+    expect(names(mockCompilation.warnings)).toEqual([
       expect.stringContaining('pages/main')
     ])
 
     // The popup is a page the manifest names, so its missing file fails.
-    expect(names((mockCompilation as any).errors)).toEqual([
+    expect(names(mockCompilation.errors)).toEqual([
       expect.stringContaining('default_popup')
     ])
   })

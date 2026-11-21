@@ -1,14 +1,10 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 const CONTENT_SCRIPT = [
   'export default function initial() {',
@@ -19,8 +15,7 @@ const CONTENT_SCRIPT = [
 ].join('\n')
 
 function project() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-opera-minify-'))
-  roots.push(root)
+  const root = tempFolder('extjs-opera-minify-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'readable', version: '0.0.0'})

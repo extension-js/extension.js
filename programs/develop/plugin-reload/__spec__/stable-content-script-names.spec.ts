@@ -1,23 +1,16 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {type Compiler, rspack} from '@rspack/core'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {getProjectStructure} from '../../lib/project'
 import webpackConfig from '../../rspack-config'
 import {stableContentScriptHash} from '../steps/stable-content-script-names'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function scaffold() {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-stable-names-'))
-  )
-  roots.push(root)
+  const root = fs.realpathSync(tempFolder('extjs-stable-names-'))
   const files: Record<string, string> = {
     'package.json': JSON.stringify({
       private: true,
@@ -58,7 +51,7 @@ async function devConfig(root: string) {
     metadataCommand: 'dev',
     silent: true,
     output: {clean: true, path: path.join(root, 'dist', 'chrome')}
-  } as any)
+  } as Parameters<typeof webpackConfig>[1])
   config.plugins = (config.plugins || []).filter(
     (plugin) =>
       plugin?.constructor.name !== 'plugin-browsers' &&

@@ -1,36 +1,25 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it, vi} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {writeExtensionProject} from './helpers/extension-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 const LOCALES = ['en', 'de', 'fr', 'pt_BR']
 
 function project(config: string) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-hook-context-'))
-  roots.push(root)
+  const root = tempFolder('extjs-hook-context-')
 
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'hook-context', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
+  writeExtensionProject(root, {
+    manifest: {
       name: '__MSG_hookContextName__',
-      version: '1.0.0',
       default_locale: 'en',
       background: {service_worker: 'background.js'}
-    })
-  )
+    },
+    packageJson: {name: 'hook-context'}
+  })
 
   fs.writeFileSync(path.join(root, 'background.js'), "console.log('bg')\n")
 

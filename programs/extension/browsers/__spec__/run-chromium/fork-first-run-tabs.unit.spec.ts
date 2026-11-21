@@ -7,6 +7,7 @@ import {
   CDPExtensionController,
   devtoolsCompanionWelcomeUrl
 } from '../../run-chromium/cdp/cdp-extension-controller'
+import {controllerInternals} from '../cdp-controller-fakes'
 
 const VIVALDI_WIZARD =
   'chrome-extension://mpognobbkildjkofajifpdfhcoklimli/components/welcome/welcome.html'
@@ -16,15 +17,23 @@ let root: string
 let keylessCompanion: string
 
 function controllerWithTargets(targets: unknown[]) {
-  const calls: Array<{method: string; params: any; sessionId?: string}> = []
+  const calls: Array<{
+    method: string
+    params: Record<string, unknown>
+    sessionId?: string
+  }> = []
   const controller = new CDPExtensionController({
     outPath: '/p/dist/vivaldi',
     browser: 'chromium-based',
     cdpPort: 9222
   })
-  ;(controller as any).cdp = {
+  controllerInternals(controller).cdp = {
     getTargets: async () => targets,
-    sendCommand: async (method: string, params: any, sessionId?: string) => {
+    sendCommand: async (
+      method: string,
+      params: Record<string, unknown>,
+      sessionId?: string
+    ) => {
       calls.push({method, params, sessionId})
 
       if (method === 'Target.attachToTarget') {

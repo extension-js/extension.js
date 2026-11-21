@@ -3,20 +3,29 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {bundledAssetOutputName} from '../../../../plugin-static-assets/static-assets-lib/asset-output-name'
+import {
+  asCompiler,
+  type TapCallback
+} from '../../../__spec__/helpers/rspack-fakes'
 import {AddAssetsToCompilation} from '../../steps/add-assets-to-compilation'
+import {
+  type BuildIssue,
+  type FakeAsset,
+  readSource
+} from '../helpers/html-fakes'
 
 function makeCompilation() {
-  const assets: Record<string, any> = {}
-  const compilationObj: any = {
+  const assets: Record<string, FakeAsset> = {}
+  const compilationObj = {
     options: {mode: 'production', output: {path: '/out'}},
     getAsset: (name: string) => assets[name],
     assets,
-    errors: [],
-    warnings: [] as any[],
-    hooks: {processAssets: {tap: (_: any, cb: any) => cb()}},
-    emitAsset: (name: string, src: any) => {
+    errors: [] as BuildIssue[],
+    warnings: [] as BuildIssue[],
+    hooks: {processAssets: {tap: (_: unknown, cb: TapCallback) => cb()}},
+    emitAsset: (name: string, src: unknown) => {
       assets[name] = {
-        source: {source: () => (src.source ? src.source() : src)}
+        source: {source: () => readSource(src)}
       }
     }
   }
@@ -24,10 +33,12 @@ function makeCompilation() {
   return {
     options: {context: process.cwd()},
     hooks: {
-      thisCompilation: {tap: (_: any, fn: any) => fn(compilationObj)}
+      thisCompilation: {
+        tap: (_: unknown, fn: TapCallback) => fn(compilationObj)
+      }
     },
     compilationObj
-  } as any
+  }
 }
 
 describe('AddAssetsToCompilation (relative static assets emission)', () => {
@@ -52,7 +63,7 @@ describe('AddAssetsToCompilation (relative static assets emission)', () => {
         'utf8'
       )
 
-      const compiler: any = makeCompilation()
+      const compiler = makeCompilation()
       compiler.compilationObj.assets[path.basename(htmlFilePath)] = {
         source: {source: () => fs.readFileSync(htmlFilePath, 'utf8')}
       }
@@ -60,7 +71,7 @@ describe('AddAssetsToCompilation (relative static assets emission)', () => {
       new AddAssetsToCompilation({
         manifestPath: manifestFilePath,
         includeList: {'feature/index': htmlFilePath}
-      } as any).apply(compiler as any)
+      }).apply(asCompiler(compiler))
 
       const emittedAssetNames = Object.keys(compiler.compilationObj.assets)
       expect(emittedAssetNames.length).toBeGreaterThan(0)
@@ -101,7 +112,7 @@ describe('AddAssetsToCompilation (relative static assets emission)', () => {
         'utf8'
       )
 
-      const compiler: any = makeCompilation()
+      const compiler = makeCompilation()
       compiler.options.context = tmpDirectoryPath
       compiler.compilationObj.assets[path.basename(htmlFilePath)] = {
         source: {source: () => fs.readFileSync(htmlFilePath, 'utf8')}
@@ -110,7 +121,7 @@ describe('AddAssetsToCompilation (relative static assets emission)', () => {
       new AddAssetsToCompilation({
         manifestPath: manifestFilePath,
         includeList: {'feature/index': htmlFilePath}
-      } as any).apply(compiler as any)
+      }).apply(asCompiler(compiler))
 
       const emittedAssetNames = Object.keys(compiler.compilationObj.assets)
 

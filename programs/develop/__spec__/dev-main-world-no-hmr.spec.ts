@@ -1,20 +1,15 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {type Compiler, rspack, type Stats} from '@rspack/core'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {getProjectStructure} from '../lib/project'
 import webpackConfig from '../rspack-config'
+import {trackTempFolders} from './helpers/temp-folders'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project(options: {hashContentScripts?: boolean} = {}) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-main-world-'))
-  roots.push(root)
+  const root = tempFolder('extjs-main-world-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'main-world', version: '0.0.0'})
@@ -54,8 +49,7 @@ function project(options: {hashContentScripts?: boolean} = {}) {
 }
 
 function runtimeRegisteredProject() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-main-world-rt-'))
-  roots.push(root)
+  const root = tempFolder('extjs-main-world-rt-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'main-world-rt', version: '0.0.0'})
@@ -100,8 +94,7 @@ function runtimeRegisteredProject() {
 }
 
 function pageRegisteredProject() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-main-world-pg-'))
-  roots.push(root)
+  const root = tempFolder('extjs-main-world-pg-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'main-world-pg', version: '0.0.0'})
@@ -152,8 +145,7 @@ function pageRegisteredProject() {
 }
 
 function runtimeInjectedProject() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-main-world-ex-'))
-  roots.push(root)
+  const root = tempFolder('extjs-main-world-ex-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'main-world-ex', version: '0.0.0'})
@@ -206,8 +198,7 @@ function runtimeInjectedProject() {
 }
 
 function importingProject() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-main-world-im-'))
-  roots.push(root)
+  const root = tempFolder('extjs-main-world-im-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'main-world-im', version: '0.0.0'})
@@ -291,7 +282,7 @@ async function compileDev(
     silent: true,
     output: {clean: false, path: distPath},
     ...options
-  } as any)
+  } as Parameters<typeof webpackConfig>[1])
   config.plugins = (config.plugins || []).filter(
     (plugin) =>
       plugin?.constructor.name !== 'plugin-browsers' &&

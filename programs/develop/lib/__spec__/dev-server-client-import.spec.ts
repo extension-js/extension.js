@@ -7,6 +7,10 @@ import {
   HMR_HOT_SPECIFIER
 } from '../dev-server-client-import'
 
+// The rows build only the compiler options the import reads.
+const asCompiler = (fake: object) =>
+  fake as Parameters<typeof getDevServerHmrImports>[0]
+
 describe('dev-server-client-import', () => {
   it('returns absolute paths that exist on disk (not bare specifiers)', () => {
     const fakeCompiler = {
@@ -19,7 +23,7 @@ describe('dev-server-client-import', () => {
       }
     }
 
-    const imports = getDevServerHmrImports(fakeCompiler as any)
+    const imports = getDevServerHmrImports(asCompiler(fakeCompiler))
 
     expect(imports).toHaveLength(2)
 
@@ -50,7 +54,7 @@ describe('dev-server-client-import', () => {
     const fakeCompiler = {
       options: {devServer: {host: '127.0.0.1', port: 8080, hot: 'only'}}
     }
-    const [, hotEntry] = getDevServerHmrImports(fakeCompiler as any)
+    const [, hotEntry] = getDevServerHmrImports(asCompiler(fakeCompiler))
     const posix = hotEntry.replace(/\\/g, '/')
     expect(posix).toContain('@rspack/core/hot/dev-server')
     expect(posix).not.toContain('/webpack/hot/')
@@ -88,7 +92,7 @@ describe('dev-server-client-import', () => {
       options: {}
     }
 
-    const imports = getDevServerHmrImports(fakeCompiler as any)
+    const imports = getDevServerHmrImports(asCompiler(fakeCompiler))
     expect(imports).toEqual([])
   })
 
@@ -104,7 +108,7 @@ describe('dev-server-client-import', () => {
       }
     }
 
-    const [clientEntry] = getDevServerHmrImports(fakeCompiler as any)
+    const [clientEntry] = getDevServerHmrImports(asCompiler(fakeCompiler))
     expect(clientEntry).toContain('hostname=localhost')
     expect(clientEntry).toContain('port=9090')
     expect(clientEntry).toContain('hot=true')
@@ -115,7 +119,7 @@ describe('dev-server-client-import', () => {
     const fakeCompiler = {
       options: {devServer: {host: '0.0.0.0', port: 8131, hot: 'only'}}
     }
-    const [clientEntry] = getDevServerHmrImports(fakeCompiler as any)
+    const [clientEntry] = getDevServerHmrImports(asCompiler(fakeCompiler))
 
     expect(clientEntry).toContain('hostname=127.0.0.1')
     expect(clientEntry).not.toContain('hostname=0.0.0.0')
@@ -135,7 +139,7 @@ describe('dev-server-client-import', () => {
     process.env.EXTENSION_DEV_SERVER_PATH = '/ws/other-session'
 
     try {
-      const [clientEntry] = getDevServerHmrImports({options: {}} as any, {
+      const [clientEntry] = getDevServerHmrImports(asCompiler({options: {}}), {
         protocol: 'ws',
         host: '127.0.0.1',
         connectableHost: '127.0.0.1',
@@ -164,7 +168,7 @@ describe('dev-server-client-import', () => {
     const fakeCompiler = {
       options: {devServer: {host: '0.0.0.0', port: 8131, hot: 'only'}}
     }
-    const [clientEntry] = getDevServerHmrImports(fakeCompiler as any, {
+    const [clientEntry] = getDevServerHmrImports(asCompiler(fakeCompiler), {
       connectableHost: 'devbox.example.com'
     })
 
@@ -181,7 +185,7 @@ describe('dev-server-client-import', () => {
     process.env.EXTENSION_DEV_SERVER_PORT = '9090'
 
     try {
-      expect(getDevServerHmrImports({options: {}} as any)).toEqual([])
+      expect(getDevServerHmrImports(asCompiler({options: {}}))).toEqual([])
     } finally {
       if (kept[0] === undefined) delete process.env.EXTENSION_DEV_SERVER_HOST
       else process.env.EXTENSION_DEV_SERVER_HOST = kept[0]

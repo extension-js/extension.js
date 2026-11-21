@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {readProjectSource} from '../../../lib/emitted-evidence'
 import {missingConstantsOf} from '../../feature-scripts/steps/warn-missing-build-constants'
 import {classicConcatEntry} from '../../shared/classic-concat'
@@ -10,17 +10,10 @@ import {sourceFileOf} from '../steps/warn-webassembly'
 // One compile reads a project file from disk once. A scan that reads it
 // again sees a later save, and the findings of one build then disagree.
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project(files: Record<string, string>) {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-source-read-once-'))
-  )
-  roots.push(root)
+  const root = fs.realpathSync(tempFolder('extjs-source-read-once-'))
 
   for (const [name, text] of Object.entries(files)) {
     fs.writeFileSync(path.join(root, name), text)
