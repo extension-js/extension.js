@@ -15,7 +15,6 @@ export const DEVELOP_BUILD_ENTRIES: readonly string[] = [
   'module',
   'preview',
   'bridge',
-  'manifest',
   'ensure-hmr-for-scripts',
   'feature-scripts-content-script-wrapper',
   'feature-scripts-classic-concat-loader',

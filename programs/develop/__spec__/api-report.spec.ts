@@ -13,7 +13,6 @@ const ENTRIES: Record<string, string> = {
   '.': 'module.ts',
   './preview': 'preview-entry.ts',
   './bridge': 'bridge-entry.ts',
-  './manifest': 'manifest-entry.ts',
   './contracts': 'contracts-entry.ts'
 }
 
@@ -86,8 +85,7 @@ describe('the public API of the package, entry by entry', () => {
   // The loaded module is the check on the reader above.
   it.each([
     ['./contracts', () => import('../contracts-entry')],
-    ['./bridge', () => import('../bridge-entry')],
-    ['./manifest', () => import('../manifest-entry')]
+    ['./bridge', () => import('../bridge-entry')]
   ])('reports every value %s has when it is loaded', async (entry, load) => {
     const values = exportsOf(path.join(packageDir, ENTRIES[entry])).filter(
       (name) => !name.endsWith(' (type)')
