@@ -32,7 +32,8 @@ function fakeDeps() {
     writeFrame: (frame) => {
       frames.push(frame)
     },
-    checkUpdates
+    checkUpdates,
+    stderrIsTerminal: () => true
   }
 
   return {
@@ -278,6 +279,17 @@ describe('the update check of run()', () => {
     const fake = fakeDeps()
 
     await run(args, fake.deps)
+
+    expect(fake.checkUpdates).not.toHaveBeenCalled()
+  })
+
+  it('never starts when stderr is not a terminal', async () => {
+    const fake = fakeDeps()
+
+    await run(argv('build', '--bogus'), {
+      ...fake.deps,
+      stderrIsTerminal: () => false
+    })
 
     expect(fake.checkUpdates).not.toHaveBeenCalled()
   })

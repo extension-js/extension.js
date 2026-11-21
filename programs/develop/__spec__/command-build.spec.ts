@@ -246,7 +246,7 @@ describe('extensionBuild', () => {
     })
 
     expect(hook.plugins).toEqual(
-      expect.arrayContaining(['plugin-compilation', 'plugin-playwright'])
+      expect.arrayContaining(['plugin-compilation', 'plugin-ready-contract'])
     )
   })
 

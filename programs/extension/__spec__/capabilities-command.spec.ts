@@ -106,7 +106,7 @@ describe('buildEngineCapabilities', () => {
 
   it('agrees with the schemaVersion the engine writer stamps', () => {
     const writerSource = fs.readFileSync(
-      path.resolve(__dirname, '../../develop/plugin-playwright/index.ts'),
+      path.resolve(__dirname, '../../develop/plugin-ready-contract/index.ts'),
       'utf8'
     )
     const stamped = writerSource.match(/schemaVersion:\s*(\d+)/)

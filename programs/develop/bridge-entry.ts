@@ -6,6 +6,8 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import type {ReadyContract} from './types'
+
 export {
   BridgeConsumer,
   type ConsumerCloseInfo,
@@ -64,13 +66,11 @@ export {
 // `dist/extension-js/<browser>/ready.json` is one layout change away from
 // silently reading nothing, so the layout is published rather than implied.
 export {resolveSessionProjectRoot} from './lib/session-project-root'
-// The writer's own type for ready.json, so a consumer names the contract the
-// engine maintains instead of hand-declaring a twenty-field mirror of it.
-export type {
-  PlaywrightAutomationCommand,
-  ReadyMetadata,
-  ReadyStatus
-} from './plugin-playwright'
+export type {ReadyStatus} from './plugin-ready-contract'
 // ready.json with every field the engine writes, launcher stamps it carries
-// across a recompile included.
-export type {ReadyContract} from './types'
+// across a recompile included, so a consumer never hand-declares a mirror.
+export type {ReadyContract}
+/** @deprecated Use `ReadyContract`, which this now is. */
+export type ReadyMetadata = ReadyContract
+/** @deprecated Use `ReadyContract['command']`, which this now is. */
+export type PlaywrightAutomationCommand = ReadyContract['command']

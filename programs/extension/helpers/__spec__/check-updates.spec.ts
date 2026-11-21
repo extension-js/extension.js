@@ -1,4 +1,5 @@
 import {spawn} from 'node:child_process'
+import {EventEmitter} from 'node:events'
 import * as fs from 'node:fs'
 import * as http from 'node:http'
 import type {AddressInfo, Socket} from 'node:net'
@@ -9,6 +10,7 @@ import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import checkUpdates, {
   lookupLatest,
   resolveRegistry,
+  settleUpdateCheck,
   UPDATE_CHECK_BOUND_MS,
   updateCheckWanted
 } from '../check-updates'
@@ -122,31 +124,79 @@ describe('when the update check runs', () => {
   const rows: Array<
     [string, Parameters<typeof updateCheckWanted>[0], boolean]
   > = [
-    ['dev', {command: 'dev', json: false, env: {}}, true],
-    ['start', {command: 'start', json: false, env: {}}, true],
-    ['preview', {command: 'preview', json: false, env: {}}, true],
-    ['build', {command: 'build', json: false, env: {}}, true],
-    ['create', {command: 'create', json: false, env: {}}, false],
-    ['doctor', {command: 'doctor', json: false, env: {}}, false],
-    ['no command', {command: undefined, json: false, env: {}}, false],
-    ['build --output json', {command: 'build', json: true, env: {}}, false],
+    ['dev', {command: 'dev', json: false, terminal: true, env: {}}, true],
+    ['start', {command: 'start', json: false, terminal: true, env: {}}, true],
+    [
+      'preview',
+      {command: 'preview', json: false, terminal: true, env: {}},
+      true
+    ],
+    ['build', {command: 'build', json: false, terminal: true, env: {}}, true],
+    [
+      'create',
+      {command: 'create', json: false, terminal: true, env: {}},
+      false
+    ],
+    [
+      'doctor',
+      {command: 'doctor', json: false, terminal: true, env: {}},
+      false
+    ],
+    [
+      'no command',
+      {command: undefined, json: false, terminal: true, env: {}},
+      false
+    ],
+    [
+      'build --output json',
+      {command: 'build', json: true, terminal: true, env: {}},
+      false
+    ],
     [
       'EXTENSION_NO_UPDATE_CHECK=1',
-      {command: 'dev', json: false, env: {EXTENSION_NO_UPDATE_CHECK: '1'}},
+      {
+        command: 'dev',
+        json: false,
+        terminal: true,
+        env: {EXTENSION_NO_UPDATE_CHECK: '1'}
+      },
       false
     ],
     [
       'EXTENSION_NO_UPDATE_CHECK=0',
-      {command: 'dev', json: false, env: {EXTENSION_NO_UPDATE_CHECK: '0'}},
+      {
+        command: 'dev',
+        json: false,
+        terminal: true,
+        env: {EXTENSION_NO_UPDATE_CHECK: '0'}
+      },
       true
     ],
     [
       'NO_UPDATE_NOTIFIER=1',
-      {command: 'build', json: false, env: {NO_UPDATE_NOTIFIER: '1'}},
+      {
+        command: 'build',
+        json: false,
+        terminal: true,
+        env: {NO_UPDATE_NOTIFIER: '1'}
+      },
       false
     ],
-    ['CI=true', {command: 'build', json: false, env: {CI: 'true'}}, false],
-    ['CI=false', {command: 'build', json: false, env: {CI: 'false'}}, true]
+    [
+      'CI=true',
+      {command: 'build', json: false, terminal: true, env: {CI: 'true'}},
+      false
+    ],
+    [
+      'stderr that is not a terminal',
+      {command: 'build', json: false, terminal: false, env: {}},
+      false
+    ],
+    [
+      'CI=false',
+      {command: 'build', json: false, terminal: true, env: {CI: 'false'}},
+      true
+    ]
   ]
 
   it.each(rows)('%s', (_name, input, wanted) => {
@@ -301,6 +351,44 @@ describe('the update check against a loopback registry', () => {
     )
   })
 
+  // Windows has no XDG folder, so both an answer and a miss land under the
+  // local application data of the user.
+  it('keeps its file under LOCALAPPDATA on Windows, for an answer and for a miss', async () => {
+    const home = makeTempFolder('extjs-update-home-')
+    const env = {
+      USERPROFILE: home,
+      LOCALAPPDATA: path.join(home, 'AppData', 'Local'),
+      npm_config_registry: 'http://127.0.0.1:9/'
+    }
+    const file = path.join(
+      env.LOCALAPPDATA,
+      'extensionjs',
+      'Cache',
+      'update-check.json'
+    )
+    const entries = (): unknown[] =>
+      Object.values(JSON.parse(fs.readFileSync(file, 'utf8')))
+    const on = (lookup: () => Promise<string>) => ({
+      ...deps(env),
+      homedir: () => home,
+      platform: 'win32' as const,
+      now: () => 1_000_000,
+      lookup
+    })
+
+    await checkUpdates(
+      on(async () => {
+        throw new Error('silent')
+      })
+    )
+
+    expect(entries()).toEqual([{missed: true, checkedAt: 1_000_000}])
+
+    fs.rmSync(file)
+    await checkUpdates(on(async () => '2.1.0'))
+    expect(entries()).toEqual([{latest: '2.1.0', checkedAt: 1_000_000}])
+  })
+
   it('reuses an answer for an hour, per registry, in the user cache folder', async () => {
     const first = await registry(latestIs('2.1.0'))
     const second = await registry(latestIs('2.2.0'))
@@ -327,6 +415,121 @@ describe('the update check against a loopback registry', () => {
     const cacheFolder = path.join(String(env.XDG_CACHE_HOME), 'extensionjs')
 
     expect(fs.readdirSync(cacheFolder)).toEqual(['update-check.json'])
+  })
+
+  // A registry that fails or stays silent costs a finished build the bound.
+  // The miss is kept an hour, so that cost is paid once and not on every run.
+  describe('a lookup that failed', () => {
+    const MIRROR = 'http://127.0.0.1:9/'
+
+    function failingThenAnswering() {
+      const env = isolatedEnv({npm_config_registry: MIRROR})
+      const state = {
+        now: 1_000_000,
+        calls: 0,
+        answer: undefined as string | undefined
+      }
+      const run = () =>
+        checkUpdates({
+          ...deps(env),
+          now: () => state.now,
+          lookup: async () => {
+            state.calls += 1
+
+            if (state.answer) return state.answer
+
+            throw new Error('No answer from the registry in 2000 ms')
+          }
+        })
+      const cacheFile = path.join(
+        String(env.XDG_CACHE_HOME),
+        'extensionjs',
+        'update-check.json'
+      )
+      const entries = (): Array<Record<string, unknown>> =>
+        Object.values(JSON.parse(fs.readFileSync(cacheFile, 'utf8')))
+
+      return {state, run, entries, cacheFile}
+    }
+
+    it('is not asked again for an hour, and says nothing meanwhile, in debug mode too', async () => {
+      const {state, run} = failingThenAnswering()
+
+      expect(await run()).toBeNull()
+      expect(state.calls).toBe(1)
+
+      vi.stubEnv('EXTENSION_DEBUG', '1')
+      vi.mocked(console.error).mockClear()
+      state.now += 3_599_000
+
+      expect(await run()).toBeNull()
+      expect(state.calls).toBe(1)
+      expect(console.error).not.toHaveBeenCalled()
+    })
+
+    it('is asked again after the hour, and the answer replaces the miss', async () => {
+      const {state, run, entries} = failingThenAnswering()
+
+      await run()
+      expect(entries()).toEqual([{checkedAt: 1_000_000, missed: true}])
+
+      state.now += 3_600_001
+      state.answer = '99.0.0'
+
+      expect((await run())?.suffix).toMatch(/99\.0\.0/)
+      expect(state.calls).toBe(2)
+      expect(entries()).toEqual([{latest: '99.0.0', checkedAt: state.now}])
+
+      // Read from the cache now, as any answer is.
+      expect((await run())?.suffix).toMatch(/99\.0\.0/)
+      expect(state.calls).toBe(2)
+    })
+
+    // The condition the released 4.2.0 reads an entry with, kept as it shipped.
+    // A miss carries no latest, so that reader asks again and prints nothing.
+    it('writes an entry the released reader does not take for an answer', async () => {
+      const {run, entries} = failingThenAnswering()
+
+      await run()
+
+      const takenByReleasedReader = (
+        cached: {latest?: unknown; checkedAt?: unknown} | undefined,
+        time: number
+      ) =>
+        Boolean(
+          cached &&
+            typeof cached.latest === 'string' &&
+            time >= Number(cached.checkedAt) &&
+            time - Number(cached.checkedAt) < 60 * 60 * 1000
+        )
+
+      expect(
+        entries().map((entry) => takenByReleasedReader(entry, 1_000_001))
+      ).toEqual([false])
+
+      expect(entries().every((entry) => !('latest' in entry))).toBe(true)
+    })
+
+    it('keeps the answers other registries gave', async () => {
+      const answering = await registry(latestIs('2.1.0'))
+      const env = isolatedEnv()
+      const at = (url: string, lookup?: () => Promise<string>) => ({
+        ...deps({...env, npm_config_registry: url}),
+        now: () => 1_000_000,
+        ...(lookup ? {lookup} : {})
+      })
+
+      expect((await checkUpdates(at(answering.url)))?.suffix).toMatch(/2\.1\.0/)
+
+      await checkUpdates(
+        at(MIRROR, async () => {
+          throw new Error('refused')
+        })
+      )
+
+      expect((await checkUpdates(at(answering.url)))?.suffix).toMatch(/2\.1\.0/)
+      expect(answering.asked).toHaveLength(1)
+    })
   })
 
   it('a registry that never answers ends the check within its bound', async () => {
@@ -395,6 +598,52 @@ describe('the update check against a loopback registry', () => {
     expect(Date.now() - started).toBeLessThan(30_000)
   })
 
+  // The CLI loads its commands right after it asks, which blocks the event
+  // loop. That time is the CLI's own, so it must not use up the bound.
+  it('the bound does not count time the process itself kept the event loop busy', async () => {
+    const quick = await registry({
+      status: 200,
+      body: JSON.stringify({version: '99.0.0'})
+    })
+    const scratch = makeTempFolder('extjs-update-busy-')
+    const script = path.join(scratch, 'busy-lookup.mjs')
+    const moduleUrl = pathToFileURL(
+      path.join(__dirname, '..', 'check-updates.ts')
+    )
+
+    fs.writeFileSync(
+      script,
+      `const mod = await import(${JSON.stringify(moduleUrl.href)})\n` +
+        `const lookupLatest = mod.lookupLatest ?? mod.default.lookupLatest\n` +
+        `const asked = lookupLatest('extension', new URL(${JSON.stringify(quick.url)}), 300)\n` +
+        'const until = Date.now() + 900\n' +
+        'while (Date.now() < until) {}\n' +
+        "asked.then((latest) => process.stdout.write('latest ' + latest), (error) => process.stdout.write('failed ' + error.message))\n" +
+        'setTimeout(() => {}, 1500)\n'
+    )
+
+    const child = spawn(process.execPath, ['--import', 'tsx', script], {
+      cwd: path.join(__dirname, '..', '..'),
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: {...process.env, NODE_NO_WARNINGS: '1'}
+    })
+    let stdout = ''
+    let stderr = ''
+
+    child.stdout?.on('data', (chunk) => {
+      stdout += String(chunk)
+    })
+
+    child.stderr?.on('data', (chunk) => {
+      stderr += String(chunk)
+    })
+
+    await new Promise<void>((resolve) => child.once('close', () => resolve()))
+
+    expect(stdout, stderr).toMatch(/^latest \d+\.\d+\.\d+/)
+    expect(quick.asked).toHaveLength(1)
+  })
+
   it('lookupLatest rejects on a bound, never later', async () => {
     const silent = await registry('never')
 
@@ -420,5 +669,84 @@ describe('the update check against a loopback registry', () => {
     const env = isolatedEnv({npm_config_registry: endless.url})
 
     expect(await checkUpdates(deps(env, {boundMs: 30_000}))).toBeNull()
+  })
+})
+
+describe('holding a finished command for its update check', () => {
+  function timers() {
+    const armed: Array<{run: () => void; ms: number}> = []
+    const cleared: unknown[] = []
+
+    return {
+      armed,
+      cleared,
+      set: (run: () => void, ms: number) => armed.push({run, ms}),
+      clear: (timer: unknown) => cleared.push(timer)
+    }
+  }
+
+  it.each([
+    ['answers', () => Promise.resolve('a notice')],
+    ['fails', () => Promise.reject(new Error('refused'))]
+  ])('ends as soon as the check %s, and lets the timer go', async (_name, check) => {
+    const clock = timers()
+
+    await settleUpdateCheck(check(), 2000, clock)
+
+    expect(clock.armed.map(({ms}) => ms)).toEqual([2000])
+    expect(clock.cleared).toEqual([1])
+  })
+
+  it.each([
+    'SIGINT',
+    'SIGTERM'
+  ] as const)('ends at once on %s, and listens to neither signal after', async (signal) => {
+    const signals = new EventEmitter()
+    const cleared: unknown[] = []
+    const settled = settleUpdateCheck(
+      new Promise(() => {}),
+      2000,
+      {set: () => 'timer', clear: (timer) => cleared.push(timer)},
+      signals
+    )
+
+    signals.emit(signal)
+    await settled
+
+    expect(cleared).toEqual(['timer'])
+    expect(signals.listenerCount('SIGINT')).toBe(0)
+    expect(signals.listenerCount('SIGTERM')).toBe(0)
+  })
+
+  it('listens to no signal once the check settled', async () => {
+    const signals = new EventEmitter()
+
+    await settleUpdateCheck(
+      Promise.resolve(),
+      2000,
+      {set: () => 'timer', clear: () => {}},
+      signals
+    )
+
+    expect(signals.listenerCount('SIGINT')).toBe(0)
+    expect(signals.listenerCount('SIGTERM')).toBe(0)
+  })
+
+  it('ends at the bound when the check never settles', async () => {
+    const clock = timers()
+    let ended = false
+    const settled = settleUpdateCheck(new Promise(() => {}), 2000, clock).then(
+      () => {
+        ended = true
+      }
+    )
+
+    await Promise.resolve()
+    expect(ended).toBe(false)
+
+    clock.armed[0].run()
+    await settled
+
+    expect(ended).toBe(true)
   })
 })

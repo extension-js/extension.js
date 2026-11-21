@@ -3,7 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import developPackageJson from '../../package.json'
-import type {PlaywrightAutomationCommand} from '../index'
+import type {SessionCommand} from '../../types'
 import {
   makeWriter as makeProjectWriter,
   patchContract,
@@ -23,7 +23,7 @@ describe('ready.json provenance + events.ndjson run attribution (bugs 32/33)', (
     fs.rmSync(tmp, {recursive: true, force: true})
   })
 
-  const makeWriter = (command: PlaywrightAutomationCommand = 'dev') =>
+  const makeWriter = (command: SessionCommand = 'dev') =>
     makeProjectWriter(tmp, {command})
 
   const writeManifest = (manifest: Record<string, unknown>) =>

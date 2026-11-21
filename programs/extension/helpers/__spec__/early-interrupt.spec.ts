@@ -6,12 +6,18 @@ import {
   armEarlyInterrupt,
   commandNamedIn,
   earlyInterruptFrame,
+  expectBuildTold,
+  interruptedAfterBuildTold,
   wantsJsonFrames
 } from '../early-interrupt'
 import {CODES, ENVELOPE} from '../messaging'
 
 const CLAIMED = Symbol.for('extension.js.interrupt-frame-claimed')
 const ENDED = Symbol.for('extension.js.interrupt-frame-written')
+// The engine sets this one as it prints that the build succeeded.
+const BUILD_TOLD = Symbol.for('extension.js.build-told')
+const BUILD_ENDS_RUN = Symbol.for('extension.js.build-ends-run')
+const INTERRUPTED_AFTER = Symbol.for('extension.js.interrupted-after-build')
 const flags = globalThis as unknown as Record<symbol, boolean | undefined>
 
 function arm(argv: string[]) {
@@ -36,6 +42,9 @@ describe('the interrupt frame the entry arms', () => {
   afterEach(() => {
     delete flags[CLAIMED]
     delete flags[ENDED]
+    delete flags[BUILD_TOLD]
+    delete flags[BUILD_ENDS_RUN]
+    delete flags[INTERRUPTED_AFTER]
   })
 
   it('is the envelope every other failure uses, built with no import of it', () => {
@@ -134,6 +143,46 @@ describe('the interrupt frame the entry arms', () => {
 
     expect(run.frames).toEqual([])
     expect(run.closed()).toBe(0)
+    expect(run.exits).toEqual([143])
+  })
+
+  // The build said it succeeded and nothing follows it, so the run ends by
+  // itself in a moment, with the code that agrees with what it printed.
+  it.each([
+    ['a run that prints for a person', ['build']],
+    ['a json run', ['build', '--output', 'json']]
+  ] as const)('leaves %s to end by itself once the last build was told', (_name, argv) => {
+    const run = arm([...argv])
+
+    expectBuildTold(true)
+    flags[BUILD_TOLD] = true
+    run.target.emit('SIGINT')
+
+    expect(run.frames).toEqual([])
+    expect(run.closed()).toBe(0)
+    expect(run.exits).toEqual([])
+    expect(interruptedAfterBuildTold()).toBe(true)
+  })
+
+  it('still stops a run whose told build is followed by another browser', () => {
+    const run = arm(['build', '--output', 'json'])
+
+    expectBuildTold(false)
+    flags[BUILD_TOLD] = true
+    run.target.emit('SIGINT')
+
+    expect(run.frames).toEqual([earlyInterruptFrame('build', 'SIGINT')])
+    expect(run.exits).toEqual([130])
+    expect(interruptedAfterBuildTold()).toBe(false)
+  })
+
+  it('forgets the build told before, so each browser is told on its own', () => {
+    const run = arm(['build'])
+
+    flags[BUILD_TOLD] = true
+    expectBuildTold(true)
+    run.target.emit('SIGTERM')
+
     expect(run.exits).toEqual([143])
   })
 })

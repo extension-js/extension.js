@@ -172,7 +172,7 @@ const SPEC_REACHES = [
   'plugin-css -> plugin-static-assets',
   'plugin-css -> plugin-web-extension/feature-scripts/contracts',
   'plugin-js-frameworks -> plugin-web-extension/feature-scripts/contracts',
-  'plugin-reload -> plugin-playwright',
+  'plugin-reload -> plugin-ready-contract',
   'plugin-reload -> plugin-web-extension',
   'plugin-reload -> plugin-web-extension/feature-chunk-loading',
   'plugin-reload -> plugin-web-extension/feature-html',

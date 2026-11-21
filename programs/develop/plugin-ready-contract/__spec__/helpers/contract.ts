@@ -1,12 +1,9 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
-import {
-  createPlaywrightMetadataWriter,
-  type PlaywrightPlugin
-} from '../../index'
+import {createReadyContractWriter, type ReadyContractPlugin} from '../../index'
 
-export type WriterOptions = Parameters<typeof createPlaywrightMetadataWriter>[0]
+export type WriterOptions = Parameters<typeof createReadyContractWriter>[0]
 export type Contract = Record<string, unknown>
 
 // A dev writer for chromium under projectDir, the shape most specs start from.
@@ -16,7 +13,7 @@ export function makeWriter(
 ) {
   const browser = overrides.browser ?? 'chromium'
 
-  return createPlaywrightMetadataWriter({
+  return createReadyContractWriter({
     packageJsonDir: projectDir,
     browser,
     command: 'dev',
@@ -62,7 +59,7 @@ export type CompilerTaps = Record<
 >
 
 // The four hooks the plugin taps, captured so a spec can fire them by hand.
-export function applyToFakeCompiler(plugin: PlaywrightPlugin): CompilerTaps {
+export function applyToFakeCompiler(plugin: ReadyContractPlugin): CompilerTaps {
   const taps: Partial<CompilerTaps> = {}
   const hook = (name: keyof CompilerTaps) => ({
     tap: (_pluginName: string, fn: Tap) => {

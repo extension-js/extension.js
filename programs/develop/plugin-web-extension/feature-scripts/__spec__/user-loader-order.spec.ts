@@ -340,7 +340,7 @@ async function devSessionBundle(root: string, rule: object) {
   config.plugins = (config.plugins || []).filter(
     (plugin) =>
       plugin?.constructor.name !== 'plugin-browsers' &&
-      plugin?.constructor.name !== 'plugin-playwright'
+      plugin?.constructor.name !== 'plugin-ready-contract'
   )
 
   config.stats = false
@@ -548,7 +548,7 @@ describe('a content script a user loader changed', () => {
             ? []
             : [
                 expect.stringContaining(
-                  'Extension.js: the content script default export failed to run.'
+                  'Extension.js W_CONTENT_SCRIPT_MOUNT: the content script default export failed to run.'
                 )
               ]
         )

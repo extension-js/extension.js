@@ -4,7 +4,7 @@ import {describe, expect, it} from 'vitest'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {codedError} from '../../lib/coded-error'
 import {CODES} from '../../lib/messaging'
-import {createPlaywrightMetadataWriter} from '../../plugin-playwright'
+import {createReadyContractWriter} from '../../plugin-ready-contract'
 import {createRestartFailure} from '../start-bundler'
 
 // A dev restart that fails writes a frame to the stream. The events file is
@@ -13,7 +13,7 @@ const tempFolder = trackTempFolders()
 
 function session(exitOnError = true) {
   const root = tempFolder('extjs-restart-failed-')
-  const metadata = createPlaywrightMetadataWriter({
+  const metadata = createReadyContractWriter({
     packageJsonDir: root,
     browser: 'chromium',
     command: 'dev',

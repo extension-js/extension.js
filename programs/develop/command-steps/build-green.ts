@@ -18,6 +18,7 @@ import {
 } from '../lib/addon-lint'
 import {promoteStagingDist} from '../lib/atomic-dist'
 import {type BuildSummary, getBuildSummary} from '../lib/build-summary'
+import {markBuildTold} from '../lib/build-told'
 import {getBuildToolchain} from '../lib/build-toolchain'
 import {collectChunkDependencyProvenance} from '../lib/chunk-dependency-provenance'
 import {codedError} from '../lib/coded-error'
@@ -42,7 +43,7 @@ import {
   getZipArtifacts,
   getZipFailures
 } from '../plugin-compilation/zip-artifacts'
-import {stampReadyDistExtensionId} from '../plugin-playwright'
+import {stampReadyDistExtensionId} from '../plugin-ready-contract'
 import {removeDevelopmentArtifacts} from '../plugin-reload/reload-lib/development-artifacts'
 import type {BuildOptions} from '../types'
 import type {createBuildReceipt} from './build-receipt'
@@ -428,6 +429,9 @@ export async function finishGreenBuild(input: {
       summary.source_map_bytes
     )
   )
+
+  // A packaging step that follows can still fail the build, and marks it then.
+  if (!packagingFollows) markBuildTold()
 
   // The versions a store reviewer has to rebuild under to get these
   // bytes back; the ids inside the bundles depend on the lockfile too.

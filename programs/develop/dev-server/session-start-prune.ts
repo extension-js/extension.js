@@ -9,7 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler, Configuration} from '@rspack/core'
-import {detectLiveDevSessionOwner} from '../plugin-playwright'
+import {detectLiveDevSessionOwner} from '../plugin-ready-contract'
 
 export interface SessionStartPruneOptions {
   isRestart: boolean

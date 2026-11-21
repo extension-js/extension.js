@@ -75,9 +75,9 @@ import {
 } from './lib/session-paths'
 import {takeStartLaunchHoldings} from './lib/start-launch-handoff'
 import {
-  createPlaywrightMetadataWriter,
+  createReadyContractWriter,
   getSessionRunId
-} from './plugin-playwright'
+} from './plugin-ready-contract'
 import type {
   BrowserConfig,
   BrowserDefaulted,
@@ -444,7 +444,7 @@ async function runPreview(
   // The run record describes the directory the browser loads, so its path
   // and the extension id derived from it name the actual load, not the
   // stock build folder the flag may have replaced.
-  let metadata = createPlaywrightMetadataWriter({
+  let metadata = createReadyContractWriter({
     packageJsonDir,
     browser: String(browser),
     command: metadataCommand,
@@ -689,7 +689,7 @@ async function runPreview(
       launchPath = session.controlledPath
       // Same ready.json, now naming the folder loaded and the control port the
       // act verbs dial; writeStarting already ran, so nothing is reset.
-      metadata = createPlaywrightMetadataWriter({
+      metadata = createReadyContractWriter({
         packageJsonDir,
         browser: String(browser),
         command: metadataCommand,

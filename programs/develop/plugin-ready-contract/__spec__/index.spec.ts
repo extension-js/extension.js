@@ -4,8 +4,8 @@ import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
 import {
   formatStatsErrors,
-  getPlaywrightMetadataDir,
-  PlaywrightPlugin
+  getReadyContractDir,
+  ReadyContractPlugin
 } from '../index'
 import {
   applyToFakeCompiler,
@@ -15,7 +15,7 @@ import {
   readEvents
 } from './helpers/contract'
 
-describe('plugin-playwright metadata writer', () => {
+describe('plugin-ready-contract metadata writer', () => {
   const tmpRoots: string[] = []
 
   afterEach(() => {
@@ -35,21 +35,21 @@ describe('plugin-playwright metadata writer', () => {
 
   const readyIn = (projectRoot: string, browser: string) =>
     readContract(
-      path.join(getPlaywrightMetadataDir(projectRoot, browser), 'ready.json')
+      path.join(getReadyContractDir(projectRoot, browser), 'ready.json')
     )
 
   const eventsIn = (projectRoot: string, browser: string) =>
     readEvents(
-      path.join(getPlaywrightMetadataDir(projectRoot, browser), 'events.ndjson')
+      path.join(getReadyContractDir(projectRoot, browser), 'events.ndjson')
     )
 
   const makePlugin = (
     projectRoot: string,
-    options: Partial<ConstructorParameters<typeof PlaywrightPlugin>[0]> = {}
+    options: Partial<ConstructorParameters<typeof ReadyContractPlugin>[0]> = {}
   ) => {
     const browser = options.browser ?? 'chromium'
 
-    return new PlaywrightPlugin({
+    return new ReadyContractPlugin({
       packageJsonDir: projectRoot,
       browser,
       mode: 'development',
@@ -71,7 +71,7 @@ describe('plugin-playwright metadata writer', () => {
     writer.writeReady('2026-03-04T00:00:00.000Z')
 
     const readyPath = path.join(
-      getPlaywrightMetadataDir(projectRoot, 'chromium'),
+      getReadyContractDir(projectRoot, 'chromium'),
       'ready.json'
     )
     expect(fs.existsSync(readyPath)).toBe(true)
@@ -266,12 +266,12 @@ describe('the plugin across a watch session', () => {
   })
 
   const watchedPlugin = (
-    options: Partial<ConstructorParameters<typeof PlaywrightPlugin>[0]> = {}
+    options: Partial<ConstructorParameters<typeof ReadyContractPlugin>[0]> = {}
   ) => {
     const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-watch-'))
     tmpRoots.push(projectRoot)
 
-    const plugin = new PlaywrightPlugin({
+    const plugin = new ReadyContractPlugin({
       packageJsonDir: projectRoot,
       browser: 'chromium',
       mode: 'development',
@@ -279,7 +279,7 @@ describe('the plugin across a watch session', () => {
       manifestPath: path.join(projectRoot, 'manifest.json'),
       ...options
     })
-    const metadataDir = getPlaywrightMetadataDir(projectRoot, 'chromium')
+    const metadataDir = getReadyContractDir(projectRoot, 'chromium')
 
     return {
       plugin,
@@ -330,7 +330,7 @@ describe('the plugin across a watch session', () => {
   it('a watch that a restart superseded closes without the event or the stamp', () => {
     const first = watchedPlugin()
     const closing = applyToFakeCompiler(first.plugin)
-    const restarted = new PlaywrightPlugin({
+    const restarted = new ReadyContractPlugin({
       packageJsonDir: first.projectRoot,
       browser: 'chromium',
       mode: 'development',

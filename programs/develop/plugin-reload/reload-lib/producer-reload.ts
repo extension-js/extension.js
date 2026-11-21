@@ -146,7 +146,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
           .catch(function (error) {
             try {
               g.console.warn(
-                "Extension.js: manifest.json could not be read to reinject the content scripts, so " +
+                "Extension.js W_RELOAD_NOT_APPLIED: manifest.json could not be read to reinject the content scripts, so " +
                   (onFailed ? "the extension reloads instead." : "open tabs keep the scripts they have."),
                 String(error)
               );
