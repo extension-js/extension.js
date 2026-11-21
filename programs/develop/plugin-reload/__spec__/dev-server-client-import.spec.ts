@@ -5,7 +5,7 @@ import {
   getDevServerHmrImports,
   HMR_CLIENT_SPECIFIER,
   HMR_HOT_SPECIFIER
-} from '../dev-server-client-import'
+} from '../reload-lib/dev-server-client-import'
 
 // The rows build only the compiler options the import reads.
 const asCompiler = (fake: object) =>

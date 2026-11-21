@@ -8,8 +8,8 @@
 
 import {createRequire} from 'node:module'
 import type {Compiler} from '@rspack/core'
-import {resolveConnectableHost} from './connectable-host'
-import type {DevSessionCoordinates} from './dev-session-coordinates'
+import {resolveConnectableHost} from '../../lib/connectable-host'
+import type {DevSessionCoordinates} from '../../lib/dev-session-coordinates'
 
 const cjsRequire = createRequire(import.meta.url)
 
@@ -51,6 +51,7 @@ function resolveHmrClientPath(): string {
         paths: [__dirname]
       })
     } catch {
+      // The bare name still resolves from a project that installs the client
       _resolvedClientPath = HMR_CLIENT_SPECIFIER
     }
   }
@@ -65,6 +66,7 @@ function resolveHmrHotPath(): string {
         paths: [__dirname]
       })
     } catch {
+      // The bare name still resolves from a project that installs the runtime
       _resolvedHotPath = HMR_HOT_SPECIFIER
     }
   }
@@ -82,6 +84,7 @@ export function resolveStockSocketClientPath(): string | undefined {
       paths: [__dirname]
     })
   } catch {
+    // No stock class to alias, so the page keeps the socket it ships with
     return undefined
   }
 }

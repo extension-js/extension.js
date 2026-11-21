@@ -276,9 +276,6 @@ export default function webpackConfig(
     }),
     // Dev-session reload/HMR strategy. Must register AFTER WebExtensionPlugin,
     // whose declared entries it decorates. No-ops outside `extension dev`.
-    // Same-stage order too: its NoDangerNamePlugin taps processAssets at
-    // ADDITIONS, where the locales, json and icon steps above emit the
-    // assets it name-checks, so it only sees them by registering later.
     new ReloadPlugin({
       manifestPath,
       browser: devOptions.browser,
@@ -539,8 +536,6 @@ export default function webpackConfig(
           : '[name].js',
       // CSS output naming (cssFilename, cssChunkFilename) is owned by
       // CssPlugin, see plugin-css/index.ts.
-      hotUpdateChunkFilename: 'hot/[id].[fullhash].hot-update.js',
-      hotUpdateMainFilename: 'hot/[runtime].[fullhash].hot-update.json',
       environment: {
         bigIntLiteral: true,
         dynamicImport: true
