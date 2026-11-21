@@ -16,7 +16,10 @@ import {
 import {getUserTypeScriptConfigFile} from '../../lib/user-tsconfig'
 import type {DevOptions} from '../../types'
 import {isUsingJSFramework} from '../frameworks-lib/integrations'
-import {getJsxImportSource} from '../js-frameworks-lib/jsx-transform'
+import {
+  getJsxImportSource,
+  type JsxImportSource
+} from '../js-frameworks-lib/jsx-transform'
 import * as messages from '../js-frameworks-lib/messages'
 import type {Notice} from '../js-frameworks-lib/session-notices'
 import {buildReachesTypeScript} from './typescript-reach'
@@ -134,7 +137,31 @@ export function ensureTypeScriptConfig(
   }
 }
 
-export function defaultTypeScriptConfig(projectPath: string) {
+// The tsconfig.json written for a TypeScript project that has none.
+export interface DefaultTypeScriptConfig {
+  compilerOptions: {
+    allowJs: boolean
+    allowSyntheticDefaultImports: boolean
+    esModuleInterop: boolean
+    forceConsistentCasingInFileNames: boolean
+    jsx: 'react-jsx' | 'preserve'
+    jsxImportSource?: JsxImportSource
+    lib: string[]
+    moduleResolution: 'bundler'
+    module: 'esnext'
+    moduleDetection: 'force'
+    resolveJsonModule: boolean
+    strict: boolean
+    target: 'esnext'
+    isolatedModules: boolean
+    skipLibCheck: boolean
+  }
+  exclude: string[]
+}
+
+export function defaultTypeScriptConfig(
+  projectPath: string
+): DefaultTypeScriptConfig {
   const usesJsFramework = isUsingJSFramework(projectPath)
   // react-jsx alone makes tsc look for react/jsx-runtime and fail with TS2875
   // on a Solid, Preact or Vue project. Name the same runtime the bundler
