@@ -12,7 +12,7 @@ import programPackageJson from '../package.json'
 import {recordCodedWarning} from './coded-warnings'
 import {findConfigFile} from './config-loader'
 import * as messages from './messages'
-import {CODES, isDebug} from './messaging'
+import {CODES, debugLine, isDebug} from './messaging'
 import {readProjectDependencies} from './project-manifest'
 
 function isReferencedAsModuleSpecifier(
@@ -61,12 +61,9 @@ export function assertNoManagedDependencyConflicts(
       .filter((d) => isReferencedAsModuleSpecifier(configSource, d))
       .sort()
   } catch (error) {
-    // Be conservative: do not block if we cannot read user's package.json
-    // but surface a minimal warning for visibility in development.
-    if (isDebug()) {
-      // eslint-disable-next-line no-console
-      console.warn(error)
-    }
+    // A package.json or config that cannot be read never stops a build.
+    // A debug run says why the check was skipped.
+    if (isDebug()) debugLine(messages.debugManagedDepsSkipped(error))
 
     return
   }

@@ -83,6 +83,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "debugContextPath: function(1)",
     "debugDirs: function(2)",
     "debugExtensionsToLoad: function(1)",
+    "debugManagedDepsSkipped: function(1)",
     "debugOutputPath: function(1)",
     "debugPreviewOutput: function(2)",
     "debugSplitChunksNarrowed: function(1)",
