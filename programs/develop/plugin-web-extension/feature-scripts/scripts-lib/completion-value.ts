@@ -11,10 +11,10 @@ import * as path from 'node:path'
 
 const requireModule = createRequire(import.meta.url)
 
-export const COMPLETION_VALUE_SETTER = '__extjsCompletion'
+const COMPLETION_VALUE_SETTER = '__extjsCompletion'
 // Marks the entry of a file executeScript injects from outside scripts/.
 export const INJECTED_CLASSIC_QUERY = '__extensionjs_injected__'
-export const COMPLETION_VALUE_HOLDER = '__extjsCompletionValue'
+const COMPLETION_VALUE_HOLDER = '__extjsCompletionValue'
 const KEEP = '__extjsKeep'
 
 // The browser hands executeScript the value a file's last statement left.

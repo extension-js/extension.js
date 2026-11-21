@@ -23,7 +23,7 @@ export {
   webkitUnsupportedPermissions
 } from './webkit-unsupported-keys'
 
-export interface WebkitDroppedKey {
+interface WebkitDroppedKey {
   // Dotted location of what was dropped, like permissions.sidePanel
   path: string
   // Short why, rendered beside the path in the build warning

@@ -71,7 +71,7 @@ export function resolveBundleCssProbeMarker(
 
 // Every js file of a declared MAIN world group, resolved the way the wrapper
 // loader resolves a declared entry.
-export function findDeclaredMainWorldFiles(
+function findDeclaredMainWorldFiles(
   manifestPath: string,
   browser: DevOptions['browser']
 ): string[] {

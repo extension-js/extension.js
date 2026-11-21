@@ -20,7 +20,7 @@ import {externalAssetOutputPath} from '../../feature-manifest/normalize-manifest
 import {type HtmlStaticAttribute, parseHtml} from './parse-html'
 import {readHtmlText} from './read-html'
 
-export interface ParsedHtmlAsset {
+interface ParsedHtmlAsset {
   css?: string[]
   js?: string[]
   // Subset of `js`: scripts declared `<script type="module">`, the only
@@ -239,7 +239,7 @@ export function isFromIncludeList(
 }
 
 // A drive letter parses as a one-letter URL scheme, yet `C:\x` is a path.
-export function isDrivePath(src: string): boolean {
+function isDrivePath(src: string): boolean {
   return /^[a-z]:[\\/]/i.test(src)
 }
 
@@ -453,7 +453,7 @@ export function htmlStaticAssetOutputName(
   )
 }
 
-export function computePosixRelative(fromPath: string, toPath: string): string {
+function computePosixRelative(fromPath: string, toPath: string): string {
   const fromRoot = path.parse(fromPath).root
   const toRoot = path.parse(toPath).root
 

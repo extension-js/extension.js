@@ -8,7 +8,7 @@
 
 import type {Compilation} from '@rspack/core'
 
-export interface CssAssetResult {
+interface CssAssetResult {
   found: boolean
   // The public href for the injected <link> when the asset name differs from the
   // canonical <feature>.css; undefined when the canonical name matched.

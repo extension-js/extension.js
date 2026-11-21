@@ -15,7 +15,7 @@ interface AstNode {
   [key: string]: unknown
 }
 
-export interface TopLevelAwait {
+interface TopLevelAwait {
   line: number
   column: number
 }

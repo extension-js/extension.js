@@ -6,7 +6,7 @@
 //  ╚══╝╚══╝ ╚══════╝╚═════╝       ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-export type WebResourcesShared = {
+type WebResourcesShared = {
   entryImports: Record<string, string[]>
 }
 

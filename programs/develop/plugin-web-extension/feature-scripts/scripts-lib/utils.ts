@@ -21,7 +21,7 @@ import {
 
 // A manifest path written with a leading slash names the extension root,
 // the manifest folder in source space, as the manifest fields resolve it.
-export function manifestEntrySourcePath(entry: string, manifestDir: string) {
+function manifestEntrySourcePath(entry: string, manifestDir: string) {
   return /^[\\/]/.test(entry)
     ? path.join(manifestDir, entry.replace(/^[\\/]+/, ''))
     : entry

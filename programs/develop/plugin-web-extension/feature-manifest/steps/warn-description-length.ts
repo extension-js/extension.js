@@ -26,19 +26,19 @@ export const CHROME_DESCRIPTION_LIMIT = 132
 // addons-linter 10.14.0 and later fail a longer one as JSON_INVALID.
 export const AMO_DESCRIPTION_LIMIT = 250
 
-export interface DescriptionRule {
+interface DescriptionRule {
   limit: number
   store: string
   required: boolean
 }
 
-export interface DescriptionLimitHit {
+interface DescriptionLimitHit {
   kind: 'missing' | 'over'
   length: number
   rule: DescriptionRule
 }
 
-export function descriptionRuleFor(browser: string): DescriptionRule | null {
+function descriptionRuleFor(browser: string): DescriptionRule | null {
   if (isWebkitBasedBrowser(browser)) {
     return {
       limit: APP_STORE_DESCRIPTION_LIMIT,

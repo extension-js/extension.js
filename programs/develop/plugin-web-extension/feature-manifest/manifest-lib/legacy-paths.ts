@@ -6,13 +6,13 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-export interface LegacyManifestPathRule {
+interface LegacyManifestPathRule {
   field: string
   legacyPath: string
   modernPath: string
 }
 
-export interface LegacyManifestPathHit {
+interface LegacyManifestPathHit {
   field: string
   legacyPath: string
   modernPath: string

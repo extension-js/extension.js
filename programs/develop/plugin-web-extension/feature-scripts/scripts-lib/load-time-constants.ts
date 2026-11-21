@@ -46,7 +46,7 @@ export function isConstantName(name: unknown): name is string {
   )
 }
 
-export interface ConstantFacts {
+interface ConstantFacts {
   // Every constant the script spells as an identifier.
   seen: Set<string>
   // The ones the script declares, assigns, tests with typeof, or names as a
@@ -448,7 +448,7 @@ export function constantFacts(source: string): ConstantFacts {
   }
 }
 
-export interface LoadTimeConstants extends ConstantFacts {
+interface LoadTimeConstants extends ConstantFacts {
   // The constants the script is certain to read while it loads.
   reads: Set<string>
 }

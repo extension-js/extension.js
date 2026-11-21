@@ -43,7 +43,7 @@ interface WithheldRef {
   emitPath: string
 }
 
-export type RootAbsoluteRefPlan = TracedFilePlan | WithheldRef
+type RootAbsoluteRefPlan = TracedFilePlan | WithheldRef
 
 // Decide how a root-absolute ref ships, with the tracer's rule: data files
 // and classic hand-written .js copy verbatim, anything the browser cannot run

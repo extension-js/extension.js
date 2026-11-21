@@ -28,7 +28,7 @@ interface Edit {
   text: string
 }
 
-export type DefaultExportReading =
+type DefaultExportReading =
   // No default export, so the file runs as it is written.
   | {kind: 'none'}
   // No parser reads the file, so the build reports its own syntax error.

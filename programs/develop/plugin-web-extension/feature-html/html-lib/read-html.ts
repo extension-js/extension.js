@@ -9,7 +9,7 @@
 import {isUtf8} from 'node:buffer'
 import * as fs from 'node:fs'
 
-export interface HtmlRead {
+interface HtmlRead {
   // The page as text, always fit to be written as UTF-8.
   text: string
   // 'utf-8' for a page read as written, 'converted' for one decoded from

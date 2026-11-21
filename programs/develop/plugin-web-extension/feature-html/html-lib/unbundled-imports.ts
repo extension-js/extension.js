@@ -24,7 +24,7 @@ export function staticImportSpecifiers(source: string): string[] {
   return specifiers
 }
 
-export type ImportTarget =
+type ImportTarget =
   | {kind: 'file'; requestedPath: string}
   | {kind: 'package'}
   | {kind: 'remote'}

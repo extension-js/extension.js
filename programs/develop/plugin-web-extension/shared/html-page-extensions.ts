@@ -17,7 +17,7 @@ export interface HtmlPage {
 }
 
 // What a plugin applied before the pages are declared may add to them.
-export interface HtmlPagesExtension {
+interface HtmlPagesExtension {
   // Called once, as soon as every page has its entry in the config.
   pagesDeclared(compiler: Compiler, pages: readonly HtmlPage[]): void
 }
