@@ -184,6 +184,7 @@ export type PlaywrightAutomationEvent = {
     | 'browser_exited'
     | 'browser_launch_failed'
     | 'restart_failed'
+    | 'warning'
   ts: string
   command: PlaywrightAutomationCommand
   browser: string
@@ -201,6 +202,7 @@ export type PlaywrightAutomationEvent = {
   reason?: string
   // restart_failed: the code of what stopped the restart, with `reason`, and
   // whether the build from before it still serves the session.
+  // warning: the code of what the session warned about, with `reason`.
   code?: string
   serving?: boolean
   // Set when the per-event byte cap trimmed this row's error text, so a reader
@@ -1394,6 +1396,17 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       writeContract(prev)
     },
     appendEvent,
+    // What the session warned about between two compiles, beside them.
+    writeWarning(args: {code: string; message: string}) {
+      appendEvent({
+        type: 'warning',
+        ts: nowISO(),
+        command: base.command,
+        browser: base.browser,
+        code: args.code,
+        reason: args.message
+      })
+    },
     // A dev restart that could not be made, beside the compiles around it.
     writeRestartFailed(args: {
       code: string

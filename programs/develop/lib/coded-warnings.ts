@@ -32,12 +32,40 @@ function listsFor(compiler: object | undefined): string[][] {
   return activeBuilds.size > 0 ? [...activeBuilds] : [pending]
 }
 
+export type CodedWarningListener = (
+  code: WarningCode,
+  text: string,
+  owner?: object
+) => void
+
+const listeners = new Set<CodedWarningListener>()
+
+// A session that reports a warning the moment it is known. While one
+// listens, a warning no build owns goes to it and is kept nowhere else.
+export function onCodedWarning(listener: CodedWarningListener): () => void {
+  listeners.add(listener)
+
+  return () => {
+    listeners.delete(listener)
+  }
+}
+
 export function recordCodedWarning(
   code: WarningCode,
   text: string,
   compiler?: object
 ): void {
   const line = `${code}: ${text}`
+  const ownedByBuild =
+    (compiler ? compilerLists.has(compiler) : false) ||
+    scopes.getStore() !== undefined ||
+    activeBuilds.size > 0
+
+  if (!ownedByBuild && listeners.size > 0) {
+    for (const listener of [...listeners]) listener(code, text, compiler)
+
+    return
+  }
 
   for (const lines of listsFor(compiler)) {
     if (!lines.includes(line)) lines.push(line)

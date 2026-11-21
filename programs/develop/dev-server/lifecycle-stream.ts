@@ -36,6 +36,7 @@ export type LifecycleStatus =
   | 'recompiled'
   | 'compile-failed'
   | 'restart-failed'
+  | 'warning'
   | 'ready'
   | 'ready-failed'
   | 'browser-exited'
@@ -655,6 +656,24 @@ export class LifecycleStream {
     frame.value = this.sessionValue()
 
     return this.emit(frame)
+  }
+
+  // Something the session warned about between two compiles, written the
+  // moment it is known. It ends nothing and no later frame repeats it.
+  public warned(args: {
+    code: ErrorCode
+    message: string
+  }): Envelope<unknown> | null {
+    const message = stripAnsi(args.message)
+
+    return this.emit(
+      ENVELOPE.ok(
+        this.options.command,
+        'warning',
+        this.sessionValue({code: args.code, message}),
+        {warnings: [`${args.code}: ${message}`]}
+      )
+    )
   }
 
   // The next compiler could not be built and the session goes on with the

@@ -53,6 +53,7 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
         "browser_exited",
         "browser_launch_failed",
         "restart_failed",
+        "warning",
         "shutdown",
       ],
       "eventsPath": "dist/extension-js/<browser>/events.ndjson",
