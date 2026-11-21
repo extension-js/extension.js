@@ -253,7 +253,12 @@ describe('extension preview flag forwarding', () => {
 
   it('reads the project config for the preview command before it picks a browser', async () => {
     expect(await run(['preview', PROJECT])).toBe(0)
-    expect(configReads[0]).toEqual([PROJECT, 'preview'])
+    // No browser is known yet, so the probe reads as the stock one would.
+    expect(configReads[0]).toEqual([
+      PROJECT,
+      'preview',
+      {mode: undefined, browser: 'chromium'}
+    ])
   })
 
   // preview serves nothing: --port seeds the browser's debugging port, and
