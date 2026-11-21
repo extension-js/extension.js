@@ -2,11 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
-import {
-  chooseSvelteRoot,
-  isOlderThan,
-  resolveCompilerSvelte
-} from '../js-tools/svelte'
+import {chooseSvelteRoot, resolveCompilerSvelte} from '../js-tools/svelte'
 
 const PROJECT = '/project/node_modules/svelte'
 const COMPILER = '/cli/node_modules/svelte'
@@ -41,26 +37,35 @@ describe('which svelte compiles, and which one the bundle links', () => {
     })
   })
 
-  it('keeps a project that pins a NEWER svelte than the compiler', () => {
-    // Only one direction breaks. Svelte adds internals rather than removing
-    // them, so a newer runtime links what an older compiler emitted, and that
-    // project keeps the version it asked for with nothing printed.
+  it('follows the compiler when the project holds a newer svelte', () => {
+    // The 5.59 runtime leaves the DOM setup to an import its own compiler
+    // emits, so output from an older compiler mounts nothing on it.
     expect(
       chooseSvelteRoot({
         projectRoot: PROJECT,
-        projectVersion: '5.57.0',
+        projectVersion: '5.59.1',
         compilerRoot: COMPILER,
-        compilerVersion: '5.51.0'
+        compilerVersion: '5.55.9'
       })
-    ).toMatchObject({root: PROJECT, mismatch: false})
+    ).toMatchObject({
+      root: COMPILER,
+      mismatch: true,
+      projectVersion: '5.59.1',
+      compilerVersion: '5.55.9'
+    })
   })
 
-  it('compares releases numerically, not as strings', () => {
-    expect(isOlderThan('5.9.0', '5.51.0')).toBe(true)
-    expect(isOlderThan('5.51.0', '5.9.0')).toBe(false)
-    expect(isOlderThan('5.51.0', '5.51.0')).toBe(false)
-    expect(isOlderThan('5.51.0-next.1', '5.51.0')).toBe(false)
-    expect(isOlderThan('4.2.19', '5.0.0')).toBe(true)
+  it('follows the compiler on a patch or a prerelease apart', () => {
+    for (const projectVersion of ['5.57.1', '5.57.0-next.1']) {
+      expect(
+        chooseSvelteRoot({
+          projectRoot: PROJECT,
+          projectVersion,
+          compilerRoot: COMPILER,
+          compilerVersion: '5.57.0'
+        })
+      ).toMatchObject({root: COMPILER, mismatch: true})
+    }
   })
 
   it('uses whichever side it could resolve, and calls that no mismatch', () => {

@@ -309,7 +309,10 @@ export default function webpackConfig(
     }),
     // Extension-aware per-category performance budgets. Replaces rspack's
     // stock single-threshold `performance.hints`, disabled below.
-    new PerfBudgetsPlugin({budgets: devOptions.perfBudgets}),
+    new PerfBudgetsPlugin({
+      budgets: devOptions.perfBudgets,
+      browser: String(devOptions.browser || 'chrome')
+    }),
     unresolvedCssUrlRefs,
     missingReferences,
     new NodeBuiltinsPlugin(),

@@ -318,3 +318,72 @@ describe('the starter on a create row', () => {
     expect(await sentProperties('build', [])).not.toHaveProperty('template')
   })
 })
+
+// The whole payload of the two rows that gained a property, so a field added
+// to either shows up here before it ships.
+describe('the rows that carry browser and template, key by key', () => {
+  const COMMON = [
+    '$geoip_disable',
+    '$ip',
+    '$process_person_profile',
+    'app',
+    'arch',
+    'command',
+    'is_ci',
+    'is_source_build',
+    'node_major',
+    'os',
+    'package_manager',
+    'success',
+    'version'
+  ]
+
+  it.each(
+    BROWSER_COMMANDS
+  )('%s sends the common keys, browser, and for a watch command session', async (command) => {
+    const properties = await sentProperties(command, [], {resolved: ['brave']})
+
+    expect(Object.keys(properties).sort()).toEqual(
+      [
+        ...COMMON,
+        'browser',
+        ...(WATCH_COMMANDS.includes(command) ? ['session'] : [])
+      ].sort()
+    )
+
+    expect(properties.browser).toBe('chromium-based')
+  })
+
+  it('create sends the common keys, template and source', async () => {
+    const properties = await sentProperties('create', ['my-extension'])
+
+    expect(Object.keys(properties).sort()).toEqual(
+      [...COMMON, 'source', 'template'].sort()
+    )
+
+    expect(properties.template).toBe(DEFAULT_TEMPLATE)
+    expect(Object.values(properties)).not.toContain('my-extension')
+  })
+
+  it.each([
+    ['EXTENSION_TELEMETRY_DISABLED', '1'],
+    ['DO_NOT_TRACK', '1']
+  ])('sends nothing with %s set, even beside EXTENSION_TELEMETRY=1', async (name, value) => {
+    for (const command of [...BROWSER_COMMANDS, 'create']) {
+      const box = sandbox({env: {EXTENSION_TELEMETRY: '1', [name]: value}})
+      const {cli} = cliRun(box, {
+        argv: ['node', 'extension', command, 'my-extension']
+      })
+
+      cli.noteBrowsers(['chrome'])
+
+      if (WATCH_COMMANDS.includes(command)) cli.markCommandSessionStart(command)
+      else cli.markCommandSuccess(command)
+
+      cli.markCommandFailure(command, {code: 'E_ARGS', exitCode: 1})
+      await cli.telemetry.flush()
+
+      expect(box.sentRows(), command).toEqual([])
+    }
+  })
+})

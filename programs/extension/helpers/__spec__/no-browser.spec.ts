@@ -56,4 +56,24 @@ describe('resolveNoBrowser', () => {
     await expect(resolveNoBrowser(dir, 'start')).resolves.toBe(true)
     await expect(resolveNoBrowser(dir, 'dev')).resolves.toBe(false)
   })
+
+  // The engine reads the config under the browser's env files, so the
+  // wrapper has to, or the two disagree on whether a browser opens.
+  it('reads the config under the env files of the browser the run launches', async () => {
+    const dir = projectWith(
+      "export default {commands: {dev: {noBrowser: process.env.EXTENSION_PUBLIC_NO_WINDOW === '1'}}}"
+    )
+    fs.writeFileSync(
+      path.join(dir, '.env.firefox'),
+      'EXTENSION_PUBLIC_NO_WINDOW=1\n'
+    )
+
+    await expect(
+      resolveNoBrowser(dir, 'dev', undefined, 'firefox')
+    ).resolves.toBe(true)
+
+    await expect(
+      resolveNoBrowser(dir, 'dev', undefined, 'chrome')
+    ).resolves.toBe(false)
+  })
 })
