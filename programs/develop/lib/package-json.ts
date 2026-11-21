@@ -84,7 +84,24 @@ function unreadableEncodingOf(bytes: Buffer): string | undefined {
 // The one read of a project's package.json: every reader takes the same
 // object, and a file no tool can parse is refused once, by its own code.
 export function readPackageJson<T = ParsedJson>(packageJsonPath: string): T {
-  const bytes = fs.readFileSync(packageJsonPath)
+  let bytes: Buffer
+
+  try {
+    bytes = fs.readFileSync(packageJsonPath)
+  } catch (error) {
+    // No file is an answer callers read. A file that is there and cannot
+    // be opened leaves the project as unusable as one that does not parse.
+    if ((error as NodeJS.ErrnoException | null)?.code === 'ENOENT') throw error
+
+    throw codedError(
+      CODES.E_PACKAGE_JSON_INVALID,
+      messages.packageJsonUnopened(
+        packageJsonPath,
+        error instanceof Error ? error.message : String(error)
+      )
+    )
+  }
+
   const encoding = unreadableEncodingOf(bytes)
 
   if (encoding) {
