@@ -352,7 +352,12 @@ describe('extension dev flag forwarding', () => {
 
   it('reads the project config for the dev command before it picks a browser', async () => {
     expect(await run(['dev', PROJECT])).toBe(0)
-    expect(configReads[0]).toEqual([PROJECT, 'dev'])
+    // No browser is known yet, so the probe reads as the stock one would.
+    expect(configReads[0]).toEqual([
+      PROJECT,
+      'dev',
+      {mode: undefined, browser: 'chromium'}
+    ])
   })
 })
 
