@@ -2,9 +2,9 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {trackTempFolders} from './helpers/temp-folders'
 import {buildProject} from './helpers/build-project'
 import {writeExtensionProject} from './helpers/extension-project'
-import {trackTempFolders} from './helpers/temp-folders'
 
 // A build replaces its output folder whole, so the folder is checked before
 // anything is deleted. Every case here keeps a file the old build removed.

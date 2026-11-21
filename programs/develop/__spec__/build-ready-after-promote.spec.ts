@@ -3,8 +3,8 @@ import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {buildSummaryPath, readyContractPath} from '../lib/session-paths'
 import {buildProject} from './helpers/build-project'
-import {writeExtensionProject} from './helpers/extension-project'
 import {trackTempFolders} from './helpers/temp-folders'
+import {writeExtensionProject} from './helpers/extension-project'
 
 const promote = vi.hoisted(() => ({fails: false}))
 

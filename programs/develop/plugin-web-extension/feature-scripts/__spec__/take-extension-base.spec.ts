@@ -2,7 +2,6 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {Compilation, sources} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
-import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {
   extensionBaseGlobal,
   takeBlockOpen
@@ -10,6 +9,7 @@ import {
 import {asCompiler} from '../../__spec__/helpers/rspack-fakes'
 import {getCanonicalContentScriptEntryName} from '../contracts'
 import {TakeExtensionBase} from '../steps/take-extension-base'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 
 const tempFolder = trackTempFolders()
 const MANIFEST = {

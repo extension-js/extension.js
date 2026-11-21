@@ -2,7 +2,6 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {stripVTControlCharacters as stripAnsi} from 'node:util'
 import {afterEach, describe, expect, it, vi} from 'vitest'
-import {buildProject} from '../../__spec__/helpers/build-project'
 import {SpecialFoldersPlugin} from '..'
 import {
   foldersRoots,
@@ -18,6 +17,7 @@ import {
   makeFixtureRoot,
   removeFixtureRoots
 } from './helpers/compile-harness'
+import {buildProject} from '../../__spec__/helpers/build-project'
 
 const fixtureRoots: string[] = []
 

@@ -13,8 +13,8 @@ import {
   openDevWatchSession,
   waitUntil
 } from './helpers/dev-watch-session'
-import {writeExtensionProject} from './helpers/extension-project'
 import {trackTempFolders} from './helpers/temp-folders'
+import {writeExtensionProject} from './helpers/extension-project'
 
 const makeTempFolder = trackTempFolders()
 const sessions: DevWatchSession[] = []

@@ -3,11 +3,11 @@ import os from 'node:os'
 import path from 'node:path'
 import {type Compiler, rspack} from '@rspack/core'
 import {afterEach, describe, expect, it} from 'vitest'
-import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import type {DevOptions, FilepathList} from '../../../types'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../contracts'
 import {AddScripts} from '../steps/add-scripts'
 import {CompileMainWorldScripts} from '../steps/compile-main-world-scripts'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 
 // One file per manifest field in a real watch session: the file is deleted
 // after the first build, then written back with new text.

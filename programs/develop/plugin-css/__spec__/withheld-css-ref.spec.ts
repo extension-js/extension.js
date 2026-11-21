@@ -1,9 +1,9 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
-import {buildProject} from '../../__spec__/helpers/build-project'
 import {withheldCssRefs} from '../../lib/withheld-file'
 import {cssProjects, expectNoWorkspaceAbove} from './helpers/css-project'
+import {buildProject} from '../../__spec__/helpers/build-project'
 
 const makeProject = cssProjects()
 const CAPTURED = '__extjsWithheldCssRefSpecCompilation'

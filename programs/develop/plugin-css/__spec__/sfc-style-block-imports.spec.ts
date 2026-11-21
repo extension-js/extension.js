@@ -1,10 +1,10 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
-import {buildProject} from '../../__spec__/helpers/build-project'
 import {workspacePackage} from '../../__spec__/helpers/workspace-package'
 import deadCssUrlLoader from '../dead-css-url-loader'
 import {cssProjects} from './helpers/css-project'
+import {buildProject} from '../../__spec__/helpers/build-project'
 
 const makeProject = cssProjects()
 

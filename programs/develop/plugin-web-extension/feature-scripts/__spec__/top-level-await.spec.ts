@@ -3,10 +3,10 @@ import * as path from 'node:path'
 import * as vm from 'node:vm'
 import {rspack} from '@rspack/core'
 import {describe, expect, it, vi} from 'vitest'
-import {buildProject} from '../../../__spec__/helpers/build-project'
-import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {getProjectStructure} from '../../../lib/project'
 import webpackConfig from '../../../rspack-config'
+import {buildProject} from '../../../__spec__/helpers/build-project'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 
 // A content script that awaits at the top level, built whole the way
 // `extension build` and `extension dev` compile it.

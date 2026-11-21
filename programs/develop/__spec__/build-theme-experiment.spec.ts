@@ -2,8 +2,8 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
-import {trackTempFolders} from './helpers/temp-folders'
 import {workspacePackage} from './helpers/workspace-package'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // Firefox theme_experiment: the built manifest names a stylesheet under
 // theme_experiment/ and that file must exist there, compiled, whatever

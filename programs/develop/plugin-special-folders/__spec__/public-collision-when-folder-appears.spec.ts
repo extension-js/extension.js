@@ -2,8 +2,8 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {rspack} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
-import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {SpecialFoldersPlugin} from '..'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
 // A public/ folder the session did not have at startup now feeds the copier,
 // so the output collision it can cause has to reach the same named refusal a

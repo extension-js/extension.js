@@ -3,12 +3,12 @@ import os from 'node:os'
 import path from 'node:path'
 import {Compilation, type Compiler, rspack, sources} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
-import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {MAIN_WORLD_BRIDGE_PAIRING_MARK} from '../scripts-lib/main-world-bridge-pairing'
 import {MAIN_WORLD_COPY_ROUTING_MARK} from '../scripts-lib/main-world-copy-routing'
 import {withMainWorldCopyEntries} from '../scripts-lib/runtime-main-world-scripts'
 import {PairRuntimeMainWorldBridges} from '../steps/pair-runtime-main-world-bridges'
 import {RouteMainWorldCopies} from '../steps/route-main-world-copies'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 
 // The pairing and the routing are prepended to the background bundle. A
 // file of the project in a deeper folder named background is no background.

@@ -1,8 +1,6 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
-import {writeProjectFiles} from '../../../../__spec__/helpers/extension-project'
-import {trackTempFolders} from '../../../../__spec__/helpers/temp-folders'
 import {
   asCompiler,
   type TapCallback
@@ -13,6 +11,8 @@ import {
   type FakeAsset,
   readSource
 } from '../helpers/html-fakes'
+import {trackTempFolders} from '../../../../__spec__/helpers/temp-folders'
+import {writeProjectFiles} from '../../../../__spec__/helpers/extension-project'
 
 const tempFolder = trackTempFolders()
 

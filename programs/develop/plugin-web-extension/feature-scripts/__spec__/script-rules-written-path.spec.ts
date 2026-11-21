@@ -2,8 +2,8 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {rspack} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
-import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {ScriptsPlugin} from '../index'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 
 const tempFolder = trackTempFolders()
 

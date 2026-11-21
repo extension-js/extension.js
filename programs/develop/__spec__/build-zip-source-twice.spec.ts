@@ -3,8 +3,8 @@ import * as path from 'node:path'
 import {unzipSync} from 'fflate'
 import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
-import {writeExtensionProject} from './helpers/extension-project'
 import {trackTempFolders} from './helpers/temp-folders'
+import {writeExtensionProject} from './helpers/extension-project'
 
 const tempFolder = trackTempFolders()
 

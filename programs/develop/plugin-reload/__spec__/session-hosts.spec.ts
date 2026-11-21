@@ -2,11 +2,11 @@ import {execFile} from 'node:child_process'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {beforeEach, describe, expect, it} from 'vitest'
-import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {
   skipWithoutDevelopDist,
   skipWithStaleDevelopDist
 } from '../../dev-server/__spec__/helpers/develop-dist'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
 // Two dev sessions of one host process, started from the built library
 // through the real entry: see fixtures/session-hosts.mjs.

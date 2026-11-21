@@ -1,9 +1,9 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {trackTempFolders} from './helpers/temp-folders'
 import {buildProject} from './helpers/build-project'
 import {writeExtensionProject} from './helpers/extension-project'
-import {trackTempFolders} from './helpers/temp-folders'
 
 // The build card names the extension the folder ships, so a name filled from
 // .env reads as its value and never as the placeholder the source holds.

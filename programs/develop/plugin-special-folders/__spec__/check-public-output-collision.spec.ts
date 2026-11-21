@@ -1,8 +1,8 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
-import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {explainPublicOutputCollision} from '../check-public-output-collision'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
 const tempFolder = trackTempFolders()
 
