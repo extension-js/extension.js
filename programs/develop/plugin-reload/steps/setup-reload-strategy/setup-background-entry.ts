@@ -47,7 +47,7 @@ export class SetupBackgroundEntry {
 
   apply(compiler: Compiler) {
     // Guards are handled at the root plugin level
-    const manifest = parseAuthoredJson(
+    const manifest = parseAuthoredJson<Manifest>(
       fs.readFileSync(this.manifestPath, 'utf-8')
     )
     const browser = this.browser

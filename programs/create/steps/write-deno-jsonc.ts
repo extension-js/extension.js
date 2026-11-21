@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
-import {type ParsedJsonc, parseJsoncSafe} from '../lib/deno-manifest'
+import {type DenoConfig, parseJsoncSafe} from '../lib/deno-manifest'
 import {readTemplatePackageJson} from '../lib/find-manifest-json'
 import * as messages from '../lib/messages'
 import {CODES, isDebug} from '../lib/messaging'
@@ -126,9 +126,7 @@ interface WriteDenoJsoncOptions {
   primary?: boolean
 }
 
-async function readTemplateDenoConfig(
-  configPath: string
-): Promise<ParsedJsonc> {
+async function readTemplateDenoConfig(configPath: string): Promise<DenoConfig> {
   try {
     const parsed: unknown = parseJsoncSafe(
       await fs.readFile(configPath, 'utf8')
@@ -138,7 +136,7 @@ async function readTemplateDenoConfig(
       throw new TypeError('The file does not hold a JSON object')
     }
 
-    return parsed
+    return parsed as DenoConfig
   } catch (error) {
     throw new CreateError(
       messages.templateFileNotReadable(configPath, error),
