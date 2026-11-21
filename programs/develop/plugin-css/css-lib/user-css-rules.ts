@@ -15,7 +15,7 @@ const STYLESHEET_TYPES = new Set(['css', 'css/auto', 'css/global'])
 // A test that also takes a made-up extension claims every file, not sheets.
 const UNCLAIMED_PROBE = 'extensionjs-unclaimed-probe'
 
-export interface ReplacedRuleType {
+interface ReplacedRuleType {
   type: string
   extensions: string[]
 }

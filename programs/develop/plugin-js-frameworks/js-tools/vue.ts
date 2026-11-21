@@ -81,7 +81,7 @@ export function resolveVueBundlerEntry(
 
 // The installed Vue's version, from its own package.json, so a Vue 2 project
 // is told before any loader is resolved or installed.
-export function readInstalledVueVersion(
+function readInstalledVueVersion(
   requireFromProject: NodeJS.Require
 ): string | undefined {
   try {

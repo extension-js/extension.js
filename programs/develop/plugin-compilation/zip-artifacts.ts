@@ -6,7 +6,7 @@
 //  ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═══╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-export interface ZipArtifactRecord {
+interface ZipArtifactRecord {
   kind: 'source' | 'dist'
   path: string
   size: number
@@ -40,7 +40,7 @@ export function getZipArtifacts(carrier: unknown): ZipArtifactRecord[] {
   return Array.isArray(host[ARTIFACTS_KEY]) ? host[ARTIFACTS_KEY] : []
 }
 
-export interface ZipFailureRecord {
+interface ZipFailureRecord {
   kind: 'source' | 'dist'
   path: string
   reason: string

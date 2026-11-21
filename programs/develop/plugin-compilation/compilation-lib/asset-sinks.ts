@@ -9,7 +9,7 @@
 import * as acorn from 'acorn'
 import {toJsStringLiteral} from '../../lib/js-literal'
 
-export function escapeForJsonAsset(value: string): string {
+function escapeForJsonAsset(value: string): string {
   return JSON.stringify(value).slice(1, -1)
 }
 

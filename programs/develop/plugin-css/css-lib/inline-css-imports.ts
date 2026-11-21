@@ -13,7 +13,7 @@ import {cssUrlRefFiles, toPosixPath} from '../../lib/dead-url-refs'
 import {workspaceRootOf} from '../../lib/public-private-files'
 import type {WithheldKind} from '../../lib/withheld-file'
 
-export interface InlineCssImportsContext {
+interface InlineCssImportsContext {
   resourcePath: string
   // Where a root-absolute request can live: the public folder, then the
   // manifest folder, the order every other reference check uses.
@@ -22,7 +22,7 @@ export interface InlineCssImportsContext {
   projectPath: string
 }
 
-export interface PlacedCssImport {
+interface PlacedCssImport {
   // The @import as it reads in the result.
   statement: string
   // The sheet it was written in.
@@ -30,18 +30,18 @@ export interface PlacedCssImport {
 }
 
 // Why an import could not carry the conditions its sheet came in under.
-export type CssImportSkipReason =
+type CssImportSkipReason =
   | 'unnamed-layer'
   | 'media-never'
   | 'media-not-joined'
   | 'unknown-function'
   | 'no-target'
 
-export interface SkippedCssImport extends PlacedCssImport {
+interface SkippedCssImport extends PlacedCssImport {
   why: CssImportSkipReason
 }
 
-export interface InlinedCssImports {
+interface InlinedCssImports {
   css: string
   // Every sheet whose text is now part of this one.
   files: string[]
@@ -492,7 +492,7 @@ const URL_STRING_FUNCTIONS = new Set([
 
 // Where an address stands: the string of an @import, the url() of one, any
 // other url(), or a string inside src() or image-set(). See the README.
-export type CssAddressPlace = 'import' | 'import-url' | 'url' | 'set'
+type CssAddressPlace = 'import' | 'import-url' | 'url' | 'set'
 
 // The sheet with each address `rewrite` answers for replaced, read the way
 // CSS reads it. The README says what reaches `rewrite` and what stays.
@@ -1190,7 +1190,7 @@ function leftImportStatement(params: string): string {
   return `@import ${params.trim()};`
 }
 
-export interface LeftCssImport {
+interface LeftCssImport {
   statement: string
   request: string
   viaUrl: boolean

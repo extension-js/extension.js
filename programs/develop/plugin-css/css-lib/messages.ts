@@ -286,11 +286,7 @@ export function deadCssUrlRef(
 }
 
 // The same finding for a sheet an @import names, in the words of that rule.
-export function deadCssImportRef(
-  issuerPath: string,
-  request: string,
-  strict = false
-) {
+function deadCssImportRef(issuerPath: string, request: string, strict = false) {
   return [
     `An ${colors.blue(`@import "${request}"`)} names a stylesheet that exists nowhere in the project.`,
     `${colors.gray('PATH')} ${colors.underline(issuerPath)}`,

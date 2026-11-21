@@ -45,7 +45,7 @@ const JAVASCRIPT_SPELLING: Record<string, string[]> = {
 }
 const MAX_FILES = 2000
 
-export function isTypeScriptSource(file: string): boolean {
+function isTypeScriptSource(file: string): boolean {
   return TYPESCRIPT_SOURCE.test(file) && !TYPE_DECLARATION.test(file)
 }
 

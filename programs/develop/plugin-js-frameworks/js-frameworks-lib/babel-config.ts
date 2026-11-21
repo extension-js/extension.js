@@ -61,7 +61,7 @@ export function findProjectBabelConfig(
 
 export type BabelFileKind = 'tsx' | 'ts' | 'jsx' | 'js'
 
-export interface ProjectBabelInput {
+interface ProjectBabelInput {
   projectPath: string
   kind: BabelFileKind
   jsxInPlainJs: boolean
@@ -70,7 +70,7 @@ export interface ProjectBabelInput {
 
 // Babel only parses what SWC compiles after it, so the project's config
 // needs no preset of its own for TypeScript, JSX or decorators.
-export function babelParserPlugins(input: ProjectBabelInput) {
+function babelParserPlugins(input: ProjectBabelInput) {
   const syntax: string[] =
     input.kind === 'tsx'
       ? ['typescript', 'jsx']

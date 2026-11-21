@@ -12,7 +12,7 @@ import {isUsingReact} from '../js-tools/react'
 import {isUsingSolid} from '../js-tools/solid'
 import {isUsingVue} from '../js-tools/vue'
 
-export type JsxImportSource = 'react' | 'preact' | 'solid-js' | 'vue'
+type JsxImportSource = 'react' | 'preact' | 'solid-js' | 'vue'
 
 export function isUsingJsxFramework(projectPath: string): boolean {
   return (
@@ -41,7 +41,7 @@ export function getJsxImportSource(projectPath: string): JsxImportSource {
   return 'react'
 }
 
-export interface SwcParserOptions {
+interface SwcParserOptions {
   syntax: 'typescript' | 'ecmascript'
   tsx?: boolean
   jsx?: boolean

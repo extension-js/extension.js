@@ -23,7 +23,7 @@ import type {ErrorCode} from './lib/messaging'
  * read it type-safely instead of casting `manifest as any`.
  * @see https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/theme_experiment
  */
-export interface ThemeExperiment {
+interface ThemeExperiment {
   stylesheet?: string
   stylesheets?: string[]
   // Firefox also allows colors/images/properties maps; kept open for forward-compat.
@@ -36,7 +36,7 @@ type WithoutManifestVersion<T> = {
   [K in keyof T as Exclude<K, 'manifest_version'>]: T[K]
 }
 
-export type ChromeManifest = WithoutManifestVersion<Partial<ManifestV2>> &
+type ChromeManifest = WithoutManifestVersion<Partial<ManifestV2>> &
   WithoutManifestVersion<Partial<ManifestV3>> & {
     // Intersecting the two Partials collapses manifest_version to never, so
     // it is declared once here with the two values the engine accepts.
@@ -121,19 +121,6 @@ export interface LoaderInterface extends RspackLoaderContext<LoaderInterface> {
 }
 
 export type FilepathList = Record<string, string | string[] | undefined>
-
-export interface LoaderContext {
-  resourcePath: string
-  emitFile: (name: string, content: string) => void
-  emitWarning?: (error: Error | string) => void
-  getOptions: () => {
-    test: string
-    manifestPath: string
-    browser?: DevOptions['browser']
-    includeList?: FilepathList
-    mode: string
-  }
-}
 
 // A loader and the options a framework rule hands it.
 export interface JsFrameworkLoader {
@@ -226,12 +213,12 @@ export interface BrowserOptionsBase {
   browser: BrowserType
 }
 
-export interface ChromiumOptions extends BrowserOptionsBase {
+interface ChromiumOptions extends BrowserOptionsBase {
   browser: 'chromium-based'
   chromiumBinary?: string
 }
 
-export interface GeckoOptions extends BrowserOptionsBase {
+interface GeckoOptions extends BrowserOptionsBase {
   browser: 'gecko-based'
   geckoBinary?: string
 }
@@ -613,7 +600,7 @@ export interface BrowserConfig extends Omit<BrowserOptionsBase, 'browser'> {
   extensions?: CompanionExtensionsConfig
 }
 
-export type OutputConfig = {
+type OutputConfig = {
   clean: boolean
   path: string
   /**

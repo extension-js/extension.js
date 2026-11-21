@@ -11,7 +11,7 @@ import colors from 'pintor'
 import {prefix} from '../../lib/messaging'
 import {collapseHomeDir, displayPath} from '../../lib/paths'
 
-export interface CompileReport {
+interface CompileReport {
   errors: number
   warnings: number
   // Where the warnings print relative to this line, unset when it follows them.
@@ -340,7 +340,7 @@ export function envNoMatchingFile(
 }
 
 // Shared by the build error and the require() warning, so both name one fix.
-export function nodeBuiltinStandInHint(builtin: string) {
+function nodeBuiltinStandInHint(builtin: string) {
   const root = builtin.split('/')[0]
 
   return (
