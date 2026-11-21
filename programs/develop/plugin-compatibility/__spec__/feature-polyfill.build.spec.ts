@@ -121,12 +121,15 @@ describe('the polyfill in a real build', () => {
   })
 
   it('bundles it through CompatibilityPlugin only when polyfill is on', async () => {
-    const options = {manifestPath: '/unused/manifest.json', browser: 'chrome'}
+    const options = {
+      manifestPath: '/unused/manifest.json',
+      browser: 'chrome' as const
+    }
     const {files: on} = await build({background: './background.js'}, [
-      new CompatibilityPlugin({...options, polyfill: true} as never)
+      new CompatibilityPlugin({...options, polyfill: true})
     ])
     const {files: off} = await build({background: './background.js'}, [
-      new CompatibilityPlugin({...options, polyfill: false} as never)
+      new CompatibilityPlugin({...options, polyfill: false})
     ])
 
     expect(on['background.js']).toContain(POLYFILL_MARK)

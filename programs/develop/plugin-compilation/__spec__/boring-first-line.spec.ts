@@ -74,7 +74,7 @@ describe('BoringPlugin startup line', () => {
     const {compiler, done} = makeCompiler(tmpDir)
     new BoringPlugin({
       manifestPath: path.join(tmpDir, 'manifest.json')
-    } as never).apply(compiler as never)
+    }).apply(compiler as never)
 
     const stats = successStats()
     Object.defineProperty(stats.compilation, 'modifiedFiles', {
