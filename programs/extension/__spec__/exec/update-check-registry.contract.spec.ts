@@ -410,37 +410,38 @@ describe('the update check of a spawned CLI', () => {
   })
 
   // The build is done and said so. The signal ends the wait, not the build.
-  it.each([
-    'SIGINT',
-    'SIGTERM'
-  ] as const)('%s during the wait ends the run at once with the code of the build', async (signal) => {
-    const silent = await silentRegistry()
-    const session = startCli(['build', projectDir], {
-      home: freshCliHome(),
-      env: {npm_registry: silent.url}
-    })
+  // Posix only: on Windows a kill ends the child before any handler runs.
+  it.skipIf(process.platform === 'win32').each(['SIGINT', 'SIGTERM'] as const)(
+    '%s during the wait ends the run at once with the code of the build',
+    async (signal) => {
+      const silent = await silentRegistry()
+      const session = startCli(['build', projectDir], {
+        home: freshCliHome(),
+        env: {npm_registry: silent.url}
+      })
 
-    try {
-      await session.waitFor(
-        () => session.read().stdout.includes(BUILT),
-        60_000,
-        'the built line'
-      )
+      try {
+        await session.waitFor(
+          () => session.read().stdout.includes(BUILT),
+          60_000,
+          'the built line'
+        )
 
-      // The engine prints the line a moment before the command returns and
-      // the wait starts, so the signal is held back into the wait itself.
-      await new Promise((resolve) => setTimeout(resolve, 750))
+        // The engine prints the line a moment before the command returns and
+        // the wait starts, so the signal is held back into the wait itself.
+        await new Promise((resolve) => setTimeout(resolve, 750))
 
-      const signaledAt = Date.now()
+        const signaledAt = Date.now()
 
-      expect(await session.stop(signal)).toEqual({status: 0, signal: null})
-      expect(Date.now() - signaledAt).toBeLessThan(1000)
-      expect(session.read().stderr).toBe('')
-    } finally {
-      session.killGroup()
-      await silent.close()
+        expect(await session.stop(signal)).toEqual({status: 0, signal: null})
+        expect(Date.now() - signaledAt).toBeLessThan(1000)
+        expect(session.read().stderr).toBe('')
+      } finally {
+        session.killGroup()
+        await silent.close()
+      }
     }
-  })
+  )
 
   it('asks nothing and prints no notice under the pin', async () => {
     const home = freshCliHome()
