@@ -97,7 +97,7 @@ export class WatchEnvFilesPlugin {
         ) as Error & {name?: string; file?: string}
         warning.name = 'EnvFileChange'
         warning.file = path.basename(changedPath)
-        compilation.warnings?.push(warning)
+        compilation.warnings.push(warning)
       }
     )
   }

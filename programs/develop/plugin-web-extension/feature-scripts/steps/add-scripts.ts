@@ -231,7 +231,7 @@ export class AddScripts {
               ) as Error & {file?: string; name?: string}
               err.file = 'manifest.json'
               err.name = 'ScriptsMissingFile'
-              ;(compilation.errors ||= []).push(err)
+              compilation.errors.push(err)
             }
           }
         } catch (error) {
@@ -245,7 +245,7 @@ export class AddScripts {
           failure.file = 'manifest.json'
           failure.name = 'ScriptsPathCheckFailed'
           failure.cause = error
-          ;(compilation.errors ||= []).push(failure)
+          compilation.errors.push(failure)
         }
 
         if (missing.length === 0) return

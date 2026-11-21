@@ -157,7 +157,7 @@ export class WarnUponFolderChanges {
       warn.name = 'SpecialFoldersChange'
       warn.file = filePath
       warn.details = `Detected change in ${folder}/ affecting ${typeOfAsset}. Restart may be required for full effect.`
-      compilation.warnings?.push(warn)
+      compilation.warnings.push(warn)
 
       return false
     }
@@ -183,7 +183,7 @@ export class WarnUponFolderChanges {
     err.name = 'SpecialFoldersRemoval'
     err.file = filePath
     err.details = `Removing from ${folder}/ breaks current build. Restart the dev server to recompile.`
-    compilation.errors?.push(err)
+    compilation.errors.push(err)
 
     return false
   }

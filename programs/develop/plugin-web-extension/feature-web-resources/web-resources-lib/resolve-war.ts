@@ -359,8 +359,6 @@ function validateMatchesOrReport(
 ) {
   if (!matches || isFirefox(browser) || isWebkit(browser)) return
 
-  compilation.errors ||= []
-
   for (const m of matches) {
     if (!isValidChromeMatchPattern(m)) {
       const msg = warMessages.warInvalidMatchPattern(m)
@@ -370,7 +368,7 @@ function validateMatchesOrReport(
       }
       err.file = 'manifest.json'
       err.name = 'WARInvalidMatchPattern'
-      compilation.errors!.push(err)
+      compilation.errors.push(err)
     }
   }
 }
@@ -451,7 +449,6 @@ export function validateUserDeclaredWAR(
       }
       err.file = 'manifest.json'
       err.name = 'WARStringEntryInMv3'
-      compilation.errors = compilation.errors || []
       compilation.errors.push(err)
 
       continue
@@ -622,7 +619,6 @@ export function resolveUserDeclaredWAR(
     ) as Error & {file?: string; name?: string}
     warn.file = 'manifest.json'
     warn.name = 'WARRelativeAssetMissing'
-    compilation.warnings = compilation.warnings || []
     compilation.warnings.push(warn)
   }
 
@@ -672,9 +668,6 @@ export function resolveUserDeclaredWAR(
     declared: string,
     extra?: Record<string, unknown>
   ) => {
-    compilation.errors = compilation.errors || []
-    compilation.warnings = compilation.warnings || []
-
     const written = spellings.get(declared)?.shift() ?? declared
     // A manifest read before the override is brought to the form it gives.
     const res =
@@ -726,7 +719,7 @@ export function resolveUserDeclaredWAR(
         ) as Error & {file?: string; name?: string}
         warn.file = 'manifest.json'
         warn.name = 'WARPatternLeavesRoot'
-        compilation.warnings!.push(warn)
+        compilation.warnings.push(warn)
 
         return
       }
@@ -855,7 +848,7 @@ export function resolveUserDeclaredWAR(
         ) as Error & {file?: string; name?: string}
         warn.file = 'manifest.json'
         warn.name = 'WARRelativeAssetMissing'
-        compilation.warnings!.push(warn)
+        compilation.warnings.push(warn)
 
         return
       }
@@ -881,7 +874,7 @@ export function resolveUserDeclaredWAR(
       }
       warn.file = 'manifest.json'
       warn.name = 'WARRelativeAssetMissing'
-      compilation.warnings!.push(warn)
+      compilation.warnings.push(warn)
 
       return
     }

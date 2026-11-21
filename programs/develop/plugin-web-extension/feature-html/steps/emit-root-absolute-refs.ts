@@ -323,10 +323,8 @@ function reportWithheld(
         )
 
     if (strict) {
-      compilation.errors ||= []
       compilation.errors.push(report)
     } else {
-      compilation.warnings ||= []
       compilation.warnings.push(report)
     }
 
@@ -340,7 +338,7 @@ function reportWithheld(
   const lookedAt = path.join(context, ref.replace(/^\//, ''))
 
   // Spread first: the bundler's list answers `some` without visiting a thing.
-  const alreadySaid = [...(compilation.warnings || [])].some((warning) => {
+  const alreadySaid = [...compilation.warnings].some((warning) => {
     const said = String(warning?.message || '').replace(ANSI, '')
 
     return (
@@ -411,7 +409,6 @@ function warn(
   message: string,
   name = 'RootAbsoluteRefCompiledSource'
 ) {
-  compilation.warnings ||= []
   compilation.warnings.push(diagnostic(message, file, name))
 }
 

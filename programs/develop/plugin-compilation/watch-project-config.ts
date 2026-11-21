@@ -116,7 +116,7 @@ export class WatchProjectConfigPlugin {
         ) as Error & {name?: string; file?: string}
         warning.name = 'ProjectConfigChange'
         warning.file = path.relative(this.projectPath, changedPath)
-        compilation.warnings?.push(warning)
+        compilation.warnings.push(warning)
       }
     )
   }

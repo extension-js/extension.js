@@ -84,6 +84,8 @@ describe('generateManifestPatches', () => {
         updateAsset: updateAssetMock,
         emitAsset: emitAssetMock,
         fileDependencies: new Set(),
+        errors: [],
+        warnings: [],
         options: {mode: options?.mode || 'development'}
       } as unknown as Compilation,
       manifestPath,

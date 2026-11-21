@@ -1947,12 +1947,10 @@ class TraceRun {
   }
 
   warn(name: string, file: string, message: string) {
-    this.compilation.warnings ||= []
     this.compilation.warnings.push(this.report(name, file, message))
   }
 
   fail(name: string, file: string, message: string) {
-    this.compilation.errors ||= []
     this.compilation.errors.push(this.report(name, file, message))
   }
 
@@ -2275,7 +2273,6 @@ async function compileTracedFile(
         }
 
         for (const childWarning of childCompilation.warnings) {
-          compilation.warnings ||= []
           compilation.warnings.push(childWarning)
         }
 
