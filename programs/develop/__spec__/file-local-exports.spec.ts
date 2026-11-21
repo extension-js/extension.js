@@ -20,6 +20,70 @@ const KEPT: Array<[file: string, name: string, why: string]> = [
   ]
 ]
 
+// The names only a spec reads and the exporting file never uses again.
+const SPEC_ONLY: Array<[file: string, name: string, why: string]> = [
+  [
+    'command-build.ts',
+    'resetBuildToolchainLine',
+    'clears the once per process toolchain line between spec rows'
+  ],
+  [
+    'lib/companion-extensions/resolve-config.ts',
+    'isCompanionStoreLink',
+    'the only door a spec has to the private store address parser'
+  ],
+  [
+    'lib/companion-extensions/resolve-config.ts',
+    'isCompanionWebLink',
+    'the only door a spec has to the private web address parser'
+  ],
+  [
+    'lib/taken-extension-base.ts',
+    'TAKE_BLOCK_COLUMNS',
+    'pins the column count the hand-written bridge file repeats'
+  ],
+  [
+    'plugin-css/css-tools/postcss.ts',
+    'PostCssLoaderRule',
+    'the rule shape specs narrow the loader result to before reading it'
+  ],
+  [
+    'plugin-perf-budgets/index.ts',
+    'resetPerfBudgetNotices',
+    'clears the once per process budget notices between spec rows'
+  ],
+  [
+    'plugin-web-extension/feature-manifest/manifest-lib/edge-options-notice.ts',
+    'resetEdgeOptionsNotice',
+    'clears the once per process Edge notice between spec rows'
+  ],
+  [
+    'plugin-web-extension/feature-manifest/manifest-lib/filter-keys-gecko.ts',
+    'resetGeckoKeyNotices',
+    'clears the once per process Gecko notices between spec rows'
+  ],
+  [
+    'plugin-web-extension/feature-manifest/manifest-lib/icon-variants-fallback.ts',
+    'resetIconVariantsNotice',
+    'clears the once per process icon notice between spec rows'
+  ],
+  [
+    'plugin-web-extension/feature-scripts/contracts.ts',
+    'isCanonicalContentScriptEntryName',
+    'the entry name rule, which two product files still spell by hand'
+  ],
+  [
+    'plugin-web-extension/feature-scripts/steps/source-literals.ts',
+    'keptBlankedSources',
+    'reads the size of the blanked source cache, which nothing else can see'
+  ],
+  [
+    'types.ts',
+    'JsFrameworkLoaderRule',
+    'the rule shape specs narrow a framework loader result to'
+  ]
+]
+
 describe('what a develop product file exports', () => {
   const found = exportsNoProductFileReads()
 
@@ -33,8 +97,18 @@ describe('what a develop product file exports', () => {
     expect(unread).toEqual(KEPT.map(([file, name]) => `${file} ${name}`))
   })
 
+  // A name a spec alone reads is product code only a spec keeps alive. The
+  // file using it again makes it an ordinary seam, which stays unlisted.
+  it('is used by its own file when only a spec reads it', () => {
+    const specOnly = found
+      .filter((use) => use.readBy === 'specs' && !use.usedInFile)
+      .map((use) => `${use.file} ${use.name}`)
+
+    expect(specOnly).toEqual(SPEC_ONLY.map(([file, name]) => `${file} ${name}`))
+  })
+
   it('gives every name it lets through a reason', () => {
-    for (const [, , why] of KEPT) {
+    for (const [, , why] of [...KEPT, ...SPEC_ONLY]) {
       expect(why.length).toBeGreaterThan(20)
     }
   })
