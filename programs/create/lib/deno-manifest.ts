@@ -98,10 +98,19 @@ function stripJsoncExtensions(text: string): string {
   return out
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: JSONC readers are dynamic by contract; callers narrow at their own boundary
-export type ParsedJsonc = any
+// What a JSONC reader returns. A caller that knows the shape names it.
+export type ParsedJsonc = unknown
 
-export function parseJsoncSafe(text: string): ParsedJsonc {
+// The keys of a Deno config the scaffold reads and writes. Every other key
+// stays as the template wrote it.
+export interface DenoConfig {
+  imports?: Record<string, string>
+  nodeModulesDir?: unknown
+  tasks?: Record<string, unknown>
+  [key: string]: unknown
+}
+
+export function parseJsoncSafe<T = ParsedJsonc>(text: string): T {
   const withoutBom = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text
   const stripped = stripJsoncExtensions(withoutBom)
 
@@ -147,10 +156,10 @@ export function readDenoConfigDependencies(
   )
   if (!filename) return dependencies
 
-  let config: ParsedJsonc
+  let config: DenoConfig | null
 
   try {
-    config = parseJsoncSafe(
+    config = parseJsoncSafe<DenoConfig | null>(
       fs.readFileSync(path.join(projectPath, filename), 'utf8')
     )
   } catch {

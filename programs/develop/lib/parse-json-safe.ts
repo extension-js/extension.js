@@ -14,10 +14,9 @@ export function stripBom(text: string | Buffer): string {
   return raw && raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw
 }
 
-// The one sanctioned dynamic-JSON escape hatch: readers of user-authored JSON
-// return this alias so the looseness is declared in exactly one place.
-// biome-ignore lint/suspicious/noExplicitAny: JSON readers are dynamic by contract; callers narrow at their own boundary
-export type ParsedJson = any
+// What a reader of user-authored JSON returns. A caller that knows the shape
+// it expects names it as the type argument and still guards each read.
+export type ParsedJson = unknown
 
 export interface JsonCommentScan {
   text: string
@@ -93,10 +92,10 @@ function lineAndColumn(text: string, offset: number): string {
 
 // Reads manifest.json and locale files the way the browsers do: both engine
 // families read // comments, only Chromium reads /* */, neither a trailing comma.
-export function parseAuthoredJson(
+export function parseAuthoredJson<T = ParsedJson>(
   source: string | Buffer,
   options: {browser?: string; emptyAsObject?: boolean} = {}
-): ParsedJson {
+): T {
   const scan = blankJsonComments(source)
 
   if (
@@ -115,6 +114,6 @@ export function parseAuthoredJson(
 
 // parseAuthoredJson where empty input parses as {}; invalid JSON still
 // throws. Use parseAuthoredJson where empty must stay an error.
-export function parseJsonSafe(text: string | Buffer): ParsedJson {
-  return parseAuthoredJson(text, {emptyAsObject: true})
+export function parseJsonSafe<T = ParsedJson>(text: string | Buffer): T {
+  return parseAuthoredJson<T>(text, {emptyAsObject: true})
 }

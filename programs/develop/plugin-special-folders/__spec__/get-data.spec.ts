@@ -2,13 +2,13 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
-import {rememberSpecialFoldersConfig} from '../folders-config'
+import {writeProjectFiles} from '../../__spec__/helpers/extension-project'
+import {rememberSpecialFoldersConfig} from '../../lib/special-folders/folders-config'
 import {
   getSpecialFoldersDataForCompiler,
   getSpecialFoldersDataForProjectRoot,
   type ScanSpecialFolders
 } from '../get-data'
-import {writeProjectFiles} from '../../__spec__/helpers/extension-project'
 
 const tempDirs: string[] = []
 

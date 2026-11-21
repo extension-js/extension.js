@@ -6,7 +6,7 @@
 //  ╚══╝╚══╝ ╚══════╝╚═════╝       ╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═══╝╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import {omitDevOnlyEntries} from '../../plugin-special-folders/folders-config'
+import {omitDevOnlyEntries} from '../../lib/special-folders/folders-config'
 import type {DevOptions, FilepathList} from '../../types'
 import {discoverWebAccessiblePages} from '../feature-web-resources/web-resources-lib/declared-pages'
 import {discoverDevtoolsPanelPages} from './discover-devtools-panels'

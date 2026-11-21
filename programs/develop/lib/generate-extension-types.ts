@@ -9,6 +9,7 @@
 import {existsSync} from 'node:fs'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
+import type {Manifest} from '../types'
 import {recordCodedWarning} from './coded-warnings'
 import {type ConfigEnvTarget, loadDefineTypes} from './config-loader'
 import {
@@ -99,7 +100,7 @@ export async function generateExtensionTypes(
       'utf8'
     )
 
-    const manifest = parseJsonSafe(manifestText)
+    const manifest = parseJsonSafe<Manifest>(manifestText)
     humanLine(messages.writingTypeDefinitions(manifest))
 
     try {

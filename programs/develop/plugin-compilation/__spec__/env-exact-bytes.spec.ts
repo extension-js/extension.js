@@ -2,10 +2,10 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterAll, afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {buildProject} from '../../__spec__/helpers/build-project'
+import {writeProjectFiles} from '../../__spec__/helpers/extension-project'
 import {templateCopiedAsset} from '../copied-asset-env'
 import {EnvPlugin} from '../env'
 import {compile, makeTempRoot, removeTempRoots} from './helpers/real-compile'
-import {writeProjectFiles} from '../../__spec__/helpers/extension-project'
 
 const stripAnsi = (value: string) => value.replace(/\x1b\[[0-9;]*m/g, '')
 const hex = (...parts: string[]) => Buffer.from(parts.join(''), 'hex')

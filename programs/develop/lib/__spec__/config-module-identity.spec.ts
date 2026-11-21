@@ -4,10 +4,10 @@ import * as path from 'node:path'
 import {pathToFileURL} from 'node:url'
 import {rspack} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {writeProjectFiles} from '../../__spec__/helpers/extension-project'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {loadCommandConfig, loadCustomConfig} from '../config-loader'
 import {configLoadingError} from '../messages'
-import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
-import {writeProjectFiles} from '../../__spec__/helpers/extension-project'
 
 const KEYS = ['MY_CFG_VALUE', 'EXTENSION_PUBLIC_A']
 const tempFolder = trackTempFolders()

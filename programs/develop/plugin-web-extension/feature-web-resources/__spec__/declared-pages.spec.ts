@@ -2,8 +2,8 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
-import {discoverWebAccessiblePages} from '../web-resources-lib/declared-pages'
 import {writeProjectFiles} from '../../../__spec__/helpers/extension-project'
+import {discoverWebAccessiblePages} from '../web-resources-lib/declared-pages'
 
 const created: string[] = []
 

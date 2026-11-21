@@ -1,11 +1,11 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../../../__spec__/helpers/temp-folders'
 import {
   COMPILED_SIBLING_EXTENSIONS,
   findCompiledRootRefSource
 } from '../../html-lib/compiled-root-ref'
-import {trackTempFolders} from '../../../../__spec__/helpers/temp-folders'
 
 const tempFolder = trackTempFolders()
 let tmp = ''

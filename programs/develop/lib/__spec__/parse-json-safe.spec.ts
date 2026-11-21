@@ -195,12 +195,10 @@ describe('parseAuthoredJson', () => {
 }`
 
     for (const browser of ['chrome', 'firefox']) {
-      expect(parseAuthoredJson(vimium, {browser}).permissions).toEqual([
-        'tabs',
-        'notifications',
-        'favicon',
-        'storage'
-      ])
+      expect(
+        parseAuthoredJson<{permissions?: unknown}>(vimium, {browser})
+          .permissions
+      ).toEqual(['tabs', 'notifications', 'favicon', 'storage'])
     }
   })
 })

@@ -737,7 +737,7 @@ describe('a content script whose own teardown throws', () => {
     expect(() => page.__specCleanup()).not.toThrow()
     expect(ran).toEqual(['registered'])
     expect(said()).toEqual([
-      'Extension.js: the cleanup of src/content/scripts.ts failed, so what it left on the page may stay. Error: teardown broke'
+      'Extension.js W_CONTENT_SCRIPT_CLEANUP: the cleanup of src/content/scripts.ts failed, so what it left on the page may stay. Error: teardown broke'
     ])
   })
 

@@ -24,7 +24,9 @@ function resolveDevelopRootFromDir(dir: string): string | undefined {
     const packageJsonPath = path.join(dir, 'package.json')
     if (!fs.existsSync(packageJsonPath)) return undefined
 
-    const pkg = parseJsonSafe(fs.readFileSync(packageJsonPath, 'utf8'))
+    const pkg = parseJsonSafe<{name?: unknown} | null>(
+      fs.readFileSync(packageJsonPath, 'utf8')
+    )
     if (pkg?.name === 'extension-develop') return dir
   } catch {
     return undefined

@@ -9,11 +9,11 @@ import {
   sources
 } from '@rspack/core'
 import {describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {diagnosticCode} from '../../../lib/diagnostic-code'
 import {getProjectStructure} from '../../../lib/project'
 import webpackConfig from '../../../rspack-config'
 import {writeOutputAsADevSessionDoes} from './helpers/dev-output-writes'
-import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 
 type Mode = 'development' | 'production'
 

@@ -2,8 +2,8 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it, vi} from 'vitest'
 import {buildProject} from './helpers/build-project'
-import {trackTempFolders} from './helpers/temp-folders'
 import {writeProjectFiles} from './helpers/extension-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // Every file in the scripts folder is an entry. A helper kept there for the
 // scripts that import it ships as a file nothing loads, and the build says so.

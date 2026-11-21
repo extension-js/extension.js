@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import type {AddonLintLine} from '../addon-lint'
 import {
   ADDON_REVIEWER_NOTE_FILE,
@@ -15,7 +16,6 @@ import {
   writeAddonReviewerNote
 } from '../addon-reviewer-note'
 import type {ChunkProvenance} from '../chunk-dependency-provenance'
-import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
 const tempFolder = trackTempFolders()
 

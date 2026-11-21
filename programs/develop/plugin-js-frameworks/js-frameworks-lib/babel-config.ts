@@ -45,7 +45,9 @@ export function findProjectBabelConfig(
   const packageJsonPath = path.join(projectPath, 'package.json')
 
   try {
-    const packageJson = parseJsonSafe(fs.readFileSync(packageJsonPath, 'utf-8'))
+    const packageJson = parseJsonSafe<{babel?: unknown} | null>(
+      fs.readFileSync(packageJsonPath, 'utf-8')
+    )
 
     if (packageJson?.babel && typeof packageJson.babel === 'object') {
       return packageJsonPath

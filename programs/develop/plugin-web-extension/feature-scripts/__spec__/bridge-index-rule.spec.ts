@@ -2,12 +2,12 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import type {Manifest} from '../../../types'
 import {buildContentScriptsMeta} from '../../feature-chunk-loading/content-scripts-meta'
 import {contentScripts} from '../../feature-manifest/manifest-overrides/common/content_scripts'
 import {parseCanonicalContentScriptAsset} from '../contracts'
 import {getMainWorldBridgePairs} from '../steps/add-content-script-wrapper/get-bridge-scripts'
-import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 
 // Three readers place the bridge of each MAIN world group: the build here,
 // the emitted manifest and the chunk loader. Each is read as main -> bridge.

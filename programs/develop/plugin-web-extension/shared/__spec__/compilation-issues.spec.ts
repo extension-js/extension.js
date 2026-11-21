@@ -2,9 +2,9 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, type Compiler, rspack, type Stats} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {compilationDiagnostics} from '../../../lib/compilation-diagnostics'
 import {reportToCompilation} from '../compilation-issues'
-import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 
 // The bundler frames every pushed issue (glyph, indent, trailing newline), so
 // the de-duplication only counts when a real compilation holds the list.

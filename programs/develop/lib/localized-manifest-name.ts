@@ -52,6 +52,9 @@ function localeCandidates(defaultLocale: unknown, systemLocale?: string) {
   )
 }
 
+// A messages.json file: each key names a message object.
+type LocaleMessages = Record<string, {message?: unknown} | undefined>
+
 export function resolveLocalizedManifestName(
   manifest: LocalizableManifest | null | undefined,
   searchRoots: string[],
@@ -70,9 +73,9 @@ export function resolveLocalizedManifestName(
 
       try {
         const file = path.join(root, '_locales', locale, 'messages.json')
-        const message = parseJsonSafe(fs.readFileSync(file, 'utf-8'))?.[
-          match[1]
-        ]?.message
+        const message = parseJsonSafe<LocaleMessages | null>(
+          fs.readFileSync(file, 'utf-8')
+        )?.[match[1]]?.message
 
         if (typeof message === 'string' && message.trim()) return message.trim()
       } catch {

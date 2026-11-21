@@ -8,7 +8,7 @@ import {
   DevSessionRestartScheduler,
   unbindDevSessionRestart
 } from '../../dev-server/session-restart'
-import {rememberSpecialFoldersConfig} from '../folders-config'
+import {rememberSpecialFoldersConfig} from '../../lib/special-folders/folders-config'
 import {WarnUponFolderChanges} from '../warn-upon-folder-changes'
 
 const ESC = String.fromCharCode(27)
