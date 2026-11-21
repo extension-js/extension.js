@@ -4,11 +4,6 @@ import * as path from 'node:path'
 import {Compilation, type Compiler} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
 import {setOriginalManifestContent} from '../../lib/manifest/manifest-content'
-import {
-  devInjectedHostPatterns,
-  devInjectedPermissions,
-  isWebkitUnsupportedPermission
-} from '../../plugin-web-extension/shared/manifest-grants'
 import {ApplyDevDefaults} from '../steps/apply-dev-defaults'
 
 // A plain object with the hooks a step taps, handed in as a compiler.
@@ -799,9 +794,12 @@ describe('ApplyDevDefaults', () => {
     const bare = runDevDefaults({manifest_version, name: 'x'})
     const injected: string[] = bare.permissions
 
-    it('grants only permissions the shared list names', () => {
+    // Written out, so a permission added to the list fails here first.
+    it('grants these permissions and no other', () => {
       expect([...injected].sort()).toEqual(
-        [...devInjectedPermissions(manifest_version)].sort()
+        manifest_version === 3
+          ? ['scripting', 'storage', 'tabs']
+          : ['storage', 'tabs']
       )
     })
 
@@ -1125,9 +1123,7 @@ describe('ApplyDevDefaults', () => {
         content_scripts: [{matches: [pattern], js: ['c.js']}]
       }
       const bare = runDevDefaults(manifest)
-      expect(bare.host_permissions).toEqual([
-        ...devInjectedHostPatterns(manifest)
-      ])
+      expect(bare.host_permissions).toEqual([pattern])
 
       withSource(`fetch('${url}')\n`, (file) => {
         const {warnings} = runDevDefaultsWithWarnings(manifest, 'chrome', [
@@ -1294,13 +1290,11 @@ describe('ApplyDevDefaults', () => {
       'safari'
     )
     expect(out.permissions).not.toContain('management')
-    expect(
-      out.permissions.filter((permission: string) =>
-        isWebkitUnsupportedPermission(permission, 'safari')
-      )
-    ).toEqual([])
-
-    expect(out.permissions).toContain('storage')
+    expect([...out.permissions].sort()).toEqual([
+      'scripting',
+      'storage',
+      'tabs'
+    ])
   })
 
   it('keeps that same permission on a chromium dev session', () => {
@@ -1310,22 +1304,25 @@ describe('ApplyDevDefaults', () => {
     )
     expect(out.permissions).toContain('management')
     expect(out.permissions).toEqual(
-      expect.arrayContaining([...devInjectedPermissions(3, 'chrome')])
+      expect.arrayContaining(['scripting', 'tabs', 'storage'])
     )
   })
 
+  // Safari refuses an extension that lists one of these, so the session
+  // may never add one. Written out: the list Safari rejects is not read here.
   it('injects no permission Safari rejects, on any target', () => {
-    expect([...devInjectedPermissions(3, 'chrome')]).not.toContain('management')
-    expect([...devInjectedPermissions(2, 'chrome')]).not.toContain('management')
+    const rejected = ['management', 'debugger', 'offscreen', 'sidePanel']
 
-    for (const manifestVersion of [2, 3]) {
-      const injected = devInjectedPermissions(manifestVersion, 'chrome')
-      expect(injected.length).toBeGreaterThan(0)
-      expect(
-        injected.filter((permission) =>
-          isWebkitUnsupportedPermission(permission, 'safari')
-        )
-      ).toEqual([])
+    for (const manifest_version of [2, 3]) {
+      for (const browser of ['chrome', 'firefox', 'safari'] as const) {
+        const injected: string[] = runDevDefaults(
+          {manifest_version, name: 'x'},
+          browser
+        ).permissions
+
+        expect(injected.length).toBeGreaterThan(0)
+        expect(injected.filter((name) => rejected.includes(name))).toEqual([])
+      }
     }
   })
 

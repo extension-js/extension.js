@@ -163,7 +163,6 @@ const SPEC_REACHES = [
   'plugin-reload -> plugin-web-extension/shared/content-script-wrapper-extensions',
   'plugin-reload -> plugin-web-extension/shared/html-page-extensions',
   'plugin-reload -> plugin-web-extension/shared/kept-resource-extensions',
-  'plugin-reload -> plugin-web-extension/shared/manifest-grants',
   'plugin-static-assets -> plugin-css',
   'plugin-static-assets -> plugin-js-frameworks'
 ]

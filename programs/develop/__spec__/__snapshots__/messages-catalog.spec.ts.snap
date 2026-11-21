@@ -402,7 +402,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "manifestInvalidError: function(1)",
     "manifestLegacyWarningsSummary: function(1)",
     "manifestNamesExcludedFile: function(2)",
-    "manifestOverridesSummary: function(2)",
+    "manifestOverridesSummary: function(1)",
     "manifestPersistFailed: function(1)",
     "manifestVersionLostForBrowser: function(3)",
     "missingGeckoAddonId: function(1)",
