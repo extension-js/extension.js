@@ -9,10 +9,6 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
-import {
-  getDevServerHmrImports,
-  resolveStockSocketClientPath
-} from '../../lib/dev-server-client-import'
 import {resolveDevelopDistFile} from '../../lib/develop-context'
 import {usesReact, usesSvelte, usesVue} from '../../lib/framework-detect'
 import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
@@ -26,6 +22,10 @@ import {
   type HtmlPage
 } from '../../plugin-web-extension/shared/html-page-extensions'
 import type {DevOptions, PluginInterface} from '../../types'
+import {
+  getDevServerHmrImports,
+  resolveStockSocketClientPath
+} from '../reload-lib/dev-server-client-import'
 import {isReloadSession} from '../reload-session'
 
 type PageEntry = {import?: string[]}

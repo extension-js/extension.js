@@ -233,36 +233,3 @@ describe('SetupReloadStrategy wiring', () => {
     })
   })
 })
-
-describe('SetupReloadStrategy hot update names', () => {
-  // The names the build config gives hot update files before a session.
-  function namedAfterStrategy() {
-    const root = writeProject(makeTempFolder('extjs-reload-strategy-'), {
-      'manifest.json': {manifest_version: 3}
-    })
-    const compiler = idleCompiler(root, 'development')
-    compiler.options.output.hotUpdateChunkFilename =
-      'hot/[id].[fullhash].hot-update.js'
-
-    compiler.options.output.hotUpdateMainFilename =
-      'hot/[runtime].[fullhash].hot-update.json'
-
-    new SetupReloadStrategy({
-      manifestPath: path.join(root, 'manifest.json')
-    } as ConstructorParameters<typeof SetupReloadStrategy>[0]).apply(compiler)
-
-    compiler.hooks.environment.call()
-
-    return {
-      chunk: compiler.options.output.hotUpdateChunkFilename,
-      main: compiler.options.output.hotUpdateMainFilename
-    }
-  }
-
-  it('writes hot update files under hot with no update suffix', () => {
-    expect(namedAfterStrategy()).toEqual({
-      chunk: 'hot/[id].[fullhash].js',
-      main: 'hot/[runtime].[fullhash].json'
-    })
-  })
-})

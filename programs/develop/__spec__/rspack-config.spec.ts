@@ -620,6 +620,31 @@ describe('webpack-config transpile packages watch behavior', () => {
   })
 })
 
+// The reload plugin names the hot update files. A second name here is one
+// it would have to override.
+describe('webpack-config hot update names', () => {
+  it('names no hot update file in the base output', () => {
+    const projectStructure = createProjectStructure()
+
+    for (const mode of ['development', 'production'] as const) {
+      const config = webpackConfig(projectStructure as ProjectStructure, {
+        browser: 'chrome',
+        mode,
+        output: {
+          clean: false,
+          path: path.join(
+            path.dirname(projectStructure.manifestPath),
+            'dist/chrome'
+          )
+        }
+      })
+
+      expect(config.output?.hotUpdateChunkFilename).toBeUndefined()
+      expect(config.output?.hotUpdateMainFilename).toBeUndefined()
+    }
+  })
+})
+
 describe('a scanned companion entry that leads outside the project', () => {
   function configFor(options: Record<string, unknown>) {
     const projectStructure = createProjectStructure()
