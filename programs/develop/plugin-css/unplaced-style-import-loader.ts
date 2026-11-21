@@ -26,7 +26,7 @@ interface UnplacedStyleImportLoaderContext {
   rootContext?: string
   getOptions?: () => {projectPath?: string; declaredEntries?: string[]}
   emitWarning(warning: Error): void
-  _compilation?: {warnings?: Error[]}
+  _compilation?: {warnings: Error[]}
 }
 
 // A declared content script gets its imported sheet inside the shadow root
@@ -119,10 +119,8 @@ export default function unplacedStyleImportLoader(
 
   // Straight onto the compilation, so the message prints as written and
   // not under a "Module Warning (from <loader>)" line naming this file.
-  const sink = this._compilation?.warnings
-
-  if (sink) {
-    sink.push(report)
+  if (this._compilation) {
+    this._compilation.warnings.push(report)
   } else {
     this.emitWarning(report)
   }

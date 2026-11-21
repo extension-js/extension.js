@@ -40,8 +40,8 @@ import {
 import * as messages from './css-lib/messages'
 
 interface CompilationLike {
-  warnings?: Error[]
-  errors?: Error[]
+  warnings: Error[]
+  errors: Error[]
 }
 
 export interface DeadCssUrlLoaderOptions {
@@ -98,10 +98,8 @@ function pushDeadRef(
   // Straight onto the compilation, the way the module-graph check reports
   // it. emitWarning would stamp a "Module Warning (from <loader>)" prefix
   // and the two paths would read as different defects.
-  const sink = strict ? compilation?.errors : compilation?.warnings
-
-  if (sink) {
-    sink.push(report)
+  if (compilation) {
+    ;(strict ? compilation.errors : compilation.warnings).push(report)
   } else if (strict) {
     loader.emitError(report)
   } else {

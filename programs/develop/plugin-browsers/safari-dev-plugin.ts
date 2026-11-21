@@ -109,7 +109,7 @@ export class SafariDevPlugin implements RunnerPlugin {
 
     compiler.hooks.done.tapPromise(SafariDevPlugin.name, async (stats) => {
       const compilation = stats.compilation
-      const hasErrors = compilation.errors && compilation.errors.length > 0
+      const hasErrors = compilation.errors.length > 0
 
       this.compiling = false
 

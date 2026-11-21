@@ -180,7 +180,7 @@ export function attachHtmlRefresh<Client extends object>(
     watchClients()
 
     // A failed compile emits nothing, so its saved pages wait for the next.
-    if (compilation.errors && compilation.errors.length > 0) return
+    if (compilation.errors.length > 0) return
 
     compileEnded = true
 

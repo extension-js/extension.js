@@ -178,7 +178,8 @@ describe('compilationDiagnostics', () => {
       compilationDiagnostics(
         {
           compiler: {context: root},
-          errors: [{message: 'x', module: {resource}}]
+          errors: [{message: 'x', module: {resource}}],
+          warnings: []
         },
         path.join(root, 'app')
       ).details[0].file
@@ -189,7 +190,7 @@ describe('compilationDiagnostics', () => {
     const warnings = Array.from({length: MAX_SUMMARY_WARNINGS}, (_, index) =>
       named('PerfBudgetWarning', `warning ${index}`)
     )
-    const atCap = compilationDiagnostics({warnings})
+    const atCap = compilationDiagnostics({errors: [], warnings})
 
     expect(atCap.details).toHaveLength(MAX_SUMMARY_WARNINGS)
     expect(atCap.truncated).toBe(false)
@@ -213,8 +214,7 @@ describe('compilationDiagnostics', () => {
 
     expect(compilationDiagnostics(undefined)).toEqual(empty)
     expect(compilationDiagnostics(null)).toEqual(empty)
-    expect(compilationDiagnostics({})).toEqual(empty)
-    expect(compilationDiagnostics({errors: 'nope', warnings: 3})).toEqual(empty)
+    expect(compilationDiagnostics({errors: [], warnings: []})).toEqual(empty)
   })
 
   it('lists the issues uncoded when the chunk graph cannot be read', () => {
@@ -228,6 +228,7 @@ describe('compilationDiagnostics', () => {
     expect(
       compilationDiagnostics({
         errors: [issue],
+        warnings: [],
         entrypoints: new Map([['content_scripts/content-0', {chunks: [{}]}]]),
         chunkGraph: {
           getChunkModules: () => {
@@ -294,9 +295,9 @@ describe('warningCodes', () => {
 
   it('answers an empty map for no compilation or no warnings', () => {
     expect(warningCodes(undefined).size).toBe(0)
-    expect(warningCodes({}).size).toBe(0)
-    expect(warningCodes({errors: [named('PerfBudgetWarning', 'x')]}).size).toBe(
-      0
-    )
+    expect(
+      warningCodes({errors: [named('PerfBudgetWarning', 'x')], warnings: []})
+        .size
+    ).toBe(0)
   })
 })

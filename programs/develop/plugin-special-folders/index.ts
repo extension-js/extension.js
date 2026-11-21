@@ -530,7 +530,5 @@ function pushLayoutWarning(
 ) {
   const warning = new compiler.rspack.WebpackError(message)
   warning.name = name
-  if (!compilation.warnings) compilation.warnings = []
-
   compilation.warnings.push(warning)
 }

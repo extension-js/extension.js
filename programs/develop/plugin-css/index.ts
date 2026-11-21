@@ -399,9 +399,7 @@ export class CssPlugin {
       const req = raw.split('?')[0].split('#')[0]
       const key = `${issuer}|${req}`
       const strict = process.env.EXTENSION_STRICT_REFS === 'true'
-      const sink = strict ? compilation?.errors : compilation?.warnings
-
-      if (warned.has(key) || !sink) return
+      if (warned.has(key) || !compilation) return
 
       warned.add(key)
       const issuerPath = toPosixPath(
@@ -417,7 +415,7 @@ export class CssPlugin {
 
       if (withheld) noteWithheldCssRef(compilation, raw, issuerPath)
 
-      sink.push(error)
+      ;(strict ? compilation.errors : compilation.warnings).push(error)
     }
 
     compiler.hooks.normalModuleFactory.tap(
