@@ -4,14 +4,11 @@ import * as path from 'node:path'
 import {Compilation} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
 import {asCompiler} from '../../../__spec__/helpers/rspack-fakes'
+import {devInjectedHostPatterns} from '../../manifest-lib/dev-injected-hosts'
+import {devInjectedPermissions} from '../../manifest-lib/dev-injected-permissions'
 import {UNSUPPORTED_PERMISSIONS as SAFARI_REJECTED_PERMISSIONS} from '../../manifest-lib/filter-keys-safari'
 import {setOriginalManifestContent} from '../../manifest-lib/manifest'
-import {
-  ApplyDevDefaults,
-  findInjectedOnlyPermissionUses
-} from '../apply-dev-defaults'
-import {devInjectedHostPatterns} from '../apply-dev-defaults-lib/dev-injected-hosts'
-import {devInjectedPermissions} from '../apply-dev-defaults-lib/dev-injected-permissions'
+import {ApplyDevDefaults} from '../apply-dev-defaults'
 
 describe('ApplyDevDefaults', () => {
   it('registers processAssets after REPORT so it runs after WAR patching', () => {
@@ -1350,25 +1347,5 @@ describe('ApplyDevDefaults', () => {
     } finally {
       fs.rmSync(dir, {recursive: true, force: true})
     }
-  })
-})
-
-describe('findInjectedOnlyPermissionUses', () => {
-  it('reads .mts and .cts modules and a resource that carries a query', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-scan-ext-'))
-    const worker = path.join(dir, 'worker.mts')
-    const legacy = path.join(dir, 'legacy.cts')
-    fs.writeFileSync(worker, 'chrome.tabs.query({url: "https://*/*"})\n')
-    fs.writeFileSync(legacy, 'chrome.scripting.executeScript({})\n')
-    const uses = findInjectedOnlyPermissionUses(
-      {
-        modules: [{resource: worker}, {resource: `${legacy}?used`}]
-      },
-      new Set<string>(),
-      ['tabs', 'scripting']
-    )
-    expect(uses.get('tabs')).toEqual({file: worker, line: 1, field: 'url'})
-    expect(uses.get('scripting')).toEqual({file: legacy})
-    fs.rmSync(dir, {recursive: true, force: true})
   })
 })

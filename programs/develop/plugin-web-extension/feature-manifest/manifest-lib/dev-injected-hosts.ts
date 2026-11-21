@@ -6,9 +6,9 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import {readProjectSource} from '../../../../lib/emitted-evidence'
-import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../../../feature-scripts/contracts'
-import {scannableSourcePath} from '../../../shared/scannable-source-path'
+import {readProjectSource} from '../../../lib/emitted-evidence'
+import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../../feature-scripts/contracts'
+import {scannableSourcePath} from '../../shared/scannable-source-path'
 
 // The single source for the hosts the dev build grants. The manifest patch,
 // the optional-promotion warning and the undeclared-fetch warning all read

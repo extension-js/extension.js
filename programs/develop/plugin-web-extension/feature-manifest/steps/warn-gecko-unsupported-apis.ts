@@ -19,13 +19,13 @@ import {
 } from '../../../lib/emitted-evidence'
 import type {DevOptions, Manifest} from '../../../types'
 import {scannableSourcePath} from '../../shared/scannable-source-path'
-import * as messages from '../messages'
 import {
   matchesOutside,
   type Range,
   type WebkitMissingApis,
   webkitGuardedRanges
-} from './apply-dev-defaults-lib/webkit-guarded-ranges'
+} from '../manifest-lib/webkit-guarded-ranges'
+import * as messages from '../messages'
 
 // Namespaces Safari ships on no version, per MDN browser-compat-data and
 // Apple's browser-compatibility page, each paired with the warning it earns.

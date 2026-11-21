@@ -8,24 +8,24 @@
 
 import {Compilation, type Compiler} from '@rspack/core'
 import type {DevOptions, PluginInterface} from '../../../types'
+import {declaredHostPatterns} from '../manifest-lib/dev-injected-hosts'
+import {
+  partiallyGatedNote,
+  permissionsGrantedByHosts,
+  scannedPermissions
+} from '../manifest-lib/dev-injected-permissions'
 import {
   getManifestContent,
   getOriginalManifest,
   isStaticThemeCompilation
 } from '../manifest-lib/manifest'
-import {findShadowedPermission} from '../manifest-lib/shadowed-declaration'
-import * as messages from '../messages'
 import {
   findInjectedOnlyPermissionUses,
   type PermissionScanCompilation,
   useLocation
-} from './apply-dev-defaults'
-import {declaredHostPatterns} from './apply-dev-defaults-lib/dev-injected-hosts'
-import {
-  partiallyGatedNote,
-  permissionsGrantedByHosts,
-  scannedPermissions
-} from './apply-dev-defaults-lib/dev-injected-permissions'
+} from '../manifest-lib/permission-scan'
+import {findShadowedPermission} from '../manifest-lib/shadowed-declaration'
+import * as messages from '../messages'
 
 // The dev session grants a few permissions for its own bridge and warns when
 // the project leans on one it never declared. A shippable build grants

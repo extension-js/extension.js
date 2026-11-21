@@ -19,143 +19,41 @@ import {
 } from '../../../lib/emitted-evidence'
 import type {DevOptions, PluginInterface} from '../../../types'
 import {scannableSourcePath} from '../../shared/scannable-source-path'
-import {isWebkitUnsupportedPermission} from '../manifest-lib/filter-keys-safari'
-import {
-  getManifestContent,
-  getOriginalManifest,
-  isStaticThemeCompilation
-} from '../manifest-lib/manifest'
-import {findShadowedPermission} from '../manifest-lib/shadowed-declaration'
-import {undeclaredPermissionWording} from '../messages'
-import {listDevManifestAdditions} from './apply-dev-defaults-lib/dev-additions'
 import {
   declaredHostPatterns,
   devInjectedHostPatterns,
   findInjectedOnlyHostUses,
   optionalHostPatterns
-} from './apply-dev-defaults-lib/dev-injected-hosts'
+} from '../manifest-lib/dev-injected-hosts'
 import {
   devInjectedPermissions,
   partiallyGatedNote,
   partiallyGatedWarning,
   permissionsGrantedByHosts,
   usesGatedPart
-} from './apply-dev-defaults-lib/dev-injected-permissions'
+} from '../manifest-lib/dev-injected-permissions'
+import {isWebkitUnsupportedPermission} from '../manifest-lib/filter-keys-safari'
+import {
+  getManifestContent,
+  getOriginalManifest,
+  isStaticThemeCompilation
+} from '../manifest-lib/manifest'
+import {
+  findInjectedOnlyPermissionUses,
+  type PermissionScanCompilation,
+  useLocation
+} from '../manifest-lib/permission-scan'
+import {findShadowedPermission} from '../manifest-lib/shadowed-declaration'
+import {findTabFieldReads} from '../manifest-lib/tab-field-reads'
+import {undeclaredPermissionWording} from '../messages'
+import {listDevManifestAdditions} from './apply-dev-defaults-lib/dev-additions'
 import patchBackground from './apply-dev-defaults-lib/patch-background'
 import {patchV2CSP, patchV3CSP} from './apply-dev-defaults-lib/patch-csp'
 import patchExternallyConnectable from './apply-dev-defaults-lib/patch-externally-connectable'
 import {patchWebResources} from './apply-dev-defaults-lib/patch-web-resources'
-import {findTabFieldReads} from './apply-dev-defaults-lib/tab-field-reads'
-
-export interface PermissionScanCompilation extends EmittedCompilation {
-  modules: Iterable<EmittedModule>
-}
-
-// A project source names the file the author can fix, so the source is what
-// the scan reads and the message names. Whether the call ships is a second
-// question, and the emitted script answers it: a call the build target
-// branched away never runs there, so no permission covers it and naming one
-// would send the author to add a permission both stores then ask about.
-export interface PermissionUse {
-  file: string
-  line?: number
-  field?: string
-}
-
-function gatedUse(
-  api: string,
-  source: string,
-  resource: string
-): Omit<PermissionUse, 'file'> | undefined {
-  if (api !== 'tabs') return usesGatedPart(api, source) ? {} : undefined
-
-  const reads = findTabFieldReads(source, resource)
-  if (reads === undefined) return usesGatedPart(api, source) ? {} : undefined
-  if (!reads.length) return undefined
-
-  return {line: reads[0].line, field: reads[0].field}
-}
-
-export function findInjectedOnlyPermissionUses(
-  compilation: PermissionScanCompilation,
-  declared: Set<string>,
-  injected: readonly string[]
-): Map<string, PermissionUse> {
-  const firstOffenderByApi = new Map<string, PermissionUse>()
-  const candidates = injected.filter((api) => !declared.has(api))
-  if (!candidates.length) return firstOffenderByApi
-
-  const emitted = readEmittedScripts(compilation)
-  const shipped = new Map<string, string>()
-
-  // One compression per script per scan, and only for a script some module
-  // already named, so a project that declares its permissions pays nothing.
-  const shippedText = (file: string): string | undefined => {
-    if (shipped.has(file)) return shipped.get(file)
-
-    const text = emitted.get(file)
-    if (text === undefined) return undefined
-
-    const compressed = shippableText(text)
-    shipped.set(file, compressed)
-
-    return compressed
-  }
-
-  for (const outer of compilation.modules) {
-    // Production concatenates modules, so the source comes from the inner
-    // ones while the chunk graph only knows the outer one.
-    const inner = outer.modules ? [...outer.modules] : [outer]
-
-    for (const module of inner) {
-      const resource = scannableSourcePath(module.resource)
-      if (!resource) continue
-
-      const source = readProjectSource(resource, compilation)
-      if (source === undefined) continue
-
-      for (const api of candidates) {
-        if (firstOffenderByApi.has(api)) continue
-
-        const useRe = new RegExp(`\\b(?:chrome|browser)\\s*\\.\\s*${api}\\b`)
-        if (!useRe.test(source)) continue
-
-        const use = gatedUse(api, source, resource)
-        if (!use) continue
-
-        const files = emittedFilesOf(compilation, outer)
-
-        // Without a chunk graph nothing ties this module to a script, so the
-        // source scan is the whole answer and the warning stands on it.
-        if (
-          files &&
-          !files.some((file) => {
-            const text = shippedText(file)
-
-            return text !== undefined && useRe.test(text)
-          })
-        ) {
-          continue
-        }
-
-        firstOffenderByApi.set(api, {file: resource, ...use})
-      }
-    }
-
-    if (firstOffenderByApi.size === candidates.length) break
-  }
-
-  return firstOffenderByApi
-}
 
 // A host permission for the request's own origin is the narrow grant; the
 // content-script pattern is often <all_urls> and would widen the store prompt.
-export function useLocation(manifestPath: string, use: PermissionUse): string {
-  const relative = path.relative(path.dirname(manifestPath), use.file)
-
-  return use.line ? `${relative}:${String(use.line)}` : relative
-}
-
 function requestOriginPattern(url: string, fallback: string): string {
   try {
     return `${new URL(url).origin}/*`

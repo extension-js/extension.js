@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {DevAddition} from '../../../../lib/dev-additions'
-import {isHostPattern} from './dev-injected-hosts'
+import {isHostPattern} from '../../manifest-lib/dev-injected-hosts'
 
 const PERMISSION_REASONS: Record<string, string> = {
   scripting:
