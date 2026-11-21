@@ -20,7 +20,7 @@ const reloads = (conn: FakeConn) =>
   conn.sent.filter((frame) => frame.type === 'reload')
 
 function broker() {
-  return new BridgeBroker({instanceId: 'inst-1', runId: 'run-A'} as never)
+  return new BridgeBroker({instanceId: 'inst-1', runId: 'run-A'})
 }
 
 function hello(b: BridgeBroker, conn: FakeConn, build?: string) {
