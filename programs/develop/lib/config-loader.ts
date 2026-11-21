@@ -711,7 +711,7 @@ async function evaluateRecordingEnvReads(
 // same frame once per entry point. The command-level handler prints the reason.
 const reportedConfigPaths = new Set<string>()
 
-export function reportConfigLoadingErrorOnce(
+function reportConfigLoadingErrorOnce(
   configPath: string,
   error: unknown
 ): void {
@@ -1070,7 +1070,7 @@ export async function loadDefineTypes(
   return types
 }
 
-export type ProjectConfigDefaults = Pick<
+type ProjectConfigDefaults = Pick<
   FileConfig,
   | 'extensions'
   | 'transpilePackages'
@@ -1139,7 +1139,7 @@ type CommandConfigs = NonNullable<FileConfig['commands']>
 
 // The commands.<cmd> layer alone. Top-level keys come from
 // loadProjectConfigDefaults so each keeps its own specificity.
-export type CommandLayerConfig = Partial<
+type CommandLayerConfig = Partial<
   CommandConfigs['dev'] &
     CommandConfigs['build'] &
     CommandConfigs['start'] &

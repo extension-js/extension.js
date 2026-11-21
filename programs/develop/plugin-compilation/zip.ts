@@ -23,7 +23,7 @@ import * as compilationMessages from './compilation-lib/messages'
 import {recordZipArtifact, recordZipFailure} from './zip-artifacts'
 import {dropEdgeStoreKey} from './zip-edge-key'
 
-export interface ZipPluginOptions {
+interface ZipPluginOptions {
   manifestPath?: string
   browser: DevOptions['browser']
   zipData?: {
@@ -259,9 +259,9 @@ export function isDeniedFromSourceZip(file: string): boolean {
   return isUnder(posix, DEFAULT_OUTPUT_DIR)
 }
 
-export type LeftOutReason = 'key' | 'registry' | 'archive' | 'build' | 'env'
+type LeftOutReason = 'key' | 'registry' | 'archive' | 'build' | 'env'
 
-export interface LeftOut {
+interface LeftOut {
   reason: LeftOutReason
   path: string
 }
@@ -565,7 +565,7 @@ function relativeWithin(
   return outside ? undefined : relative
 }
 
-export interface BuildOutput {
+interface BuildOutput {
   outPath: string
   archives: string[]
   // Where a project sends its archives, when not beside the build output.
@@ -576,7 +576,7 @@ export interface BuildOutput {
 
 // A user config may point the output anywhere in the project. The previous
 // run's build and the archives beside it are never source either.
-export function isBuildOutput(
+function isBuildOutput(
   file: string,
   projectDir: string,
   output: BuildOutput

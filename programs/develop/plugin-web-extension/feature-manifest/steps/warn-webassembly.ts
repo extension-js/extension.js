@@ -23,7 +23,7 @@ import {getOriginalManifestContent} from '../manifest-lib/manifest'
 import * as messages from '../messages'
 import {relativeToProject} from './warn-gecko-unsupported-apis'
 
-export const WASM_POLICY_SOURCE = "'wasm-unsafe-eval'"
+const WASM_POLICY_SOURCE = "'wasm-unsafe-eval'"
 export const WASM_PAGES_POLICY =
   "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
 
@@ -34,7 +34,7 @@ const EMITTED_WASM_RE = /\.wasm$/i
 
 // The build folds the MV3 string into extension_pages and the MV2 object
 // into its extension_pages string, so both spellings name the same policy.
-export function pagesPolicyOf(manifest: unknown): string | undefined {
+function pagesPolicyOf(manifest: unknown): string | undefined {
   const policy = (manifest as {content_security_policy?: unknown} | null)
     ?.content_security_policy
 
@@ -72,9 +72,7 @@ export function policyRunsWebAssembly(
   return accepted.some((source) => sources.includes(source))
 }
 
-export function findEmittedWebAssembly(
-  compilation: EmittedCompilation
-): string[] {
+function findEmittedWebAssembly(compilation: EmittedCompilation): string[] {
   try {
     return (compilation.getAssets?.() || [])
       .map((asset) => asset.name)
@@ -85,7 +83,7 @@ export function findEmittedWebAssembly(
   }
 }
 
-export interface RemoteWebAssemblyHit {
+interface RemoteWebAssemblyHit {
   // The emitted script that carries the address
   file: string
   address: string
@@ -124,7 +122,7 @@ export function findRemoteWebAssemblyAddresses(text: string): string[] {
   return [...found]
 }
 
-export function findRemoteWebAssembly(
+function findRemoteWebAssembly(
   compilation: EmittedCompilation
 ): RemoteWebAssemblyHit[] {
   const hits: RemoteWebAssemblyHit[] = []

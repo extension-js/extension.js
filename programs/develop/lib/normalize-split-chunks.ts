@@ -25,7 +25,7 @@ type SplitChunksLike = {
   [key: string]: unknown
 }
 
-export interface NormalizedSplitChunks {
+interface NormalizedSplitChunks {
   config: Configuration
   // The option paths whose chunks selector was narrowed, in config order.
   narrowed: string[]

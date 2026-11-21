@@ -47,7 +47,7 @@ function projectInstallTee() {
 // seconds behind its packument, short enough that nobody thinks the run hung.
 const INSTALL_RETRY_DELAYS_MS = [5000, 10000, 20000]
 
-export type InstallRetryOptions = {
+type InstallRetryOptions = {
   delaysMs?: number[]
   sleep?: (ms: number) => Promise<void>
 }
@@ -163,7 +163,7 @@ function installFailed(pmName: string, error: unknown): Error {
 
 // CI and prebuild scripts set this once the dependencies are in place, which
 // answers the same as passing --install false.
-export function isProjectInstallSkippedByEnv(): boolean {
+function isProjectInstallSkippedByEnv(): boolean {
   const raw = String(process.env.EXTENSION_SKIP_INSTALL ?? '')
     .trim()
     .toLowerCase()
@@ -220,7 +220,7 @@ function canRebuildDevelopArtifacts(developRoot: string): boolean {
 const WATCH_BUILD_WAIT_MS = 60000
 const WATCH_BUILD_POLL_MS = 100
 
-export type DevelopArtifactsOptions = {
+type DevelopArtifactsOptions = {
   watchWaitMs?: number
   watchPollMs?: number
 }

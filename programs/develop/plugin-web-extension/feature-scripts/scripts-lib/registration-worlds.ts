@@ -28,9 +28,9 @@ import {
 } from '../steps/trace-runtime-loaded-files'
 
 // The world a scripting call runs a file in, as far as the source says.
-export type RegisteredWorld = 'MAIN' | 'ISOLATED' | 'UNKNOWN'
+type RegisteredWorld = 'MAIN' | 'ISOLATED' | 'UNKNOWN'
 
-export interface RegisteredFileSighting {
+interface RegisteredFileSighting {
   file: string
   world: RegisteredWorld
   // Where the call starts in the source it was read from.

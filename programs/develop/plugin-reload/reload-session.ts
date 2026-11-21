@@ -38,9 +38,9 @@ export function isReloadSession(
 
 // True for a build a pending restart replaces. The dev server owns restarts
 // and hands this in, so the session never asks it directly.
-export type BuildHold = (compiler: object, compilation?: object) => boolean
+type BuildHold = (compiler: object, compilation?: object) => boolean
 
-export interface ReloadSessionOptions {
+interface ReloadSessionOptions {
   browser: string
   // The browser reloads by installing a new package, which restarts the
   // extension, so only what a restart cannot deliver is sent after it.
@@ -52,7 +52,7 @@ export interface ReloadPlan {
   instruction?: ReloadInstruction
 }
 
-export interface CompilerReloads {
+interface CompilerReloads {
   // What a rebuild of this compiler reloads, unless a restart replaces it.
   plan(compilation: Compilation): ReloadPlan
 }

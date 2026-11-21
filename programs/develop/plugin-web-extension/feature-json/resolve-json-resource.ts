@@ -15,7 +15,7 @@ import {isInsidePath, isOsPathUnder} from '../../lib/real-path'
 import {inspectPublicFolders} from '../../lib/special-folders/resolve-public-folder'
 import {getOriginalManifestContent} from '../feature-manifest/manifest-lib/manifest'
 
-export interface ResolvedJsonResource {
+interface ResolvedJsonResource {
   abs: string
   // The copier ships this file, so feature-json must not emit a second copy.
   isUnderPublic: boolean

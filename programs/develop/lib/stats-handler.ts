@@ -20,7 +20,7 @@ export function diagnosticsHaveColor(): boolean {
   return supportsColor(process.stderr)
 }
 
-export interface StatsToStringLike {
+interface StatsToStringLike {
   toString: (options?: {
     colors?: boolean
     all?: boolean

@@ -11,7 +11,7 @@ import * as path from 'node:path'
 import {parseJsoncSafe} from '../../lib/project-manifest'
 import {resolveExtends} from '../../lib/tsconfig-includes-file'
 
-export type SwcDecoratorTransform =
+type SwcDecoratorTransform =
   | {legacyDecorator: true; decoratorMetadata?: true}
   | {decoratorVersion: '2022-03'}
 
@@ -24,9 +24,7 @@ const TRANSFORM_FLAGS = [
   'useDefineForClassFields'
 ] as const
 
-export type TransformFlags = Partial<
-  Record<(typeof TRANSFORM_FLAGS)[number], unknown>
->
+type TransformFlags = Partial<Record<(typeof TRANSFORM_FLAGS)[number], unknown>>
 
 // The nearest config wins over what it extends, and a later entry of an
 // extends array over an earlier one. An unreadable file adds nothing.

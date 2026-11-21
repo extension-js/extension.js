@@ -38,7 +38,7 @@ export function publicFolderExists(
   return isDir(dir)
 }
 
-export interface PublicFolderInspection {
+interface PublicFolderInspection {
   // The folder the build copies from; undefined when neither location exists.
   publicDir?: string
   fromRoot: string
@@ -52,7 +52,7 @@ export interface PublicFolderInspection {
   miscased?: {dir: string; ships: boolean}
 }
 
-export interface PublicFolderProbe {
+interface PublicFolderProbe {
   isDir?: (candidate: string) => boolean
   // The names a folder holds, as written on disk.
   readNames?: (dir: string) => string[]

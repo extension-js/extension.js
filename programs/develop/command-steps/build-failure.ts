@@ -98,7 +98,7 @@ export function writeFailedReceipt(
   }
 }
 
-export function hasDeclaredCode(error: unknown): boolean {
+function hasDeclaredCode(error: unknown): boolean {
   const code = (error as {code?: unknown} | null)?.code
 
   return (

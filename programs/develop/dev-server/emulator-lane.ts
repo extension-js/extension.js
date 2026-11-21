@@ -10,19 +10,19 @@ import {createHash} from 'node:crypto'
 import type {IncomingMessage, ServerResponse} from 'node:http'
 
 export const EMULATOR_FILES_PATH = '/__extjs-emulator/files.json'
-export const EMULATOR_FILES_VERSION = 1 as const
-export const EMULATOR_WIRE_VERSION = '1'
+const EMULATOR_FILES_VERSION = 1 as const
+const EMULATOR_WIRE_VERSION = '1'
 export const DEFAULT_EMULATOR_ORIGIN = 'https://browsers.extension.land'
-export const EMULATOR_FILES_WAIT_MS = 10_000
-export const EMULATOR_FILES_MAX_WAITERS = 64
+const EMULATOR_FILES_WAIT_MS = 10_000
+const EMULATOR_FILES_MAX_WAITERS = 64
 
-export interface EmulatorFileEntry {
+interface EmulatorFileEntry {
   path: string
   size: number
   sha256: string
 }
 
-export interface EmulatorFileIndex {
+interface EmulatorFileIndex {
   version: typeof EMULATOR_FILES_VERSION
   instanceId: string
   root: '/'
@@ -102,7 +102,7 @@ export function buildEmulatorViewerUrl(options: {
   return `${options.origin}/chromium/#${params.toString()}`
 }
 
-export interface EmulatorAssetLike {
+interface EmulatorAssetLike {
   name: string
   source: {buffer(): Buffer}
   info?: {
@@ -197,7 +197,7 @@ export interface EmulatorFileIndexHolder {
   unavailableReason(): string
 }
 
-export function emulatorFilesUnavailable(failure: string | null): string {
+function emulatorFilesUnavailable(failure: string | null): string {
   return failure
     ? `No file index yet, the last compilation failed: ${failure}`
     : 'No file index yet, no compilation has succeeded.'
@@ -355,7 +355,7 @@ export function createEmulatorFilesMiddlewareEntry(
   }
 }
 
-export function createEmulatorFilesMiddleware(
+function createEmulatorFilesMiddleware(
   holder: EmulatorFileIndexHolder,
   viewerOrigin: string | null = resolveEmulatorOrigin()
 ) {

@@ -59,13 +59,13 @@ export const GECKO_UNSUPPORTED_PERMISSIONS: ReadonlySet<string> =
     'webAuthenticationProxy'
   ])
 
-export interface GeckoDroppedKey {
+interface GeckoDroppedKey {
   // Dotted location of what was dropped, like permissions.sidePanel
   path: string
   reason: string
 }
 
-export interface GeckoReinterpretedKey {
+interface GeckoReinterpretedKey {
   path: string
   declared: string
   // The value Firefox runs the extension with

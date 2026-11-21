@@ -22,17 +22,17 @@ import type {DevOptions, Manifest} from '../../types'
 // per key, so a second key that names its own source gets its own page;
 // only a shared source keeps sharing one page.
 
-export const ACTION_HTML_FEATURE = 'action/index'
-export const BROWSER_ACTION_HTML_FEATURE = 'browser_action/index'
-export const PAGE_ACTION_HTML_FEATURE = 'page_action/index'
+const ACTION_HTML_FEATURE = 'action/index'
+const BROWSER_ACTION_HTML_FEATURE = 'browser_action/index'
+const PAGE_ACTION_HTML_FEATURE = 'page_action/index'
 export const OPTIONS_HTML_FEATURE = 'options/index'
-export const SIDEBAR_HTML_FEATURE = 'sidebar/index'
-export const SIDEBAR_ACTION_HTML_FEATURE = 'sidebar_action/index'
-export const ACTION_HTML_OUTPUT = 'action/index.html'
-export const BROWSER_ACTION_HTML_OUTPUT = 'browser_action/index.html'
-export const PAGE_ACTION_HTML_OUTPUT = 'page_action/index.html'
-export const SIDEBAR_HTML_OUTPUT = 'sidebar/index.html'
-export const SIDEBAR_ACTION_HTML_OUTPUT = 'sidebar_action/index.html'
+const SIDEBAR_HTML_FEATURE = 'sidebar/index'
+const SIDEBAR_ACTION_HTML_FEATURE = 'sidebar_action/index'
+const ACTION_HTML_OUTPUT = 'action/index.html'
+const BROWSER_ACTION_HTML_OUTPUT = 'browser_action/index.html'
+const PAGE_ACTION_HTML_OUTPUT = 'page_action/index.html'
+const SIDEBAR_HTML_OUTPUT = 'sidebar/index.html'
+const SIDEBAR_ACTION_HTML_OUTPUT = 'sidebar_action/index.html'
 
 type HtmlFields = Record<string, string | undefined>
 
@@ -53,7 +53,7 @@ function readDefaultPopup(value: unknown): string | undefined {
   return readPageRef(value, 'default_popup')
 }
 
-export function normalizePopupRef(ref: string): string {
+function normalizePopupRef(ref: string): string {
   return String(ref || '')
     .replace(/\\/g, '/')
     .replace(/^\.\//, '')
@@ -72,7 +72,7 @@ export function popupRefsShareSource(a: unknown, b: unknown): boolean {
 // A page the manifest names resolves beside the manifest first; a page that
 // only public/ has (project root first, then next to the manifest) resolves
 // there, since the copier ships it verbatim under the name the manifest keeps.
-export function resolveManifestHtmlPath(
+function resolveManifestHtmlPath(
   context: string,
   relativePath: string,
   projectPath?: string
@@ -94,9 +94,7 @@ export function resolveManifestHtmlPath(
   return beside
 }
 
-export function actionPopupRef(
-  manifest: Manifest | undefined
-): string | undefined {
+function actionPopupRef(manifest: Manifest | undefined): string | undefined {
   if (!manifest) return undefined
 
   return (
@@ -107,7 +105,7 @@ export function actionPopupRef(
 
 // The browser_action popup that needs a page of its own: one that sits
 // beside an action popup built from a different source.
-export function browserActionOwnPopupRef(
+function browserActionOwnPopupRef(
   manifest: Manifest | undefined
 ): string | undefined {
   if (!manifest) return undefined
@@ -127,7 +125,7 @@ export function browserActionOutputTarget(manifest: Manifest): string {
     : ACTION_HTML_OUTPUT
 }
 
-export function pageActionPopupRef(
+function pageActionPopupRef(
   manifest: Manifest | undefined
 ): string | undefined {
   if (!manifest) return undefined
@@ -135,9 +133,7 @@ export function pageActionPopupRef(
   return readDefaultPopup(manifest.page_action)
 }
 
-export function sidebarPanelRef(
-  manifest: Manifest | undefined
-): string | undefined {
+function sidebarPanelRef(manifest: Manifest | undefined): string | undefined {
   if (!manifest) return undefined
 
   return (
@@ -148,7 +144,7 @@ export function sidebarPanelRef(
 
 // The sidebar_action panel that needs a page of its own: one that sits
 // beside a side_panel built from a different source.
-export function sidebarActionOwnPanelRef(
+function sidebarActionOwnPanelRef(
   manifest: Manifest | undefined
 ): string | undefined {
   if (!manifest) return undefined
@@ -204,7 +200,7 @@ export function isPageActionLiveSurface(
 // on this browser, or Chrome refuses a Manifest V2 manifest that declares
 // browser_action next to it ("Only one of browser_action, page_action, and
 // app can be specified"), so the toolbar key wins.
-export type PageActionDropReason = 'unsupported' | 'conflicts'
+type PageActionDropReason = 'unsupported' | 'conflicts'
 
 export function pageActionDropReason(
   manifest: Manifest | undefined,
@@ -337,7 +333,7 @@ function renameExecuteActionCommand(manifest: Manifest): {
 // sidebar_action, so a manifest that names one key of the pair has no sidebar
 // at all on the other family. A manifest that names both keeps both: each key
 // already owns its own page above.
-export type SidebarFoldTarget = 'side_panel' | 'sidebar_action'
+type SidebarFoldTarget = 'side_panel' | 'sidebar_action'
 
 export function sidebarFoldTarget(
   manifest: Manifest | undefined,
@@ -375,7 +371,7 @@ export function sidebarFoldTarget(
 
 // Chromium shows no panel for a side_panel key alone, the sidePanel
 // permission has to be there too, and it is one Chromium never warns about.
-export const SIDE_PANEL_PERMISSION = 'sidePanel'
+const SIDE_PANEL_PERMISSION = 'sidePanel'
 
 function withSidePanelPermission(manifest: Manifest): string[] {
   const current = Array.isArray(manifest.permissions)

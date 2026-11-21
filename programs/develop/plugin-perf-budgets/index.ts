@@ -32,9 +32,9 @@ import {
 } from './messages'
 import {collectAssetReferrers} from './referrers'
 
-export const ON_EXCEED_VALUES = ['warn', 'error'] as const
+const ON_EXCEED_VALUES = ['warn', 'error'] as const
 
-export type PerfBudgetsOnExceed = (typeof ON_EXCEED_VALUES)[number]
+type PerfBudgetsOnExceed = (typeof ON_EXCEED_VALUES)[number]
 
 // The `perfBudgets` key of extension.config.js: a budget per category in
 // bytes, the output paths no budget applies to, and what an overrun does.
@@ -56,7 +56,7 @@ interface PerfBudgetsPluginOptions {
 
 const BUDGET_KEYS: ReadonlySet<string> = new Set(BUDGET_CATEGORIES)
 
-export const PERF_BUDGETS_KEYS: readonly string[] = [
+const PERF_BUDGETS_KEYS: readonly string[] = [
   ...BUDGET_CATEGORIES,
   'ignore',
   'onExceed'
@@ -80,7 +80,7 @@ export function ignorePatternToRegExp(pattern: string): RegExp {
   return new RegExp(`^${source}$`, 'i')
 }
 
-export interface ResolvedPerfBudgets {
+interface ResolvedPerfBudgets {
   budgets: Record<AssetCategory, number>
   ignore: string[]
   onExceed: PerfBudgetsOnExceed
@@ -317,11 +317,10 @@ export class PerfBudgetsPlugin {
   }
 }
 
-export type {AssetCategory, BudgetCategory} from './categorize'
 export {
   ASSET_CATEGORIES,
   BUDGET_BYTES,
-  BUDGET_CATEGORIES,
   categorizeAsset
 } from './categorize'
+
 export {collectAssetReferrers} from './referrers'

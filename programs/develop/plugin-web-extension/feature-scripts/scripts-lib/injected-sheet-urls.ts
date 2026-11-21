@@ -138,7 +138,7 @@ export function rootedAtExtensionFrom(
   )
 }
 
-export interface PageRelativeTarget {
+interface PageRelativeTarget {
   request: string
   line: number
   named: string
@@ -217,7 +217,7 @@ export function publicInjectedSheets(compilation: object): ReadonlySet<string> {
   return publicSheets.get(compilation) ?? new Set<string>()
 }
 
-export interface SheetImport {
+interface SheetImport {
   start: number
   end: number
   line: number

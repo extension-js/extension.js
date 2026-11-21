@@ -94,7 +94,7 @@ export const EXTENSION_ENV_WILDCARD_MODULES = Object.freeze([
   {pattern: '*?url', type: 'string'}
 ])
 
-export function renderWildcardModuleDeclarations(
+function renderWildcardModuleDeclarations(
   modules = EXTENSION_ENV_WILDCARD_MODULES
 ) {
   return modules
@@ -108,7 +108,7 @@ export function renderWildcardModuleDeclarations(
 // `define` keys that are plain identifiers become ambient constants, so a
 // misspelled or missing one is a type error instead of a worker that throws
 // at start. Dotted keys (`process.env.X`) have no declaration form.
-export function renderDefineDeclarations(defineTypes = {}) {
+function renderDefineDeclarations(defineTypes = {}) {
   return Object.entries(defineTypes)
     .filter(([name]) => /^[A-Za-z_$][\w$]*$/.test(name))
     .map(([name, type]) => `declare const ${name}: ${type}\n`)

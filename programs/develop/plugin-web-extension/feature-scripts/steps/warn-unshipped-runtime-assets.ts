@@ -68,14 +68,14 @@ const SKIPPED_FOLDERS = new Set(['node_modules', 'dist', 'public'])
 const MAX_LITERAL_LENGTH = 200
 const MAX_FOLDERS_REPORTED = 10
 
-export interface RuntimePathReference {
+interface RuntimePathReference {
   literal: string
   folder: string
   namePrefix: string
   file?: string
 }
 
-export interface UnshippedFolder {
+interface UnshippedFolder {
   folder: string
   literal: string
   assetName: string

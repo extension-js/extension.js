@@ -56,7 +56,7 @@ export interface PermissionScanCompilation extends EmittedCompilation {
 // question, and the emitted script answers it: a call the build target
 // branched away never runs there, so no permission covers it and naming one
 // would send the author to add a permission both stores then ask about.
-export interface PermissionUse {
+interface PermissionUse {
   file: string
   line?: number
   field?: string

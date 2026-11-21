@@ -42,10 +42,7 @@ function comparablePath(filePath: string) {
 
 // Only manifest.json at the root of the output folder is the extension's own.
 // A nested one is an ordinary file, copied the way a production build does.
-export function isRootManifestPath(
-  filePath: string,
-  outputPath: string | undefined
-) {
+function isRootManifestPath(filePath: string, outputPath: string | undefined) {
   const file = comparablePath(filePath)
 
   if (file === 'manifest.json') return true
@@ -75,7 +72,7 @@ type NextFn = (error?: unknown) => void
 
 // The stock server reads public/ by URL. A name the build leaves out of the
 // output answers as a missing file, so a URL reaches no more than the build.
-export function withPrivatePublicFilesWithheld(
+function withPrivatePublicFilesWithheld(
   middlewares: MiddlewareList
 ): MiddlewareList {
   return middlewares.map((entry) => {
@@ -129,12 +126,12 @@ export function sessionSocketPath(instanceId: string): string {
 }
 
 // What a build of another session hears when it dials its reload socket here.
-export const OTHER_SESSION_SOCKET_REASON =
+const OTHER_SESSION_SOCKET_REASON =
   'This reload socket path belongs to another dev session. Load the build of the session that is running.'
 
 // The stock server leaves an upgrade at a path it does not serve unanswered,
 // so a build from another session would wait out its handshake bound.
-export function refuseOtherSessionSockets(
+function refuseOtherSessionSockets(
   server: {
     on(
       event: 'upgrade',

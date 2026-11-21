@@ -10,7 +10,7 @@ import {isChromiumBasedBrowser} from '../../../lib/constants'
 import type {DevOptions, Manifest} from '../../../types'
 import {translateThemeColor} from '../manifest-lib/theme-values'
 
-export interface TranslatedThemeColor {
+interface TranslatedThemeColor {
   key: string
   rgb: number[]
 }

@@ -17,7 +17,7 @@ import {
 import * as messages from './messages'
 import type {DevSessionRestartRequest} from './session-restart'
 
-export const DEFAULT_START_TIMEOUT_MS = 30000
+const DEFAULT_START_TIMEOUT_MS = 30000
 
 // The longest delay a timer takes. A longer one fires after 1 ms instead.
 export const MAX_TIMER_MS = 2147483647
@@ -49,7 +49,7 @@ export function rethrowStartFailure(error: unknown): never {
   throw error
 }
 
-export interface StartBundlerOptions {
+interface StartBundlerOptions {
   timeoutMs: number
   onSlowStart: () => void
   onFailure: (error: unknown) => void
@@ -121,7 +121,7 @@ export function createBindFailureRelay() {
 
 // What a library caller's promise rejects with: the declared code, a message
 // with no color or glyph, and the error the server gave as its cause.
-export interface DevServerStartError extends CodedError {
+interface DevServerStartError extends CodedError {
   cause: unknown
   // The session that failed: pid, port, paths.
   session?: Record<string, unknown>
@@ -335,14 +335,14 @@ export function createRestartFailure(targets: RestartFailureTargets) {
   }
 }
 
-export interface FailedStartRelease {
+interface FailedStartRelease {
   server: {stop?: () => Promise<void>}
   releasePort: () => Promise<void>
   closeControlBridge: () => Promise<void>
   stopTimeoutMs?: number
 }
 
-export interface EndedSessionRelease extends FailedStartRelease {
+interface EndedSessionRelease extends FailedStartRelease {
   // Everything the session registered in the host, see session-holdings.
   holdings: {beginRelease: () => void; releaseAll: () => void}
 }

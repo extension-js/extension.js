@@ -31,7 +31,7 @@ export const BUDGET_CATEGORIES = ASSET_CATEGORIES.filter(
 )
 
 // The files the emitted manifest loads on a hot path, by output path.
-export interface ManifestEntries {
+interface ManifestEntries {
   background: ReadonlySet<string>
   contentScripts: ReadonlySet<string>
 }

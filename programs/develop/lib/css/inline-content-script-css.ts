@@ -34,7 +34,7 @@ export function bundledFileToken(index: number): string {
   return `__EXTENSIONJS_CSS_FILE_${index}__`
 }
 
-export interface InlinedCssUrlTarget {
+interface InlinedCssUrlTarget {
   request: string
   absolutePath: string
   // A file under public/ already ships at the dist root through the public
@@ -44,7 +44,7 @@ export interface InlinedCssUrlTarget {
   outputName?: string
 }
 
-export interface RewriteInlinedCssUrlsContext {
+interface RewriteInlinedCssUrlsContext {
   resourcePath: string
   manifestDir: string
   // The folder the public copier ships from, so names agree with its output.
@@ -184,7 +184,7 @@ export function rewriteInlinedCssUrls(
 export const SFC_STYLE_ATTRIBUTE = 'data-extjs-sfc-style'
 // Where a refused element keeps the sheet that stands in for it, so the next
 // run of the same script replaces that sheet's rules and adds no second one.
-export const SFC_SHEET_PROPERTY = '__extjsSfcSheet'
+const SFC_SHEET_PROPERTY = '__extjsSfcSheet'
 
 // A single-file component's style block has no importer that reads a URL, so
 // its module puts the sheet in the document itself, once per style id.

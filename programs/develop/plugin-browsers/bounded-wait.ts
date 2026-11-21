@@ -6,7 +6,7 @@
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-export type BoundedOutcome<T> =
+type BoundedOutcome<T> =
   | {state: 'resolved'; value: T}
   | {state: 'rejected'; error: unknown}
   | {state: 'timeout'}

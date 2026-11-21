@@ -1814,13 +1814,13 @@ const RELOAD_BOOT = `    // Dev registrations outlive runtime.reload(), while th
 
 `
 
-export const PRODUCER_RELOAD_EXECUTOR: ProducerExecutor = {
+const PRODUCER_RELOAD_EXECUTOR: ProducerExecutor = {
   handlers: RELOAD_HANDLERS,
   boot: RELOAD_BOOT
 }
 
 // The producer a dev background runs: the control bridge with this executor.
-export interface DevProducerOptions
+interface DevProducerOptions
   extends Pick<BuildProducerOptions, 'sessionFromFile' | 'context'> {
   // The session whose control bridge the background dials.
   session: Pick<

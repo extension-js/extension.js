@@ -16,7 +16,7 @@ import type {ProjectStructure} from './project'
 import {isSameOrInsidePath} from './real-path'
 import {sessionArtifactsRootDir} from './session-paths'
 
-export type ProtectedFolderKind = 'project' | 'cwd' | 'home' | 'session-state'
+type ProtectedFolderKind = 'project' | 'cwd' | 'home' | 'session-state'
 
 // A build replaces its output folder whole. These are the folders that must
 // never be that output: the ones that are, or hold, what the user works in.
@@ -66,9 +66,7 @@ function isBuildFolder(target: string): boolean {
 
 // Output once landed beside a manifest found below the named folder. Only a
 // folder holding what a build writes counts, so a source `dist` is not named.
-export function leftoverOutputFolder(
-  struct: ProjectStructure
-): string | undefined {
+function leftoverOutputFolder(struct: ProjectStructure): string | undefined {
   if (!struct.projectRoot) return undefined
 
   const {manifestDir, packageJsonDir} = getDirs(struct)

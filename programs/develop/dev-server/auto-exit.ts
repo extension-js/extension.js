@@ -12,11 +12,11 @@ import {MAX_TIMER_MS, readTimerMs} from './start-bundler'
 
 // How long after the auto-exit deadline the default backstop waits, unless
 // the caller names the shutdown bound it must outlast.
-export const FORCE_KILL_DEFAULT_GRACE_MS = 4000
+const FORCE_KILL_DEFAULT_GRACE_MS = 4000
 
 // A backstop that cuts a teardown short is a truncated session, never a
 // completed one.
-export const FORCE_KILL_EXIT_CODE = 1
+const FORCE_KILL_EXIT_CODE = 1
 
 export function setupAutoExit(
   autoExitMsRaw: string | number | undefined,

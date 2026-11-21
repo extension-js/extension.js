@@ -69,7 +69,7 @@ export function resolveCompilerSvelte(loaderPath: string): {
   }
 }
 
-export interface SvelteRootChoice {
+interface SvelteRootChoice {
   root?: string
   // True when the compiler and the project hold different svelte versions, so
   // the runtime has to follow the compiler for the bundle to link and run.
@@ -109,7 +109,7 @@ type ResolveOptions = NonNullable<
 
 // Svelte libraries publish under the `svelte` export condition, often with no
 // other key, so a Svelte project offers it first, as vite-plugin-svelte does.
-export function withSvelteCondition(
+function withSvelteCondition(
   conditionNames: ResolveOptions['conditionNames']
 ): ResolveOptions['conditionNames'] {
   if (!Array.isArray(conditionNames)) return conditionNames
@@ -119,7 +119,7 @@ export function withSvelteCondition(
 }
 
 // Only the script resolvers take it: the stylesheet ones keep their own list.
-export function withSvelteConditionByDependency(
+function withSvelteConditionByDependency(
   byDependency: ResolveOptions['byDependency']
 ): ResolveOptions['byDependency'] {
   if (!byDependency) return byDependency

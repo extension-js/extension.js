@@ -12,7 +12,7 @@ import {experiments} from '@rspack/core'
 
 const requireModule = createRequire(import.meta.url)
 
-export interface TabFieldRead {
+interface TabFieldRead {
   line: number
   field: string
 }

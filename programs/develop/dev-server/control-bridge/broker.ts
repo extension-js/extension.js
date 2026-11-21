@@ -57,11 +57,11 @@ export interface BridgeConnection {
 
 // The producer's own origin: Safari's per-install safari-web-extension://<uuid>
 // is the one place the extension's page base is known before any page logs.
-export interface ExecutorAttachInfo {
+interface ExecutorAttachInfo {
   origin?: string
 }
 
-export interface BridgeBrokerOptions {
+interface BridgeBrokerOptions {
   instanceId: string
   runId: string
   engine?: BridgeEngine
@@ -95,7 +95,7 @@ export interface BridgeBrokerOptions {
   sessionCommand?: BridgeSessionCommand
 }
 
-export type BridgeSessionCommand = 'dev' | 'start' | 'preview'
+type BridgeSessionCommand = 'dev' | 'start' | 'preview'
 
 // How an answer names the session it came from and the command to run again.
 function sessionNoun(command: BridgeSessionCommand): string {
@@ -114,10 +114,10 @@ export {
 
 import {debugLine} from '../../lib/messaging'
 
-export const DEFAULT_CMD_TIMEOUT_MS = 5000
-export const MAX_CMD_TIMEOUT_MS = 30_000
+const DEFAULT_CMD_TIMEOUT_MS = 5000
+const MAX_CMD_TIMEOUT_MS = 30_000
 // How long a verb waits for a woken background's producer to say hello.
-export const WAKE_HELLO_WAIT_MS = 5000
+const WAKE_HELLO_WAIT_MS = 5000
 
 // How long a producer that negotiated the ack protocol has to confirm a
 // reload. The ack is sent from the frame handler itself, so a receipt that

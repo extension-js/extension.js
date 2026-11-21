@@ -711,7 +711,7 @@ function definedEnvNames(
   return [...names].sort()
 }
 
-export function buildTemplateVars(
+function buildTemplateVars(
   combinedVars: Record<string, unknown>,
   browser: DevOptions['browser'],
   mode: string
@@ -740,7 +740,7 @@ export function buildTemplateVars(
 
 // Names set in the environment but held back from placeholders, so a build
 // can tell a private variable apart from a typo.
-export function findPrivateTemplateNames(
+function findPrivateTemplateNames(
   combinedVars: Record<string, unknown>,
   templateVars: Record<string, string>
 ): Set<string> {

@@ -39,12 +39,12 @@ export function devContentScriptSheetProbeAssetName(index: number): string {
 export const DEV_CONTENT_SCRIPT_REGISTRY_ASSET =
   'content_scripts/dev-registry.json'
 export const DEV_CONTENT_SCRIPT_MARKER_KEY = '__extjsDevContentScripts'
-export const DEV_CONTENT_SCRIPT_STUB_MESSAGE_KEY = '__extjsDevCsStub'
-export const DEV_CONTENT_SCRIPT_ID_PREFIX = 'extjs-dev-cs-'
+const DEV_CONTENT_SCRIPT_STUB_MESSAGE_KEY = '__extjsDevCsStub'
+const DEV_CONTENT_SCRIPT_ID_PREFIX = 'extjs-dev-cs-'
 export const DEV_CONTENT_SCRIPT_STATIC_RELOAD_KEY = '__extjsDevStaticReload'
 export const DEV_CONTENT_SCRIPT_STATIC_BUNDLES_KEY = '__extjsDevStaticBundles'
 
-export interface DevContentScriptRegistryEntry {
+interface DevContentScriptRegistryEntry {
   id: string
   entry: string
   matches: string[]
@@ -65,12 +65,12 @@ export interface DevContentScriptRegistryEntry {
   sheetProbe?: {file: string; property: string}
 }
 
-export interface DevContentScriptRegistry {
+interface DevContentScriptRegistry {
   version: 1
   entries: DevContentScriptRegistryEntry[]
 }
 
-export interface DevContentScriptPlan {
+interface DevContentScriptPlan {
   manifest: Manifest
   registry: DevContentScriptRegistry
   stubs: Record<string, string>
@@ -78,7 +78,7 @@ export interface DevContentScriptPlan {
 
 type ContentScriptEntry = Record<string, unknown>
 
-export function devContentScriptSheetProbeProperty(index: number): string {
+function devContentScriptSheetProbeProperty(index: number): string {
   return `--extjs-dev-sheet-${index}`
 }
 

@@ -588,7 +588,7 @@ const TAILWIND_PLUGIN_IDS = ['@tailwindcss/postcss', 'tailwindcss']
 
 // Loads a package only from a node_modules folder at or above base. Node also
 // looks in NODE_PATH, which a package manager can point outside the project.
-export function requireFromProject(base: string, id: string): AnyModule {
+function requireFromProject(base: string, id: string): AnyModule {
   const req = createRequire(path.join(base, '__extensionjs__.js'))
 
   if (id.startsWith('.') || path.isAbsolute(id)) return req(id)

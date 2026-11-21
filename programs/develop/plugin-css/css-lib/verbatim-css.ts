@@ -37,7 +37,7 @@ function registry(): Map<string, VerbatimEntry> {
   return holder[REGISTRY_KEY]
 }
 
-export const VERBATIM_CSS_MARKER = /__extjs_verbatim_([a-z0-9]+)__/
+const VERBATIM_CSS_MARKER = /__extjs_verbatim_([a-z0-9]+)__/
 
 export function registerVerbatimCss(
   raw: string,
@@ -73,7 +73,7 @@ export function verbatimCssModulePlaceholder(id: string, raw: string): string {
 
 // The relative files a sheet names: @import targets and url() assets. A
 // verbatim sheet skipped the parser, so nothing else ships them.
-export function cssRelativeRefs(text: string): string[] {
+function cssRelativeRefs(text: string): string[] {
   const scrubbed = text.replace(/\/\*[\s\S]*?\*\//g, ' ')
   const refs = new Set<string>()
 

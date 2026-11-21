@@ -772,7 +772,7 @@ export class JsFrameworksPlugin {
 }
 
 type EntryDescription = {import?: string | string[]; layer?: string}
-export type EntryMap = Record<string, EntryDescription | string | string[]>
+type EntryMap = Record<string, EntryDescription | string | string[]>
 
 function usesReactRefresh(projectPath: string, mode: string): boolean {
   return mode === 'development' && isUsingReact(projectPath)

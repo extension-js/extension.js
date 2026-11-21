@@ -17,7 +17,7 @@ import {
 import {toMachineText} from './machine-text'
 import type {Diagnostic, ErrorCode} from './messaging'
 
-export interface CompilationLike {
+interface CompilationLike {
   errors?: unknown[]
   warnings?: unknown[]
   compiler?: {context?: string}

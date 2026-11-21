@@ -44,7 +44,7 @@ function toFileArray(value: Iterable<string> | undefined): string[] {
 
 // Slash-joined segments so nested emits like assets/fonts/x.woff2 match whole,
 // while quotes, parens, and whitespace still terminate the reference.
-export const EMITTED_ASSET_REF_PATTERN =
+const EMITTED_ASSET_REF_PATTERN =
   /assets\/[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*/g
 
 function isExcludedFromWar(fileName: string) {

@@ -20,7 +20,7 @@ import {DEV_CONTENT_SCRIPT_REGISTRY_ASSET} from './reload-lib/dev-content-script
 
 export type ReloadType = 'full' | 'service-worker' | 'content-scripts'
 
-export interface RefreshedStylesheet {
+interface RefreshedStylesheet {
   file: string
   digest: string
 }
@@ -63,7 +63,7 @@ export function formatReloadContextLabel(
 
 // The emitted manifest decides what the background is called: a gecko MV2
 // build ships background.scripts, so its edit is not a service worker one.
-export function backgroundContextFromOutput(outputPath?: string): string {
+function backgroundContextFromOutput(outputPath?: string): string {
   if (!outputPath) return 'service_worker'
 
   try {
@@ -86,7 +86,7 @@ export function backgroundContextFromOutput(outputPath?: string): string {
 
 // Best-effort page-context name for a page-only edit. Only used for the
 // label, never for the reload decision.
-export function pageContextFromSources(changedSources: string[]): string {
+function pageContextFromSources(changedSources: string[]): string {
   const rules: Array<[RegExp, string]> = [
     [/(^|\/)(sidebar|side[-_]?panel)(\.|\/)/i, 'sidebar page'],
     [/(^|\/)(action|popup)(\.|\/)/i, 'popup page'],
@@ -691,7 +691,7 @@ export function classifyReloadFromSources(opts: {
 
 // The entries the emitted registry marks static: those the dev manifest
 // names as emitted, which only an extension reload can update.
-export function readStaticContentScriptEntries(outputPath?: string): string[] {
+function readStaticContentScriptEntries(outputPath?: string): string[] {
   if (!outputPath) return []
 
   try {

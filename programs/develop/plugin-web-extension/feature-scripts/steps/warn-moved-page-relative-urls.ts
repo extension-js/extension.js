@@ -38,7 +38,7 @@ export function extractUrlAttributeLiterals(source: string): string[] {
   return [...literals]
 }
 
-export interface MovedPageRelativeUrl {
+interface MovedPageRelativeUrl {
   // The emitted page and the script of it that holds the literal.
   page: string
   assetName: string
@@ -48,7 +48,7 @@ export interface MovedPageRelativeUrl {
   emitted: string
 }
 
-export interface MovedPage {
+interface MovedPage {
   // Both paths are relative to the extension root.
   source: string
   output: string

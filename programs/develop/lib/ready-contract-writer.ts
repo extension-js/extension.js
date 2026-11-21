@@ -14,7 +14,7 @@ import {type RenameRetryOptions, renameSyncWithRetry} from './rename-with-retry'
 // own bundle, so it imports node builtins and its two leaf neighbors only.
 export type ReadyRecord = Record<string, unknown>
 
-export interface ReadyRead {
+interface ReadyRead {
   record?: ReadyRecord
   // Why a file that is there gave no record: it was read while half written.
   error?: Error
@@ -68,7 +68,7 @@ export function writeReadyRecord(
   }
 }
 
-export interface ReadyPatchResult {
+interface ReadyPatchResult {
   // False when there was no record, or the patch declined to change it.
   written: boolean
   error?: Error
@@ -106,7 +106,7 @@ export function carryStampedFields(
   }
 }
 
-export interface WriterIdentity {
+interface WriterIdentity {
   pid: number
   pidStartedAt: string
   pidStartId?: string

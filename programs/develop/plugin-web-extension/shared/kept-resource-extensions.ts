@@ -10,7 +10,7 @@ import type {Compilation, Compiler} from '@rspack/core'
 
 // Files a page may still ask for though this compile did not emit them,
 // as paths in the output. The manifest keeps them web accessible.
-export type KeptResourcesReader = (compilation: Compilation) => string[]
+type KeptResourcesReader = (compilation: Compilation) => string[]
 
 const readersByCompiler = new WeakMap<object, KeptResourcesReader[]>()
 

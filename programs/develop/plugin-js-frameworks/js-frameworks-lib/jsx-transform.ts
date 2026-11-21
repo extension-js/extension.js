@@ -41,7 +41,7 @@ export function getJsxImportSource(projectPath: string): JsxImportSource {
   return 'react'
 }
 
-export interface SwcParserOptions {
+interface SwcParserOptions {
   syntax: 'typescript' | 'ecmascript'
   tsx?: boolean
   jsx?: boolean

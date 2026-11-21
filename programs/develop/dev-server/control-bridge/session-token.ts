@@ -21,7 +21,7 @@ import {
 // a single per-project slot broke concurrent chrome+chromium sessions.
 export {controlTokenPath, legacyControlTokenPath}
 
-export interface ControlTokenIo {
+interface ControlTokenIo {
   rename?: (from: string, to: string) => void
 }
 

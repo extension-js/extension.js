@@ -433,7 +433,7 @@ function declaredScanDir(config: unknown): string | undefined {
   return typeof dir === 'string' && dir.trim() ? dir.trim() : undefined
 }
 
-export interface UnresolvedCompanion {
+interface UnresolvedCompanion {
   // What was looked for and is not there: the manifest.json of a named
   // companion, or the folder a declared extensions.dir names.
   manifestPath: string

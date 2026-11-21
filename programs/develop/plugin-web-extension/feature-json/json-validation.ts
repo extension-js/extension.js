@@ -13,7 +13,7 @@ import * as messages from './messages'
 
 // The fields package spells the feature storage/managed_schema; the dotted
 // form is kept for callers that still use it.
-export function isManagedSchemaFeature(feature: string): boolean {
+function isManagedSchemaFeature(feature: string): boolean {
   return (
     feature === 'storage/managed_schema' || feature === 'storage.managed_schema'
   )

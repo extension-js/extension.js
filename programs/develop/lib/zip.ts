@@ -249,7 +249,7 @@ export function assertDestinationIsOurs(
   )
 }
 
-export interface RemoteArchiveOptions {
+interface RemoteArchiveOptions {
   // Unpack here instead of under targetPath/<archive name>.
   destination?: string
   // Keep the copy this tool fetched from the same url path before, instead

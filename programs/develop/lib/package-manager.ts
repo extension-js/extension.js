@@ -29,7 +29,7 @@ import {readPackageJson} from './package-json'
 
 export type PackageManagerName = (typeof SUPPORTED_PACKAGE_MANAGERS)[number]
 
-export type PackageManagerResolution = {
+type PackageManagerResolution = {
   name: PackageManagerName
   execPath?: string
   runnerCommand?: string
@@ -368,7 +368,7 @@ export function projectInstallArgs(
   return ['--ignore-workspace']
 }
 
-export type PnpmWorkspaceMember = {
+type PnpmWorkspaceMember = {
   root: string
   relativeDir: string
 }
@@ -533,7 +533,7 @@ export function findPnpmWorkspaceMember(
   return {root, relativeDir}
 }
 
-export type WorkspaceMember = PnpmWorkspaceMember & {
+type WorkspaceMember = PnpmWorkspaceMember & {
   manager: PackageManagerName
 }
 
@@ -632,7 +632,7 @@ export function workspaceManagerOverride(
   return hydrateResolvedPackageManager(member.manager) || {name: member.manager}
 }
 
-export type ProjectInstallTarget = {cwd: string; args: string[]}
+type ProjectInstallTarget = {cwd: string; args: string[]}
 
 // Where an auto-install runs and what confines it. A pnpm workspace member
 // installs from its root, filtered to the member and its workspace

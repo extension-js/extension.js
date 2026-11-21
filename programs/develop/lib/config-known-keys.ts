@@ -231,7 +231,7 @@ const BROWSER_BLOCK_KEYS: ReadonlySet<string> = new Set([
   ...Object.values(COMMAND_KEYS).flat()
 ])
 
-export interface UnknownConfigKey {
+interface UnknownConfigKey {
   path: string
   suggestion?: string
 }
