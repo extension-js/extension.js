@@ -4,10 +4,8 @@ name: CI – E2E Smoke
 # September 7 regression stayed red until September 11. This is the same
 # lane cut to the specs that load a page and run it, on every push to main.
 #
-# The templates are read at the commit the release gates pin, so a push to
-# the templates repository cannot turn main red. The weekly gates freshness
-# job proposes the bump, and scripts/bump-release-gates.mjs moves this pin
-# with the release ones. Their dependencies still install with no lockfile.
+# The templates are read at the commit the release gates pin, so a templates
+# push cannot turn main red. scripts/bump-release-gates.mjs moves the pin.
 on:
   push:
     branches: [main]
