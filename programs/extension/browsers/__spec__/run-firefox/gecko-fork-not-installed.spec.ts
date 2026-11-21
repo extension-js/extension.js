@@ -10,8 +10,10 @@ import {
   type MockInstance,
   vi
 } from 'vitest'
+import type {CompilationLike} from '../../browsers-types'
 import {createFirefoxContext} from '../../run-firefox/firefox-context'
 import {FirefoxLaunchPlugin} from '../../run-firefox/firefox-launch'
+import type {FirefoxPluginRuntime} from '../../run-firefox/firefox-types'
 
 vi.mock('floorp-location', () => ({
   default: () => null,
@@ -36,7 +38,16 @@ function compilation() {
     options: {mode: 'development', context: tmp, output: {path: tmp}},
     errors: [],
     hooks: {done: {tap: () => {}}}
-  } as any
+  } as CompilationLike
+}
+
+// The private hint these rows print, reached through one cast.
+interface LaunchInternals {
+  printInstallHint(compilation: CompilationLike, raw: string): void
+}
+
+function internals(plugin: FirefoxLaunchPlugin): LaunchInternals {
+  return plugin as unknown as LaunchInternals
 }
 
 beforeEach(() => {
@@ -60,10 +71,10 @@ afterEach(() => {
 describe('a named gecko fork that is not installed', () => {
   it('names the fork and its own install steps, not the managed cache', () => {
     const plugin = new FirefoxLaunchPlugin(
-      {browser: 'floorp', extension: [tmp]} as any,
-      createFirefoxContext() as any
+      {browser: 'floorp', extension: [tmp]} as FirefoxPluginRuntime,
+      createFirefoxContext()
     )
-    ;(plugin as any).printInstallHint(
+    internals(plugin).printInstallHint(
       compilation(),
       'npx extension install firefox'
     )
@@ -81,10 +92,10 @@ describe('a named gecko fork that is not installed', () => {
 
   it('keeps the managed cache guidance for firefox itself', () => {
     const plugin = new FirefoxLaunchPlugin(
-      {browser: 'firefox', extension: [tmp]} as any,
-      createFirefoxContext() as any
+      {browser: 'firefox', extension: [tmp]} as FirefoxPluginRuntime,
+      createFirefoxContext()
     )
-    ;(plugin as any).printInstallHint(
+    internals(plugin).printInstallHint(
       compilation(),
       'npx extension install firefox'
     )

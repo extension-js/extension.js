@@ -1,4 +1,5 @@
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {asManifest} from '../../__spec__/helpers/manifest-fakes'
 import {
   applyIconVariantsFallback,
   iconsFromVariants,
@@ -7,6 +8,9 @@ import {
   resetIconVariantsNotice
 } from '../icon-variants-fallback'
 import {buildCanonicalManifestWithOverrides} from '../manifest'
+
+// @types/chrome has no icon_variants on the action key, which the fallback keeps.
+type ActionVariants = {action?: {icon_variants?: unknown}}
 
 const variants = [
   {16: 'icons/dark-16.png', 32: 'icons/dark-32.png', color_schemes: ['dark']},
@@ -75,7 +79,7 @@ describe('icon_variants fallback', () => {
 
   it('keeps icons the manifest already has', () => {
     const manifest = {icons: {48: 'base.png'}, icon_variants: variants}
-    const out = applyIconVariantsFallback(manifest as any, 'firefox')
+    const out = applyIconVariantsFallback(manifest, 'firefox')
 
     expect(out.manifest).toEqual(manifest)
     expect(out.verdicts).toEqual([{key: 'icons', outcome: 'kept'}])
@@ -83,16 +87,16 @@ describe('icon_variants fallback', () => {
 
   it('adds icons and an action default_icon when the manifest has none', () => {
     const out = applyIconVariantsFallback(
-      {icon_variants: variants, action: {icon_variants: variants}} as any,
+      asManifest({icon_variants: variants, action: {icon_variants: variants}}),
       'chrome'
     )
 
-    expect((out.manifest as any).icons).toEqual({16: 'icons/light-16.png'})
-    expect((out.manifest as any).action.default_icon).toEqual({
+    expect(out.manifest.icons).toEqual({16: 'icons/light-16.png'})
+    expect(out.manifest.action?.default_icon).toEqual({
       16: 'icons/light-16.png'
     })
 
-    expect((out.manifest as any).icon_variants).toEqual(variants)
+    expect(out.manifest.icon_variants).toEqual(variants)
     expect(out.verdicts).toEqual([
       {key: 'icons', outcome: 'added'},
       {key: 'action.default_icon', outcome: 'added'}
@@ -101,17 +105,20 @@ describe('icon_variants fallback', () => {
 
   it('fills icons and the action default_icon on Safari and keeps the key', () => {
     const out = applyIconVariantsFallback(
-      {icon_variants: variants, action: {icon_variants: variants}} as any,
+      asManifest({icon_variants: variants, action: {icon_variants: variants}}),
       'safari'
     )
 
-    expect((out.manifest as any).icons).toEqual({16: 'icons/light-16.png'})
-    expect((out.manifest as any).action.default_icon).toEqual({
+    expect(out.manifest.icons).toEqual({16: 'icons/light-16.png'})
+    expect(out.manifest.action?.default_icon).toEqual({
       16: 'icons/light-16.png'
     })
 
-    expect((out.manifest as any).icon_variants).toEqual(variants)
-    expect((out.manifest as any).action.icon_variants).toEqual(variants)
+    expect(out.manifest.icon_variants).toEqual(variants)
+    expect((out.manifest as ActionVariants).action?.icon_variants).toEqual(
+      variants
+    )
+
     expect(out.verdicts).toEqual([
       {key: 'icons', outcome: 'added'},
       {key: 'action.default_icon', outcome: 'added'}
@@ -120,11 +127,11 @@ describe('icon_variants fallback', () => {
 
   it('leaves a manifest without the key untouched', () => {
     expect(
-      applyIconVariantsFallback({icons: {16: 'a.png'}} as any, 'safari')
+      applyIconVariantsFallback(asManifest({icons: {16: 'a.png'}}), 'safari')
     ).toEqual({manifest: {icons: {16: 'a.png'}}, verdicts: []})
 
     expect(
-      applyIconVariantsFallback({icons: {16: 'a.png'}} as any, 'chrome')
+      applyIconVariantsFallback(asManifest({icons: {16: 'a.png'}}), 'chrome')
         .verdicts
     ).toEqual([])
   })
@@ -160,35 +167,35 @@ describe('icon_variants fallback', () => {
 
   it('resolves chromium: and firefox: prefixes on the key through the build', () => {
     const text = capture()
-    const manifest = {
+    const manifest = asManifest({
       manifest_version: 3,
       name: 'x',
       version: '1',
       icons: {48: 'icons/base-48.png'},
       'chromium:icon_variants': [{16: '/icons/c-16.png'}],
       'firefox:icon_variants': [{16: 'icons/f-16.png'}]
-    }
+    })
     const chrome = buildCanonicalManifestWithOverrides(
       '/p/manifest.json',
-      manifest as any,
+      manifest,
       'chrome'
     ).manifest
     const firefox = buildCanonicalManifestWithOverrides(
       '/p/manifest.json',
-      manifest as any,
+      manifest,
       'firefox'
     ).manifest
     const safari = buildCanonicalManifestWithOverrides(
       '/p/manifest.json',
-      manifest as any,
+      manifest,
       'safari'
     ).manifest
 
-    expect((chrome as any).icon_variants).toEqual([{16: 'icons/c-16.png'}])
-    expect((firefox as any).icon_variants).toEqual([{16: 'icons/f-16.png'}])
-    expect((safari as any).icon_variants).toEqual([{16: 'icons/c-16.png'}])
-    expect((chrome as any).icons).toEqual({48: 'icons/base-48.png'})
-    expect((safari as any).icons).toEqual({48: 'icons/base-48.png'})
+    expect(chrome.icon_variants).toEqual([{16: 'icons/c-16.png'}])
+    expect(firefox.icon_variants).toEqual([{16: 'icons/f-16.png'}])
+    expect(safari.icon_variants).toEqual([{16: 'icons/c-16.png'}])
+    expect(chrome.icons).toEqual({48: 'icons/base-48.png'})
+    expect(safari.icons).toEqual({48: 'icons/base-48.png'})
     expect(JSON.stringify(chrome)).not.toContain('chromium:')
     expect(text()).toContain('Chromium reads icon_variants only with')
     expect(text()).toContain('Firefox does not read icon_variants yet')
@@ -205,22 +212,22 @@ describe('icon_variants fallback', () => {
     const text = capture()
     const safari = buildCanonicalManifestWithOverrides(
       '/p/manifest.json',
-      {
+      asManifest({
         manifest_version: 3,
         name: 'x',
         version: '1',
         icon_variants: variants,
         action: {icon_variants: variants}
-      } as any,
+      }),
       'safari'
     ).manifest
 
-    expect((safari as any).icons).toEqual({16: 'icons/light-16.png'})
-    expect((safari as any).action.default_icon).toEqual({
+    expect(safari.icons).toEqual({16: 'icons/light-16.png'})
+    expect(safari.action?.default_icon).toEqual({
       16: 'icons/light-16.png'
     })
 
-    expect((safari as any).icon_variants).toHaveLength(3)
+    expect(safari.icon_variants).toHaveLength(3)
     expect(text()).toContain(
       'The manifest had no icons and action.default_icon, so the build filled it'
     )

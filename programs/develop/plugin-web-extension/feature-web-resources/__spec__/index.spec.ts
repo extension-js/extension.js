@@ -3,12 +3,21 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import type {Asset, Compilation} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {asCompilation} from '../../__spec__/helpers/rspack-fakes'
 import {generateManifestPatches} from '../web-resources-lib/generate-manifest'
 import {resolveUserDeclaredWAR} from '../web-resources-lib/resolve-war'
 
 type Manifest =
   | Partial<chrome.runtime.ManifestV2>
   | Partial<chrome.runtime.ManifestV3>
+
+type WarGroup = {matches: string[]; resources: string[]}
+type BuildIssue = Error & {file?: string}
+
+// The MV3 shape of web_accessible_resources a patched manifest carries.
+function warGroups(manifest: Manifest) {
+  return manifest.web_accessible_resources as WarGroup[] | undefined
+}
 
 describe('generateManifestPatches', () => {
   let tmpRoot: string
@@ -142,7 +151,7 @@ describe('generateManifestPatches', () => {
       'content_scripts/content-0.css'
     ])
 
-    expect((result as any).web_accessible_resources).toEqual([
+    expect(result.web_accessible_resources).toEqual([
       {
         matches: ['<all_urls>'],
         resources: ['content_scripts/content-0.css']
@@ -167,7 +176,7 @@ describe('generateManifestPatches', () => {
     )
 
     expect(result.content_scripts?.[0]?.css).toBeUndefined()
-    expect((result as any).web_accessible_resources).toEqual([
+    expect(result.web_accessible_resources).toEqual([
       {
         matches: ['<all_urls>'],
         resources: ['content_scripts/styles.12345678.css']
@@ -198,7 +207,7 @@ describe('generateManifestPatches', () => {
       'content_scripts/content-0.css'
     ])
 
-    expect((result as any).web_accessible_resources).toEqual([
+    expect(result.web_accessible_resources).toEqual([
       {
         matches: ['<all_urls>'],
         resources: ['content_scripts/content-0.css']
@@ -229,7 +238,7 @@ describe('generateManifestPatches', () => {
       'content_scripts/content-0.css'
     ])
 
-    expect((result as any).web_accessible_resources).toContain(
+    expect(result.web_accessible_resources).toContain(
       'content_scripts/content-0.css'
     )
   })
@@ -244,7 +253,7 @@ describe('generateManifestPatches', () => {
         ]
       }
     )
-    const groups = (result as any).web_accessible_resources as {
+    const groups = result.web_accessible_resources as {
       matches: string[]
       resources: string[]
     }[]
@@ -265,8 +274,7 @@ describe('generateManifestPatches', () => {
       },
       {mode: 'production'}
     )
-    const res = (updated as any).web_accessible_resources?.[0]
-      ?.resources?.[0] as string
+    const res = warGroups(updated)?.[0]?.resources?.[0] as string
     expect(res).toBe('docs/readme.md')
   })
 
@@ -282,8 +290,7 @@ describe('generateManifestPatches', () => {
         web_accessible_resources: [{matches: ['<all_urls>'], resources: [rel]}]
       }
     )
-    const res = (updated as any).web_accessible_resources?.[0]
-      ?.resources?.[0] as string
+    const res = warGroups(updated)?.[0]?.resources?.[0] as string
     expect(res).toBe('images/icon.png')
   })
 
@@ -306,8 +313,7 @@ describe('generateManifestPatches', () => {
         ]
       }
     )
-    const resources = (updated as any).web_accessible_resources?.[0]
-      ?.resources as string[]
+    const resources = warGroups(updated)?.[0]?.resources as string[]
     expect(resources).toContain('ui/stats.js')
     expect(resources).toContain('storage/stats.js')
   })
@@ -337,7 +343,7 @@ describe('generateManifestPatches', () => {
       }
     )
 
-    expect((result as any).web_accessible_resources).toEqual([
+    expect(result.web_accessible_resources).toEqual([
       {
         matches: ['https://ocr.example/*'],
         resources: ['ocr-core.wasm', 'ocr-weights.bin']
@@ -370,7 +376,7 @@ describe('generateManifestPatches', () => {
       }
     )
 
-    expect((result as any).web_accessible_resources).toEqual([
+    expect(result.web_accessible_resources).toEqual([
       'ocr-core.wasm',
       'ocr-weights.bin'
     ])
@@ -426,15 +432,16 @@ describe('generateManifestPatches', () => {
     )
 
     expect(result.side_panel?.default_path).toBe('sidebar/index.html')
-    expect((result.background as any)?.service_worker).toBe(
-      'background/service_worker.js'
-    )
+    expect(
+      (result.background as {service_worker?: string} | undefined)
+        ?.service_worker
+    ).toBe('background/service_worker.js')
 
     expect(result.content_scripts?.[0]?.js).toEqual([
       'content_scripts/content-0.js'
     ])
 
-    expect((result as any).web_accessible_resources).toEqual([
+    expect(result.web_accessible_resources).toEqual([
       {
         matches: ['*://example.com/*'],
         resources: ['content_scripts/content-0.svg']
@@ -497,7 +504,7 @@ describe('generateManifestPatches', () => {
       }
     )
 
-    expect((updated as any).web_accessible_resources).toBeUndefined()
+    expect(updated.web_accessible_resources).toBeUndefined()
   })
 
   it('should correctly handle manifest v2 content scripts', () => {
@@ -558,7 +565,7 @@ describe('generateManifestPatches', () => {
 
   describe('user-declared web_accessible_resources resolution', () => {
     it('ignores malformed mv3 entries without resources', () => {
-      const manifest: any = {
+      const manifest = {
         manifest_version: 3,
         web_accessible_resources: [
           {matches: ['<all_urls>']},
@@ -566,15 +573,15 @@ describe('generateManifestPatches', () => {
         ]
       }
 
-      const compilation: any = {
+      const compilation = {
         options: {
           mode: 'development',
           context: tmpRoot,
           output: {path: tmpRoot}
         },
         outputOptions: {path: tmpRoot},
-        errors: [],
-        warnings: [],
+        errors: [] as BuildIssue[],
+        warnings: [] as BuildIssue[],
         assets: {},
         getAsset: () => undefined,
         emitAsset: vi.fn(),
@@ -582,7 +589,7 @@ describe('generateManifestPatches', () => {
       }
 
       const resolved = resolveUserDeclaredWAR(
-        compilation as Compilation,
+        asCompilation(compilation),
         manifestPath,
         manifest,
         'firefox'
@@ -601,24 +608,20 @@ describe('generateManifestPatches', () => {
       }
 
       const manifestSource = {source: () => JSON.stringify(manifest)}
-      const compilation: any = {
+      const compilation = {
         getAsset: () => ({name: 'manifest.json', source: manifestSource}),
         assets: {'manifest.json': manifestSource},
         updateAsset: vi.fn(),
         emitAsset: vi.fn(),
         fileDependencies: new Set(),
         options: {mode: 'development'},
-        errors: [] as any[]
+        errors: [] as BuildIssue[]
       }
 
-      generateManifestPatches(
-        compilation as unknown as Compilation,
-        manifestPath,
-        {}
-      )
+      generateManifestPatches(asCompilation(compilation), manifestPath, {})
 
       expect(compilation.errors.length).toBe(1)
-      const err: any = compilation.errors[0]
+      const err = compilation.errors[0]
       expect(err.name).toBe('WARInvalidMatchPattern')
       expect(err.file).toBe('manifest.json')
     })
@@ -640,21 +643,17 @@ describe('generateManifestPatches', () => {
       }
 
       const manifestSource = {source: () => JSON.stringify(manifest)}
-      const compilation: any = {
+      const compilation = {
         getAsset: () => ({name: 'manifest.json', source: manifestSource}),
         assets: {'manifest.json': manifestSource},
         updateAsset: vi.fn(),
         emitAsset: vi.fn(),
         fileDependencies: new Set(),
         options: {mode: 'development'},
-        errors: [] as any[]
+        errors: [] as BuildIssue[]
       }
 
-      generateManifestPatches(
-        compilation as unknown as Compilation,
-        manifestPath,
-        {}
-      )
+      generateManifestPatches(asCompilation(compilation), manifestPath, {})
 
       expect(compilation.errors.length).toBe(0)
     })
@@ -662,22 +661,22 @@ describe('generateManifestPatches', () => {
     // The pattern contract encodes Chrome's loader rules. Safari's loader is
     // the converter plus WebKit, so webkit targets are exempt like gecko is.
     it('does not apply the chrome match-pattern contract to webkit targets', () => {
-      const manifest: any = {
+      const manifest = {
         manifest_version: 3,
         web_accessible_resources: [
           {matches: ['https://example.com/path'], resources: ['assets/*.png']}
         ]
       }
 
-      const makeCompilation = (): any => ({
+      const makeCompilation = () => ({
         options: {
           mode: 'development',
           context: tmpRoot,
           output: {path: tmpRoot}
         },
         outputOptions: {path: tmpRoot},
-        errors: [],
-        warnings: [],
+        errors: [] as BuildIssue[],
+        warnings: [] as BuildIssue[],
         assets: {},
         getAsset: () => undefined,
         emitAsset: vi.fn(),
@@ -687,7 +686,7 @@ describe('generateManifestPatches', () => {
       for (const browser of ['safari', 'webkit-based']) {
         const compilation = makeCompilation()
         resolveUserDeclaredWAR(
-          compilation as Compilation,
+          asCompilation(compilation),
           manifestPath,
           manifest,
           browser
@@ -698,7 +697,7 @@ describe('generateManifestPatches', () => {
 
       const chromeCompilation = makeCompilation()
       resolveUserDeclaredWAR(
-        chromeCompilation as Compilation,
+        asCompilation(chromeCompilation),
         manifestPath,
         manifest,
         'chrome'
@@ -748,36 +747,36 @@ describe('generateManifestPatches', () => {
 
       const emitAsset = vi.fn()
       const emitted = new Set<string>()
-      const compilation: any = {
+      const compilation = {
         options: {
           mode: 'development',
           context: tmpRoot,
           output: {path: path.join(tmpRoot, 'dist')}
         },
         outputOptions: {path: path.join(tmpRoot, 'dist')},
-        errors: [],
-        warnings: [],
+        errors: [] as BuildIssue[],
+        warnings: [] as BuildIssue[],
         assets: {},
         getAsset: (n: string) => (emitted.has(n) ? {name: n} : undefined),
-        emitAsset: (n: string, s: any) => {
+        emitAsset: (n: string, s: unknown) => {
           emitted.add(n)
           emitAsset(n, s)
         },
         fileDependencies: new Set<string>()
       }
 
-      let resolved: any
+      let resolved: ReturnType<typeof resolveUserDeclaredWAR> | undefined
       expect(() => {
         resolved = resolveUserDeclaredWAR(
-          compilation as Compilation,
+          asCompilation(compilation),
           manifestPath,
           manifest,
           'chrome'
         )
       }).not.toThrow()
 
-      expect(Array.from(resolved.v3[0].resources)).toContain('icons/*')
-      const names = emitAsset.mock.calls.map((c: any[]) => c[0])
+      expect(Array.from(resolved?.v3[0].resources ?? [])).toContain('icons/*')
+      const names = emitAsset.mock.calls.map((c) => c[0])
       expect(names).toContain('icons/a.png')
       expect(names).toContain('icons/sub/b.png')
       expect(compilation.errors.length).toBe(0)
@@ -797,7 +796,7 @@ describe('generateManifestPatches', () => {
         }
       )
 
-      const groups = (result as any).web_accessible_resources as {
+      const groups = result.web_accessible_resources as {
         matches: string[]
         resources: string[]
       }[]
@@ -813,11 +812,11 @@ describe('generateManifestPatches', () => {
       }
 
       for (const mode of ['development', 'production']) {
-        const compilation: any = {
+        const compilation = {
           options: {mode, context: tmpRoot, output: {path: tmpRoot}},
           outputOptions: {path: tmpRoot},
-          errors: [],
-          warnings: [],
+          errors: [] as BuildIssue[],
+          warnings: [] as BuildIssue[],
           assets: {},
           getAsset: () => undefined,
           emitAsset: vi.fn(),
@@ -825,7 +824,7 @@ describe('generateManifestPatches', () => {
         }
 
         const resolved = resolveUserDeclaredWAR(
-          compilation as Compilation,
+          asCompilation(compilation),
           manifestPath,
           declared,
           'chrome'
@@ -862,7 +861,7 @@ describe('generateManifestPatches', () => {
         }
       )
 
-      const groups = (result as any).web_accessible_resources as {
+      const groups = result.web_accessible_resources as {
         matches: string[]
         resources: string[]
       }[]
@@ -888,7 +887,7 @@ describe('generateManifestPatches', () => {
         }
       )
 
-      const groups = (result as any).web_accessible_resources as {
+      const groups = result.web_accessible_resources as {
         matches: string[]
         resources: string[]
       }[]
@@ -966,22 +965,15 @@ describe('generateManifestPatches', () => {
         emitAsset: vi.fn(),
         fileDependencies: new Set(),
         options: {mode: 'production'},
-        warnings: [] as any[]
+        warnings: [] as BuildIssue[]
       }
 
-      generateManifestPatches(
-        compilation as unknown as Compilation,
-        manifestPath,
-        {}
-      )
+      generateManifestPatches(asCompilation(compilation), manifestPath, {})
 
       expect(compilation.warnings.length).toBeGreaterThan(0)
-      const msg = String(
-        (compilation.warnings[0] && (compilation.warnings[0] as any).message) ||
-          ''
-      )
+      const msg = String(compilation.warnings[0]?.message || '')
       expect(msg).toContain('NOT FOUND')
-      expect((compilation.warnings[0] as any).file).toBe('manifest.json')
+      expect(compilation.warnings[0].file).toBe('manifest.json')
     })
 
     it('emits a warning for missing relative file (mv3) and drops the entry', () => {
@@ -999,21 +991,17 @@ describe('generateManifestPatches', () => {
         emitAsset: vi.fn(),
         fileDependencies: new Set(),
         options: {mode: 'development'},
-        warnings: [] as any[]
+        warnings: [] as BuildIssue[]
       }
 
-      generateManifestPatches(
-        compilation as unknown as Compilation,
-        manifestPath,
-        {}
-      )
+      generateManifestPatches(asCompilation(compilation), manifestPath, {})
 
       expect(compilation.warnings.length).toBeGreaterThan(0)
       const msg = String(compilation.warnings[0]?.message || '')
       expect(msg).toContain('NOT FOUND')
 
       const updated = JSON.parse(
-        (compilation.updateAsset as any).mock.calls[0][1].source().toString()
+        compilation.updateAsset.mock.calls[0][1].source().toString()
       )
 
       expect(updated).not.toHaveProperty('web_accessible_resources')
@@ -1030,7 +1018,7 @@ describe('generateManifestPatches', () => {
         web_accessible_resources: [{matches: ['<all_urls>'], resources: [rel]}]
       }
       const manifestSource = {source: () => JSON.stringify(manifest)}
-      const compilation: any = {
+      const compilation = {
         getAsset: () => ({name: 'manifest.json', source: manifestSource}),
         assets: {'manifest.json': manifestSource},
         updateAsset: vi.fn(),
@@ -1039,7 +1027,7 @@ describe('generateManifestPatches', () => {
         options: {mode: 'development'}
       }
 
-      generateManifestPatches(compilation as Compilation, manifestPath, {})
+      generateManifestPatches(asCompilation(compilation), manifestPath, {})
 
       expect(Array.from(compilation.fileDependencies)).toContain(abs)
     })
@@ -1080,7 +1068,7 @@ describe('generateManifestPatches', () => {
       {extraAssets: {'existing.svg': 'x', 'x.svg': 'x'}}
     )
 
-    const groups = (result as any).web_accessible_resources as {
+    const groups = result.web_accessible_resources as {
       matches: string[]
       resources: string[]
     }[]

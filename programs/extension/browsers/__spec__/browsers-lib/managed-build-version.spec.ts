@@ -11,6 +11,7 @@ import {
   resolveFromBinaries,
   resolveManagedBinaryIn
 } from '../../browsers-lib/output-binaries-resolver'
+import type {CompilationLike} from '../../browsers-types'
 
 const roots: string[] = []
 
@@ -189,7 +190,8 @@ describe('preferring the Firefox channel the installer pins', () => {
   })
 })
 
-const compilation = {} as any
+// A compilation with no output path, the shape the resolver falls back from.
+const compilation = {} as CompilationLike
 
 const isWin = process.platform === 'win32'
 const platformPrefix =

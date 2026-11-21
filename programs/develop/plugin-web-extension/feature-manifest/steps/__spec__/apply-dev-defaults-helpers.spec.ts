@@ -1,4 +1,5 @@
 import {describe, expect, it} from 'vitest'
+import {asManifest} from '../../__spec__/helpers/manifest-fakes'
 import patchBackground from '../apply-dev-defaults-lib/patch-background'
 import {patchV2CSP, patchV3CSP} from '../apply-dev-defaults-lib/patch-csp'
 import patchExternallyConnectable from '../apply-dev-defaults-lib/patch-externally-connectable'
@@ -12,13 +13,13 @@ import {
 describe('ApplyDevDefaults patch helpers', () => {
   it('adds a fallback background script for firefox and mv3 chromium', () => {
     expect(
-      patchBackground({manifest_version: 3} as any, 'firefox').background
+      patchBackground(asManifest({manifest_version: 3}), 'firefox').background
     ).toEqual({
       scripts: ['background/script.js']
     })
 
     expect(
-      patchBackground({manifest_version: 3} as any, 'chromium').background
+      patchBackground(asManifest({manifest_version: 3}), 'chromium').background
     ).toEqual({
       service_worker: 'background/service_worker.js'
     })
@@ -29,13 +30,14 @@ describe('ApplyDevDefaults patch helpers', () => {
   // itself: the same emitted bundle, listed under scripts, no persistent key.
   it('adds the fallback background as scripts for safari', () => {
     expect(
-      patchBackground({manifest_version: 3} as any, 'safari').background
+      patchBackground(asManifest({manifest_version: 3}), 'safari').background
     ).toEqual({
       scripts: ['background/service_worker.js']
     })
 
     expect(
-      patchBackground({manifest_version: 3} as any, 'webkit-based').background
+      patchBackground(asManifest({manifest_version: 3}), 'webkit-based')
+        .background
     ).toEqual({
       scripts: ['background/service_worker.js']
     })
@@ -44,12 +46,12 @@ describe('ApplyDevDefaults patch helpers', () => {
   it('preserves existing background declarations', () => {
     expect(
       patchBackground(
-        {
+        asManifest({
           manifest_version: 3,
           background: {
             service_worker: 'worker.js'
           }
-        } as any,
+        }),
         'chromium'
       )
     ).toEqual({
@@ -60,10 +62,15 @@ describe('ApplyDevDefaults patch helpers', () => {
   })
 
   it('ensures v2 and v3 CSP defaults are present', () => {
-    expect(patchV2CSP({manifest_version: 2} as any)).toContain("'unsafe-eval'")
-    expect(patchV2CSP({manifest_version: 2} as any)).toContain('object-src')
+    expect(patchV2CSP(asManifest({manifest_version: 2}))).toContain(
+      "'unsafe-eval'"
+    )
 
-    expect(patchV3CSP({manifest_version: 3} as any)).toEqual({
+    expect(patchV2CSP(asManifest({manifest_version: 2}))).toContain(
+      'object-src'
+    )
+
+    expect(patchV3CSP(asManifest({manifest_version: 3}))).toEqual({
       extension_pages: "script-src 'self'; object-src 'self'; "
     })
   })
@@ -71,12 +78,12 @@ describe('ApplyDevDefaults patch helpers', () => {
   describe('connect-src loosening follows the connectable host', () => {
     const HOST_ENV = 'EXTENSION_DEV_SERVER_CONNECTABLE_HOST'
     const restrictive = () =>
-      ({
+      asManifest({
         manifest_version: 3,
         content_security_policy: {
           extension_pages: "script-src 'self'; connect-src 'self'"
         }
-      }) as any
+      })
 
     it('ignores a host another session left in the environment', () => {
       const prev = process.env[HOST_ENV]
@@ -133,10 +140,10 @@ describe('ApplyDevDefaults patch helpers', () => {
 
     it('extends default-src fallback with the connectable host too (v2 path)', () => {
       const csp = patchV2CSP(
-        {
+        asManifest({
           manifest_version: 2,
           content_security_policy: "default-src 'self'"
-        } as any,
+        }),
         undefined,
         '10.0.0.5'
       )
@@ -153,13 +160,17 @@ describe('ApplyDevDefaults patch helpers', () => {
         .find((part) => part.split(' ')[0] === name)
 
     const pagesV3 = (extensionPages: string) =>
-      patchV3CSP({
-        manifest_version: 3,
-        content_security_policy: {extension_pages: extensionPages}
-      } as any).extension_pages
+      patchV3CSP(
+        asManifest({
+          manifest_version: 3,
+          content_security_policy: {extension_pages: extensionPages}
+        })
+      ).extension_pages
 
     const pagesV2 = (policy: string) =>
-      patchV2CSP({manifest_version: 2, content_security_policy: policy} as any)
+      patchV2CSP(
+        asManifest({manifest_version: 2, content_security_policy: policy})
+      )
 
     const everyDirectiveIsValid = (policy: string) => {
       for (const part of policy.split(';')) {
@@ -269,13 +280,13 @@ describe('ApplyDevDefaults patch helpers', () => {
     })
 
     it('drops upgrade-insecure-requests on Firefox only, where it breaks the loopback dial', () => {
-      const manifest = {
+      const manifest = asManifest({
         manifest_version: 3,
         content_security_policy: {
           extension_pages:
             "script-src 'self'; upgrade-insecure-requests; connect-src 'self'"
         }
-      } as any
+      })
 
       expect(patchV3CSP(manifest, 'firefox').extension_pages).not.toContain(
         'upgrade-insecure-requests'
@@ -287,11 +298,11 @@ describe('ApplyDevDefaults patch helpers', () => {
 
       expect(
         patchV2CSP(
-          {
+          asManifest({
             manifest_version: 2,
             content_security_policy:
               "script-src 'self'; upgrade-insecure-requests"
-          } as any,
+          }),
           'firefox'
         )
       ).not.toContain('upgrade-insecure-requests')
@@ -299,13 +310,15 @@ describe('ApplyDevDefaults patch helpers', () => {
 
     it('never touches the sandbox slot', () => {
       const sandbox = "sandbox allow-scripts; default-src 'none'"
-      const policy = patchV3CSP({
-        manifest_version: 3,
-        content_security_policy: {
-          extension_pages: "default-src 'none'; script-src 'self'",
-          sandbox
-        }
-      } as any)
+      const policy = patchV3CSP(
+        asManifest({
+          manifest_version: 3,
+          content_security_policy: {
+            extension_pages: "default-src 'none'; script-src 'self'",
+            sandbox
+          }
+        })
+      )
 
       expect(policy.sandbox).toBe(sandbox)
     })
@@ -313,11 +326,13 @@ describe('ApplyDevDefaults patch helpers', () => {
 
   it('adds extension ids to externally_connectable when missing', () => {
     expect(
-      patchExternallyConnectable({
-        externally_connectable: {
-          matches: ['https://example.com/*']
-        }
-      } as any)
+      patchExternallyConnectable(
+        asManifest({
+          externally_connectable: {
+            matches: ['https://example.com/*']
+          }
+        })
+      )
     ).toEqual({
       externally_connectable: {
         matches: ['https://example.com/*'],
@@ -328,15 +343,17 @@ describe('ApplyDevDefaults patch helpers', () => {
 
   it('leaves a declared externally_connectable ids allowlist alone', () => {
     expect(
-      patchExternallyConnectable({
-        externally_connectable: {
-          matches: ['https://example.com/*'],
-          ids: ['abcdefghijklmnopabcdefghijklmnop']
-        }
-      } as any)
+      patchExternallyConnectable(
+        asManifest({
+          externally_connectable: {
+            matches: ['https://example.com/*'],
+            ids: ['abcdefghijklmnopabcdefghijklmnop']
+          }
+        })
+      )
     ).toEqual({})
 
-    expect(patchExternallyConnectable({} as any)).toEqual({})
+    expect(patchExternallyConnectable(asManifest({}))).toEqual({})
   })
 
   // The literal list is the dev surface pages can reach. A new entry in the
@@ -350,24 +367,28 @@ describe('ApplyDevDefaults patch helpers', () => {
 
   it('adds only the dev runtime resources while preserving existing entries', () => {
     expect(
-      patchWebResourcesV2({
-        manifest_version: 2,
-        content_scripts: [{matches: ['<all_urls>']}],
-        web_accessible_resources: ['existing.js']
-      } as any)
+      patchWebResourcesV2(
+        asManifest({
+          manifest_version: 2,
+          content_scripts: [{matches: ['<all_urls>']}],
+          web_accessible_resources: ['existing.js']
+        })
+      )
     ).toEqual(['existing.js', ...DEV_RUNTIME_RESOURCES])
 
     expect(
-      patchWebResourcesV3({
-        manifest_version: 3,
-        content_scripts: [{matches: ['https://example.com/*']}],
-        web_accessible_resources: [
-          {
-            resources: ['existing.js'],
-            matches: ['https://example.com/*']
-          }
-        ]
-      } as any)
+      patchWebResourcesV3(
+        asManifest({
+          manifest_version: 3,
+          content_scripts: [{matches: ['https://example.com/*']}],
+          web_accessible_resources: [
+            {
+              resources: ['existing.js'],
+              matches: ['https://example.com/*']
+            }
+          ]
+        })
+      )
     ).toEqual([
       {
         resources: ['existing.js'],
@@ -381,13 +402,15 @@ describe('ApplyDevDefaults patch helpers', () => {
   })
 
   it('never widens the dev manifest past the content script matches', () => {
-    const patched = patchWebResourcesV3({
-      manifest_version: 3,
-      content_scripts: [
-        {matches: ['https://example.com/*']},
-        {matches: ['https://a.example/*']}
-      ]
-    } as any) as Array<{resources: string[]; matches: string[]}>
+    const patched = patchWebResourcesV3(
+      asManifest({
+        manifest_version: 3,
+        content_scripts: [
+          {matches: ['https://example.com/*']},
+          {matches: ['https://a.example/*']}
+        ]
+      })
+    ) as Array<{resources: string[]; matches: string[]}>
 
     expect(patched).toHaveLength(1)
     expect(patched[0].matches).toEqual([
@@ -400,6 +423,6 @@ describe('ApplyDevDefaults patch helpers', () => {
   })
 
   it('leaves the key absent when nothing of ours runs in a page', () => {
-    expect(patchWebResources({manifest_version: 3} as any)).toEqual({})
+    expect(patchWebResources(asManifest({manifest_version: 3}))).toEqual({})
   })
 })

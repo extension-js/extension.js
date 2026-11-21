@@ -2,6 +2,11 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
+import {
+  asCompiler,
+  type TapCallback
+} from '../../../__spec__/helpers/rspack-fakes'
+import {asBrowser} from '../../__spec__/helpers/manifest-fakes'
 import {safariMissingMemberDetails} from '../../messages'
 import {webkitGuardedRanges} from '../apply-dev-defaults-lib/webkit-guarded-ranges'
 import {UpdateManifest} from '../update-manifest'
@@ -17,6 +22,9 @@ import {
   webkitMissingApis,
   webkitUnsupportedMembers
 } from '../warn-gecko-unsupported-apis'
+
+// A module as the scan walks it: a resource and the modules it concatenates.
+type FakeModule = {resource?: string; modules?: FakeModule[]}
 
 const SIDE_PANEL =
   'chrome.sidePanel.setPanelBehavior({openPanelOnActionClick: true})\n'
@@ -492,7 +500,7 @@ describe('findGeckoUnsupportedApiUses', () => {
 
   // A compilation whose chunk graph maps every module onto the given files.
   const compilationWith = (
-    modules: Array<{resource?: string; modules?: any[]}>,
+    modules: FakeModule[],
     assets: ReturnType<typeof asset>[] = [],
     files?: string[]
   ): ScannableCompilation => ({
@@ -671,13 +679,13 @@ describe('UpdateManifest Gecko unsupported API warning', () => {
   ) => {
     const sw = path.join(tmp, 'background.js')
     fs.writeFileSync(sw, background)
-    const assets: Record<string, any> = {
+    const assets: Record<string, {source: () => string}> = {
       'manifest.json': {source: () => JSON.stringify(manifest)},
       'background/scripts.js': {source: () => options.emitted ?? background}
     }
-    const compilation: any = {
-      errors: [],
-      warnings: [],
+    const compilation = {
+      errors: [] as unknown[],
+      warnings: [] as unknown[],
       options: {mode},
       assets,
       modules: [{resource: sw}],
@@ -686,7 +694,7 @@ describe('UpdateManifest Gecko unsupported API warning', () => {
       getAssets: () =>
         Object.entries(assets).map(([name, src]) => ({name, source: src})),
       hooks: {
-        processAssets: {tap: (_opts: any, fn: any) => fn()}
+        processAssets: {tap: (_opts: unknown, fn: () => void) => fn()}
       },
       updateAsset: () => {},
       emitAsset: () => {},
@@ -700,17 +708,17 @@ describe('UpdateManifest Gecko unsupported API warning', () => {
           }
         : {})
     }
-    const compiler: any = {
+    const compiler = asCompiler({
       options: {mode, context: tmp},
       hooks: {
-        thisCompilation: {tap: (_n: string, fn: any) => fn(compilation)}
+        thisCompilation: {tap: (_n: string, fn: TapCallback) => fn(compilation)}
       }
-    }
+    })
     const step =
       options.instance ??
       new UpdateManifest({
         manifestPath: path.join(tmp, 'manifest.json'),
-        browser: browser as any
+        browser: asBrowser(browser)
       })
     step.apply(compiler)
 
@@ -922,7 +930,7 @@ describe('UpdateManifest Gecko unsupported API warning', () => {
   it('warns once for the same call across repeated dev compiles', () => {
     const step = new UpdateManifest({
       manifestPath: path.join(tmp, 'manifest.json'),
-      browser: 'safari' as any
+      browser: 'safari'
     })
     const opts = {chunkGraph: true, instance: step}
     expect(run('development', 'safari', mv3, SIDE_PANEL, opts)).toHaveLength(1)
@@ -933,7 +941,7 @@ describe('UpdateManifest Gecko unsupported API warning', () => {
   it('still warns for a second API added later in the same dev session', () => {
     const step = new UpdateManifest({
       manifestPath: path.join(tmp, 'manifest.json'),
-      browser: 'safari' as any
+      browser: 'safari'
     })
     const opts = {chunkGraph: true, instance: step}
     expect(run('development', 'safari', mv3, SIDE_PANEL, opts)).toHaveLength(1)
@@ -1113,7 +1121,7 @@ describe('UpdateManifest Gecko unsupported API warning', () => {
   it('warns once for the same member across repeated dev compiles', () => {
     const step = new UpdateManifest({
       manifestPath: path.join(tmp, 'manifest.json'),
-      browser: 'safari' as any
+      browser: 'safari'
     })
     const opts = {chunkGraph: true, instance: step}
     expect(run('development', 'safari', mv3, MANAGED_READ, opts)).toHaveLength(
@@ -1205,7 +1213,7 @@ describe('UpdateManifest Gecko unsupported API warning', () => {
   it('repeats the warning on every production build', () => {
     const step = new UpdateManifest({
       manifestPath: path.join(tmp, 'manifest.json'),
-      browser: 'safari' as any
+      browser: 'safari'
     })
     const opts = {chunkGraph: true, instance: step}
     expect(run('production', 'safari', mv3, SIDE_PANEL, opts)).toHaveLength(1)

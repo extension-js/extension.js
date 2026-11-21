@@ -45,6 +45,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import * as banner from '../../browsers-lib/banner'
 import {setupCdpAfterLaunch} from '../../run-chromium/chromium-launch/setup-cdp-after-launch'
+import type {ChromiumPluginRuntime} from '../../run-chromium/chromium-types'
 
 const tempDirs: string[] = []
 
@@ -68,10 +69,14 @@ function makeSession(): {outPath: string; readyPath: string} {
   return {outPath, readyPath}
 }
 
-const runSetup = async (outPath: string, plugin: Record<string, unknown>) =>
+// The rows set only the runtime fields the refusal path reads.
+const runSetup = async (
+  outPath: string,
+  plugin: Partial<ChromiumPluginRuntime>
+) =>
   setupCdpAfterLaunch(
-    {options: {mode: 'development'}} as any,
-    plugin as any,
+    {options: {mode: 'development'}},
+    plugin as ChromiumPluginRuntime,
     [`--load-extension=${outPath}`, '--remote-debugging-port=9333'],
     undefined
   )
@@ -82,7 +87,7 @@ describe('setupCdpAfterLaunch load-refusal differential', () => {
   beforeEach(() => {
     verifyGuestLoadedSpy.mockReset()
     ensureLoadedSpy.mockClear()
-    ;(banner.printDevBannerOnce as any).mockClear()
+    vi.mocked(banner.printDevBannerOnce).mockClear()
     errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 

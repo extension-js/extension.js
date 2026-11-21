@@ -8,6 +8,13 @@ import classicTracedGlobalsLoader, {
   collectExposableClassicNames
 } from '../steps/classic-traced-globals-loader'
 
+// The fake carries only the fields the loader reads, not the whole context.
+function asTracedContext(
+  fake: unknown
+): ThisParameterType<typeof classicTracedGlobalsLoader> {
+  return fake as ThisParameterType<typeof classicTracedGlobalsLoader>
+}
+
 describe('collectExposableClassicNames', () => {
   it('collects top-level function, var, let, const and class', () => {
     expect(
@@ -48,7 +55,7 @@ describe('classic-traced-globals-loader', () => {
       ''
     ].join('\n')
     const output = classicTracedGlobalsLoader.call(
-      {resourcePath: '/tmp/worker-shared.js'} as any,
+      asTracedContext({resourcePath: '/tmp/worker-shared.js'}),
       source
     )
     expect(output).toContain('function workerShared(n) { return sharedAdd(n) }')
@@ -61,12 +68,12 @@ describe('a classic file executeScript injects from outside scripts/', () => {
   const loaded = (source: string, injected = true) =>
     String(
       classicTracedGlobalsLoader.call(
-        {
+        asTracedContext({
           resourcePath: '/tmp/injected/tool.js',
           resourceQuery: injected
             ? `?__extensionjs_traced_classic__&${INJECTED_CLASSIC_QUERY}`
             : '?__extensionjs_traced_classic__'
-        } as any,
+        }),
         source
       )
     )

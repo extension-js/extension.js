@@ -2,6 +2,12 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import type {BrowserType} from '../../../types'
+import {
+  asCompilation,
+  asCompiler,
+  type TapCallback
+} from '../../__spec__/helpers/rspack-fakes'
 import {setOriginalManifestContent} from '../manifest-lib/manifest'
 import {
   findRemoteWebAssemblyAddresses,
@@ -9,6 +15,7 @@ import {
   WASM_PAGES_POLICY,
   WarnWebAssembly
 } from '../steps/warn-webassembly'
+import type {StepDiagnostic} from './helpers/manifest-fakes'
 
 const roots: string[] = []
 
@@ -87,7 +94,7 @@ function project(options: {
   return root
 }
 
-async function build(root: string, browser = 'chrome') {
+async function build(root: string, browser: BrowserType = 'chrome') {
   const {extensionBuild} = await import('../../../command-build')
   const previous = process.env.VITEST
   process.env.VITEST = 'true'
@@ -99,7 +106,7 @@ async function build(root: string, browser = 'chrome') {
       install: false,
       mode: 'production',
       exitOnError: false
-    } as any)
+    })
   } finally {
     if (previous === undefined) delete process.env.VITEST
     else process.env.VITEST = previous
@@ -285,25 +292,25 @@ describe('findRemoteWebAssemblyAddresses', () => {
 
 describe('WarnWebAssembly in a dev session', () => {
   function session(mode: 'development' | 'production') {
-    let thisCompilationFn: ((compilation: any) => void) | undefined
+    let thisCompilationFn: TapCallback | undefined
 
-    const compiler: any = {
+    const compiler = asCompiler({
       options: {mode, context: os.tmpdir()},
       hooks: {
         thisCompilation: {
-          tap: (_name: string, fn: any) => {
+          tap: (_name: string, fn: TapCallback) => {
             thisCompilationFn = fn
           }
         }
       }
-    }
+    })
 
     new WarnWebAssembly({browser: 'chrome'}).apply(compiler)
 
     return (wasmName: string) => {
-      const warnings: any[] = []
+      const warnings: StepDiagnostic[] = []
       let processAssetsFn: (() => void) | undefined
-      const compilation: any = {
+      const compilation = asCompilation({
         warnings,
         modules: [],
         getAssets: () => [
@@ -315,12 +322,12 @@ describe('WarnWebAssembly in a dev session', () => {
         ],
         hooks: {
           processAssets: {
-            tap: (_options: any, callback: any) => {
+            tap: (_options: unknown, callback: TapCallback) => {
               processAssetsFn = callback
             }
           }
         }
-      }
+      })
       setOriginalManifestContent(
         compilation,
         JSON.stringify({manifest_version: 3, name: 'x', version: '1'})

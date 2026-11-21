@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {asCompilation, asCompiler} from '../../__spec__/helpers/rspack-fakes'
 import {getLocales} from '../get-locales'
 import {processLocaleAssets} from '../process-assets'
 import {validateLocales} from '../validation'
@@ -42,8 +43,8 @@ describe('validateLocales author-mode diagnostics (unit)', () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     const result = validateLocales(
-      makeCompiler(tmpRoot) as any,
-      makeCompilation() as any,
+      asCompiler(makeCompiler(tmpRoot)),
+      asCompilation(makeCompilation()),
       manifestPath
     )
 
@@ -62,8 +63,8 @@ describe('validateLocales author-mode diagnostics (unit)', () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     const result = validateLocales(
-      makeCompiler(tmpRoot) as any,
-      makeCompilation() as any,
+      asCompiler(makeCompiler(tmpRoot)),
+      asCompilation(makeCompilation()),
       manifestPath
     )
 
@@ -110,8 +111,8 @@ describe('validateLocales manifest placeholder scan', () => {
     const compilation = makeCompilation()
 
     const result = validateLocales(
-      makeCompiler(tmpRoot) as any,
-      compilation as any,
+      asCompiler(makeCompiler(tmpRoot)),
+      asCompilation(compilation),
       manifestPath
     )
 
@@ -128,8 +129,8 @@ describe('validateLocales manifest placeholder scan', () => {
     const compilation = makeCompilation()
 
     const result = validateLocales(
-      makeCompiler(tmpRoot) as any,
-      compilation as any,
+      asCompiler(makeCompiler(tmpRoot)),
+      asCompilation(compilation),
       manifestPath
     )
 
@@ -150,8 +151,8 @@ describe('validateLocales manifest placeholder scan', () => {
     const compilation = makeCompilation()
 
     const result = validateLocales(
-      makeCompiler(tmpRoot) as any,
-      compilation as any,
+      asCompiler(makeCompiler(tmpRoot)),
+      asCompilation(compilation),
       manifestPath
     )
 
@@ -167,8 +168,8 @@ describe('validateLocales manifest placeholder scan', () => {
 
     const compilation = makeCompilation()
     const result = validateLocales(
-      makeCompiler(tmpRoot) as any,
-      compilation as any,
+      asCompiler(makeCompiler(tmpRoot)),
+      asCompilation(compilation),
       manifestPath
     )
     expect(result).toBe(true)
@@ -183,8 +184,8 @@ describe('validateLocales manifest placeholder scan', () => {
 
     const compilation = makeCompilation()
     const result = validateLocales(
-      makeCompiler(tmpRoot) as any,
-      compilation as any,
+      asCompiler(makeCompiler(tmpRoot)),
+      asCompilation(compilation),
       manifestPath
     )
     expect(result).toBe(false)
@@ -200,8 +201,8 @@ describe('validateLocales manifest placeholder scan', () => {
     const compilation = makeCompilation()
 
     const result = validateLocales(
-      makeCompiler(tmpRoot) as any,
-      compilation as any,
+      asCompiler(makeCompiler(tmpRoot)),
+      asCompilation(compilation),
       manifestPath
     )
 
@@ -249,8 +250,8 @@ describe('validateLocales reads the manifest resolved for this browser', () => {
       const compilation = makeCompilation()
 
       const result = validateLocales(
-        makeCompiler(tmpRoot) as any,
-        compilation as any,
+        asCompiler(makeCompiler(tmpRoot)),
+        asCompilation(compilation),
         manifestPath,
         browser
       )
@@ -273,8 +274,8 @@ describe('validateLocales reads the manifest resolved for this browser', () => {
     const compilation = makeCompilation()
 
     const result = validateLocales(
-      makeCompiler(tmpRoot) as any,
-      compilation as any,
+      asCompiler(makeCompiler(tmpRoot)),
+      asCompilation(compilation),
       manifestPath,
       'chrome'
     )
@@ -296,8 +297,8 @@ describe('validateLocales reads the manifest resolved for this browser', () => {
     const compilation = makeCompilation()
 
     const result = validateLocales(
-      makeCompiler(tmpRoot) as any,
-      compilation as any,
+      asCompiler(makeCompiler(tmpRoot)),
+      asCompilation(compilation),
       manifestPath,
       'firefox'
     )
@@ -344,8 +345,8 @@ describe('validateLocales with _locales inside public/', () => {
     const compilation = makeCompilation()
 
     const result = validateLocales(
-      makeCompiler(tmpRoot) as any,
-      compilation as any,
+      asCompiler(makeCompiler(tmpRoot)),
+      asCompilation(compilation),
       manifestPath,
       'chrome'
     )
@@ -370,8 +371,8 @@ describe('validateLocales with _locales inside public/', () => {
     ])
 
     processLocaleAssets(
-      makeCompiler(tmpRoot) as any,
-      compilation as any,
+      asCompiler(makeCompiler(tmpRoot)),
+      asCompilation(compilation),
       manifestPath
     )
 

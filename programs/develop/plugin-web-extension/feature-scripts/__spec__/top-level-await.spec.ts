@@ -86,7 +86,7 @@ async function built(root: string): Promise<Diagnostic[]> {
       install: false,
       mode: 'production',
       exitOnError: false
-    } as any)
+    } as Parameters<typeof extensionBuild>[1])
 
     return []
   } catch (error) {
@@ -108,7 +108,7 @@ async function devSession(root: string): Promise<Diagnostic[]> {
     metadataCommand: 'dev',
     silent: true,
     output: {clean: true, path: path.join(root, 'dist', 'chrome')}
-  } as any)
+  } as Parameters<typeof webpackConfig>[1])
 
   config.plugins = (config.plugins || []).filter(
     (plugin) =>

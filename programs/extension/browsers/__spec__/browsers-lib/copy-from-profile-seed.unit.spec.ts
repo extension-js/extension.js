@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {resolveProfileConfig} from '../../browsers-lib/resolve-profile'
+import type {CompilationLike} from '../../browsers-types'
 import {browserConfig} from '../../run-chromium/chromium-launch/browser-config'
 
 const SINGLETON_ARTIFACTS = [
@@ -18,7 +19,14 @@ function userDataDir(flags: string[]): string {
   return flag.replace('--user-data-dir=', '')
 }
 
-function readPreferences(dir: string): Record<string, any> {
+// The preference keys the seeding rows read back.
+interface SeededPreferences {
+  profile: {name: string}
+  extensions: {ui: {developer_mode: boolean}; developer_mode: boolean}
+  distribution: {suppress_first_run_bubble: boolean}
+}
+
+function readPreferences(dir: string): SeededPreferences {
   return JSON.parse(
     fs.readFileSync(path.join(dir, 'Default', 'Preferences'), 'utf8')
   )
@@ -55,10 +63,10 @@ describe('copyFromProfile seeding', () => {
     fs.rmSync(scratch, {recursive: true, force: true})
   })
 
-  function makeCompilation() {
+  function makeCompilation(): CompilationLike {
     return {
       options: {output: {path: path.join(scratch, 'project', 'dist', 'chrome')}}
-    } as any
+    }
   }
 
   function expectSeededShape(dir: string) {
@@ -102,7 +110,7 @@ describe('copyFromProfile seeding', () => {
         extension: '/ext',
         browser: 'chrome',
         copyFromProfile: source
-      } as any)
+      })
 
       expectSeededShape(userDataDir(flags))
     }
@@ -121,7 +129,7 @@ describe('copyFromProfile seeding', () => {
       browser: 'chrome',
       copyFromProfile: source,
       preferences: {profile: {name: 'Dev'}}
-    } as any)
+    })
 
     const dir = userDataDir(flags)
     const entries = fs.readdirSync(dir)

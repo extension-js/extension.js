@@ -7,7 +7,7 @@ import {bridgeStandIn} from './helpers/engine-stand-ins'
 import {trackTempFolders} from './helpers/temp-folders'
 
 const session = {
-  result: {ok: false, error: {}} as any,
+  result: {ok: false, error: {}} as unknown,
   readyDocument: {
     controlPort: 9123,
     instanceId: 'inst-1',

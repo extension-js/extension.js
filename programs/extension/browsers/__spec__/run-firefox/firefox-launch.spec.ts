@@ -4,10 +4,19 @@ import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {browserConfig} from '../../run-firefox/firefox-launch/browser-config'
 
+type Compilation = Parameters<typeof browserConfig>[0]
+type Host = Parameters<typeof browserConfig>[1]
+
+// A partial host, cast once. The launch also reads persistProfile, which
+// the options type does not declare.
+function host(fields: Partial<Host> & {persistProfile?: boolean}): Host {
+  return fields as Host
+}
+
 let project: string
 
 function makeCompilation(out = path.join(project, 'dist', 'firefox')) {
-  return {options: {output: {path: out}}} as any
+  return {options: {output: {path: out}}} as Compilation
 }
 
 function extractProfilePath(args: string): string {
@@ -27,10 +36,13 @@ describe('Firefox profile args', () => {
   })
 
   it('adds --profile for ephemeral profile by default', async () => {
-    const args = await browserConfig(makeCompilation(), {
-      extension: '/ext',
-      browser: 'firefox'
-    } as any)
+    const args = await browserConfig(
+      makeCompilation(),
+      host({
+        extension: '/ext',
+        browser: 'firefox'
+      })
+    )
     expect(args).toMatch(/--profile="/)
     expect(args).toMatch(
       /extension-js[\\/]+profiles[\\/]+firefox-profile[\\/]+/
@@ -38,21 +50,27 @@ describe('Firefox profile args', () => {
   })
 
   it('uses persistent dev profile when persistProfile=true', async () => {
-    const args = await browserConfig(makeCompilation(), {
-      extension: '/ext',
-      browser: 'firefox',
-      persistProfile: true
-    } as any)
+    const args = await browserConfig(
+      makeCompilation(),
+      host({
+        extension: '/ext',
+        browser: 'firefox',
+        persistProfile: true
+      })
+    )
     expect(args).toMatch(/--profile=".*firefox-profile[\\/]dev"/)
   })
 
   it('excludeBrowserFlags uses switch semantics, not loose prefixes', async () => {
-    const args = await browserConfig(makeCompilation(), {
-      extension: '/ext',
-      browser: 'firefox',
-      browserFlags: ['--foobar', '--foo=value', '--kiosk'],
-      excludeBrowserFlags: ['--foo']
-    } as any)
+    const args = await browserConfig(
+      makeCompilation(),
+      host({
+        extension: '/ext',
+        browser: 'firefox',
+        browserFlags: ['--foobar', '--foo=value', '--kiosk'],
+        excludeBrowserFlags: ['--foo']
+      })
+    )
     expect(args).toContain('--foobar')
     expect(args).toContain('--kiosk')
     expect(args).not.toContain('--foo=value')
@@ -60,22 +78,28 @@ describe('Firefox profile args', () => {
 
   // The debugger opens the starting url after the add-on is installed.
   it('opens about:blank in binary args when a startingUrl is provided', async () => {
-    const args = await browserConfig(makeCompilation(), {
-      extension: '/ext',
-      browser: 'firefox',
-      startingUrl: 'https://en.wikipedia.org/'
-    } as any)
+    const args = await browserConfig(
+      makeCompilation(),
+      host({
+        extension: '/ext',
+        browser: 'firefox',
+        startingUrl: 'https://en.wikipedia.org/'
+      })
+    )
     expect(args).toContain('--url about:blank')
     expect(args).not.toContain('https://en.wikipedia.org/')
   })
 
   it('opens no launch tab at all when noOpen is true', async () => {
-    const args = await browserConfig(makeCompilation(), {
-      extension: '/ext',
-      browser: 'firefox',
-      startingUrl: 'https://en.wikipedia.org/',
-      noOpen: true
-    } as any)
+    const args = await browserConfig(
+      makeCompilation(),
+      host({
+        extension: '/ext',
+        browser: 'firefox',
+        startingUrl: 'https://en.wikipedia.org/',
+        noOpen: true
+      })
+    )
     expect(args).not.toContain('--url')
     expect(args).not.toContain('https://en.wikipedia.org/')
   })
@@ -97,24 +121,30 @@ describe('Firefox profile args', () => {
           context: projectA,
           output: {path: path.join(projectA, 'dist', 'firefox')}
         }
-      } as any
+      } as Compilation
       const compilationB = {
         options: {
           context: projectB,
           output: {path: path.join(projectB, 'dist', 'firefox')}
         }
-      } as any
+      } as Compilation
 
-      const argsA = await browserConfig(compilationA, {
-        extension: '/ext',
-        browser: 'firefox',
-        profile: './dist/extension-profile-firefox'
-      } as any)
-      const argsB = await browserConfig(compilationB, {
-        extension: '/ext',
-        browser: 'firefox',
-        profile: './dist/extension-profile-firefox'
-      } as any)
+      const argsA = await browserConfig(
+        compilationA,
+        host({
+          extension: '/ext',
+          browser: 'firefox',
+          profile: './dist/extension-profile-firefox'
+        })
+      )
+      const argsB = await browserConfig(
+        compilationB,
+        host({
+          extension: '/ext',
+          browser: 'firefox',
+          profile: './dist/extension-profile-firefox'
+        })
+      )
 
       const profileA = extractProfilePath(argsA)
       const profileB = extractProfilePath(argsB)

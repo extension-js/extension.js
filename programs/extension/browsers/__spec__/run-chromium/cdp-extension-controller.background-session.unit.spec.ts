@@ -1,19 +1,29 @@
 import {describe, expect, it, vi} from 'vitest'
 import {CDPExtensionController} from '../../run-chromium/cdp/cdp-extension-controller'
+import {controllerInternals} from '../cdp-controller-fakes'
 
 const ID = 'abcdefghijklmnopabcdefghijklmnop'
 
 type Target = {type: string; url: string; targetId: string}
 
+// The rows below read a session they expect to open, so a miss fails here.
+function opened<T>(session: T | undefined): T {
+  if (!session) throw new Error('no background session opened')
+
+  return session
+}
+
 function makeController(
   listings: Target[][],
   evaluate: () => Promise<unknown> = async () => ({result: {value: 7}})
 ) {
-  const controller = new CDPExtensionController({
-    outPath: '/nowhere/dist/chrome',
-    browser: 'chrome',
-    cdpPort: 9222
-  }) as any
+  const controller = controllerInternals(
+    new CDPExtensionController({
+      outPath: '/nowhere/dist/chrome',
+      browser: 'chrome',
+      cdpPort: 9222
+    })
+  )
   let listing = 0
   const sendCommand = vi.fn(async (method: string) => {
     if (method === 'Runtime.evaluate') return evaluate()
@@ -61,7 +71,7 @@ describe('a session on the background of a loaded extension', () => {
       ]
     ])
 
-    const session = await controller.openBackgroundSession()
+    const session = opened(await controller.openBackgroundSession())
 
     await expect(session.evaluate('1 + 6', 5000)).resolves.toBe(7)
     await expect(session.evaluate('1 + 6', 2000)).resolves.toBe(7)
@@ -81,7 +91,7 @@ describe('a session on the background of a loaded extension', () => {
 
   it('detaches once on release and reads nothing afterwards', async () => {
     const {controller, sendCommand} = makeController([[worker]])
-    const session = await controller.openBackgroundSession()
+    const session = opened(await controller.openBackgroundSession())
 
     session.release()
     session.release()
@@ -99,7 +109,9 @@ describe('a session on the background of a loaded extension', () => {
 
   it('waits for a background that has not shown yet', async () => {
     const {controller} = makeController([[], [], [worker]])
-    const session = await controller.openBackgroundSession({intervalMs: 1})
+    const session = opened(
+      await controller.openBackgroundSession({intervalMs: 1})
+    )
 
     await expect(session.evaluate('1', 1000)).resolves.toBe(7)
 
@@ -122,7 +134,7 @@ describe('a session on the background of a loaded extension', () => {
       result: {type: 'object', subtype: 'error'},
       exceptionDetails: {text: 'Uncaught'}
     }))
-    const session = await controller.openBackgroundSession()
+    const session = opened(await controller.openBackgroundSession())
 
     await expect(session.evaluate('nope()', 1000)).resolves.toBeUndefined()
   })
@@ -131,7 +143,7 @@ describe('a session on the background of a loaded extension', () => {
     const {controller, sendCommand} = makeController([[worker]], async () => {
       throw new Error('CDP command timed out')
     })
-    const session = await controller.openBackgroundSession()
+    const session = opened(await controller.openBackgroundSession())
 
     await expect(session.evaluate('1', 1000)).rejects.toThrow('timed out')
 

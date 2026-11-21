@@ -56,12 +56,41 @@ import {
 } from '../../browsers-lib/messages'
 import {stampReadyBrowserLaunch} from '../../browsers-lib/ready-stamp'
 import {classifyBinaryProvenance} from '../../browsers-lib/shared-utils'
+import type {CompilationLike} from '../../browsers-types'
 import {createChromiumContext} from '../../run-chromium/chromium-context'
 import {ChromiumLaunchPlugin} from '../../run-chromium/chromium-launch'
+import type {ChromiumLaunchOptions} from '../../run-chromium/chromium-types'
 import {createFirefoxContext} from '../../run-firefox/firefox-context'
 import {FirefoxLaunchPlugin} from '../../run-firefox/firefox-launch'
+import type {FirefoxPluginRuntime} from '../../run-firefox/firefox-types'
 
 import {emptyPathFolder, expectSealedBrowserEnv} from '../sealed-browser-env'
+
+type FirefoxRunOptions = Parameters<FirefoxLaunchPlugin['runOnce']>[1]
+
+// Each plan reads only the fields a row names, so the rest stay unset.
+function chromiumOptions(
+  fields: Record<string, unknown>
+): ChromiumLaunchOptions {
+  return fields as unknown as ChromiumLaunchOptions
+}
+
+function firefoxRuntime(fields: Record<string, unknown>): FirefoxPluginRuntime {
+  return fields as unknown as FirefoxPluginRuntime
+}
+
+function firefoxRunOptions(
+  fields: Partial<FirefoxRunOptions>
+): FirefoxRunOptions {
+  return fields as FirefoxRunOptions
+}
+
+// The plan stops at the launch itself, short of the failure stamp runOnce adds.
+function withPrivateLaunch(plugin: ChromiumLaunchPlugin) {
+  return plugin as unknown as {
+    launchChromium: (compilation: CompilationLike) => Promise<void>
+  }
+}
 
 const stripAnsi = (s: string) => s.replace(/\u001b\[[0-9;]*m/g, '')
 
@@ -105,16 +134,16 @@ describe('the order a launch resolves its binary in', () => {
     options: Record<string, unknown> = {}
   ) {
     const plugin = new ChromiumLaunchPlugin(
-      {
+      chromiumOptions({
         browser,
         extension: [outputPath],
         dryRun: true,
         ...options
-      } as any,
-      createChromiumContext() as any
+      }),
+      createChromiumContext()
     )
 
-    await (plugin as any).launchChromium({
+    await withPrivateLaunch(plugin).launchChromium({
       options: {output: {path: outputPath}, mode: 'development'},
       outputOptions: {path: outputPath}
     })
@@ -138,27 +167,25 @@ describe('the order a launch resolves its binary in', () => {
     )
 
     const plugin = new FirefoxLaunchPlugin(
-      {
+      firefoxRuntime({
         browser: 'firefox',
         extension: [firefoxOut],
         dryRun: true,
         ...options
-      } as any,
-      createFirefoxContext() as any
+      }),
+      createFirefoxContext()
     )
+    const compilation = {
+      options: {
+        mode: 'production',
+        context: root,
+        output: {path: firefoxOut}
+      },
+      errors: [],
+      hooks: {done: {tap: () => {}}}
+    }
 
-    await plugin.runOnce(
-      {
-        options: {
-          mode: 'production',
-          context: root,
-          output: {path: firefoxOut}
-        },
-        errors: [],
-        hooks: {done: {tap: () => {}}}
-      } as any,
-      {mode: 'production'} as any
-    )
+    await plugin.runOnce(compilation, firefoxRunOptions({mode: 'production'}))
   }
 
   // A file that exists and is not a program, where the platform can tell.
@@ -697,7 +724,7 @@ describe('binary env overrides', () => {
         seen.push(process.env.CHROME_BINARY, deps.env.CHROME_BINARY)
 
         return process.env.CHROME_BINARY || null
-      }) as any
+      }) as Parameters<typeof locateChromeIn>[1]
     )
 
     expect(found).toBe(given)
