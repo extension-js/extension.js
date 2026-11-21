@@ -66,8 +66,11 @@ export class CompilationPlugin {
         ? [existing]
         : []
 
+    // Rspack after 2.3.3 renames the expression warning (rspack#16771), so
+    // both texts stay listed while either version can run.
     const SUPPRESSED_THIRD_PARTY_WARNINGS = [
       'Critical dependency: the request of a dependency is an expression',
+      'Dynamic module path: Rspack cannot determine which modules to bundle because the path is unknown at build time',
       'Critical dependency: require function is used in a way in which dependencies cannot be statically extracted',
       'Accessing import.meta directly is unsupported'
     ]
