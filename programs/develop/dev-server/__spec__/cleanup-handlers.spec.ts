@@ -1,6 +1,8 @@
 import {EventEmitter} from 'node:events'
 import * as net from 'node:net'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {bridgeBrokerFake} from '../../__spec__/helpers/bridge-broker-fake'
+import {portManagerFake} from '../../__spec__/helpers/port-manager-fake'
 import {stripAnsi} from '../../lib/strip-ansi'
 import {
   EXIT_DELAY_MS,
@@ -26,9 +28,9 @@ function counts() {
 }
 
 function fakePortManager() {
-  return {
+  return portManagerFake({
     terminateCurrentInstance: vi.fn(async () => {})
-  } as unknown as PortManager
+  })
 }
 
 const disposers: Array<() => void> = []
@@ -74,7 +76,7 @@ describe('setupCleanupHandlers', () => {
         })
     )
     const terminateCurrentInstance = vi.fn(async () => {})
-    const portManager = {terminateCurrentInstance} as unknown as PortManager
+    const portManager = portManagerFake({terminateCurrentInstance})
     disposers.push(
       setupCleanupHandlers(() => ({stop}) as never, portManager, onSignal, {
         events,
@@ -317,11 +319,11 @@ describe('setupCleanupHandlers', () => {
             order.push('stop')
           }
         }) as never,
-      {
+      portManagerFake({
         terminateCurrentInstance: async () => {
           order.push('port')
         }
-      } as unknown as PortManager,
+      }),
       onSignal,
       {
         events,
@@ -353,7 +355,7 @@ describe('setupCleanupHandlers', () => {
     const exit = vi.fn()
     const handlers = setupCleanupHandlers(
       () => ({stop: async () => {}}) as never,
-      {terminateCurrentInstance: async () => {}} as unknown as PortManager,
+      portManagerFake({terminateCurrentInstance: async () => {}}),
       () => {},
       {events, exit, env: {}, closeControlBridge: async () => {}}
     )
@@ -380,7 +382,7 @@ describe('setupCleanupHandlers', () => {
     disposers.push(
       setupCleanupHandlers(
         () => ({stop}) as never,
-        {terminateCurrentInstance} as unknown as PortManager,
+        portManagerFake({terminateCurrentInstance}),
         undefined,
         {events, exit, env: {}, closeControlBridge}
       )
@@ -408,13 +410,13 @@ describe('setupCleanupHandlers', () => {
     const exit = vi.fn()
     const order: string[] = []
     const onShutdownStart = vi.fn(() => order.push('shutdown start'))
-    const portManager = {
+    const portManager = portManagerFake({
       terminateCurrentInstance: async () => {
         order.push('release port')
 
         throw new Error('release EPERM')
       }
-    } as unknown as PortManager
+    })
     disposers.push(
       setupCleanupHandlers(
         () =>
@@ -463,11 +465,11 @@ describe('setupCleanupHandlers', () => {
   it('closes the control server on shutdown', async () => {
     const events = new EventEmitter()
     const exit = vi.fn()
-    const broker = {
-      pingProducers: () => {},
+    const broker = bridgeBrokerFake({
+      pingProducers: () => 0,
       onFrame: () => {},
       onClose: () => {}
-    } as unknown as BridgeBroker
+    })
     const control = await startControlServer({
       broker,
       host: '127.0.0.1',
