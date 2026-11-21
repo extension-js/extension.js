@@ -1,18 +1,13 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {explainPublicOutputCollision} from '../check-public-output-collision'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function publicFolder(files: string[]): string {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-collide-'))
-  roots.push(root)
+  const root = tempFolder('extjs-collide-')
   const publicDir = path.join(root, 'public')
 
   for (const file of files) {
@@ -75,8 +70,7 @@ describe('naming the public file behind an output collision', () => {
   })
 
   it('stays quiet when the project has no public folder', () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-collide-'))
-    roots.push(root)
+    const root = tempFolder('extjs-collide-')
     const compilation = compilationWith([conflict('action/index.html')])
 
     explainPublicOutputCollision(compilation, path.join(root, 'public'))

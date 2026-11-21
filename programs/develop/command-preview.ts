@@ -81,6 +81,7 @@ import {
 } from './plugin-ready-contract'
 import type {
   BrowserConfig,
+  BrowserDefaulted,
   BrowserType,
   PreviewOptions,
   SpecialFoldersConfig
@@ -301,7 +302,7 @@ function createPreviewLeg(
 
 export async function extensionPreview(
   pathOrRemoteUrl: string | undefined,
-  previewOptions: PreviewOptions,
+  previewOptions: BrowserDefaulted<PreviewOptions>,
   browserLauncher?: PreviewLauncherFn
 ) {
   const leg = createPreviewLeg(
@@ -336,7 +337,7 @@ export async function extensionPreview(
 
 async function runPreview(
   pathOrRemoteUrl: string | undefined,
-  previewOptions: PreviewOptions,
+  previewOptions: BrowserDefaulted<PreviewOptions>,
   leg: PreviewLeg,
   browserLauncher?: PreviewLauncherFn
 ) {

@@ -1,43 +1,30 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {
+  writeExtensionProject,
+  writeProjectFiles
+} from './helpers/extension-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project(files: Record<string, string>) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-only-'))
-  roots.push(root)
+  const root = tempFolder('extjs-dev-only-')
 
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'dev-only', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'dev-only',
-      version: '1.0.0',
+  writeExtensionProject(root, {
+    name: 'dev-only',
+    manifest: {
       permissions: ['scripting', 'activeTab'],
       background: {service_worker: 'background.js'},
       web_accessible_resources: [
         {resources: ['pages/engine.html'], matches: ['<all_urls>']}
       ]
-    })
-  )
+    }
+  })
 
-  for (const [rel, content] of Object.entries(files)) {
-    const abs = path.join(root, rel)
-    fs.mkdirSync(path.dirname(abs), {recursive: true})
-    fs.writeFileSync(abs, content)
-  }
+  writeProjectFiles(root, files)
 
   return root
 }

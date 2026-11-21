@@ -1,8 +1,8 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {rspack} from '@rspack/core'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {SpecialFoldersPlugin} from '..'
 
 // A public/ folder the session did not have at startup now feeds the copier,
@@ -10,15 +10,10 @@ import {SpecialFoldersPlugin} from '..'
 // startup folder gets. The plugin decides what to tap while the folder is
 // still absent, which is the pairing these cases pin.
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function createProject(): string {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-late-public-'))
-  roots.push(root)
+  const root = tempFolder('extjs-late-public-')
   fs.writeFileSync(
     path.join(root, 'manifest.json'),
     JSON.stringify({manifest_version: 3, name: 'p', version: '1.0'})

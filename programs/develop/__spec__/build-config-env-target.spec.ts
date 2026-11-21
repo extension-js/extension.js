@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {buildProject} from './helpers/build-project'
 import {trackTempFolders} from './helpers/temp-folders'
 
 // The config and the bundle of one build read the same env files: the ones
@@ -53,17 +54,11 @@ function project(key: string, files: Record<string, string>) {
 }
 
 async function build(root: string, options: Record<string, unknown>) {
-  const {extensionBuild} = await import('../command-build')
-
   for (const method of ['log', 'warn', 'error'] as const) {
     vi.spyOn(console, method).mockImplementation(() => {})
   }
 
-  const summary = await extensionBuild(root, {
-    install: false,
-    silent: true,
-    ...options
-  } as never)
+  const summary = await buildProject(root, {browser: undefined, ...options})
 
   const dist = path.join(root, 'dist', String(summary.browser))
   const bundle = fs

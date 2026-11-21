@@ -820,9 +820,11 @@ export function resolveProjectStructureSync(
   // fields and re-resolve to a real extension manifest or fail clearly.
   const readManifestObject = (
     candidatePath: string
-  ): ParsedJson | undefined => {
+  ): Record<string, unknown> | undefined => {
     try {
-      const parsed = parseJsonSafe(fs.readFileSync(candidatePath))
+      const parsed = parseJsonSafe<Record<string, unknown> | null>(
+        fs.readFileSync(candidatePath)
+      )
 
       if (
         parsed === null ||

@@ -429,7 +429,8 @@ async function importEsmTailwindConfig(
 
   try {
     const loaded = await importFresh(configFile, projectPath)
-    const config = loaded?.default ?? loaded
+    const config =
+      (loaded as {default?: unknown} | undefined)?.default ?? loaded
 
     return config && typeof config === 'object' ? config : undefined
   } catch {
@@ -518,7 +519,7 @@ export async function loadUserPostCssConfigObject(
     } else {
       try {
         const mod = await importFresh(configPath, projectPath)
-        loaded = mod?.default ?? mod
+        loaded = (mod as {default?: unknown} | undefined)?.default ?? mod
       } catch (importError) {
         // A CJS-shaped file under an ESM import fails on `module`, so the
         // CJS load gets its turn before the file is reported as unreadable.
@@ -651,7 +652,7 @@ function configProcessOptions(
   const options: Record<string, AnyModule> = {}
 
   for (const key of ['parser', 'syntax', 'stringifier', 'map']) {
-    const value = config?.[key]
+    const value = (config as Record<string, unknown> | undefined)?.[key]
     if (value === undefined) continue
 
     options[key] =
@@ -820,8 +821,9 @@ function normalizeTailwindContentGlobs(
     return path.isAbsolute(entry) ? entry : path.join(projectPath, entry)
   }
 
-  const out = {...config}
-  const content = out.content
+  const out: Record<string, unknown> = {...config}
+  // Tailwind's content option: one glob, a list, or an object with files.
+  const content = out.content as string | unknown[] | {files?: unknown}
 
   if (typeof content === 'string') {
     out.content = [normalizeEntry(content)]
@@ -924,10 +926,30 @@ export function isUsingPostCss(projectPath: string): boolean {
   return false
 }
 
+// What postcss-loader receives: the config to load or false for none, the
+// plugins the config lists, and the parser, syntax or map options it sets.
+export type PostCssOptions = {
+  cwd: string
+  config: string | boolean
+  plugins?: unknown[]
+  [option: string]: unknown
+}
+
+// No loader when the project uses no PostCSS, else the loader and its options.
+export type PostCssRule =
+  | {loader?: undefined; options?: undefined}
+  | {
+      loader: string
+      options: {postcssOptions: PostCssOptions; sourceMap: boolean}
+    }
+
+// The rule a project that uses PostCSS gets.
+export type PostCssLoaderRule = Extract<PostCssRule, {loader: string}>
+
 export type PostCssRuleReader = (
   projectPath: string,
   opts: StyleLoaderOptions
-) => Promise<Record<string, AnyModule>>
+) => Promise<PostCssRule>
 
 export interface PostCssCompilerReader extends PostCssRuleReader {
   // Reads every config again and updates the rules already handed out.
@@ -941,8 +963,8 @@ const SETUP_FILES_PLUGIN = 'extension-js-postcss-setup-files'
 // config files makes an edit to one of them rebuild every sheet.
 function withSetupFilesWatched(
   projectPath: string,
-  rule: Record<string, AnyModule>
-): Record<string, AnyModule> {
+  rule: PostCssRule
+): PostCssRule {
   const postcssOptions = rule.options?.postcssOptions
   if (!rule.loader || !postcssOptions) return rule
 
@@ -978,7 +1000,7 @@ export function postCssReaderForOneCompiler(
     {
       projectPath: string
       opts: StyleLoaderOptions
-      rule: Promise<Record<string, AnyModule>>
+      rule: Promise<PostCssRule>
     }
   >()
 
@@ -1008,7 +1030,7 @@ export function postCssReaderForOneCompiler(
 
     for (const entry of read.values()) {
       const current = await entry.rule
-      let next: Record<string, AnyModule>
+      let next: PostCssRule
 
       try {
         next = withSetupFilesWatched(
@@ -1029,11 +1051,16 @@ export function postCssReaderForOneCompiler(
 
       // Every rule of the compiler holds this one object, and the loader
       // reads it on each run, so the next build compiles with the new config.
-      const live = current.options.postcssOptions
+      const live: Record<string, unknown> = current.options.postcssOptions
 
       for (const key of Object.keys(live)) delete live[key]
 
-      Object.assign(live, next.options.postcssOptions)
+      // The loader checks above leave next with options as well.
+      Object.assign(
+        live,
+        (next as {options: {postcssOptions: PostCssOptions}}).options
+          .postcssOptions
+      )
     }
 
     return applied
@@ -1045,7 +1072,7 @@ export function postCssReaderForOneCompiler(
 export async function maybeUsePostCss(
   projectPath: string,
   opts: StyleLoaderOptions
-): Promise<Record<string, AnyModule>> {
+): Promise<PostCssRule> {
   const foundPostCssConfig = findPostCssConfig(projectPath)
   const {hasPostCss: pkgHasPostCss, config: pkgPostCssConfig} =
     getPackageJsonConfig(projectPath)
@@ -1336,15 +1363,19 @@ export async function maybeUsePostCss(
       configObject = fileConfigObject
     }
 
-    if (configObject?.plugins) {
-      selfResolved = resolveConfigPluginList(configObject.plugins, {
-        projectPath,
-        configDir: userPostCssConfig
-          ? path.dirname(userPostCssConfig)
-          : undefined,
-        tailwindInstance: tailwindResolvedInstance,
-        bailOnFunctionEntries: userConfigUsesDirectTailwindReference
-      })
+    // A config object lists its plugins, in whatever shape it chose.
+    if ((configObject as {plugins?: unknown} | undefined)?.plugins) {
+      selfResolved = resolveConfigPluginList(
+        (configObject as {plugins: unknown}).plugins,
+        {
+          projectPath,
+          configDir: userPostCssConfig
+            ? path.dirname(userPostCssConfig)
+            : undefined,
+          tailwindInstance: tailwindResolvedInstance,
+          bailOnFunctionEntries: userConfigUsesDirectTailwindReference
+        }
+      )
 
       processOptions = configProcessOptions(
         configObject,
@@ -1411,7 +1442,10 @@ export async function maybeUsePostCss(
   if (userConfigIsCjsInEsm || bypassUserConfigForTailwindCompat) {
     try {
       if (hasProjectDependency(projectPath, 'autoprefixer')) {
-        const autoprefixerMod = requireFromProject(projectPath, 'autoprefixer')
+        const autoprefixerMod = requireFromProject(
+          projectPath,
+          'autoprefixer'
+        ) as (() => unknown) | {default?: unknown} | undefined
         const autoprefixerPlugin =
           typeof autoprefixerMod === 'function'
             ? autoprefixerMod()
@@ -1434,7 +1468,7 @@ export async function maybeUsePostCss(
 
   // postcss-loader loads the config. The found file goes over as is, since
   // its own search order differs, and a config that was set aside stays out.
-  const postcssOptions: AnyModule = {
+  const postcssOptions: PostCssOptions = {
     cwd: projectPath,
     config:
       userConfigIsCjsInEsm || bypassUserConfigForTailwindCompat || configRefused

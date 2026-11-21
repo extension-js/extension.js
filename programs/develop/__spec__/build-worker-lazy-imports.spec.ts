@@ -1,15 +1,11 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import * as vm from 'node:vm'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 // A background that asks for code only when a message arrives: a sibling
 // file, a file that asks for a second one, a package, and a module the
@@ -42,8 +38,7 @@ const FILES: Record<string, string> = {
 }
 
 function project(background: Record<string, unknown>) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-worker-lazy-'))
-  roots.push(root)
+  const root = tempFolder('extjs-worker-lazy-')
 
   for (const [file, source] of Object.entries(FILES)) {
     fs.mkdirSync(path.dirname(path.join(root, file)), {recursive: true})

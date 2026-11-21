@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {
+  type DenoConfig,
   parseJsoncSafe,
   parseNpmSpecifier,
   readDenoConfigDependencies
@@ -149,7 +150,7 @@ async function updateDenoConfigExtensionTag(
   if (!configPath) return false
 
   const raw = await fs.promises.readFile(configPath, 'utf8')
-  const config = parseJsoncSafe(raw)
+  const config = parseJsoncSafe<DenoConfig | null>(raw)
   const imports = config?.imports
   if (!imports || typeof imports !== 'object') return false
 

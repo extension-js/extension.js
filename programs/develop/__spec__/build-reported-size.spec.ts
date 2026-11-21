@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
 import {stripAnsi} from '../lib/strip-ansi'
 import {buildProject} from './helpers/build-project'
+import {writeExtensionProject} from './helpers/extension-project'
 
 type Mode = 'development' | 'production' | 'none'
 
@@ -18,17 +19,9 @@ function project() {
     fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'extjs-size-'))
   )
   roots.push(root)
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'size', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'size',
-      version: '1.0.0',
+  writeExtensionProject(root, {
+    name: 'size',
+    manifest: {
       default_locale: 'en',
       background: {service_worker: 'background.js'},
       action: {default_popup: 'popup/index.html'},
@@ -39,8 +32,8 @@ function project() {
           css: ['content/styles.css']
         }
       ]
-    })
-  )
+    }
+  })
 
   fs.mkdirSync(path.join(root, 'popup'))
   fs.mkdirSync(path.join(root, 'content'))

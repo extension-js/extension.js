@@ -1,16 +1,13 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import * as vm from 'node:vm'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
+import {buildProject} from '../../__spec__/helpers/build-project'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
 // The polyfill throws on load where no extension API exists, so it is only
 // provided to bundles that run inside the extension.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 // The first statement of the polyfill, which only its own module carries.
 const POLYFILL_MARK = 'This script should only be loaded in a browser extension'
@@ -78,8 +75,7 @@ type Built = {
 }
 
 async function build(mode: 'development' | 'production'): Promise<Built> {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-polyfill-worlds-'))
-  roots.push(root)
+  const root = tempFolder('extjs-polyfill-worlds-')
 
   for (const [name, source] of Object.entries(FILES)) {
     const file = path.join(root, ...name.split('/'))
@@ -88,25 +84,13 @@ async function build(mode: 'development' | 'production'): Promise<Built> {
     fs.writeFileSync(file, source)
   }
 
-  const {extensionBuild} = await import('../../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
+  const summary = await buildProject(root, {
+    mode,
+    polyfill: true,
+    exitOnError: false
+  })
 
-  try {
-    const summary = await extensionBuild(root, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      mode,
-      polyfill: true,
-      exitOnError: false
-    } as Parameters<typeof extensionBuild>[1])
-
-    expect(summary.errors_count).toBe(0)
-  } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
-  }
+  expect(summary.errors_count).toBe(0)
 
   const dist = path.join(root, 'dist', 'chrome')
   const manifest = JSON.parse(

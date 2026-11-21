@@ -1,26 +1,21 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {rspack, type Stats} from '@rspack/core'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {
   browserReadLine,
   declaresNativeBrowserNamespace
 } from '../feature-browser-global'
 import {CompatibilityPlugin} from '../index'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project(
   background: string,
   manifestExtras: Record<string, unknown> = {}
 ): string {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-browser-global-'))
-  roots.push(root)
+  const root = tempFolder('extjs-browser-global-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'guarded', version: '0.0.0'})

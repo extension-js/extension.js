@@ -1,13 +1,13 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../../../__spec__/helpers/temp-folders'
 import {
   COMPILED_SIBLING_EXTENSIONS,
   findCompiledRootRefSource
 } from '../../html-lib/compiled-root-ref'
 
-const tmpRoots: string[] = []
+const tempFolder = trackTempFolders()
 let tmp = ''
 let publicDir = ''
 
@@ -20,17 +20,10 @@ function write(rel: string, content = '') {
 }
 
 function reset() {
-  const created = fs.mkdtempSync(
-    path.join(os.tmpdir(), 'extjs-compiled-root-ref-')
-  )
-  tmpRoots.push(created)
+  const created = tempFolder('extjs-compiled-root-ref-')
   tmp = fs.realpathSync(created)
   publicDir = path.join(tmp, 'public')
 }
-
-afterAll(() => {
-  for (const root of tmpRoots) fs.rmSync(root, {recursive: true, force: true})
-})
 
 describe('findCompiledRootRefSource', () => {
   it('finds the source the build compiles to a missing root .js ref', () => {

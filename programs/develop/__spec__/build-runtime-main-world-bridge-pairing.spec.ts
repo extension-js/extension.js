@@ -1,20 +1,15 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // Firefox names no extension file on a MAIN world stack, so a file the
 // background registers there needs the bridge a declared group ships with.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project(world: 'MAIN' | 'ISOLATED', readsBase = true) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-rt-main-pair-'))
-  roots.push(root)
+  const root = tempFolder('extjs-rt-main-pair-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'rt-main-pair', version: '0.0.0'})

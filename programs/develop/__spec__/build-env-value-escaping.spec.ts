@@ -1,35 +1,23 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it, vi} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {writeExtensionProject} from './helpers/extension-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 const HOSTILE = 'A "great" C:\\path <b>'
 
 function project(options: {unquotedPlaceholder?: boolean} = {}) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-env-escape-'))
-  roots.push(root)
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'env-escape', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'env-escape',
+  const root = tempFolder('extjs-env-escape-')
+  writeExtensionProject(root, {
+    name: 'env-escape',
+    manifest: {
       description: '$EXTENSION_PUBLIC_DESC',
-      version: '1.0.0',
       action: {default_popup: 'popup.html'}
-    })
-  )
+    }
+  })
 
   fs.writeFileSync(
     path.join(root, '.env'),

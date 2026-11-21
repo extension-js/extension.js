@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import {writeProjectFiles} from '../../../__spec__/helpers/extension-project'
 import {discoverDevtoolsPanelPages} from '../discover-devtools-panels'
 
 describe('discoverDevtoolsPanelPages', () => {
@@ -11,11 +12,7 @@ describe('discoverDevtoolsPanelPages', () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-panels-'))
     roots.push(root)
 
-    for (const [rel, contents] of Object.entries(files)) {
-      const abs = path.join(root, rel)
-      fs.mkdirSync(path.dirname(abs), {recursive: true})
-      fs.writeFileSync(abs, contents)
-    }
+    writeProjectFiles(root, files)
 
     return root
   }

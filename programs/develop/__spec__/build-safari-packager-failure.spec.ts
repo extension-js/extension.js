@@ -3,6 +3,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {createSafariPackager} from '../../extension/browsers/run-safari/safari-packager'
+import {buildProject} from './helpers/build-project'
 import {trackTempFolders} from './helpers/temp-folders'
 
 // The real packager on a real build, with only its child processes replaced:
@@ -102,7 +103,6 @@ function project() {
 
 describe('build: a Safari packaging tool that fails (real rspack, real packager)', () => {
   it('prints the failure once, from the packager, and rejects with its code', async () => {
-    const {extensionBuild} = await import('../command-build')
     const root = project()
     const packager = createSafariPackager({browser: 'safari', noOpen: true})
     const platform = Object.getOwnPropertyDescriptor(process, 'platform')
@@ -116,11 +116,9 @@ describe('build: a Safari packaging tool that fails (real rspack, real packager)
       })
     }
 
-    const failure = await extensionBuild(root, {
+    const failure = await buildProject(root, {
       browser: 'safari',
-      install: false,
       mode: 'production',
-      silent: true,
       // The packager only looks for its tools on macOS, so the build runs
       // as the host it is and the packager alone sees a Mac.
       safariPackager: async (...args: Parameters<typeof packager>) => {
@@ -134,7 +132,7 @@ describe('build: a Safari packaging tool that fails (real rspack, real packager)
           if (platform) Object.defineProperty(process, 'platform', platform)
         }
       }
-    } as never).then(
+    }).then(
       () => undefined,
       (reason: Error & {code?: string}) => reason
     )

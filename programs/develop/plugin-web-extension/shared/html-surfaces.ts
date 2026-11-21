@@ -13,7 +13,7 @@ import {
   findPublicFile,
   inspectPublicFolders,
   publicRelativePath
-} from '../../plugin-special-folders/resolve-public-folder'
+} from '../../lib/special-folders/resolve-public-folder'
 import type {DevOptions, Manifest} from '../../types'
 
 // The manifest-fields package folds action, browser_action and page_action

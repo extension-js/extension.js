@@ -1,12 +1,13 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {rspack, type Stats} from '@rspack/core'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
+import {writeProjectFiles} from '../../../__spec__/helpers/extension-project'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {getProjectStructure} from '../../../lib/project'
 import webpackConfig from '../../../rspack-config'
 
-const roots: string[] = []
+const tempFolder = trackTempFolders()
 
 // What a dev session adds so a bundle can replace itself in a live page.
 // None of it has a job in a bundle the browser injects once.
@@ -17,10 +18,7 @@ const DEV_SESSION_MARKERS = [
 ]
 
 function scaffold(name: string, files: Record<string, string>) {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), `extjs-payload-${name}-`))
-  )
-  roots.push(root)
+  const root = fs.realpathSync(tempFolder(`extjs-payload-${name}-`))
 
   fs.writeFileSync(
     path.join(root, 'package.json'),
@@ -31,11 +29,7 @@ function scaffold(name: string, files: Record<string, string>) {
     })
   )
 
-  for (const [relative, contents] of Object.entries(files)) {
-    const target = path.join(root, relative)
-    fs.mkdirSync(path.dirname(target), {recursive: true})
-    fs.writeFileSync(target, contents)
-  }
+  writeProjectFiles(root, files)
 
   return root
 }
@@ -91,12 +85,6 @@ function countMarkers(text: string) {
     hits: text.split(marker).length - 1
   }))
 }
-
-afterAll(() => {
-  for (const root of roots) {
-    fs.rmSync(root, {recursive: true, force: true})
-  }
-})
 
 describe('what a production bundle ships', () => {
   it('keeps the dev session scaffolding out of a production content script', async () => {

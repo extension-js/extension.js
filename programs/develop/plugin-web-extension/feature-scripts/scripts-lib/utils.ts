@@ -13,7 +13,7 @@ import {
   hasPrivateFileName,
   sourceFileMayShip
 } from '../../../lib/public-private-files'
-import {findPublicFile} from '../../../plugin-special-folders/resolve-public-folder'
+import {findPublicFile} from '../../../lib/special-folders/resolve-public-folder'
 import type {DevOptions, FilepathList, Manifest} from '../../../types'
 
 export const isRemoteUrl = (entry: string) =>

@@ -1,22 +1,17 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 const LICENSE_BANNER =
   '/*! fake-dep v1.0.0 | (c) 2026 Fake Authors | @license MIT */'
 const PRESERVE_BANNER = '/** @preserve PRESERVE_MARKER must stay */'
 
 function project() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-license-'))
-  roots.push(root)
+  const root = tempFolder('extjs-license-')
 
   const dependency = path.join(root, 'node_modules', 'fake-dep')
   fs.mkdirSync(dependency, {recursive: true})

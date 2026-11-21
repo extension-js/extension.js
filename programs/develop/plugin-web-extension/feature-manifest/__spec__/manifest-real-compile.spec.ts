@@ -1,6 +1,5 @@
 import * as fs from 'node:fs'
 import {createRequire, syncBuiltinESMExports} from 'node:module'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {
   Compilation,
@@ -9,7 +8,8 @@ import {
   type Stats,
   sources
 } from '@rspack/core'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {diagnosticCode} from '../../../lib/diagnostic-code'
 import {getProjectStructure} from '../../../lib/project'
 import webpackConfig from '../../../rspack-config'
@@ -17,20 +17,13 @@ import {writeOutputAsADevSessionDoes} from './helpers/dev-output-writes'
 
 type Mode = 'development' | 'production'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project(
   manifest: Record<string, unknown> = {},
   files: Record<string, string> = {}
 ) {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-manifest-compile-'))
-  )
-  roots.push(root)
+  const root = fs.realpathSync(tempFolder('extjs-manifest-compile-'))
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'manifest-compile', version: '0.0.0'})

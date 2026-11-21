@@ -3,7 +3,10 @@ import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import {type RuleSetRule, rspack, type Stats} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
-import {postCssReaderForOneCompiler} from '../css-tools/postcss'
+import {
+  type PostCssLoaderRule,
+  postCssReaderForOneCompiler
+} from '../css-tools/postcss'
 import {CssPlugin} from '../index'
 import {
   closeCompiler,
@@ -69,8 +72,8 @@ describe('how often one compiler reads the PostCSS config', () => {
     const prod = await read(root, {mode: 'production'})
 
     expect(again).toBe(dev)
-    expect(dev.options.sourceMap).toBe(true)
-    expect(prod.options.sourceMap).toBe(false)
+    expect((dev as PostCssLoaderRule).options.sourceMap).toBe(true)
+    expect((prod as PostCssLoaderRule).options.sourceMap).toBe(false)
     expect(counts(log)).toEqual({evaluated: 2, called: 2})
   })
 })

@@ -1,25 +1,20 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // One axis decides dev instrumentation: the command. `extension build` in
 // development mode is a shippable artifact whose manifest is the author's
 // and whose zip carries no reload client and no maps; `extension dev` is
 // the session that gets the dev CSP, the injected permissions, the reload
 // client and the maps. Both browsers, both manifest versions.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 const AUTHORED_CSP = "script-src 'self'; object-src 'self'"
 
 function project(manifestVersion: 2 | 3) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-shippable-'))
-  roots.push(root)
+  const root = tempFolder('extjs-shippable-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'ship', version: '0.0.0'})
