@@ -124,6 +124,30 @@ export function readPackageJson<T = ParsedJson>(packageJsonPath: string): T {
   }
 }
 
+// A folder or a device under the name is skipped by the walk above, which
+// then takes a parent's file while the bundler opens this one and fails.
+export function refuseNonFilePackageJson(dir: string): void {
+  const packageJsonPath = path.join(dir, 'package.json')
+  let stat: fs.Stats
+
+  try {
+    stat = fs.statSync(packageJsonPath)
+  } catch {
+    // Nothing there, or a path that cannot be reached: no package.json.
+    return
+  }
+
+  if (stat.isFile()) return
+
+  throw codedError(
+    CODES.E_PACKAGE_JSON_INVALID,
+    messages.packageJsonNotAFile(
+      packageJsonPath,
+      stat.isDirectory() ? 'a folder' : 'a special file'
+    )
+  )
+}
+
 // False when no file is there. A file that is there and cannot be parsed
 // throws, since a project whose package.json is ignored builds the wrong thing.
 export function validatePackageJson(packageJsonPath: string): boolean {
