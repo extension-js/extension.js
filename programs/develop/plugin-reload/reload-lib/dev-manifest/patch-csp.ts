@@ -7,8 +7,9 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import parse from 'content-security-policy-parser'
-import {isGeckoBasedBrowser} from '../../../../lib/constants'
-import type {Manifest} from '../../../../types'
+import {isGeckoBasedBrowser} from '../../../lib/constants'
+import {withAddedSources} from '../../../lib/csp-sources'
+import type {Manifest} from '../../../types'
 
 function resolveV2Policy(policy: Manifest['content_security_policy']) {
   if (!policy) return undefined
@@ -54,18 +55,6 @@ function devConnectSources(connectableHost?: string): string[] {
   // A CSP host-source with an IPv6 literal must be bracketed.
   const host = raw.includes(':') && !raw.startsWith('[') ? `[${raw}]` : raw
   sources.push(`ws://${host}:*`, `http://${host}:*`)
-
-  return sources
-}
-
-// 'none' is only valid alone: a directive that gains a source drops it,
-// or the browser reports the directive and ignores the keyword anyway.
-export function withAddedSources(current: string[], added: string[]) {
-  const sources = current.filter((source) => source.toLowerCase() !== "'none'")
-
-  for (const source of added) {
-    if (!sources.includes(source)) sources.push(source)
-  }
 
   return sources
 }

@@ -78,6 +78,7 @@ describe('ReloadPlugin on a real development compiler', () => {
         'plugin-reload:prune-unreachable-chunks'
       ],
       thisCompilation: [
+        'plugin-reload:apply-dev-defaults',
         'StripContentScriptDevServerRuntime',
         'StableContentScriptNames',
         'InjectScriptsReplayShim',
@@ -96,6 +97,7 @@ describe('ReloadPlugin on a real development compiler', () => {
         'plugin-reload:prune-unreachable-chunks'
       ],
       thisCompilation: [
+        'plugin-reload:apply-dev-defaults',
         'StripContentScriptDevServerRuntime',
         'StableContentScriptNames',
         'InjectScriptsReplayShim',
@@ -134,11 +136,14 @@ describe('ReloadPlugin applies nothing', () => {
   })
 })
 
-// A dev server writes hot update files with reload off too, so the names
-// are the one thing this plugin still sets there.
-describe('ReloadPlugin only names hot update files', () => {
+// A dev session takes the dev manifest with reload off too, and its dev
+// server still writes hot update files, so these two steps are all it taps.
+describe('ReloadPlugin only writes the dev manifest and names hot files', () => {
   const namesOnly = {
-    taps: {environment: ['plugin-reload:hot-update-names']},
+    taps: {
+      thisCompilation: ['plugin-reload:apply-dev-defaults'],
+      environment: ['plugin-reload:hot-update-names']
+    },
     entry: {},
     fallbacks: 0
   }

@@ -2,7 +2,7 @@ import {describe, expect, it} from 'vitest'
 import {
   findTabFieldReads,
   sourceLineOf
-} from '../apply-dev-defaults-lib/tab-field-reads'
+} from '../../manifest-lib/tab-field-reads'
 
 const optionsApp = [
   "import {useEffect, useState} from 'react'",

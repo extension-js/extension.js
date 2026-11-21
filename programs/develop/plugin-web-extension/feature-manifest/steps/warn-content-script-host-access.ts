@@ -10,16 +10,16 @@ import {Compilation, type Compiler, WebpackError} from '@rspack/core'
 import {isChromiumBasedBrowser} from '../../../lib/constants'
 import type {DevOptions} from '../../../types'
 import {
+  declaredHostPatterns,
+  devInjectedHostPatterns,
+  optionalHostPatterns
+} from '../manifest-lib/dev-injected-hosts'
+import {
   filterKeysForThisBrowser,
   getOriginalManifest
 } from '../manifest-lib/manifest'
 import {findReplacedHostList} from '../manifest-lib/shadowed-declaration'
 import * as messages from '../messages'
-import {
-  declaredHostPatterns,
-  devInjectedHostPatterns,
-  optionalHostPatterns
-} from './apply-dev-defaults-lib/dev-injected-hosts'
 
 // Firefox reads a content script match as a host permission and Chromium does
 // not, so these stay without a host on Chrome when the manifest names none.

@@ -6,6 +6,8 @@
 // ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {isHotUpdateFile} from '../../lib/hot-update-files'
+
 interface ChunkLike {
   files?: Iterable<string> | null
 }
@@ -16,13 +18,6 @@ export interface EntrypointLike {
   getFiles(): string[]
   getRuntimeChunk?(): ChunkLike | null | undefined
   getEntrypointChunk?(): ChunkLike | null | undefined
-}
-
-// A dev session writes hot updates under `hot/` with no `.hot-update` infix,
-// and a compile without its renaming keeps the infix. Anchored, so a user
-// page under its own `hot/` folder keeps its chunk.
-export function isHotUpdateFile(file: string): boolean {
-  return /^hot\//i.test(file) || /\.hot-update\./i.test(file)
 }
 
 export function isJsFile(file: string): boolean {

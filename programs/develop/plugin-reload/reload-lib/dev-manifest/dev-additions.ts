@@ -6,8 +6,9 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import type {DevAddition} from '../../../../lib/dev-additions'
-import {isHostPattern} from './dev-injected-hosts'
+import type {DevAddition} from '../../../lib/dev-additions'
+import {HOT_UPDATES_FOLDER} from '../../../lib/hot-update-files'
+import {isHostPattern} from '../../../plugin-web-extension/shared/manifest-grants'
 
 const PERMISSION_REASONS: Record<string, string> = {
   scripting:
@@ -18,7 +19,8 @@ const PERMISSION_REASONS: Record<string, string> = {
 }
 
 const RESOURCE_REASONS: Record<string, string> = {
-  'hot/*': 'a content script fetches its hot update chunks from the page',
+  [`${HOT_UPDATES_FOLDER}/*`]:
+    'a content script fetches its hot update chunks from the page',
   'extension-js-control.json':
     'a content script reads the control port again after the dev server restarts'
 }

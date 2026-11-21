@@ -64,10 +64,6 @@ const PRODUCT_REACHES: Array<[reach: string, why: string]> = [
     'web-extension names the content script layers and every other plugin reads the names'
   ],
   [
-    'plugin-compatibility -> plugin-web-extension/shared/initial-files',
-    'shared/ is the folder web-extension publishes to the other plugins'
-  ],
-  [
     'plugin-compatibility -> plugin-web-extension/shared/scannable-source-path',
     'shared/ is the folder web-extension publishes to the other plugins'
   ],
@@ -120,12 +116,16 @@ const PRODUCT_REACHES: Array<[reach: string, why: string]> = [
     'a registry: reload hands its part in, so web-extension never imports reload'
   ],
   [
-    'plugin-reload -> plugin-web-extension/shared/initial-files',
-    'shared/ is the folder web-extension publishes to the other plugins'
-  ],
-  [
     'plugin-reload -> plugin-web-extension/shared/kept-resource-extensions',
     'a registry: reload hands its part in, so web-extension never imports reload'
+  ],
+  [
+    'plugin-reload -> plugin-web-extension/shared/manifest-extensions',
+    'a registry: reload hands its part in, so web-extension never imports reload'
+  ],
+  [
+    'plugin-reload -> plugin-web-extension/shared/manifest-grants',
+    'shared/ is the folder web-extension publishes to the other plugins'
   ],
   [
     'plugin-special-folders -> plugin-web-extension/shared/html-page-entries',

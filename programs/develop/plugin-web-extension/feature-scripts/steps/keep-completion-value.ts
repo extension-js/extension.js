@@ -8,7 +8,7 @@
 
 import {Compilation, type Compiler} from '@rspack/core'
 import {prependToEmittedAsset} from '../../../lib/asset-source-maps'
-import {isHotUpdateFile} from '../../shared/initial-files'
+import {isHotUpdateFile} from '../../../lib/hot-update-files'
 import {
   carriesCompletionValue,
   closeCompletionValueBlock,

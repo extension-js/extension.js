@@ -251,8 +251,7 @@ describe('a dev rebuild', () => {
     cjsFs.readFileSync = function (this: unknown, ...args: unknown[]) {
       if (counting && args[0] === manifestPath) {
         const step = readingStep()
-        // The dev defaults move to the reload plugin with their own read.
-        if (step && step !== 'apply-dev-defaults') readers.push(step)
+        if (step) readers.push(step)
       }
 
       return Reflect.apply(realRead, this, args)

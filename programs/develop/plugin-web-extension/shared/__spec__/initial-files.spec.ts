@@ -1,10 +1,6 @@
 import {describe, expect, it} from 'vitest'
-import {
-  entryOwnJsFile,
-  initialJsFiles,
-  isHotUpdateFile,
-  isJsFile
-} from '../initial-files'
+import {isHotUpdateFile} from '../../../lib/hot-update-files'
+import {entryOwnJsFile, initialJsFiles, isJsFile} from '../initial-files'
 
 describe('initial JS files for a page entry', () => {
   it('keeps ordinary chunks', () => {

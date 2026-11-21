@@ -9,10 +9,13 @@
 import * as fs from 'node:fs'
 import type {Compiler} from '@rspack/core'
 import {isChromiumBasedBrowser, isEmulatorBrowser} from '../lib/constants'
+import {extendManifest} from '../plugin-web-extension/shared/manifest-extensions'
 import type {DevOptions, PluginInterface} from '../types'
 import {noteManifestPath} from './reload-dispatch'
+import {devContentScriptManifest} from './reload-lib/dev-manifest/content-script-paths'
 import {isReloadSession} from './reload-session'
 import {AddContentScriptReinject} from './steps/add-content-script-reinject'
+import {ApplyDevDefaults} from './steps/apply-dev-defaults'
 import {
   InjectBridgeProducer,
   readDevBuild
@@ -105,6 +108,21 @@ export class ReloadPlugin {
     // Ahead of the gate too: a development output is never cleaned, session
     // or not, so the sheets an earlier compile left stay reachable.
     new KeepOpenTabStylesheets().apply(compiler)
+
+    // Ahead of the gate too: a development compile hashes its content
+    // scripts with or without a session, and the manifest must name them.
+    if (compiler.options.mode === 'development') {
+      extendManifest(compiler, devContentScriptManifest)
+    }
+
+    // Ahead of the gate too: a dev session takes the dev manifest with
+    // reload off as well. The step reads the mode and the session itself.
+    new ApplyDevDefaults({
+      manifestPath: this.manifestPath,
+      browser: this.browser,
+      devSession: this.devSession,
+      session: this.session
+    }).apply(compiler)
 
     const hasValidManifest =
       !!this.manifestPath &&

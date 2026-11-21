@@ -324,14 +324,8 @@ export function manifestEmitSuccess() {
   return `${prefix('debug')} manifest emitted=true schemaStripped=true`
 }
 
-export function manifestOverridesSummary(
-  overrideKeys: number,
-  devCssStubsAdded: number
-) {
-  return (
-    `${prefix('debug')} manifest overrides keys=${String(overrideKeys)} ` +
-    `devCssStubs=${String(devCssStubsAdded)}`
-  )
+export function manifestOverridesSummary(overrideKeys: number) {
+  return `${prefix('debug')} manifest overrides keys=${String(overrideKeys)}`
 }
 
 export function manifestDepsTracked(addedCount: number) {
