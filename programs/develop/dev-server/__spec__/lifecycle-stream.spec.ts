@@ -248,6 +248,44 @@ describe('lifecycle stream transitions', () => {
     expect(frame.value?.durationMs).toBe(421)
   })
 
+  it('carries what the session warned about since its last frame', () => {
+    const {stream, lines} = makeStream()
+    takeCodedWarnings()
+    stream.compiled({assets: 1, durationMs: 5})
+    recordCodedWarning(
+      CODES.W_RELOAD_NOT_APPLIED,
+      'content_script (a.ts) compiled but the extension never confirmed the reload'
+    )
+
+    stream.compiled({assets: 1, durationMs: 6})
+    recordCodedWarning(
+      CODES.W_RELOAD_NOT_APPLIED,
+      'content_script (a.ts) reloaded but the extension has not come back since'
+    )
+
+    stream.compileFailed({output: 'broken', durationMs: 7})
+    stream.compiled({assets: 1, durationMs: 8})
+
+    expect(
+      parseFrames(lines).map((frame) => [frame.status, frame.warnings])
+    ).toEqual([
+      ['compiled', []],
+      [
+        'recompiled',
+        [
+          'W_RELOAD_NOT_APPLIED: content_script (a.ts) compiled but the extension never confirmed the reload'
+        ]
+      ],
+      [
+        'compile-failed',
+        [
+          'W_RELOAD_NOT_APPLIED: content_script (a.ts) reloaded but the extension has not come back since'
+        ]
+      ],
+      ['recompiled', []]
+    ])
+  })
+
   it('emits recompiled for every successful compile after the first', () => {
     const {stream, lines} = makeStream()
     stream.compiled({assets: 1, durationMs: 5})

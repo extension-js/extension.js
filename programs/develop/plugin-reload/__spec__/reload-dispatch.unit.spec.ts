@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {quietBroker} from '../../__spec__/helpers/quiet-broker'
+import {takeCodedWarnings} from '../../lib/coded-warnings'
 import {
   buildSourceFeatureIndex,
   classifyReloadFromSources
@@ -317,6 +318,43 @@ describe('dispatchReload', () => {
 
     expect(warn).toHaveBeenCalledTimes(1)
     expect(String(warn.mock.calls[0][0])).toContain('has not come back')
+  })
+
+  it('records both failures for a machine under the code the browser prints', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    takeCodedWarnings()
+
+    await dispatchReload(CS, {
+      broker: quietBroker({broadcastReload: vi.fn().mockReturnValue(1)})
+    })
+
+    expect(takeCodedWarnings()).toEqual([])
+
+    await dispatchReload(CS, {
+      broker: quietBroker({
+        broadcastReload: vi.fn().mockReturnValue(1),
+        awaitReloadAck: vi.fn().mockResolvedValue('unacked')
+      })
+    })
+
+    expect(takeCodedWarnings()).toEqual([
+      'W_RELOAD_NOT_APPLIED: content_script (src/content/scripts.js) compiled but the extension never confirmed the reload'
+    ])
+
+    await dispatchReload(CS, {
+      broker: quietBroker({
+        broadcastReload: vi.fn().mockReturnValue(1),
+        awaitReloadAck: vi.fn().mockResolvedValue('acked'),
+        awaitReloadRestart: vi.fn().mockResolvedValue('not-restarted')
+      })
+    })
+
+    await Promise.resolve()
+
+    expect(takeCodedWarnings()).toEqual([
+      'W_RELOAD_NOT_APPLIED: content_script (src/content/scripts.js) reloaded but the extension has not come back since'
+    ])
   })
 
   it('takes the warning back when the extension says hello after the window', async () => {

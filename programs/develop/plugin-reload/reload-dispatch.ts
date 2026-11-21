@@ -15,7 +15,8 @@ import type {
   ReloadAckOutcome,
   ReloadRestartOutcome
 } from '../dev-server/control-bridge/contracts'
-import {humanLine, prefix} from '../lib/messaging'
+import {recordCodedWarning} from '../lib/coded-warnings'
+import {CODES, humanLine, prefix} from '../lib/messaging'
 import {isHotUpdateFile} from '../plugin-web-extension/shared/initial-files'
 import {
   filesBehindFolders,
@@ -203,6 +204,16 @@ export function formatUnappliedReloadLine(label: string): string {
   )
 }
 
+// The terminal reads the line, and a machine reads the same failure under
+// the code the browser console prints for it.
+function warnUnapplied(label: string): void {
+  console.warn(formatUnappliedReloadLine(label))
+  recordCodedWarning(
+    CODES.W_RELOAD_NOT_APPLIED,
+    `${label} compiled but the extension never confirmed the reload`
+  )
+}
+
 // The worker acked the reload and then never said hello again, so the edit
 // was handed over and the extension is not there to run it.
 export function formatNotRestartedLine(label: string): string {
@@ -272,9 +283,7 @@ export async function dispatchReload(
       return await dispatchViaBroker(instruction, executor, executor.broker)
     } catch {
       // A broker fault must not fail the compile that produced the edit.
-      if (instruction.label) {
-        console.warn(formatUnappliedReloadLine(instruction.label))
-      }
+      if (instruction.label) warnUnapplied(instruction.label)
 
       return false
     }
@@ -301,9 +310,7 @@ async function dispatchViaBroker(
     const ack = await broker.awaitReloadAck()
 
     if (ack === 'unacked') {
-      if (instruction.label) {
-        console.warn(formatUnappliedReloadLine(instruction.label))
-      }
+      if (instruction.label) warnUnapplied(instruction.label)
 
       return false
     }
@@ -330,6 +337,10 @@ async function dispatchViaBroker(
           if (outcome !== 'not-restarted') return
 
           console.warn(formatNotRestartedLine(label))
+          recordCodedWarning(
+            CODES.W_RELOAD_NOT_APPLIED,
+            `${label} reloaded but the extension has not come back since`
+          )
 
           void lateRestart.then(
             (late) => {
