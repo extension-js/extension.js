@@ -33,6 +33,7 @@ async function failureOf(run: Promise<unknown>) {
 describe('a build given an input it cannot use', () => {
   it('refuses an unknown browser with its code and writes no dist', async () => {
     const root = project()
+    // @ts-expect-error an unknown browser proves the build refuses it
     const error = await failureOf(buildProject(root, {browser: 'netscape'}))
 
     expect(error.code).toBe('E_UNSUPPORTED_BROWSER')

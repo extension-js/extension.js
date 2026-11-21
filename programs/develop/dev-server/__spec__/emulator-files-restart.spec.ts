@@ -15,7 +15,6 @@ import {
 } from '../emulator-lane'
 import {skipWithoutDevelopDist} from './helpers/develop-dist'
 
-type WebpackConfigOptions = Parameters<typeof webpackConfig>[1]
 type DevServerOptions = ConstructorParameters<typeof RspackDevServer>[0]
 type Middleware = Parameters<
   NonNullable<DevServerOptions['setupMiddlewares']>
@@ -81,7 +80,7 @@ async function startRun(
     metadataCommand: 'dev',
     silent: true,
     output: {clean: false, path: path.join(root, 'dist', 'chrome')}
-  } as WebpackConfigOptions)
+  })
   config.plugins = (config.plugins || []).filter(
     (plugin) =>
       plugin?.constructor.name !== 'plugin-browsers' &&
@@ -115,7 +114,7 @@ async function startRun(
         createEmulatorFilesMiddlewareEntry(holder, devServer),
         ...middlewares
       ]
-    } as DevServerOptions,
+    },
     compiler
   )
   await server.start()

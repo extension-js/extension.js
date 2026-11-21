@@ -113,6 +113,7 @@ describe('one project built for every browser name', () => {
   })
 
   it('covers exactly the names a build accepts', async () => {
+    // @ts-expect-error an unknown browser proves the build refuses it
     const refusal = await buildProject(root, {browser: 'netscape'}).catch(
       (error: Error) => error
     )

@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
 import {writeProjectFiles} from '../../../__spec__/helpers/extension-project'
+import type {BrowserType} from '../../../types'
 import {asCompiler, type TapCallback} from '../../__spec__/helpers/rspack-fakes'
 import {
   createLocalImportResolver,
@@ -93,7 +94,7 @@ function makeCompilation(
 async function runTrace(
   projectDir: string,
   assets: Record<string, string>,
-  browser?: string,
+  browser?: BrowserType,
   entry?: Record<string, unknown>,
   sources: string[] = []
 ) {
@@ -105,9 +106,7 @@ async function runTrace(
 
   new TraceRuntimeLoadedFiles({
     manifestPath: path.join(projectDir, 'manifest.json'),
-    browser: browser as ConstructorParameters<
-      typeof TraceRuntimeLoadedFiles
-    >[0]['browser']
+    browser
   }).apply(made.compiler)
 
   // The fake tapPromise runs the handler right away, its promise settles the

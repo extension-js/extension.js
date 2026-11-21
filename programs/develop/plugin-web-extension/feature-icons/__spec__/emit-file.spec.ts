@@ -51,7 +51,7 @@ describe('EmitFile step', () => {
       includeList: {
         'browser_action/theme_icons': ['/abs/assets/missing.png']
       }
-    } as ConstructorParameters<typeof EmitFile>[0])
+    })
 
     step.apply(asCompiler(compiler))
 
@@ -106,7 +106,7 @@ describe('EmitFile step', () => {
         'page_action/default_icon': ['/abs/assets/pa16.png'],
         'sidebar_action/default_icon': ['/abs/assets/sa16.png']
       }
-    } as ConstructorParameters<typeof EmitFile>[0])
+    })
 
     step.apply(asCompiler(compiler))
 
@@ -137,7 +137,7 @@ describe('EmitFile step', () => {
         icons: ['/abs/project/icons-dev/icon48.png'],
         'action/default_icon': ['/abs/project/images/logo.png']
       }
-    } as ConstructorParameters<typeof EmitFile>[0])
+    })
 
     step.apply(asCompiler(compiler))
 
@@ -161,7 +161,7 @@ describe('EmitFile step', () => {
       includeList: {
         icons: ['/abs/assets/skip.png', '/abs/assets/keep.png']
       }
-    } as ConstructorParameters<typeof EmitFile>[0])
+    })
 
     step.apply(asCompiler(compiler))
 
@@ -182,7 +182,7 @@ describe('EmitFile step', () => {
       includeList: {
         'browser_action/theme_icons': ['/abs/assets/a.png', '/abs/assets/b.png']
       }
-    } as ConstructorParameters<typeof EmitFile>[0])
+    })
 
     step.apply(asCompiler(compiler))
 
@@ -213,7 +213,7 @@ describe('EmitFile step', () => {
           '/abs/project/images/dark/bg.png'
         ]
       }
-    } as ConstructorParameters<typeof EmitFile>[0])
+    })
 
     step.apply(asCompiler(compiler))
 
@@ -236,7 +236,7 @@ describe('EmitFile step', () => {
       includeList: {
         'theme/images/DOES_NOT_EXIST.png': '/abs/assets/DOES_NOT_EXIST.png'
       }
-    } as ConstructorParameters<typeof EmitFile>[0])
+    })
 
     step.apply(asCompiler(compiler))
 
@@ -261,7 +261,7 @@ describe('EmitFile step', () => {
     const step = new EmitFile({
       manifestPath: '/abs/project/manifest.json',
       includeList: {'theme/images/f.png': '/abs/assets/f.png'}
-    } as ConstructorParameters<typeof EmitFile>[0])
+    })
 
     step.apply(asCompiler(compiler))
 
@@ -283,7 +283,7 @@ describe('EmitFile step', () => {
     const step = new EmitFile({
       manifestPath: '/abs/project/manifest.json',
       includeList: {'theme/images/f.png': '/abs/assets/f.png'}
-    } as ConstructorParameters<typeof EmitFile>[0])
+    })
 
     step.apply(asCompiler(compiler))
 
@@ -309,7 +309,7 @@ describe('EmitFile step', () => {
       includeList: {
         'action/default_icon': ['/public/icon.png', 'icons/rel.png']
       }
-    } as ConstructorParameters<typeof EmitFile>[0])
+    })
 
     step.apply(asCompiler(compiler))
 
@@ -328,7 +328,7 @@ describe('EmitFile step', () => {
     new EmitFile({
       manifestPath: '/abs/project/manifest.json',
       includeList: {icons: ['/abs/design/logo.png']}
-    } as ConstructorParameters<typeof EmitFile>[0]).apply(asCompiler(compiler))
+    }).apply(asCompiler(compiler))
 
     // The workspace check reads package.json files above, never the icon.
     const read = FS.readFileSync.mock.calls.map((c) => toPosix(c[0]))
@@ -352,7 +352,7 @@ describe('EmitFile step', () => {
       includeList: {
         icons: ['/abs/project/public/sub/icon.png']
       }
-    } as ConstructorParameters<typeof EmitFile>[0])
+    })
 
     step.apply(asCompiler(compiler))
 
@@ -368,7 +368,7 @@ describe('EmitFile step', () => {
     const step = new EmitFile({
       manifestPath: '/abs/project/manifest.json',
       includeList: {icons: ['/abs/assets/missing.png']}
-    } as ConstructorParameters<typeof EmitFile>[0])
+    })
 
     step.apply(asCompiler(compiler))
 
@@ -388,7 +388,7 @@ describe('EmitFile step', () => {
     let step = new EmitFile({
       manifestPath: '/abs/project/manifest.json',
       includeList: {icons: ['/missing.png']}
-    } as ConstructorParameters<typeof EmitFile>[0])
+    })
     step.apply(asCompiler(compiler))
     const msg1 = String(compilation.errors[0] || compilation.warnings[0] || '')
     expect(msg1).toMatch(/resolves from the extension root/i)
@@ -399,7 +399,7 @@ describe('EmitFile step', () => {
     step = new EmitFile({
       manifestPath: '/abs/project/manifest.json',
       includeList: {icons: ['icons/missing.png']}
-    } as ConstructorParameters<typeof EmitFile>[0])
+    })
 
     step.apply(asCompiler(compiler))
     const msg2 = String(compilation.errors[0] || compilation.warnings[0] || '')
@@ -415,7 +415,7 @@ describe('EmitFile step', () => {
     const step = new EmitFile({
       manifestPath: '/abs/project/manifest.json',
       includeList: {'action/default_icon': ['/abs/assets/missing.png']}
-    } as ConstructorParameters<typeof EmitFile>[0])
+    })
 
     step.apply(asCompiler(compiler))
 
@@ -442,7 +442,7 @@ describe('EmitFile step', () => {
           48: '/abs/assets/icon48.png'
         } as unknown as string[]
       }
-    } as ConstructorParameters<typeof EmitFile>[0])
+    })
 
     step.apply(asCompiler(compiler))
 
@@ -465,7 +465,7 @@ describe('EmitFile step', () => {
         icons: ['/abs/design/a/logo.png'],
         'action/default_icon': ['/abs/design/b/logo.png']
       }
-    } as ConstructorParameters<typeof EmitFile>[0]).apply(asCompiler(compiler))
+    }).apply(asCompiler(compiler))
 
     const calls = compilation.emitAsset.mock.calls.map((c) => c[0])
     expect(calls).toHaveLength(2)
@@ -492,7 +492,7 @@ describe('EmitFile step', () => {
           '/abs/design/dark/logo.png'
         ]
       }
-    } as ConstructorParameters<typeof EmitFile>[0]).apply(asCompiler(compiler))
+    }).apply(asCompiler(compiler))
 
     const calls = compilation.emitAsset.mock.calls.map((c) => c[0])
     expect(calls).toEqual([
@@ -509,7 +509,7 @@ describe('EmitFile step', () => {
     new EmitFile({
       manifestPath: '/abs/project/manifest.json',
       includeList: {'action/theme_icons': ['/abs/project/icons/light.png']}
-    } as ConstructorParameters<typeof EmitFile>[0]).apply(asCompiler(compiler))
+    }).apply(asCompiler(compiler))
 
     const calls = compilation.emitAsset.mock.calls.map((c) => c[0])
     expect(calls).toEqual(['action/icons/light.png'])
@@ -537,7 +537,7 @@ describe('EmitFile step', () => {
         ],
         'action/icon_variants': ['/abs/project/toolbar/light-16.png']
       }
-    } as ConstructorParameters<typeof EmitFile>[0])
+    })
 
     step.apply(asCompiler(compiler))
 
@@ -563,7 +563,7 @@ describe('EmitFile step', () => {
         icon_variants: ['/abs/project/icons/dark-16.png'],
         'action/icon_variants': ['/abs/project/icons/act-dark-16.png']
       }
-    } as ConstructorParameters<typeof EmitFile>[0])
+    })
 
     step.apply(asCompiler(compiler))
 

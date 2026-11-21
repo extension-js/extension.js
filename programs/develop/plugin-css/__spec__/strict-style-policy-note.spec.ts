@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as vm from 'node:vm'
 import {describe, expect, it} from 'vitest'
-import {toRuntimeStylesheetModule} from '../css-lib/inline-content-script-css'
+import {toRuntimeStylesheetModule} from '../../lib/css/inline-content-script-css'
 
 const HEADING = '### Content script styles on a page with a strict style policy'
 

@@ -58,7 +58,7 @@ async function makeCompiler(
     metadataCommand: 'dev',
     silent: true,
     output: {clean: false, path: session.outputPath || distPath}
-  } as never)
+  })
   config.plugins = (config.plugins || []).filter(
     (plugin) =>
       plugin?.constructor.name !== 'plugin-browsers' &&

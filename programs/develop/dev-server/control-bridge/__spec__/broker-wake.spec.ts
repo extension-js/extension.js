@@ -72,7 +72,7 @@ function suspendedFirefox(wakeExecutor?: () => Promise<boolean>) {
     setTimer: scheduler.setTimer,
     clearTimer: scheduler.clearTimer,
     ...(wakeExecutor ? {wakeExecutor} : {})
-  } as never)
+  })
   const page = new FakeConn('event-page')
   hello(b, page, 'producer')
   b.onClose(page)

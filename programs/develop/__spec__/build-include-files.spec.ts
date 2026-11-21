@@ -168,10 +168,13 @@ describe('an include entry in its long form', () => {
         'b.js': {from: 'vendor/lib.js', minify: false},
         'c.js': {from: 'vendor/lib.js'},
         'd.js': {from: ''},
+        // @ts-expect-error a string minify proves the shape check refuses it
         'e.js': {from: 'vendor/lib.js', minify: 'no'},
+        // @ts-expect-error a misspelled key proves unknown keys are refused
         'f.js': {from: 'vendor/lib.js', minfy: false},
+        // @ts-expect-error a list proves an entry of no known shape is refused
         'g.js': ['vendor/lib.js']
-      } as unknown as Parameters<typeof judgeIncludeFiles>[0],
+      },
       root
     )
 

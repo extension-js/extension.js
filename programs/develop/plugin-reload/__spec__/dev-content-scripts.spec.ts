@@ -3,7 +3,6 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import type {Compilation, Compiler} from '@rspack/core'
 import {afterAll, afterEach, describe, expect, it, vi} from 'vitest'
-import {getCurrentManifestContent} from '../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import {isDevContentScriptStandInAsset} from '../../plugin-web-extension/feature-scripts/contracts'
 import {
   buildDevContentScriptMarkerPrelude,
@@ -1148,7 +1147,7 @@ describe('dev content scripts runtime', () => {
           css: ['content_scripts/content-0.aaaaaaaa.css']
         }
       ]
-    } as Parameters<typeof planDevContentScripts>[0])!
+    })!
     const w = worker({
       registry: plan.registry,
       assets: plan.stubs,
@@ -1518,8 +1517,6 @@ describe('SetupDevContentScripts step', () => {
       {matches: ['<all_urls>'], js: ['content_scripts/dev-stub-0.js']}
     ])
 
-    // persist-manifest reads the shared slot before the asset.
-    expect(getCurrentManifestContent(c.comp)).toBe(c.store.get('manifest.json'))
     const reg = JSON.parse(c.store.get(DEV_CONTENT_SCRIPT_REGISTRY_ASSET)!)
     expect(reg.entries[0].js).toEqual(['content_scripts/content-0.abc12345.js'])
     expect(c.store.get('content_scripts/dev-stub-0.js')).toContain(

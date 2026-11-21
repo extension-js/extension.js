@@ -7,6 +7,7 @@ import {
   extensionBaseGlobal,
   takeBlockOpen
 } from '../../../lib/extension-base-from-stack'
+import type {BrowserType} from '../../../types'
 import {asCompiler} from '../../__spec__/helpers/rspack-fakes'
 import {getCanonicalContentScriptEntryName} from '../contracts'
 import {TakeExtensionBase} from '../steps/take-extension-base'
@@ -31,7 +32,7 @@ function project() {
 }
 
 // The step against the assets given, run as many times as asked.
-function emit(browser: string, assets: Record<string, string>, runs = 1) {
+function emit(browser: BrowserType, assets: Record<string, string>, runs = 1) {
   const root = project()
   const store = new Map(
     Object.entries(assets).map(([name, text]) => [
@@ -62,7 +63,7 @@ function emit(browser: string, assets: Record<string, string>, runs = 1) {
   new TakeExtensionBase({
     manifestPath: path.join(root, 'manifest.json'),
     browser
-  } as ConstructorParameters<typeof TakeExtensionBase>[0]).apply(
+  }).apply(
     asCompiler({
       options: {context: root},
       hooks: {
@@ -138,7 +139,7 @@ describe('the step that opens a Gecko MAIN world file on the read of the base', 
     expect(built.text(MAIN)).toBe(module)
   })
 
-  it.each([
+  it.each<BrowserType>([
     'chrome',
     'edge',
     'chromium',

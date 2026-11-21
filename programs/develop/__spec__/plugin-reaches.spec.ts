@@ -60,10 +60,6 @@ const PRODUCT_REACHES: Array<[reach: string, why: string]> = [
     'the launcher receives reload instructions through the session reload publishes'
   ],
   [
-    'plugin-compatibility -> plugin-web-extension/feature-manifest/manifest-lib/manifest',
-    'held: the manifest reader with its browser overrides is not in lib yet'
-  ],
-  [
     'plugin-compatibility -> plugin-web-extension/feature-scripts/contracts',
     'web-extension names the content script layers and every other plugin reads the names'
   ],
@@ -74,10 +70,6 @@ const PRODUCT_REACHES: Array<[reach: string, why: string]> = [
   [
     'plugin-compatibility -> plugin-web-extension/shared/scannable-source-path',
     'shared/ is the folder web-extension publishes to the other plugins'
-  ],
-  [
-    'plugin-compilation -> plugin-web-extension/feature-manifest/manifest-lib/manifest',
-    'held: the manifest reader with its browser overrides is not in lib yet'
   ],
   [
     'plugin-css -> plugin-web-extension/feature-scripts/contracts',
@@ -146,18 +138,6 @@ const PRODUCT_REACHES: Array<[reach: string, why: string]> = [
   [
     'plugin-special-folders -> plugin-web-extension/shared/root-absolute-refs-emitter',
     'a registry: the HTML feature hands its emitter in, so the copier never reads the feature'
-  ],
-  [
-    'plugin-web-extension -> plugin-css/css-lib/inline-content-script-css',
-    'held: web-extension inlines sheets with the private code of the CSS plugin'
-  ],
-  [
-    'plugin-web-extension -> plugin-css/css-lib/inline-css-imports',
-    'held: web-extension inlines sheets with the private code of the CSS plugin'
-  ],
-  [
-    'plugin-web-extension -> plugin-css/css-lib/messages',
-    'held: web-extension prints a message of the CSS plugin'
   ]
 ]
 
@@ -176,7 +156,6 @@ const SPEC_REACHES = [
   'plugin-reload -> plugin-web-extension',
   'plugin-reload -> plugin-web-extension/feature-chunk-loading',
   'plugin-reload -> plugin-web-extension/feature-html',
-  'plugin-reload -> plugin-web-extension/feature-manifest/manifest-lib/manifest',
   'plugin-reload -> plugin-web-extension/feature-scripts/__spec__/scripting-calling-styles',
   'plugin-reload -> plugin-web-extension/feature-scripts/contracts',
   'plugin-reload -> plugin-web-extension/feature-scripts/steps/add-content-script-wrapper/content-script-wrapper',
@@ -185,8 +164,7 @@ const SPEC_REACHES = [
   'plugin-reload -> plugin-web-extension/shared/html-page-extensions',
   'plugin-reload -> plugin-web-extension/shared/kept-resource-extensions',
   'plugin-static-assets -> plugin-css',
-  'plugin-static-assets -> plugin-js-frameworks',
-  'plugin-web-extension -> plugin-css/css-lib/inline-content-script-css'
+  'plugin-static-assets -> plugin-js-frameworks'
 ]
 
 describe('what one plugin reads in another', () => {

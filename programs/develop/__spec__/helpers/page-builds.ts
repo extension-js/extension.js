@@ -5,6 +5,7 @@ import {type Compiler, rspack, type Stats} from '@rspack/core'
 import {diagnosticCode} from '../../lib/diagnostic-code'
 import {getProjectStructure} from '../../lib/project'
 import webpackConfig from '../../rspack-config'
+import type {BrowserType} from '../../types'
 import {sessionOf} from './dev-session'
 
 // One whole build of a project through the real config, minus the browser
@@ -169,7 +170,7 @@ export const SESSION_PORT = 45678
 export async function buildPages(
   root: string,
   shape: PageBuildShape,
-  browser = 'chrome'
+  browser: BrowserType = 'chrome'
 ): Promise<PageBuild> {
   const projectStructure = await getProjectStructure(root)
   const distPath = path.join(
@@ -192,7 +193,7 @@ export async function buildPages(
           })
         }
       : {})
-  } as Parameters<typeof webpackConfig>[1])
+  })
 
   config.plugins = (config.plugins || []).filter(
     (plugin) =>

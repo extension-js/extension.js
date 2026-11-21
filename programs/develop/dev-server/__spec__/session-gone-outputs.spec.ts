@@ -11,6 +11,7 @@ import {
   readyContractPath
 } from '../../lib/session-paths'
 import webpackConfig from '../../rspack-config'
+import type {BrowserType} from '../../types'
 import {withGoneEntryOutputsPruned} from '../session-gone-outputs'
 import {withSessionStartPrune} from '../session-start-prune'
 import {skipWithoutDevelopDist} from './helpers/develop-dist'
@@ -99,7 +100,7 @@ function plant(file: string, text = 'not written by the session') {
 
 async function makeCompiler(
   root: string,
-  browser: string,
+  browser: BrowserType,
   session: {isRestart: boolean; written: Set<string>}
 ) {
   const projectStructure = await getProjectStructure(root)
@@ -110,7 +111,7 @@ async function makeCompiler(
     metadataCommand: 'dev',
     silent: true,
     output: {clean: false, path: distPath}
-  } as never)
+  })
   config.plugins = (config.plugins || []).filter(
     (plugin) =>
       plugin?.constructor.name !== 'plugin-browsers' &&
@@ -196,7 +197,7 @@ function shipped(dist: string): string[] {
 // One compiler until its first good compile, as a session start or a restart.
 async function compileOnce(
   root: string,
-  browser: string,
+  browser: BrowserType,
   session: {isRestart: boolean; written: Set<string>}
 ) {
   const watch = watchSession(await makeCompiler(root, browser, session))
@@ -213,7 +214,7 @@ async function compileOnce(
 beforeEach(skipWithoutDevelopDist)
 
 describe('the browser folder after a dev session restart', () => {
-  for (const browser of ['chrome', 'firefox']) {
+  for (const browser of ['chrome', 'firefox'] satisfies BrowserType[]) {
     it(`${browser}: drops the outputs of entries the restart no longer has`, async () => {
       const root = scaffold(browser)
       const dist = path.join(root, 'dist', browser)

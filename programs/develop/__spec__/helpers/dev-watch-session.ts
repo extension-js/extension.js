@@ -10,6 +10,7 @@ import {
   readContentScriptCount
 } from '../../plugin-reload'
 import webpackConfig from '../../rspack-config'
+import type {BrowserType, WebpackConfigOptions} from '../../types'
 import {devWatchOptions} from './dev-watch-options'
 
 const SETTLE_QUIET_MS = 300
@@ -44,9 +45,9 @@ export function ageProjectFiles(dir: string) {
 // can write files and observe which of them the dev session rebuilds for.
 export async function openDevWatchSession(
   root: string,
-  browser = 'chrome',
+  browser: BrowserType = 'chrome',
   onCompiler?: (compiler: Compiler) => void,
-  devOptions: Record<string, unknown> = {}
+  devOptions: Partial<WebpackConfigOptions> = {}
 ): Promise<DevWatchSession> {
   ageProjectFiles(root)
 
@@ -59,7 +60,7 @@ export async function openDevWatchSession(
     silent: true,
     output: {clean: false, path: distPath},
     ...devOptions
-  } as Parameters<typeof webpackConfig>[1])
+  })
   config.plugins = (config.plugins || []).filter(
     (plugin) =>
       plugin?.constructor.name !== 'plugin-browsers' &&

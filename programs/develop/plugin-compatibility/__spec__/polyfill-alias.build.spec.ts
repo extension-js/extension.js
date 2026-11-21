@@ -5,6 +5,7 @@ import {buildProject} from '../../__spec__/helpers/build-project'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {getProjectStructure} from '../../lib/project'
 import webpackConfig from '../../rspack-config'
+import type {BrowserType} from '../../types'
 
 const makeTempFolder = trackTempFolders()
 
@@ -38,14 +39,14 @@ function project(files: Record<string, string> = {}) {
   return root
 }
 
-async function aliasFor(browser: string, polyfill: boolean) {
+async function aliasFor(browser: BrowserType, polyfill: boolean) {
   const root = project()
   const config = webpackConfig(await getProjectStructure(root), {
     browser,
     polyfill,
     mode: 'production',
     output: {clean: false, path: path.join(root, 'dist', browser)}
-  } as never)
+  })
 
   return (config.resolve?.alias || {}) as Record<string, string>
 }

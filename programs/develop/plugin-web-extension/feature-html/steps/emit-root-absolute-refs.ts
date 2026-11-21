@@ -10,14 +10,14 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, rspack, WebpackError} from '@rspack/core'
 import {templateCopiedAsset} from '../../../lib/copied-asset-env'
+import {whyNotRead} from '../../../lib/css/inline-css-imports'
+import * as cssMessages from '../../../lib/css/messages'
 import {
   rootAbsolutePathIsWithheld,
   sourceFileMayShip
 } from '../../../lib/public-private-files'
 import {isOsPathUnder} from '../../../lib/real-path'
 import {WITHHELD_CSS_REF, withheldCssRefs} from '../../../lib/withheld-file'
-import {whyNotRead} from '../../../plugin-css/css-lib/inline-css-imports'
-import * as cssMessages from '../../../plugin-css/css-lib/messages'
 import * as messages from '../../feature-scripts/messages'
 import {
   type CompileRequest,

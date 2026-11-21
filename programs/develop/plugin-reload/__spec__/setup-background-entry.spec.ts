@@ -13,6 +13,7 @@ import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {diagnosticCode} from '../../lib/diagnostic-code'
 import {WebExtensionPlugin} from '../../plugin-web-extension'
 import {SetupChunkLoadingTarget} from '../../plugin-web-extension/feature-chunk-loading'
+import type {BrowserType} from '../../types'
 import {ReloadPlugin} from '../index'
 import {SetupBackgroundEntry} from '../steps/setup-reload-strategy/setup-background-entry'
 
@@ -381,22 +382,18 @@ describe('a missing background script', () => {
 
   async function errorsOf(
     mode: 'development' | 'production',
-    browser: string,
+    browser: BrowserType,
     {root, manifestPath}: {root: string; manifestPath: string}
   ) {
     const options = {
       manifestPath,
       browser,
       devSession: mode === 'development'
-    } as ConstructorParameters<typeof ReloadPlugin>[0]
+    }
     const {errors} = await compileIssues(root, mode, {}, [
-      new WebExtensionPlugin(
-        options as ConstructorParameters<typeof WebExtensionPlugin>[0]
-      ),
+      new WebExtensionPlugin(options),
       new ReloadPlugin(options),
-      new SetupChunkLoadingTarget(
-        options as ConstructorParameters<typeof SetupChunkLoadingTarget>[0]
-      )
+      new SetupChunkLoadingTarget(options)
     ])
 
     return errors.map((error) => diagnosticCode(error))
