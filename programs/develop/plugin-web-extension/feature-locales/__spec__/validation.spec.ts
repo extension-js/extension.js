@@ -1,8 +1,8 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {getLocales} from '../../../lib/get-locales'
 import {asCompilation, asCompiler} from '../../__spec__/helpers/rspack-fakes'
-import {getLocales} from '../get-locales'
 import {processLocaleAssets} from '../process-assets'
 import {validateLocales} from '../validation'
 

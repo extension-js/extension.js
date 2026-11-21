@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterAll, afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {buildProject} from '../../__spec__/helpers/build-project'
-import {templateCopiedAsset} from '../copied-asset-env'
+import {templateCopiedAsset} from '../../lib/copied-asset-env'
 import {EnvPlugin} from '../env'
 import {compile, makeTempRoot, removeTempRoots} from './helpers/real-compile'
 

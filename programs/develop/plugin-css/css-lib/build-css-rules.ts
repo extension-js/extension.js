@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {RuleSetRule} from '@rspack/core'
+import {ASSET_FILENAME_PATTERN} from '../../lib/asset-output-name'
 import {resolveDevelopDistFile} from '../../lib/develop-context'
 import {
   ensureOptionalContractPackageResolved,
@@ -17,7 +18,6 @@ import {
   RAW_RESOURCE_QUERY,
   URL_RESOURCE_QUERY
 } from '../../lib/resource-query'
-import {ASSET_FILENAME_PATTERN} from '../../plugin-static-assets/static-assets-lib/asset-output-name'
 import type {DevOptions} from '../../types'
 import {commonStyleLoaders} from '../common-style-loaders'
 import type {PostCssRuleReader} from '../css-tools/postcss'

@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {publicOwnedOutputName, toPosixPath} from '../../lib/dead-url-refs'
 import {
   CHROMIUM_EXTENSION_SCHEME,
   closedOnSlash,
@@ -17,13 +18,12 @@ import {
   GECKO_EXTENSION_SCHEME,
   unlessExtensionAddress
 } from '../../lib/extension-base-from-stack'
+import {toJsStringLiteral} from '../../lib/js-literal'
 import {
   hasPrivateFileName,
   rootAbsolutePathIsWithheld
 } from '../../lib/public-private-files'
 import type {WithheldKind} from '../../lib/withheld-file'
-import {toJsStringLiteral} from '../../plugin-compilation/env'
-import {publicOwnedOutputName, toPosixPath} from './dead-url-refs'
 import {rewriteCssUrls, whyNotRead} from './inline-css-imports'
 
 export const EXTENSION_ROOT_PLACEHOLDER = '__EXTENSIONJS_EXTENSION_ROOT__/'

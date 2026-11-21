@@ -29,7 +29,14 @@ import {
   SUPPORTED_BROWSERS,
   WEBKIT_BASED_BROWSERS
 } from '../lib/constants'
+import {
+  type EnvAssetTemplater,
+  isEnvTemplatedAsset,
+  setEnvAssetTemplater,
+  templateAssetBytes
+} from '../lib/copied-asset-env'
 import {resolveDevelopDistFile} from '../lib/develop-context'
+import {IMPORT_META_URL_RUNTIME} from '../lib/import-meta-url'
 import {CODES, debugLine, isDebug} from '../lib/messaging'
 import {toProjectRelativePath} from '../lib/resource-path'
 import {setCurrentManifestContent} from '../plugin-web-extension/feature-manifest/manifest-lib/manifest'
@@ -40,31 +47,9 @@ import {
   substituteForJsonAsset,
   valueBreaksInlineScript
 } from './compilation-lib/asset-sinks'
-import {toJsStringLiteral} from './compilation-lib/js-literal'
 import * as messages from './compilation-lib/messages'
-import {
-  type EnvAssetTemplater,
-  isEnvTemplatedAsset,
-  setEnvAssetTemplater,
-  templateAssetBytes
-} from './copied-asset-env'
 import {processModuleRequest} from './process-module'
 import {WatchEnvFilesPlugin} from './watch-env-files'
-
-export {toJsStringLiteral}
-
-// Extension pages and workers keep their own URL, content scripts get the
-// extension root, and a MAIN world script without a runtime gets the page URL.
-export const IMPORT_META_URL_RUNTIME =
-  '(function(){var h=typeof document!=="undefined"&&document.baseURI||self.location.href;try{var g=globalThis,r=(g.browser||g.chrome).runtime.getURL("/");return h.indexOf(r)===0?h:r}catch(_){return h}})()'
-
-// A file the runtime loads by URL is emitted at one known path, so its
-// import.meta.url is that path. Without a runtime (MAIN world) the page URL stands in.
-export function importMetaUrlForEmitPath(emitPath: string): string {
-  const request = emitPath.replace(/\\/g, '/').replace(/^\/+/, '')
-
-  return `(function(){try{var g=globalThis;return (g.browser||g.chrome).runtime.getURL(${toJsStringLiteral(request)})}catch(_){return ${IMPORT_META_URL_RUNTIME}}})()`
-}
 
 function parsesAsJson(text: string): boolean {
   try {

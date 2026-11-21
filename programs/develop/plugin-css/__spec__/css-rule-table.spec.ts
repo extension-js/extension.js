@@ -1,6 +1,7 @@
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import {ASSET_FILENAME_PATTERN} from '../../lib/asset-output-name'
 import {resolveDevelopDistFile} from '../../lib/develop-context'
 import {extensionSchemeFor} from '../../lib/extension-base-from-stack'
 import {
@@ -8,16 +9,15 @@ import {
   RAW_RESOURCE_QUERY,
   URL_RESOURCE_QUERY
 } from '../../lib/resource-query'
-import {ASSET_FILENAME_PATTERN} from '../../plugin-static-assets/static-assets-lib/asset-output-name'
-import {EXTENSIONJS_CONTENT_SCRIPT_LAYER as LAYER} from '../../plugin-web-extension/feature-scripts/contracts'
-import {extensionBaseAttributeFor} from '../../plugin-web-extension/feature-scripts/scripts-lib/taken-extension-base'
-import {commonStyleLoaders} from '../common-style-loaders'
 import {
   SFC_INLINE_STYLE_BLOCK_QUERY,
   SFC_MODULE_STYLE_BLOCK_QUERY,
   SFC_STYLE_BLOCK_QUERY,
   SVELTE_STYLE_BLOCK_TEST
-} from '../css-lib/sfc-style-block'
+} from '../../lib/sfc-style-block'
+import {extensionBaseAttributeFor} from '../../lib/taken-extension-base'
+import {EXTENSIONJS_CONTENT_SCRIPT_LAYER as LAYER} from '../../plugin-web-extension/feature-scripts/contracts'
+import {commonStyleLoaders} from '../common-style-loaders'
 import {maybeUseLess} from '../css-tools/less'
 import {maybeUseSass} from '../css-tools/sass'
 import {CssPlugin} from '../index'

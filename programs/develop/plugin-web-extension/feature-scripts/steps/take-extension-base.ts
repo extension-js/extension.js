@@ -11,17 +11,17 @@ import {Compilation, type Compiler, DefinePlugin} from '@rspack/core'
 import {prependToEmittedAsset} from '../../../lib/asset-source-maps'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
 import {extensionSchemeFor} from '../../../lib/extension-base-from-stack'
-import type {DevOptions, FilepathList, PluginInterface} from '../../../types'
-import {isHotUpdateFile} from '../../shared/initial-files'
-import {getCanonicalContentScriptEntryName} from '../contracts'
-import {findRuntimeMainWorldEntries} from '../scripts-lib/runtime-main-world-scripts'
 import {
   closeTakeBlock,
   extensionBaseAttributeFor,
   extensionBaseGlobalFor,
   isEntryFile,
   takesExtensionBase
-} from '../scripts-lib/taken-extension-base'
+} from '../../../lib/taken-extension-base'
+import type {DevOptions, FilepathList, PluginInterface} from '../../../types'
+import {isHotUpdateFile} from '../../shared/initial-files'
+import {getCanonicalContentScriptEntryName} from '../contracts'
+import {findRuntimeMainWorldEntries} from '../scripts-lib/runtime-main-world-scripts'
 import {getMainWorldBridgePairs} from './add-content-script-wrapper/get-bridge-scripts'
 
 function parsesAsScript(text: string): boolean {

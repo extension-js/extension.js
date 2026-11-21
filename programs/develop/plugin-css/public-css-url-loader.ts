@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {checkedCssSheets, publicOwnedOutputName} from '../lib/dead-url-refs'
 import {
   hasPrivateFileName,
   rootAbsolutePathIsWithheld
@@ -17,7 +18,6 @@ import {
   publicContainmentRoot,
   resolvePublicFolder
 } from '../lib/special-folders/resolve-public-folder'
-import {checkedCssSheets, publicOwnedOutputName} from './css-lib/dead-url-refs'
 import {rewriteCssUrls} from './css-lib/inline-css-imports'
 import {lineRewriteSourceMap} from './css-lib/line-rewrite-source-map'
 import * as messages from './css-lib/messages'

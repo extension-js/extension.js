@@ -9,12 +9,12 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compilation, Compiler} from '@rspack/core'
+import {resolveLocalesFolder} from '../../lib/get-locales'
 import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
 import {debugLine, isDebug} from '../../lib/messaging'
 import {parseAuthoredJson} from '../../lib/parse-json-safe'
 import type {DevOptions, Manifest} from '../../types'
 import {pushCompilationError} from './compilation-error'
-import {resolveLocalesFolder} from './get-locales'
 import * as messages from './messages'
 import {findUndefinedMsgReferences} from './msg-placeholders'
 

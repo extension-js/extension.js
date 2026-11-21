@@ -1,13 +1,13 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
-import {debugLine, isDebug} from '../../lib/messaging'
 import {
   getLocales,
   localeFoldersWithoutMessages,
   localesFolderCandidates,
   resolveLocalesFolder
-} from './get-locales'
+} from '../../lib/get-locales'
+import {debugLine, isDebug} from '../../lib/messaging'
 import * as messages from './messages'
 
 export function trackLocaleDependencies(

@@ -17,7 +17,7 @@ import {
   isEntryFile,
   TAKE_BLOCK_COLUMNS,
   takesExtensionBase
-} from '../taken-extension-base'
+} from '../../../../lib/taken-extension-base'
 
 const BASE = 'moz-extension://0f0f0f0f-aaaa-bbbb-cccc-121212121212/'
 

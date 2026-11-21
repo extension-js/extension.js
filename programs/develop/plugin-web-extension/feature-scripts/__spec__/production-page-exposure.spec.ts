@@ -9,10 +9,10 @@ import {
   readTakeBlock
 } from '../../../lib/extension-base-from-stack'
 import {getProjectStructure} from '../../../lib/project'
+import {extensionBaseAttributeFor} from '../../../lib/taken-extension-base'
 import webpackConfig from '../../../rspack-config'
 import {MAIN_WORLD_COPY_SUFFIX} from '../contracts'
 import {CHROMIUM_EXTENSION_ROOT} from '../scripts-lib/injected-sheet-urls'
-import {extensionBaseAttributeFor} from '../scripts-lib/taken-extension-base'
 
 const roots: string[] = []
 const EXTENSION_BASE = 'chrome-extension://abcdefghijklmnop/'

@@ -8,16 +8,16 @@
 
 import * as path from 'node:path'
 import type {Compiler, RuleSetRule} from '@rspack/core'
-import {debugLine, isDebug} from '../lib/messaging'
-import {RAW_RESOURCE_QUERY} from '../lib/resource-query'
-import {CheckNamespaceImports} from './check-namespace-imports'
-import {PruneSupersededAssets} from './prune-superseded-assets'
 import {
   ASSET_FILENAME_PATTERN,
   FILE_EXTENSIONS,
   FONT_EXTENSIONS,
   IMAGE_EXTENSIONS
-} from './static-assets-lib/asset-output-name'
+} from '../lib/asset-output-name'
+import {debugLine, isDebug} from '../lib/messaging'
+import {RAW_RESOURCE_QUERY} from '../lib/resource-query'
+import {CheckNamespaceImports} from './check-namespace-imports'
+import {PruneSupersededAssets} from './prune-superseded-assets'
 import * as messages from './static-assets-lib/messages'
 
 export class StaticAssetsPlugin {

@@ -1,7 +1,7 @@
 import type {Compiler} from '@rspack/core'
 import {afterAll, describe, expect, it} from 'vitest'
+import {bundledAssetOutputName} from '../../lib/asset-output-name'
 import {StaticAssetsPlugin} from '../index'
-import {bundledAssetOutputName} from '../static-assets-lib/asset-output-name'
 import {compileFixture, removeFixtureRoots} from './helpers/compile-harness'
 import {SMALL_SVG} from './helpers/fixtures'
 

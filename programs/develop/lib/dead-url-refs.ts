@@ -8,10 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {
-  canonicalizeDir,
-  canonicalizeResourcePath
-} from '../../lib/resource-path'
+import {canonicalizeDir, canonicalizeResourcePath} from './resource-path'
 
 const ASSET_EXT =
   /\.(png|jpe?g|gif|webp|svg|avif|ico|bmp|cur|woff2?|ttf|otf|eot|mp3|mp4|webm|ogg|wav)$/i

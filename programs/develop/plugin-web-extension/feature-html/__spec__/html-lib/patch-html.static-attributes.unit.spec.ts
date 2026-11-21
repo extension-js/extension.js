@@ -3,7 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
 import {afterAll, describe, expect, it} from 'vitest'
-import {bundledAssetOutputName} from '../../../../plugin-static-assets/static-assets-lib/asset-output-name'
+import {bundledAssetOutputName} from '../../../../lib/asset-output-name'
 import {patchHtml, patchHtmlNested} from '../../html-lib/patch-html'
 
 const tmpRoots: string[] = []
