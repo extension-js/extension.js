@@ -27,6 +27,7 @@ import {
   DEFAULT_TEMPLATE_NAME,
   importExternalTemplate,
   noteIncompleteCleanup,
+  putBackFile,
   type RemovePath
 } from './steps/import-external-template'
 import {
@@ -166,9 +167,9 @@ export async function runCreate(
     if (ownerGitignore !== null) {
       const gitignorePath = path.join(projectPath, '.gitignore')
 
-      await fs.promises.writeFile(gitignorePath, ownerGitignore).catch(() => {
+      if (!(await putBackFile(gitignorePath, ownerGitignore))) {
         notRestored.push(gitignorePath)
-      })
+      }
     }
 
     // The failure is still the one thrown, and it now says what was left.
