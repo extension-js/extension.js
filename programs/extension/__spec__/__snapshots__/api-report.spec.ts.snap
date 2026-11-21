@@ -1,0 +1,1112 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`the signatures of the CLI package, entry by entry > pins what . declares > . 1`] = `
+"# exports
+BrowserConfig = extension/config-types#BrowserConfig
+BrowserType = extension/config-types#BrowserType
+CompanionExtensionsConfig = extension/config-types#CompanionExtensionsConfig
+ConfigHookContext = extension/config-types#ConfigHookContext
+FileConfig = extension/config-types#FileConfig
+
+# from other packages
+
+# declarations
+
+## extension/config-types#BrowserConfig
+interface BrowserConfig extends BrowserLaunchConfig, SafariConfig {
+    browser?: BrowserType;
+    profile?: string | false;
+    keepProfileChanges?: boolean;
+    copyFromProfile?: string;
+    startingUrl?: string;
+    noOpen?: boolean;
+    chromiumBinary?: string;
+    geckoBinary?: string;
+    firefoxBinary?: string;
+    folders?: SpecialFoldersConfig;
+    include?: IncludeFilesConfig;
+    exclude?: ExcludeFilesConfig;
+    define?: Record<string, unknown>;
+    perfBudgets?: PerfBudgetsConfig;
+}
+
+## extension/config-types#BrowserLaunchConfig
+interface BrowserLaunchConfig {
+    browserFlags?: string[];
+    excludeBrowserFlags?: string[];
+    preferences?: Record<string, unknown>;
+    persistProfile?: boolean;
+    extensions?: CompanionExtensionsConfig;
+    transpilePackages?: string[];
+}
+
+## extension/config-types#BrowserType
+type BrowserType = 'chrome' | 'edge' | 'firefox' | 'chromium' | 'brave' | 'opera' | 'vivaldi' | 'yandex' | 'waterfox' | 'librewolf' | 'zen' | 'floorp' | 'chromium-based' | 'gecko-based' | 'firefox-based' | 'safari' | 'webkit-based' | 'chromium-emulator';
+
+## extension/config-types#BuildCommandConfig
+interface BuildCommandConfig extends SafariConfig {
+    browser?: BrowserType;
+    outDir?: string;
+    polyfill?: boolean;
+    zip?: boolean;
+    zipSource?: boolean;
+    zipFilename?: string;
+    zipDir?: string;
+    sourceMaps?: boolean;
+    silent?: boolean;
+    addonLint?: boolean;
+    minify?: boolean;
+    extensions?: CompanionExtensionsConfig;
+    transpilePackages?: string[];
+    perfBudgets?: PerfBudgetsConfig;
+    define?: Record<string, unknown>;
+    folders?: SpecialFoldersConfig;
+    include?: IncludeFilesConfig;
+    exclude?: ExcludeFilesConfig;
+}
+
+## extension/config-types#CompanionExtensionsConfig
+type CompanionExtensionsConfig = string[] | {
+    dir?: string;
+    paths?: string[];
+};
+
+## extension/config-types#ConfigHookContext
+interface ConfigHookContext {
+    browser: BrowserType;
+    mode: 'development' | 'production' | 'none';
+    command: 'dev' | 'build' | 'start' | 'preview';
+    rspack: any;
+}
+
+## extension/config-types#DevCommandConfig
+interface DevCommandConfig extends BrowserLaunchConfig, UnifiedLoggerConfig, SafariConfig {
+    browser?: BrowserType;
+    profile?: string | false;
+    chromiumBinary?: string;
+    geckoBinary?: string;
+    noOpen?: boolean;
+    noBrowser?: boolean;
+    polyfill?: boolean;
+    hashContentScripts?: boolean;
+    perfBudgets?: PerfBudgetsConfig;
+    define?: Record<string, unknown>;
+    folders?: SpecialFoldersConfig;
+    include?: IncludeFilesConfig;
+    exclude?: ExcludeFilesConfig;
+}
+
+## extension/config-types#ExcludeFilesConfig
+type ExcludeFilesConfig = string[];
+
+## extension/config-types#FileConfig
+interface FileConfig {
+    browser?: {
+        [K in BrowserType]?: BrowserConfig;
+    };
+    commands?: {
+        dev?: DevCommandConfig;
+        start?: StartCommandConfig;
+        preview?: PreviewCommandConfig;
+        build?: BuildCommandConfig;
+    };
+    extensions?: CompanionExtensionsConfig;
+    transpilePackages?: string[];
+    perfBudgets?: PerfBudgetsConfig;
+    define?: Record<string, unknown>;
+    folders?: SpecialFoldersConfig;
+    include?: IncludeFilesConfig;
+    exclude?: ExcludeFilesConfig;
+    config?: (config: any, context: ConfigHookContext) => any;
+    configResolved?: (config: any, context: ConfigHookContext) => any;
+}
+
+## extension/config-types#IncludeFileEntry
+interface IncludeFileEntry {
+    from: string;
+    minify?: boolean;
+}
+
+## extension/config-types#IncludeFilesConfig
+type IncludeFilesConfig = Record<string, string | IncludeFileEntry>;
+
+## extension/config-types#PerfBudgetCategory
+type PerfBudgetCategory = 'content-script' | 'service-worker' | 'page' | 'shared' | 'public' | 'runtime' | 'wasm';
+
+## extension/config-types#PerfBudgetsConfig
+type PerfBudgetsConfig = Partial<Record<PerfBudgetCategory, number>> & {
+    ignore?: string[];
+    onExceed?: 'warn' | 'error';
+};
+
+## extension/config-types#PreviewCommandConfig
+interface PreviewCommandConfig extends Omit<ServeCommandConfig, 'polyfill' | 'include' | 'exclude'> {
+    transpilePackages?: string[];
+    define?: Record<string, unknown>;
+}
+
+## extension/config-types#SafariConfig
+interface SafariConfig {
+    safariBinary?: string;
+    appName?: string;
+    bundleId?: string;
+    developmentTeam?: string;
+    macOsOnly?: boolean;
+    appIcon?: string;
+    forceRegenerate?: boolean;
+}
+
+## extension/config-types#ServeCommandConfig
+interface ServeCommandConfig extends BrowserLaunchConfig, UnifiedLoggerConfig {
+    browser?: BrowserType;
+    profile?: string | false;
+    chromiumBinary?: string;
+    geckoBinary?: string;
+    noOpen?: boolean;
+    startingUrl?: string;
+    noBrowser?: boolean;
+    polyfill?: boolean;
+    port?: string | number;
+    host?: string;
+    publicHost?: string;
+    define?: Record<string, unknown>;
+    folders?: SpecialFoldersConfig;
+    include?: IncludeFilesConfig;
+    exclude?: ExcludeFilesConfig;
+}
+
+## extension/config-types#SpecialFoldersConfig
+interface SpecialFoldersConfig {
+    scripts?: string | false;
+    pages?: string | false;
+    public?: string | false;
+}
+
+## extension/config-types#StartCommandConfig
+interface StartCommandConfig extends ServeCommandConfig {
+    perfBudgets?: PerfBudgetsConfig;
+}
+
+## extension/config-types#UnifiedLoggerConfig
+interface UnifiedLoggerConfig {
+    logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all';
+    logContexts?: ('background' | 'content' | 'page' | 'sidebar' | 'popup' | 'options' | 'devtools' | 'newtab' | 'history' | 'bookmarks')[];
+    logFormat?: 'pretty' | 'json' | 'ndjson';
+    logTimestamps?: boolean;
+    logColor?: boolean;
+    logUrl?: string;
+    logTab?: number | string;
+}"
+`;
+
+exports[`the signatures of the CLI package, entry by entry > pins what ./browsers declares > ./browsers 1`] = `
+"# exports
+BrowserController = extension/browsers/index#BrowserController
+BrowserLaunchOptions = extension/browsers/index#BrowserLaunchOptions
+BrowserType = extension/config-types#BrowserType
+CompilationLike = extension/browsers/browsers-types#CompilationLike
+Controller = extension/browsers/browsers-types#Controller
+ExtensionLoadRetryResult = extension/browsers/browsers-types#ExtensionLoadRetryResult
+SafariBuildConfig = extension/browsers/run-safari/safari-types#SafariBuildConfig
+SafariBuildPreflight = extension/browsers/run-safari/safari-launch/index#SafariBuildPreflight
+SafariPackageResult = extension/browsers/run-safari/safari-launch/index#SafariPackageResult
+SafariPackagerFn = extension/browsers/run-safari/safari-packager#SafariPackagerFn
+SafariPackagerOptions = extension/browsers/run-safari/safari-packager#SafariPackagerOptions
+SafariPackagerOverrides = extension/browsers/run-safari/safari-packager#SafariPackagerOverrides
+SafariPipelineMode = extension/browsers/run-safari/safari-launch/index#SafariPipelineMode
+SafariPipelineTools = extension/browsers/run-safari/safari-launch/tools#SafariPipelineTools
+SafariPluginLike = extension/browsers/run-safari/safari-types#SafariPluginLike
+SafariToolResult = extension/browsers/run-safari/safari-launch/tools#SafariToolResult
+builtAppPath = extension/browsers/run-safari/safari-launch/safari-config#builtAppPath
+checkAccessibility = extension/browsers/run-safari/safari-ui/index#checkAccessibility
+createSafariPackager = extension/browsers/run-safari/safari-packager#createSafariPackager
+enableSafariExtension = extension/browsers/run-safari/safari-ui/index#enableSafariExtension
+isValidBundleId = extension/browsers/run-safari/safari-launch/safari-config#isValidBundleId
+launchBrowser = extension/browsers/index#launchBrowser
+macOsSchemeName = extension/browsers/run-safari/safari-launch/safari-config#macOsSchemeName
+packageSafariExtension = extension/browsers/run-safari/safari-launch/index#packageSafariExtension
+pressShortcut = extension/browsers/run-safari/safari-ui/index#pressShortcut
+readSafariExtensionEnabled = extension/browsers/run-safari/safari-ui/index#readSafariExtensionEnabled
+readShortcut = extension/browsers/run-safari/safari-ui/index#readShortcut
+readToolbarButton = extension/browsers/run-safari/safari-ui/index#readToolbarButton
+readToolbarMenu = extension/browsers/run-safari/safari-ui/index#readToolbarMenu
+resolveSafariBuildConfig = extension/browsers/run-safari/safari-launch/safari-config#resolveSafariBuildConfig
+runOnlyPreviewBrowser = extension/browsers/run-only#runOnlyPreviewBrowser
+safariBuildPreflight = extension/browsers/run-safari/safari-launch/index#safariBuildPreflight
+safariPreflightError = extension/browsers/run-safari/safari-launch/index#safariPreflightError
+setSafariExtensionEnabled = extension/browsers/run-safari/safari-ui/index#setSafariExtensionEnabled
+sharedManagedCacheEnv = extension/browsers/browsers-lib/output-binaries-resolver#sharedManagedCacheEnv
+xcodeProjectPath = extension/browsers/run-safari/safari-launch/safari-config#xcodeProjectPath
+
+# from other packages
+
+# declarations
+
+## extension/browsers/browsers-lib/output-binaries-resolver#managedBrowserCacheEnv
+declare function managedBrowserCacheEnv(cacheRoot: string, browser: 'chrome' | 'chromium' | 'firefox' | 'edge' | 'brave' | 'opera' | 'vivaldi' | 'yandex' | 'waterfox' | 'librewolf' | 'zen' | 'floorp' | 'chromium-based' | 'gecko-based' | 'firefox-based' | 'safari' | 'webkit-based' | 'chromium-emulator'): Record<string, string>;
+
+## extension/browsers/browsers-lib/output-binaries-resolver#sharedManagedCacheEnv
+declare function sharedManagedCacheEnv(browser: Parameters<typeof managedBrowserCacheEnv>[1]): NodeJS.ProcessEnv;
+
+## extension/browsers/browsers-types#BootRegistrationsWait
+type BootRegistrationsWait = (timeoutMs: number) => Promise<'settled' | 'timeout'>;
+
+## extension/browsers/browsers-types#BrowserLogSink
+type BrowserLogSink = (event: BrowserLogSinkEvent) => void;
+
+## extension/browsers/browsers-types#BrowserLogSinkEvent
+interface BrowserLogSinkEvent {
+    level: 'log' | 'info' | 'warn' | 'error' | 'debug';
+    text: string;
+    source?: string;
+    url?: string;
+    lineNumber?: number;
+    timestamp?: number;
+}
+
+## extension/browsers/browsers-types#BrowserLogger
+interface BrowserLogger {
+    info: (...args: unknown[]) => void;
+    warn: (...args: unknown[]) => void;
+    error: (...args: unknown[]) => void;
+    debug: (...args: unknown[]) => void;
+}
+
+## extension/browsers/browsers-types#CompilationLike
+interface CompilationLike {
+    options: {
+        mode?: string;
+        output?: {
+            path?: string;
+        };
+        context?: string;
+        devServer?: {
+            port?: number | string;
+        };
+    };
+    outputOptions?: {
+        path?: string;
+    };
+    errors?: unknown[];
+    getAsset?: (name: string) => {
+        source: {
+            source: () => string;
+        };
+    } | undefined;
+}
+
+## extension/browsers/browsers-types#Controller
+interface Controller {
+    enableUnifiedLogging: (opts: {
+        level?: string;
+        contexts?: string[] | undefined;
+        urlFilter?: string | undefined;
+        tabFilter?: number | string | undefined;
+        format?: 'pretty' | 'json' | 'ndjson';
+        timestamps?: boolean;
+        color?: boolean;
+    }) => Promise<void>;
+    onProtocolEvent?: (cb: (evt: {
+        method?: string;
+        params?: unknown;
+    }) => void) => void;
+    verifyGuestLoaded?: () => Promise<ExtensionLoadRetryResult>;
+}
+
+## extension/browsers/browsers-types#DefaultBrowserFlags
+type DefaultBrowserFlags = '--no-first-run' | '--disable-client-side-phishing-detection' | '--disable-component-extensions-with-background-pages' | '--disable-default-apps' | '--disable-features=InterestFeedContentSuggestions' | '--disable-features=Translate' | '--hide-scrollbars' | '--mute-audio' | '--no-default-browser-check' | '--ash-no-nudges' | '--disable-search-engine-choice-screen' | '--disable-features=MediaRoute' | '--use-mock-keychain' | '--disable-background-networking' | '--disable-breakpad' | '--disable-component-update' | '--disable-domain-reliability' | '--disable-features=AutofillServerCommunicatio' | '--disable-features=CertificateTransparencyComponentUpdate' | '--disable-sync' | '--disable-features=OptimizationHints' | '--disable-features=DialMediaRouteProvider' | '--no-pings' | '--enable-features=SidePanelUpdates' | '--disable-features=DisableLoadExtensionCommandLineSwitch' | '--disable-features=ExtensionDisableUnsupportedDeveloper' | '--disable-features=SafetyHubExtensionsOffStoreTrigger' | '--enable-unsafe-extension-debugging' | '--silent-debugger-extension-api';
+
+## extension/browsers/browsers-types#ExtensionLoadRetryResult
+interface ExtensionLoadRetryResult {
+    status: 'loaded' | 'refused' | 'unknown';
+    reason?: string;
+    extensionId?: string;
+}
+
+## extension/browsers/browsers-types#PluginInterface
+interface PluginInterface extends PluginOptions {
+    browser: BrowserType;
+    extension: string | string[];
+    port?: string | number;
+    instanceId?: string;
+    logLevel?: LogLevel;
+    logContexts?: LogContext[];
+    logFormat?: 'pretty' | 'json' | 'ndjson';
+    logTimestamps?: boolean;
+    logColor?: boolean;
+    logUrl?: string;
+    logTab?: number | string;
+    dryRun?: boolean;
+}
+
+## extension/browsers/browsers-types#PluginOptions
+interface PluginOptions {
+    noOpen?: boolean;
+    browserFlags?: string[];
+    excludeBrowserFlags?: Array<DefaultBrowserFlags | string>;
+    profile?: string | false;
+    profileSource?: 'flag' | 'config';
+    persistProfile?: boolean;
+    preferences?: Record<string, unknown>;
+    keepProfileChanges?: boolean;
+    copyFromProfile?: string;
+    startingUrl?: string;
+    browserConsole?: boolean;
+    devtools?: boolean;
+    chromiumBinary?: string;
+    geckoBinary?: string;
+}
+
+## extension/browsers/index#BrowserController
+interface BrowserController {
+    enableUnifiedLogging(opts: {
+        level?: string;
+        contexts?: string[];
+        format?: 'pretty' | 'json' | 'ndjson';
+        timestamps?: boolean;
+        color?: boolean;
+        urlFilter?: string;
+        tabFilter?: number | string;
+    }): Promise<void>;
+    getExtensionLoadRefusal?(): string | null;
+    retryExtensionLoad?(): Promise<ExtensionLoadRetryResult>;
+    wakeBackground?(): Promise<boolean>;
+}
+
+## extension/browsers/index#BrowserLaunchOptions
+interface BrowserLaunchOptions {
+    browser: BrowserType;
+    outputPath: string;
+    contextDir: string;
+    extensionsToLoad: string[];
+    mode?: 'development' | 'production';
+    enableDevtools?: boolean;
+    noOpen?: boolean;
+    profile?: string | false;
+    profileSource?: 'flag' | 'config';
+    persistProfile?: boolean;
+    keepProfileChanges?: boolean;
+    copyFromProfile?: string;
+    preferences?: Record<string, unknown>;
+    browserFlags?: string[];
+    excludeBrowserFlags?: string[];
+    startingUrl?: string;
+    chromiumBinary?: string;
+    geckoBinary?: string;
+    instanceId?: string;
+    port?: number | string;
+    dryRun?: boolean;
+    logLevel?: string;
+    logContexts?: string[];
+    logFormat?: 'pretty' | 'json' | 'ndjson';
+    logTimestamps?: boolean;
+    logColor?: boolean;
+    logUrl?: string;
+    logTab?: number | string;
+    logSink?: BrowserLogSink;
+    awaitBootRegistrations?: BootRegistrationsWait;
+    emulatorViewerUrl?: string;
+}
+
+## extension/browsers/index#launchBrowser
+declare function launchBrowser(opts: BrowserLaunchOptions): Promise<BrowserController>;
+
+## extension/browsers/run-only#PreviewBrowserSession
+interface PreviewBrowserSession {
+    wakeBackground?(): Promise<boolean>;
+    ended?: Promise<void>;
+}
+
+## extension/browsers/run-only#PreviewRunOptions
+type PreviewRunOptions = {
+    browser: BrowserType;
+    outPath: string;
+    contextDir: string;
+    extensionsToLoad: string[];
+    noOpen?: boolean;
+    profile?: string | false;
+    profileSource?: 'flag' | 'config';
+    persistProfile?: boolean;
+    keepProfileChanges?: boolean;
+    copyFromProfile?: string;
+    preferences?: Record<string, unknown>;
+    browserFlags?: string[];
+    excludeBrowserFlags?: string[];
+    startingUrl?: string;
+    chromiumBinary?: string;
+    geckoBinary?: string;
+    instanceId?: string;
+    port?: number | string;
+    dryRun?: boolean;
+    readyPath?: string;
+    logLevel?: string;
+    logContexts?: string[];
+    logFormat?: 'pretty' | 'json' | 'ndjson';
+    logTimestamps?: boolean;
+    logColor?: boolean;
+    logUrl?: string;
+    logTab?: number | string;
+    command?: 'preview' | 'start';
+    shippedPath?: string;
+};
+
+## extension/browsers/run-only#runOnlyPreviewBrowser
+declare function runOnlyPreviewBrowser(opts: PreviewRunOptions): Promise<PreviewBrowserSession | undefined>;
+
+## extension/browsers/run-safari/safari-launch/index#SafariBuildPreflight
+interface SafariBuildPreflight {
+    severity: 'ok' | 'skip' | 'fatal';
+    message?: string;
+}
+
+## extension/browsers/run-safari/safari-launch/index#SafariPackageResult
+interface SafariPackageResult {
+    appName: string;
+    bundleId: string;
+    bundleIdDerived: boolean;
+    version: string;
+    appPath: string;
+    xcodeProjectPath: string;
+    macOsOnly: boolean;
+}
+
+## extension/browsers/run-safari/safari-launch/index#SafariPipelineMode
+type SafariPipelineMode = 'full' | 'resync';
+
+## extension/browsers/run-safari/safari-launch/index#packageSafariExtension
+declare function packageSafariExtension(host: SafariPluginLike, outputPath: string, logger?: BrowserLogger, mode?: SafariPipelineMode): Promise<SafariPackageResult>;
+
+## extension/browsers/run-safari/safari-launch/index#safariBuildPreflight
+declare function safariBuildPreflight(): SafariBuildPreflight;
+
+## extension/browsers/run-safari/safari-launch/index#safariPreflightError
+declare function safariPreflightError(): string | null;
+
+## extension/browsers/run-safari/safari-launch/safari-config#builtAppPath
+declare function builtAppPath(config: SafariBuildConfig): string;
+
+## extension/browsers/run-safari/safari-launch/safari-config#isValidBundleId
+declare function isValidBundleId(value: string): boolean;
+
+## extension/browsers/run-safari/safari-launch/safari-config#macOsSchemeName
+declare function macOsSchemeName(config: SafariBuildConfig): string;
+
+## extension/browsers/run-safari/safari-launch/safari-config#resolveSafariBuildConfig
+declare function resolveSafariBuildConfig(compilation: CompilationLike, host: SafariPluginLike): SafariBuildConfig;
+
+## extension/browsers/run-safari/safari-launch/safari-config#xcodeProjectPath
+declare function xcodeProjectPath(config: SafariBuildConfig): string;
+
+## extension/browsers/run-safari/safari-launch/toolchain#SafariToolchain
+interface SafariToolchain {
+    platformOk: boolean;
+    developerDir: string | null;
+    needsFullXcode: boolean;
+    converter: string | null;
+    xcodebuild: string | null;
+    ok: boolean;
+}
+
+## extension/browsers/run-safari/safari-launch/tools#SafariPipelineTools
+interface SafariPipelineTools {
+    detectToolchain(): SafariToolchain;
+    runConverter(args: string[]): Promise<SafariToolResult>;
+    runXcodebuild(args: string[]): Promise<SafariToolResult>;
+    openApp(target: string): Promise<SafariToolResult>;
+    openSafari(binary: string): Promise<SafariToolResult>;
+    resolvePid(bundleId: string): Promise<number | null>;
+    pluginkitList(): Promise<string>;
+    pluginkitAdd(appexPath: string): Promise<SafariToolResult>;
+    readSafariExtensionRegistry(): Promise<string>;
+    startWebDriver(port: number): Promise<SafariWebDriverProcess>;
+    listAutomationPids(): Promise<number[]>;
+    listRegularSafariPids?(): Promise<number[]>;
+    listAppPids(appPath: string): Promise<number[]>;
+    readCodeSignature(appPath: string): Promise<SafariToolResult>;
+    readXcodeTeams(): Promise<string>;
+    resizePng(input: string, output: string, pixels: number): Promise<SafariToolResult>;
+}
+
+## extension/browsers/run-safari/safari-launch/tools#SafariToolResult
+interface SafariToolResult {
+    ok: boolean;
+    code: number | null;
+    output: string;
+}
+
+## extension/browsers/run-safari/safari-launch/tools#SafariWebDriverProcess
+interface SafariWebDriverProcess {
+    ok: boolean;
+    pid?: number;
+    output: string;
+    stop(): void;
+}
+
+## extension/browsers/run-safari/safari-packager#SafariPackagerFn
+type SafariPackagerFn = (distPath: string, mode?: SafariPipelineMode, overrides?: SafariPackagerOverrides) => Promise<SafariPackageResult>;
+
+## extension/browsers/run-safari/safari-packager#SafariPackagerOptions
+interface SafariPackagerOptions extends SafariPackagerOverrides {
+    browser?: 'safari' | 'webkit-based';
+    announceDevReady?: boolean;
+    noOpen?: boolean;
+    dryRun?: boolean;
+    logger?: BrowserLogger;
+    tools?: SafariPipelineTools;
+    enableExtension?: boolean;
+    uiTools?: SafariUiTools;
+}
+
+## extension/browsers/run-safari/safari-packager#SafariPackagerOverrides
+interface SafariPackagerOverrides {
+    appName?: string;
+    bundleId?: string;
+    developmentTeam?: string;
+    macOsOnly?: boolean;
+    appIcon?: string;
+    forceRegenerate?: boolean;
+    safariBinary?: string;
+    noOpen?: boolean;
+    startingUrl?: string;
+}
+
+## extension/browsers/run-safari/safari-packager#createSafariPackager
+declare function createSafariPackager(options?: SafariPackagerOptions): SafariPackagerFn;
+
+## extension/browsers/run-safari/safari-types#SafariBuildConfig
+interface SafariBuildConfig {
+    extensionDir: string;
+    projectLocation: string;
+    appName: string;
+    bundleIdentifier: string;
+    bundleIdDerived: boolean;
+    appVersion: string;
+    macOsOnly: boolean;
+    language: 'swift' | 'objc';
+    open: boolean;
+    safariBinary?: string;
+    developmentTeam?: string;
+    appIcon?: string;
+}
+
+## extension/browsers/run-safari/safari-types#SafariPluginLike
+type SafariPluginLike = Pick<PluginInterface, 'extension' | 'noOpen' | 'instanceId' | 'dryRun'> & {
+    browser: PluginInterface['browser'];
+    safariBinary?: string;
+    developmentTeam?: string;
+    appName?: string;
+    bundleId?: string;
+    macOsOnly?: boolean;
+    appIcon?: string;
+    forceRegenerate?: boolean;
+    startingUrl?: string;
+    announceDevReady?: boolean;
+    tools?: SafariPipelineTools;
+    enableExtension?: boolean;
+    uiTools?: SafariUiTools;
+    promptWaitMs?: number;
+    rowWatchMs?: number;
+    raiseWaitMs?: number;
+};
+
+## extension/browsers/run-safari/safari-ui/index#AccessibilityCheck
+interface AccessibilityCheck {
+    granted: boolean;
+    host: string;
+    detail?: string;
+}
+
+## extension/browsers/run-safari/safari-ui/index#EnableInput
+interface EnableInput {
+    target: SafariExtensionTarget;
+    appPath: string;
+    tools?: SafariUiTools;
+    onStep?: (step: EnableStep) => void;
+    onPromptWait?: (step: 'unsigned' | 'enabled', seconds: number) => void;
+    startWaitMs?: number;
+    promptWaitMs?: number;
+    promptPollMs?: number;
+    automation?: boolean;
+}
+
+## extension/browsers/run-safari/safari-ui/index#EnableReport
+interface EnableReport {
+    enabled: boolean;
+    listed: boolean;
+    otherWebsites: string | null;
+    everyWebsite?: boolean;
+    steps: EnableStep[];
+    reason?: string;
+}
+
+## extension/browsers/run-safari/safari-ui/index#EnableStep
+interface EnableStep {
+    step: 'safari' | 'unsigned' | 'pluginkit' | 'enabled' | 'websites';
+    before: string | null;
+    after: string | null;
+    changed: boolean;
+    ok: boolean;
+    detail?: string;
+}
+
+## extension/browsers/run-safari/safari-ui/index#EnabledState
+interface EnabledState {
+    listed: boolean;
+    enabled: boolean | null;
+}
+
+## extension/browsers/run-safari/safari-ui/index#SafariExtensionTarget
+interface SafariExtensionTarget {
+    bundleId: string;
+    developmentTeam?: string;
+}
+
+## extension/browsers/run-safari/safari-ui/index#ShortcutPress
+interface ShortcutPress {
+    shortcut: string;
+    key: string;
+    modifiers: string[];
+}
+
+## extension/browsers/run-safari/safari-ui/index#ShortcutReading
+interface ShortcutReading {
+    listed: boolean;
+    shown: string | null;
+    shortcut: string | null;
+}
+
+## extension/browsers/run-safari/safari-ui/index#ToolbarButtonReading
+interface ToolbarButtonReading {
+    found: boolean;
+    id: string;
+    title: string | null;
+    tooltip: string | null;
+    badge: string | null;
+    enabled: boolean | null;
+}
+
+## extension/browsers/run-safari/safari-ui/index#ToolbarMenuReading
+interface ToolbarMenuReading {
+    found: boolean;
+    opened: boolean;
+    id: string;
+    items: Array<{
+        title: string;
+        enabled: boolean;
+    }>;
+}
+
+## extension/browsers/run-safari/safari-ui/index#checkAccessibility
+declare function checkAccessibility(tools: SafariUiTools): Promise<AccessibilityCheck>;
+
+## extension/browsers/run-safari/safari-ui/index#enableSafariExtension
+declare function enableSafariExtension(input: EnableInput): Promise<EnableReport>;
+
+## extension/browsers/run-safari/safari-ui/index#pressShortcut
+declare function pressShortcut(shortcut: string, tools?: SafariUiTools): Promise<ShortcutPress>;
+
+## extension/browsers/run-safari/safari-ui/index#readSafariExtensionEnabled
+declare function readSafariExtensionEnabled(target: SafariExtensionTarget, tools?: SafariUiTools): Promise<EnabledState>;
+
+## extension/browsers/run-safari/safari-ui/index#readShortcut
+declare function readShortcut(target: SafariExtensionTarget, tools?: SafariUiTools): Promise<ShortcutReading>;
+
+## extension/browsers/run-safari/safari-ui/index#readToolbarButton
+declare function readToolbarButton(target: SafariExtensionTarget, tools?: SafariUiTools): Promise<ToolbarButtonReading>;
+
+## extension/browsers/run-safari/safari-ui/index#readToolbarMenu
+declare function readToolbarMenu(target: SafariExtensionTarget, tools?: SafariUiTools): Promise<ToolbarMenuReading>;
+
+## extension/browsers/run-safari/safari-ui/index#setSafariExtensionEnabled
+declare function setSafariExtensionEnabled(target: SafariExtensionTarget, on: boolean, tools?: SafariUiTools): Promise<EnabledState>;
+
+## extension/browsers/run-safari/safari-ui/tools#SafariUiScriptResult
+interface SafariUiScriptResult {
+    ok: boolean;
+    code: number | null;
+    output: string;
+}
+
+## extension/browsers/run-safari/safari-ui/tools#SafariUiTools
+interface SafariUiTools {
+    platform: NodeJS.Platform;
+    runScript(source: string): Promise<SafariUiScriptResult>;
+    pluginkitAdd(appexPath: string): Promise<SafariUiScriptResult>;
+    launchSafari(): Promise<SafariUiScriptResult>;
+    hostApp(): string;
+}
+
+## extension/config-types#BrowserType
+type BrowserType = 'chrome' | 'edge' | 'firefox' | 'chromium' | 'brave' | 'opera' | 'vivaldi' | 'yandex' | 'waterfox' | 'librewolf' | 'zen' | 'floorp' | 'chromium-based' | 'gecko-based' | 'firefox-based' | 'safari' | 'webkit-based' | 'chromium-emulator';
+
+## extension/helpers/log-contexts#LOG_CONTEXTS
+declare const LOG_CONTEXTS: readonly ['background', 'content', 'page', 'popup', 'options', 'sidebar', 'devtools', 'newtab', 'history', 'bookmarks'];
+
+## extension/helpers/log-contexts#LogContext
+type LogContext = (typeof LOG_CONTEXTS)[number];
+
+## extension/helpers/normalize-options#LOG_LEVELS
+declare const LOG_LEVELS: readonly ['off', 'error', 'warn', 'info', 'debug', 'trace', 'all'];
+
+## extension/helpers/normalize-options#LogLevel
+type LogLevel = (typeof LOG_LEVELS)[number];"
+`;
+
+exports[`the signatures of the CLI package, entry by entry > pins what ./types declares > ./types 1`] = `
+"## types/assets.d.ts
+type CSSContentData = Readonly<Record<string, string>>
+type CSSModuleData = Readonly<Record<string, string>>
+declare module '*.css' {
+  const content: CSSContentData
+  export default content
+}
+declare module '*.scss' {
+  const content: CSSContentData
+  export default content
+}
+declare module '*.sass' {
+  const content: CSSContentData
+  export default content
+}
+declare module '*.less' {
+  const content: CSSContentData
+  export default content
+}
+declare module '*.module.css' {
+  const content: CSSModuleData
+  export default content
+}
+declare module '*.module.scss' {
+  const content: CSSModuleData
+  export default content
+}
+declare module '*.module.sass' {
+  const content: CSSModuleData
+  export default content
+}
+declare module '*.module.less' {
+  const content: CSSModuleData
+  export default content
+}
+declare module '*.png' {
+  const content: string
+  export default content
+}
+declare module '*.jpg' {
+  const content: string
+  export default content
+}
+declare module '*.jpeg' {
+  const content: string
+  export default content
+}
+declare module '*.gif' {
+  const content: string
+  export default content
+}
+declare module '*.webp' {
+  const content: string
+  export default content
+}
+declare module '*.avif' {
+  const content: string
+  export default content
+}
+declare module '*.ico' {
+  const content: string
+  export default content
+}
+declare module '*.bmp' {
+  const content: string
+  export default content
+}
+declare module '*.svg' {
+  const content: any
+  export default content
+}
+declare module '*?raw' {
+  const content: string
+  export default content
+}
+declare module '*?url' {
+  const content: string
+  export default content
+}
+
+## types/callbacks.d.ts
+generated by scripts/generate-callback-types.mjs
+
+## types/chrome.d.ts
+/// <reference types="chrome-types" />
+declare namespace browser.events {
+  export interface Event<H extends (...args: any) => void, C = void, A = void> {
+    addListener(
+      callback: undefined extends ReturnType<H>
+        ? (...args: Parameters<H>) => void
+        : H
+    ): void
+    removeListener(
+      callback: undefined extends ReturnType<H>
+        ? (...args: Parameters<H>) => void
+        : H
+    ): void
+    hasListener(
+      callback: undefined extends ReturnType<H>
+        ? (...args: Parameters<H>) => void
+        : H
+    ): boolean
+  }
+}
+declare namespace browser.tabs {
+  export type OnUpdatedInfo =
+    typeof onUpdated extends events.Event<infer H> ? Parameters<H>[1] : never
+  export type TabChangeInfo = OnUpdatedInfo
+}
+declare namespace chrome.tabs {
+  export import OnUpdatedInfo = browser.tabs.OnUpdatedInfo
+  export import TabChangeInfo = browser.tabs.TabChangeInfo
+}
+
+## types/enums.d.ts
+generated by scripts/generate-enum-types.mjs
+
+## types/env.d.ts
+declare global {
+  type ExtensionBrowser =
+    | 'chrome'
+    | 'edge'
+    | 'firefox'
+    | 'chromium'
+    | 'brave'
+    | 'opera'
+    | 'vivaldi'
+    | 'yandex'
+    | 'waterfox'
+    | 'librewolf'
+    | 'zen'
+    | 'floorp'
+    | 'chromium-based'
+    | 'gecko-based'
+    | 'firefox-based'
+    | 'safari'
+    | 'webkit-based'
+    | 'chromium-emulator'
+  type ExtensionMode = 'development' | 'production'
+  interface ExtensionEnv {
+    EXTENSION_BROWSER: ExtensionBrowser
+    EXTENSION_MODE: ExtensionMode
+    EXTENSION_PUBLIC_BROWSER: ExtensionBrowser
+    EXTENSION_PUBLIC_MODE: ExtensionMode
+    EXTENSION_PUBLIC_DESCRIPTION_TEXT: string
+    EXTENSION_DEBUG: string
+    EXTENSION_AUTHOR_MODE: string
+    EXTENSION_PUBLIC_AUTHOR_MODE: string
+  }
+  namespace NodeJS {
+    interface ProcessEnv extends ExtensionEnv {
+      [key: string]: string | undefined
+    }
+  }
+  interface ImportMetaEnv extends ExtensionEnv {
+    [key: string]: string | undefined
+  }
+  interface ImportMeta {
+    readonly env: ImportMetaEnv
+    readonly webpackHot?: {
+      accept: (module?: string | string[], callback?: () => void) => void
+      dispose: (callback: () => void) => void
+    }
+    url: string
+  }
+  interface Window {
+    __EXTENSION_SHADOW_ROOT__: ShadowRoot
+  }
+}
+export {}
+
+## types/firefox.d.ts
+declare namespace browser {
+  const browserAction: typeof browser.action
+  namespace sidebarAction {
+    interface Scope {
+      tabId?: number
+      windowId?: number
+    }
+    interface SetIconDetails extends Scope {
+      imageData?: ImageData | Record<string, ImageData>
+      path?: string | Record<string, string>
+    }
+    function open(): Promise<void>
+    function close(): Promise<void>
+    function toggle(): Promise<void>
+    function isOpen(details: {windowId?: number}): Promise<boolean>
+    function setPanel(details: Scope & {panel: string | null}): Promise<void>
+    function getPanel(details: Scope): Promise<string>
+    function setTitle(details: Scope & {title: string | null}): Promise<void>
+    function getTitle(details: Scope): Promise<string>
+    function setIcon(details: SetIconDetails): Promise<void>
+  }
+}
+
+## types/index.d.ts
+/// <reference types="node" />
+/// <reference types="chrome-types" />
+/// <reference path="./assets.d.ts" />
+/// <reference path="./env.d.ts" />
+/// <reference path="./firefox.d.ts" />
+/// <reference path="./chrome.d.ts" />
+/// <reference path="./callbacks.d.ts" />
+/// <reference path="./enums.d.ts" />
+export {}"
+`;
+
+exports[`the signatures of the CLI package, entry by entry > pins what ./types/legacy declares > ./types/legacy 1`] = `
+"## types/assets.d.ts
+type CSSContentData = Readonly<Record<string, string>>
+type CSSModuleData = Readonly<Record<string, string>>
+declare module '*.css' {
+  const content: CSSContentData
+  export default content
+}
+declare module '*.scss' {
+  const content: CSSContentData
+  export default content
+}
+declare module '*.sass' {
+  const content: CSSContentData
+  export default content
+}
+declare module '*.less' {
+  const content: CSSContentData
+  export default content
+}
+declare module '*.module.css' {
+  const content: CSSModuleData
+  export default content
+}
+declare module '*.module.scss' {
+  const content: CSSModuleData
+  export default content
+}
+declare module '*.module.sass' {
+  const content: CSSModuleData
+  export default content
+}
+declare module '*.module.less' {
+  const content: CSSModuleData
+  export default content
+}
+declare module '*.png' {
+  const content: string
+  export default content
+}
+declare module '*.jpg' {
+  const content: string
+  export default content
+}
+declare module '*.jpeg' {
+  const content: string
+  export default content
+}
+declare module '*.gif' {
+  const content: string
+  export default content
+}
+declare module '*.webp' {
+  const content: string
+  export default content
+}
+declare module '*.avif' {
+  const content: string
+  export default content
+}
+declare module '*.ico' {
+  const content: string
+  export default content
+}
+declare module '*.bmp' {
+  const content: string
+  export default content
+}
+declare module '*.svg' {
+  const content: any
+  export default content
+}
+declare module '*?raw' {
+  const content: string
+  export default content
+}
+declare module '*?url' {
+  const content: string
+  export default content
+}
+
+## types/env.d.ts
+declare global {
+  type ExtensionBrowser =
+    | 'chrome'
+    | 'edge'
+    | 'firefox'
+    | 'chromium'
+    | 'brave'
+    | 'opera'
+    | 'vivaldi'
+    | 'yandex'
+    | 'waterfox'
+    | 'librewolf'
+    | 'zen'
+    | 'floorp'
+    | 'chromium-based'
+    | 'gecko-based'
+    | 'firefox-based'
+    | 'safari'
+    | 'webkit-based'
+    | 'chromium-emulator'
+  type ExtensionMode = 'development' | 'production'
+  interface ExtensionEnv {
+    EXTENSION_BROWSER: ExtensionBrowser
+    EXTENSION_MODE: ExtensionMode
+    EXTENSION_PUBLIC_BROWSER: ExtensionBrowser
+    EXTENSION_PUBLIC_MODE: ExtensionMode
+    EXTENSION_PUBLIC_DESCRIPTION_TEXT: string
+    EXTENSION_DEBUG: string
+    EXTENSION_AUTHOR_MODE: string
+    EXTENSION_PUBLIC_AUTHOR_MODE: string
+  }
+  namespace NodeJS {
+    interface ProcessEnv extends ExtensionEnv {
+      [key: string]: string | undefined
+    }
+  }
+  interface ImportMetaEnv extends ExtensionEnv {
+    [key: string]: string | undefined
+  }
+  interface ImportMeta {
+    readonly env: ImportMetaEnv
+    readonly webpackHot?: {
+      accept: (module?: string | string[], callback?: () => void) => void
+      dispose: (callback: () => void) => void
+    }
+    url: string
+  }
+  interface Window {
+    __EXTENSION_SHADOW_ROOT__: ShadowRoot
+  }
+}
+export {}
+
+## types/legacy.d.ts
+/// <reference types="node" />
+/// <reference path="./assets.d.ts" />
+/// <reference path="./env.d.ts" />
+declare global {
+  const browser: typeof import('webextension-polyfill')
+}
+export {}"
+`;
+
+exports[`the signatures of the CLI package, entry by entry > pins what ./types/polyfill declares > ./types/polyfill 1`] = `
+"## types/polyfill.d.ts
+/// <reference types="webextension-polyfill" />
+export {}"
+`;

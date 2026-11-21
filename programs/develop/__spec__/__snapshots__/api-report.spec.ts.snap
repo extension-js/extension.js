@@ -212,3 +212,3250 @@ PreviewOptions (type)
 ResolvedPreviewOptions (type)
 extensionPreview"
 `;
+
+exports[`the signatures of the package, entry by entry > pins what . declares > . 1`] = `
+"# exports
+BrowserConfig = develop/types#BrowserConfig
+BrowserController = develop/plugin-browsers/index#BrowserController
+BrowserLaunchOptions = develop/plugin-browsers/index#BrowserLaunchOptions
+BrowserLauncherFn = develop/plugin-browsers/index#BrowserLauncherFn
+BrowserType = develop/types#BrowserType
+BuildEmitter = develop/module#BuildEmitter
+BuildErrorEvent = develop/plugin-browsers/index#BuildErrorEvent
+BuildOptions = develop/types#PublicBuildOptions
+BuildSummary = develop/lib/build-summary#BuildSummary
+CompanionExtensionsConfig = develop/lib/companion-extensions/types#CompanionExtensionsConfig
+CompiledEvent = develop/plugin-browsers/index#CompiledEvent
+DevOptions = develop/types#PublicDevOptions
+ErrorCode = develop/lib/messaging#ErrorCode
+FileConfig = develop/types#FileConfig
+Manifest = develop/types#Manifest
+PreviewOptions = develop/types#PublicPreviewOptions
+ReloadInstruction = develop/plugin-reload/classify-reload#ReloadInstruction
+ReloadType = develop/plugin-reload/classify-reload#ReloadType
+SafariPackageSummary = develop/lib/build-summary#SafariPackageSummary
+SafariPackagerFn = develop/types#SafariPackagerFn
+SafariPackagerOverrides = develop/types#SafariPackagerOverrides
+StartOptions = develop/types#PublicStartOptions
+endSessionAsFailed = develop/module#endSessionAsFailed
+extensionBuild = develop/module#extensionBuild
+extensionDev = develop/module#extensionDev
+extensionPreview = develop/module#extensionPreview
+loadCommandConfig = develop/module#loadCommandConfig
+loadProjectConfigDefaults = develop/module#loadProjectConfigDefaults
+
+# from other packages
+@rspack/core#Configuration
+@rspack/core#rspack
+node:events#EventEmitter
+
+# declarations
+
+## develop/command-build#extensionBuild
+declare function extensionBuild(pathOrRemoteUrl: string | undefined, buildOptions?: BrowserDefaulted<BuildOptions>): Promise<BuildSummary>;
+
+## develop/command-dev#extensionDev
+declare function extensionDev(pathOrRemoteUrl: string | undefined, devOptions: BrowserDefaulted<Omit<DevOptions, 'mode'>> & {
+    onReady?: () => void;
+    launcher?: BrowserLauncherFn;
+    onSessionStart?: () => void;
+    onExitError?: (error: unknown, code?: string) => void;
+    authorMode?: boolean;
+}): Promise<BuildEmitter>;
+
+## develop/command-preview#PreviewBrowserSession
+interface PreviewBrowserSession {
+    wakeBackground?(): Promise<boolean>;
+    ended?: Promise<void>;
+}
+
+## develop/command-preview#PreviewLauncherFn
+type PreviewLauncherFn = (opts: ResolvedPreviewOptions) => Promise<PreviewBrowserSession | undefined | void>;
+
+## develop/command-preview#ResolvedPreviewOptions
+interface ResolvedPreviewOptions {
+    browser: BrowserType;
+    outPath: string;
+    shippedPath?: string;
+    contextDir: string;
+    readyPath: string;
+    extensionsToLoad: string[];
+    noOpen?: boolean;
+    profile?: string | false;
+    profileSource?: 'flag' | 'config';
+    persistProfile?: boolean;
+    keepProfileChanges?: boolean;
+    copyFromProfile?: string;
+    preferences?: Record<string, unknown>;
+    browserFlags?: string[];
+    excludeBrowserFlags?: string[];
+    startingUrl?: string;
+    chromiumBinary?: string;
+    geckoBinary?: string;
+    instanceId?: string;
+    port?: number | string;
+    dryRun?: boolean;
+    logLevel?: string;
+    logContexts?: string[];
+    logFormat?: 'pretty' | 'json' | 'ndjson';
+    logTimestamps?: boolean;
+    logColor?: boolean;
+    logUrl?: string;
+    logTab?: number | string;
+}
+
+## develop/command-preview#extensionPreview
+declare function extensionPreview(pathOrRemoteUrl: string | undefined, previewOptions: BrowserDefaulted<PreviewOptions>, browserLauncher?: PreviewLauncherFn): Promise<{
+    warnings: string[];
+}>;
+
+## develop/dev-server/control-bridge/contracts#LOG_CONTEXTS
+declare const LOG_CONTEXTS: readonly ['background', 'content', 'page', 'popup', 'options', 'sidebar', 'devtools', 'newtab', 'history', 'bookmarks'];
+
+## develop/dev-server/control-bridge/contracts#LogContext
+type LogContext = (typeof LOG_CONTEXTS)[number];
+
+## develop/dev-server/session-end#endSessionAsFailed
+declare function endSessionAsFailed(code: ErrorCode, message: string, instanceId?: string): boolean | 'ending';
+
+## develop/lib/build-summary#AddonLintSummary
+type AddonLintSummary = {
+    status: 'linted';
+    findings: number;
+} | {
+    status: 'missing';
+} | {
+    status: 'failed';
+    reason: string;
+} | {
+    status: 'skipped';
+    reason: 'disabled' | 'mode' | 'browser';
+};
+
+## develop/lib/build-summary#BuildSummary
+type BuildSummary = {
+    browser: string;
+    buildType: 'production' | 'development';
+    output_path?: string;
+    total_assets: number;
+    total_bytes: number;
+    largest_asset_bytes: number;
+    source_map_assets?: number;
+    source_map_bytes?: number;
+    warnings_count: number;
+    errors_count: number;
+    warnings?: string[];
+    errors?: string[];
+    safari?: SafariPackageSummary;
+    addon_lint?: AddonLintSummary;
+    toolchain?: BuildToolchain;
+    zip_artifacts?: Array<{
+        kind: 'source' | 'dist';
+        path: string;
+        size: number;
+    }>;
+};
+
+## develop/lib/build-summary#SafariPackageSummary
+interface SafariPackageSummary {
+    appName?: string;
+    bundleId?: string;
+    bundleIdDerived?: boolean;
+    version?: string;
+    appPath?: string;
+    xcodeProjectPath?: string;
+    macOsOnly?: boolean;
+}
+
+## develop/lib/build-toolchain#BuildToolchain
+interface BuildToolchain {
+    node: string;
+    extension_js: string;
+    package_manager?: {
+        name: string;
+        version: string;
+    };
+}
+
+## develop/lib/companion-extensions/types#CompanionExtensionsConfig
+type CompanionExtensionsConfig = string[] | {
+    dir?: string;
+    paths?: string[];
+};
+
+## develop/lib/config-loader#ConfigEnvTarget
+type ConfigEnvTarget = {
+    mode: string;
+    browser?: string;
+};
+
+## develop/lib/config-loader#PublicConfigEnvTarget
+type PublicConfigEnvTarget = Partial<ConfigEnvTarget>;
+
+## develop/lib/manifest-types#ManifestAction
+interface ManifestAction {
+    default_icon?: ManifestIcons | undefined;
+    default_title?: string | undefined;
+    default_popup?: string | undefined;
+}
+
+## develop/lib/manifest-types#ManifestBase
+interface ManifestBase {
+    manifest_version: number;
+    name: string;
+    version: string;
+    default_locale?: string | undefined;
+    description?: string | undefined;
+    icons?: ManifestIcons | undefined;
+    author?: {
+        email: string;
+    } | undefined;
+    background_page?: string | undefined;
+    chrome_settings_overrides?: {
+        homepage?: string | undefined;
+        search_provider?: SearchProvider | undefined;
+        startup_pages?: string[] | undefined;
+    } | undefined;
+    chrome_ui_overrides?: {
+        bookmarks_ui?: {
+            remove_bookmark_shortcut?: boolean | undefined;
+            remove_button?: boolean | undefined;
+        } | undefined;
+    } | undefined;
+    chrome_url_overrides?: {
+        bookmarks?: string | undefined;
+        history?: string | undefined;
+        newtab?: string | undefined;
+    } | undefined;
+    commands?: {
+        [name: string]: {
+            suggested_key?: {
+                default?: string | undefined;
+                windows?: string | undefined;
+                mac?: string | undefined;
+                chromeos?: string | undefined;
+                linux?: string | undefined;
+            } | undefined;
+            description?: string | undefined;
+            global?: boolean | undefined;
+        };
+    } | undefined;
+    content_capabilities?: {
+        matches?: string[] | undefined;
+        permissions?: string[] | undefined;
+    } | undefined;
+    content_scripts?: Array<{
+        matches?: string[] | undefined;
+        exclude_matches?: string[] | undefined;
+        css?: string[] | undefined;
+        js?: string[] | undefined;
+        run_at?: string | undefined;
+        all_frames?: boolean | undefined;
+        match_about_blank?: boolean | undefined;
+        include_globs?: string[] | undefined;
+        exclude_globs?: string[] | undefined;
+    }> | undefined;
+    converted_from_user_script?: boolean | undefined;
+    current_locale?: string | undefined;
+    devtools_page?: string | undefined;
+    event_rules?: Array<{
+        event?: string | undefined;
+        actions?: Array<{
+            type: string;
+        }> | undefined;
+        conditions?: PageStateMatcherProperties[] | undefined;
+    }> | undefined;
+    externally_connectable?: {
+        ids?: string[] | undefined;
+        matches?: string[] | undefined;
+        accepts_tls_channel_id?: boolean | undefined;
+    } | undefined;
+    file_browser_handlers?: Array<{
+        id?: string | undefined;
+        default_title?: string | undefined;
+        file_filters?: string[] | undefined;
+    }> | undefined;
+    file_system_provider_capabilities?: {
+        configurable?: boolean | undefined;
+        watchable?: boolean | undefined;
+        multiple_mounts?: boolean | undefined;
+        source?: string | undefined;
+    } | undefined;
+    homepage_url?: string | undefined;
+    import?: Array<{
+        id: string;
+        minimum_version?: string | undefined;
+    }> | undefined;
+    export?: {
+        whitelist?: string[] | undefined;
+    } | undefined;
+    incognito?: string | undefined;
+    input_components?: Array<{
+        name?: string | undefined;
+        type?: string | undefined;
+        id?: string | undefined;
+        description?: string | undefined;
+        language?: string[] | string | undefined;
+        layouts?: string[] | undefined;
+        indicator?: string | undefined;
+    }> | undefined;
+    key?: string | undefined;
+    minimum_chrome_version?: string | undefined;
+    nacl_modules?: Array<{
+        path: string;
+        mime_type: string;
+    }> | undefined;
+    oauth2?: {
+        client_id: string;
+        scopes?: string[] | undefined;
+    } | undefined;
+    offline_enabled?: boolean | undefined;
+    omnibox?: {
+        keyword: string;
+    } | undefined;
+    options_page?: string | undefined;
+    options_ui?: {
+        page?: string | undefined;
+        chrome_style?: boolean | undefined;
+        open_in_tab?: boolean | undefined;
+    } | undefined;
+    platforms?: Array<{
+        nacl_arch?: string | undefined;
+        sub_package_path: string;
+    }> | undefined;
+    plugins?: Array<{
+        path: string;
+    }> | undefined;
+    requirements?: {
+        '3D'?: {
+            features?: string[] | undefined;
+        } | undefined;
+        plugins?: {
+            npapi?: boolean | undefined;
+        } | undefined;
+    } | undefined;
+    sandbox?: {
+        pages: string[];
+        content_security_policy?: string | undefined;
+    } | undefined;
+    short_name?: string | undefined;
+    spellcheck?: {
+        dictionary_language?: string | undefined;
+        dictionary_locale?: string | undefined;
+        dictionary_format?: string | undefined;
+        dictionary_path?: string | undefined;
+    } | undefined;
+    storage?: {
+        managed_schema: string;
+    } | undefined;
+    tts_engine?: {
+        voices: Array<{
+            voice_name: string;
+            lang?: string | undefined;
+            gender?: string | undefined;
+            event_types?: string[] | undefined;
+        }>;
+    } | undefined;
+    update_url?: string | undefined;
+    version_name?: string | undefined;
+    [key: string]: any;
+}
+
+## develop/lib/manifest-types#ManifestIcons
+interface ManifestIcons {
+    [size: number]: string;
+}
+
+## develop/lib/manifest-types#ManifestOptionalPermission
+type ManifestOptionalPermission = Exclude<ManifestPermission, 'debugger' | 'declarativeNetRequest' | 'devtools' | 'experimental' | 'fontSettings' | 'geolocation' | 'proxy' | 'tts' | 'ttsEngine' | 'unlimitedStorage' | 'wallpaper' | 'webAuthenticationProxy'>;
+
+## develop/lib/manifest-types#ManifestPermission
+type ManifestPermission = 'accessibilityFeatures.modify' | 'accessibilityFeatures.read' | 'activeTab' | 'alarms' | 'audio' | 'background' | 'bookmarks' | 'browsingData' | 'certificateProvider' | 'clipboardRead' | 'clipboardWrite' | 'contentSettings' | 'contextMenus' | 'cookies' | 'debugger' | 'declarativeContent' | 'declarativeNetRequest' | 'declarativeNetRequestFeedback' | 'declarativeNetRequestWithHostAccess' | 'declarativeWebRequest' | 'desktopCapture' | 'documentScan' | 'downloads' | 'downloads.open' | 'downloads.shelf' | 'downloads.ui' | 'enterprise.deviceAttributes' | 'enterprise.hardwarePlatform' | 'enterprise.login' | 'enterprise.networkingAttributes' | 'enterprise.platformKeys' | 'experimental' | 'favicon' | 'fileBrowserHandler' | 'fileSystemProvider' | 'fontSettings' | 'gcm' | 'geolocation' | 'history' | 'identity' | 'identity.email' | 'idle' | 'loginState' | 'management' | 'nativeMessaging' | 'notifications' | 'offscreen' | 'pageCapture' | 'platformKeys' | 'power' | 'printerProvider' | 'printing' | 'printingMetrics' | 'privacy' | 'processes' | 'proxy' | 'readingList' | 'scripting' | 'search' | 'sessions' | 'sidePanel' | 'storage' | 'system.cpu' | 'system.display' | 'system.memory' | 'system.storage' | 'systemLog' | 'tabCapture' | 'tabGroups' | 'tabs' | 'topSites' | 'tts' | 'ttsEngine' | 'unlimitedStorage' | 'userScripts' | 'vpnProvider' | 'wallpaper' | 'webAuthenticationProxy' | 'webNavigation' | 'webRequest' | 'webRequestBlocking' | 'webRequestAuthProvider';
+
+## develop/lib/manifest-types#ManifestV2
+interface ManifestV2 extends ManifestBase {
+    manifest_version: 2;
+    browser_action?: ManifestAction | undefined;
+    page_action?: ManifestAction | undefined;
+    background?: {
+        scripts?: string[] | undefined;
+        page?: string | undefined;
+        persistent?: boolean | undefined;
+    } | undefined;
+    content_security_policy?: string | undefined;
+    optional_permissions?: (ManifestOptionalPermission | string)[] | undefined;
+    permissions?: (ManifestPermission | string)[] | undefined;
+    web_accessible_resources?: string[] | undefined;
+}
+
+## develop/lib/manifest-types#ManifestV3
+interface ManifestV3 extends ManifestBase {
+    manifest_version: 3;
+    action?: ManifestAction | undefined;
+    background?: {
+        service_worker: string;
+        type?: 'module';
+    } | undefined;
+    content_scripts?: Array<{
+        matches?: string[] | undefined;
+        exclude_matches?: string[] | undefined;
+        css?: string[] | undefined;
+        js?: string[] | undefined;
+        run_at?: string | undefined;
+        all_frames?: boolean | undefined;
+        match_about_blank?: boolean | undefined;
+        include_globs?: string[] | undefined;
+        exclude_globs?: string[] | undefined;
+        world?: 'ISOLATED' | 'MAIN' | undefined;
+    }> | undefined;
+    content_security_policy?: {
+        extension_pages?: string;
+        sandbox?: string;
+    };
+    host_permissions?: string[] | undefined;
+    optional_permissions?: ManifestOptionalPermission[] | undefined;
+    optional_host_permissions?: string[] | undefined;
+    permissions?: ManifestPermission[] | undefined;
+    web_accessible_resources?: Array<{
+        resources: string[];
+        use_dynamic_url?: boolean | undefined;
+    } & ({
+        extension_ids: string[];
+        matches?: string[] | undefined;
+    } | {
+        matches: string[];
+        extension_ids?: string[] | undefined;
+    })> | undefined;
+}
+
+## develop/lib/manifest-types#PageStateMatcherProperties
+interface PageStateMatcherProperties {
+    pageUrl?: UrlFilter | undefined;
+    css?: string[] | undefined;
+    isBookmarked?: boolean | undefined;
+}
+
+## develop/lib/manifest-types#SearchProvider
+interface SearchProvider {
+    name?: string | undefined;
+    keyword?: string | undefined;
+    favicon_url?: string | undefined;
+    search_url: string;
+    encoding?: string | undefined;
+    suggest_url?: string | undefined;
+    instant_url?: string | undefined;
+    image_url?: string | undefined;
+    search_url_post_params?: string | undefined;
+    suggest_url_post_params?: string | undefined;
+    instant_url_post_params?: string | undefined;
+    image_url_post_params?: string | undefined;
+    alternate_urls?: string[] | undefined;
+    prepopulated_id?: number | undefined;
+    is_default?: boolean | undefined;
+}
+
+## develop/lib/manifest-types#UrlFilter
+interface UrlFilter {
+    cidrBlocks?: string[] | undefined;
+    schemes?: string[] | undefined;
+    urlMatches?: string | undefined;
+    pathContains?: string | undefined;
+    hostSuffix?: string | undefined;
+    hostPrefix?: string | undefined;
+    hostContains?: string | undefined;
+    urlContains?: string | undefined;
+    querySuffix?: string | undefined;
+    urlPrefix?: string | undefined;
+    hostEquals?: string | undefined;
+    urlEquals?: string | undefined;
+    queryContains?: string | undefined;
+    pathPrefix?: string | undefined;
+    pathEquals?: string | undefined;
+    pathSuffix?: string | undefined;
+    queryEquals?: string | undefined;
+    queryPrefix?: string | undefined;
+    urlSuffix?: string | undefined;
+    ports?: Array<number | number[]> | undefined;
+    originAndPathMatches?: string | undefined;
+}
+
+## develop/lib/messaging#CODES
+declare const CODES: {
+    readonly E_ARGS: 'E_ARGS';
+    readonly E_PROJECT_NOT_FOUND: 'E_PROJECT_NOT_FOUND';
+    readonly E_MANIFEST_NOT_FOUND: 'E_MANIFEST_NOT_FOUND';
+    readonly E_MANIFEST_INVALID: 'E_MANIFEST_INVALID';
+    readonly E_PACKAGE_JSON_INVALID: 'E_PACKAGE_JSON_INVALID';
+    readonly E_FIRST_COMPILE: 'E_FIRST_COMPILE';
+    readonly E_COMPILE: 'E_COMPILE';
+    readonly E_BROWSER_NOT_FOUND: 'E_BROWSER_NOT_FOUND';
+    readonly E_BROWSER_LAUNCH: 'E_BROWSER_LAUNCH';
+    readonly E_PROFILE_LOCKED: 'E_PROFILE_LOCKED';
+    readonly E_READY_TIMEOUT: 'E_READY_TIMEOUT';
+    readonly E_CONTROL_DENIED: 'E_CONTROL_DENIED';
+    readonly E_CONTROL_UNAVAILABLE: 'E_CONTROL_UNAVAILABLE';
+    readonly E_TOKEN_MISSING: 'E_TOKEN_MISSING';
+    readonly E_NETWORK: 'E_NETWORK';
+    readonly E_INTERRUPTED: 'E_INTERRUPTED';
+    readonly E_NOT_IMPLEMENTED: 'E_NOT_IMPLEMENTED';
+    readonly E_INTERNAL: 'E_INTERNAL';
+    readonly E_UNSUPPORTED_BROWSER: 'E_UNSUPPORTED_BROWSER';
+    readonly E_INVALID_OPTION: 'E_INVALID_OPTION';
+    readonly E_PORT_UNAVAILABLE: 'E_PORT_UNAVAILABLE';
+    readonly E_DEPENDENCY_INSTALL: 'E_DEPENDENCY_INSTALL';
+    readonly E_TEMPLATE_NOT_FOUND: 'E_TEMPLATE_NOT_FOUND';
+    readonly E_DESTINATION_NOT_EMPTY: 'E_DESTINATION_NOT_EMPTY';
+    readonly E_DESTINATION_NOT_WRITABLE: 'E_DESTINATION_NOT_WRITABLE';
+    readonly E_OUTPUT_NOT_WRITABLE: 'E_OUTPUT_NOT_WRITABLE';
+    readonly E_BROWSER_DOWNLOAD: 'E_BROWSER_DOWNLOAD';
+    readonly E_SESSION_NOT_FOUND: 'E_SESSION_NOT_FOUND';
+    readonly E_EVAL_REFUSED: 'E_EVAL_REFUSED';
+    readonly E_CSP_BLOCKS_EVAL: 'E_CSP_BLOCKS_EVAL';
+    readonly E_TARGET_NOT_FOUND: 'E_TARGET_NOT_FOUND';
+    readonly E_HEADED_WINDOW_REQUIRED: 'E_HEADED_WINDOW_REQUIRED';
+    readonly E_USER_GESTURE_REQUIRED: 'E_USER_GESTURE_REQUIRED';
+    readonly E_TIMEOUT: 'E_TIMEOUT';
+    readonly E_PUBLISH_REJECTED: 'E_PUBLISH_REJECTED';
+    readonly E_AUTH_REQUIRED: 'E_AUTH_REQUIRED';
+    readonly E_SAFARI_TOOLCHAIN: 'E_SAFARI_TOOLCHAIN';
+    readonly E_SAFARI_UI: 'E_SAFARI_UI';
+    readonly E_ACCESSIBILITY_DENIED: 'E_ACCESSIBILITY_DENIED';
+    readonly E_EVAL: 'E_EVAL';
+    readonly E_INSPECT: 'E_INSPECT';
+    readonly E_STORAGE: 'E_STORAGE';
+    readonly E_LOGS_NOT_FOUND: 'E_LOGS_NOT_FOUND';
+    readonly E_READY_ERROR_STATUS: 'E_READY_ERROR_STATUS';
+    readonly E_COMMAND_UNSUPPORTED_FOR_TARGET: 'E_COMMAND_UNSUPPORTED_FOR_TARGET';
+    readonly E_FLAG_VALUE_INVALID: 'E_FLAG_VALUE_INVALID';
+    readonly E_FLAG_NOT_SUPPORTED_HERE: 'E_FLAG_NOT_SUPPORTED_HERE';
+    readonly E_DEV_SERVER_START: 'E_DEV_SERVER_START';
+    readonly E_DOCTOR_CHECKS_FAILED: 'E_DOCTOR_CHECKS_FAILED';
+    readonly E_TELEMETRY_WRITE: 'E_TELEMETRY_WRITE';
+    readonly E_PREVIEW_NO_DIST: 'E_PREVIEW_NO_DIST';
+    readonly E_BROWSER_UNINSTALL: 'E_BROWSER_UNINSTALL';
+    readonly E_NODE_VERSION: 'E_NODE_VERSION';
+    readonly E_UNKNOWN_COMMAND: 'E_UNKNOWN_COMMAND';
+    readonly E_REMOVED_FLAG: 'E_REMOVED_FLAG';
+    readonly E_BROWSER_NOT_INSTALLABLE: 'E_BROWSER_NOT_INSTALLABLE';
+    readonly E_PARENT_GONE: 'E_PARENT_GONE';
+    readonly E_REMOTE_URL_UNSUPPORTED: 'E_REMOTE_URL_UNSUPPORTED';
+    readonly E_CONFIG_LOAD: 'E_CONFIG_LOAD';
+    readonly E_OPTIONAL_DEP_UNRESOLVED: 'E_OPTIONAL_DEP_UNRESOLVED';
+    readonly E_OPTIONAL_DEP_LOAD: 'E_OPTIONAL_DEP_LOAD';
+    readonly E_OPTIONAL_DEP_UNKNOWN: 'E_OPTIONAL_DEP_UNKNOWN';
+    readonly E_COMPANION_EXTENSION_PATH: 'E_COMPANION_EXTENSION_PATH';
+    readonly E_MANIFEST_IN_PUBLIC: 'E_MANIFEST_IN_PUBLIC';
+    readonly E_FOLDER_UNREADABLE: 'E_FOLDER_UNREADABLE';
+    readonly E_RUNTIME_NOT_FOUND: 'E_RUNTIME_NOT_FOUND';
+    readonly E_COMPILE_FATAL: 'E_COMPILE_FATAL';
+    readonly E_MODULE_NOT_FOUND: 'E_MODULE_NOT_FOUND';
+    readonly E_ENTRY_NOT_FOUND: 'E_ENTRY_NOT_FOUND';
+    readonly E_ASSET_MISSING: 'E_ASSET_MISSING';
+    readonly E_SCRIPT_DEP_MISSING: 'E_SCRIPT_DEP_MISSING';
+    readonly E_RESERVED_FOLDER: 'E_RESERVED_FOLDER';
+    readonly E_CSS_PARSE: 'E_CSS_PARSE';
+    readonly E_CSS_PREPROCESSOR_MISSING: 'E_CSS_PREPROCESSOR_MISSING';
+    readonly E_CSS_DEAD_REF: 'E_CSS_DEAD_REF';
+    readonly E_LOCALES_LAYOUT: 'E_LOCALES_LAYOUT';
+    readonly E_WAR_INVALID: 'E_WAR_INVALID';
+    readonly E_THEME_INVALID: 'E_THEME_INVALID';
+    readonly E_DEV_SESSION_DIST_SHARED: 'E_DEV_SESSION_DIST_SHARED';
+    readonly E_BACKGROUND_REQUIRED: 'E_BACKGROUND_REQUIRED';
+    readonly E_CONTENT_SCRIPT_SYNTAX: 'E_CONTENT_SCRIPT_SYNTAX';
+    readonly E_PERF_BUDGET: 'E_PERF_BUDGET';
+    readonly E_ZIP_SKIPPED: 'E_ZIP_SKIPPED';
+    readonly E_REMOTE_FETCH_TIMEOUT: 'E_REMOTE_FETCH_TIMEOUT';
+    readonly E_REMOTE_DOWNLOAD: 'E_REMOTE_DOWNLOAD';
+    readonly E_REMOTE_ACCESS_DENIED: 'E_REMOTE_ACCESS_DENIED';
+    readonly E_REMOTE_ZIP_INVALID: 'E_REMOTE_ZIP_INVALID';
+    readonly E_LOCAL_ZIP_NOT_FOUND: 'E_LOCAL_ZIP_NOT_FOUND';
+    readonly E_PROJECT_DOWNLOAD_EMPTY: 'E_PROJECT_DOWNLOAD_EMPTY';
+    readonly E_BROWSER_BINARY_REQUIRED: 'E_BROWSER_BINARY_REQUIRED';
+    readonly E_BROWSER_BINARY_INVALID: 'E_BROWSER_BINARY_INVALID';
+    readonly E_BROWSER_EXITED: 'E_BROWSER_EXITED';
+    readonly E_BROWSER_START_TIMEOUT: 'E_BROWSER_START_TIMEOUT';
+    readonly E_INSTANCE_AMBIGUOUS: 'E_INSTANCE_AMBIGUOUS';
+    readonly E_EXTENSION_LOAD_REFUSED: 'E_EXTENSION_LOAD_REFUSED';
+    readonly E_ADDON_INSTALL: 'E_ADDON_INSTALL';
+    readonly E_BROWSER_CONNECT: 'E_BROWSER_CONNECT';
+    readonly E_BROWSER_CONNECTION_CLOSED: 'E_BROWSER_CONNECTION_CLOSED';
+    readonly E_CDP_NOT_CONNECTED: 'E_CDP_NOT_CONNECTED';
+    readonly E_CDP_TIMEOUT: 'E_CDP_TIMEOUT';
+    readonly E_CDP_OP_FAILED: 'E_CDP_OP_FAILED';
+    readonly E_EXTENSION_ID_UNKNOWN: 'E_EXTENSION_ID_UNKNOWN';
+    readonly E_RDP_PROTOCOL: 'E_RDP_PROTOCOL';
+    readonly E_SESSION_STOPPED: 'E_SESSION_STOPPED';
+    readonly E_SESSION_EXISTS: 'E_SESSION_EXISTS';
+    readonly E_SHUTDOWN_TIMEOUT: 'E_SHUTDOWN_TIMEOUT';
+    readonly E_BROWSER_INSTALL_PRIVILEGE: 'E_BROWSER_INSTALL_PRIVILEGE';
+    readonly E_BROWSER_INSTALL_TIMEOUT: 'E_BROWSER_INSTALL_TIMEOUT';
+    readonly E_BROWSER_INSTALL_BUSY: 'E_BROWSER_INSTALL_BUSY';
+    readonly E_BROWSER_CACHE_NOT_WRITABLE: 'E_BROWSER_CACHE_NOT_WRITABLE';
+    readonly E_BROWSER_FOLDER_FOREIGN: 'E_BROWSER_FOLDER_FOREIGN';
+    readonly E_BROWSER_INSTALLER_NOT_FOUND: 'E_BROWSER_INSTALLER_NOT_FOUND';
+    readonly E_RESTART_REQUIRED: 'E_RESTART_REQUIRED';
+    readonly E_JSON_INVALID: 'E_JSON_INVALID';
+    readonly E_PROJECT_LAYOUT: 'E_PROJECT_LAYOUT';
+    readonly E_ASSET_IMPORT_SHAPE: 'E_ASSET_IMPORT_SHAPE';
+    readonly E_ENV_FILE_UNREADABLE: 'E_ENV_FILE_UNREADABLE';
+    readonly E_INLINE_SCRIPT_SYNTAX: 'E_INLINE_SCRIPT_SYNTAX';
+    readonly W_MANAGED_DEP_CONFLICT: 'W_MANAGED_DEP_CONFLICT';
+    readonly W_TYPES_EMIT: 'W_TYPES_EMIT';
+    readonly W_MODULE_NOT_FOUND: 'W_MODULE_NOT_FOUND';
+    readonly W_ENTRY_NOT_FOUND: 'W_ENTRY_NOT_FOUND';
+    readonly W_ASSET_MISSING: 'W_ASSET_MISSING';
+    readonly W_SCRIPT_DEP_MISSING: 'W_SCRIPT_DEP_MISSING';
+    readonly W_CSS_PARSE: 'W_CSS_PARSE';
+    readonly W_CSS_PREPROCESSOR_MISSING: 'W_CSS_PREPROCESSOR_MISSING';
+    readonly W_CSS_DEAD_REF: 'W_CSS_DEAD_REF';
+    readonly W_POLYFILL_NOT_FOUND: 'W_POLYFILL_NOT_FOUND';
+    readonly W_LOCALES_LAYOUT: 'W_LOCALES_LAYOUT';
+    readonly W_PROD_LOOPBACK_ORIGIN: 'W_PROD_LOOPBACK_ORIGIN';
+    readonly W_NO_ENTRYPOINTS: 'W_NO_ENTRYPOINTS';
+    readonly W_REMOTE_RESOURCE_BLOCKED: 'W_REMOTE_RESOURCE_BLOCKED';
+    readonly W_PERF_BUDGET: 'W_PERF_BUDGET';
+    readonly W_ENV_NO_MATCH: 'W_ENV_NO_MATCH';
+    readonly W_LAUNCH_SKIPPED_COMPILE_ERRORS: 'W_LAUNCH_SKIPPED_COMPILE_ERRORS';
+    readonly W_UNINSTALL_NOOP: 'W_UNINSTALL_NOOP';
+    readonly W_PORT_IN_USE: 'W_PORT_IN_USE';
+    readonly W_LOGS_STREAM_GAP: 'W_LOGS_STREAM_GAP';
+    readonly W_CDP_NOT_CONNECTED: 'W_CDP_NOT_CONNECTED';
+    readonly W_CDP_TIMEOUT: 'W_CDP_TIMEOUT';
+    readonly W_CDP_OP_FAILED: 'W_CDP_OP_FAILED';
+    readonly W_BROWSER_CONNECTION_CLOSED: 'W_BROWSER_CONNECTION_CLOSED';
+    readonly W_EXTENSION_ID_UNKNOWN: 'W_EXTENSION_ID_UNKNOWN';
+    readonly W_MANIFEST_INVALID: 'W_MANIFEST_INVALID';
+    readonly W_WAR_INVALID: 'W_WAR_INVALID';
+    readonly W_RESERVED_FOLDER: 'W_RESERVED_FOLDER';
+    readonly W_INTERNAL: 'W_INTERNAL';
+    readonly W_RESTART_REQUIRED: 'W_RESTART_REQUIRED';
+    readonly W_JSON_INVALID: 'W_JSON_INVALID';
+    readonly W_PROJECT_LAYOUT: 'W_PROJECT_LAYOUT';
+    readonly W_MANIFEST_COMPAT: 'W_MANIFEST_COMPAT';
+    readonly W_STORE_READINESS: 'W_STORE_READINESS';
+    readonly W_PERMISSION_MISMATCH: 'W_PERMISSION_MISMATCH';
+    readonly W_API_UNSUPPORTED: 'W_API_UNSUPPORTED';
+    readonly W_WAR_EXPOSURE: 'W_WAR_EXPOSURE';
+    readonly W_CSS_NOT_APPLIED: 'W_CSS_NOT_APPLIED';
+    readonly W_ENV_SECRET_PUBLIC: 'W_ENV_SECRET_PUBLIC';
+    readonly W_BUILD_CONSTANT_UNDEFINED: 'W_BUILD_CONSTANT_UNDEFINED';
+    readonly W_SCRIPT_WORLD_UNKNOWN: 'W_SCRIPT_WORLD_UNKNOWN';
+    readonly W_ENV_NAME_RESERVED: 'W_ENV_NAME_RESERVED';
+    readonly W_COMPANION_EXTENSION_PATH: 'W_COMPANION_EXTENSION_PATH';
+    readonly W_ENV_DEFINE_WRITTEN: 'W_ENV_DEFINE_WRITTEN';
+    readonly W_ENV_ASSET_NOT_UTF8: 'W_ENV_ASSET_NOT_UTF8';
+    readonly W_HTML_NOT_UTF8: 'W_HTML_NOT_UTF8';
+    readonly W_RELOAD_NOT_APPLIED: 'W_RELOAD_NOT_APPLIED';
+    readonly W_CONTENT_SCRIPT_NOT_INJECTED: 'W_CONTENT_SCRIPT_NOT_INJECTED';
+    readonly W_CONTENT_SCRIPT_CLEANUP: 'W_CONTENT_SCRIPT_CLEANUP';
+    readonly W_CONTENT_SCRIPT_MOUNT: 'W_CONTENT_SCRIPT_MOUNT';
+    readonly W_DEV_SERVER_SOCKET: 'W_DEV_SERVER_SOCKET';
+};
+
+## develop/lib/messaging#ErrorCode
+type ErrorCode = (typeof CODES)[keyof typeof CODES];
+
+## develop/module#BuildEmitter
+declare const BuildEmitter: typeof BuildEmitterInstance;
+type BuildEmitter = BuildEmitterInstance;
+
+## develop/module#endSessionAsFailed
+declare const endSessionAsFailed: typeof import("develop/dev-server/session-end").endSessionAsFailed;
+
+## develop/module#extensionBuild
+declare const extensionBuild: typeof import("develop/command-build").extensionBuild;
+
+## develop/module#extensionDev
+declare const extensionDev: typeof import("develop/command-dev").extensionDev;
+
+## develop/module#extensionPreview
+declare const extensionPreview: typeof import("develop/command-preview").extensionPreview;
+
+## develop/module#loadCommandConfig
+declare const loadCommandConfig: (projectPath: string, command: 'dev' | 'build' | 'start' | 'preview', envTarget?: PublicConfigEnvTarget) => Promise<Partial<Pick<import("develop/types").DevOptions, "appIcon" | "appName" | "bundleId" | "chromiumBinary" | "developmentTeam" | "forceRegenerate" | "geckoBinary" | "macOsOnly" | "noBrowser" | "noOpen" | "polyfill" | "profile" | "safariBinary"> & Pick<import("develop/types").DevOptions, "hashContentScripts" | "logColor" | "logContexts" | "logFormat" | "logLevel" | "logTab" | "logTimestamps" | "logUrl"> & {
+    browser?: BrowserType;
+    browserFlags?: string[];
+    excludeBrowserFlags?: string[];
+    preferences?: Record<string, unknown>;
+    persistProfile?: boolean;
+    extensions?: CompanionExtensionsConfig;
+    transpilePackages?: string[];
+    define?: Record<string, unknown>;
+    folders?: import("develop/types").SpecialFoldersConfig;
+    include?: import("develop/types").IncludeFilesConfig;
+    exclude?: import("develop/types").ExcludeFilesConfig;
+    perfBudgets?: import("develop/types").PerfBudgetsConfig;
+} & Pick<import("develop/types").BuildOptions, "addonLint" | "appIcon" | "appName" | "bundleId" | "developmentTeam" | "forceRegenerate" | "macOsOnly" | "minify" | "outDir" | "polyfill" | "safariBinary" | "silent" | "sourceMaps" | "zip" | "zipDir" | "zipFilename" | "zipSource"> & {
+    browser?: BrowserType;
+    extensions?: CompanionExtensionsConfig;
+    transpilePackages?: string[];
+    define?: Record<string, unknown>;
+    folders?: import("develop/types").SpecialFoldersConfig;
+    include?: import("develop/types").IncludeFilesConfig;
+    exclude?: import("develop/types").ExcludeFilesConfig;
+    perfBudgets?: import("develop/types").PerfBudgetsConfig;
+} & Pick<import("develop/types").StartOptions, "chromiumBinary" | "geckoBinary" | "host" | "logColor" | "logContexts" | "logFormat" | "logLevel" | "logTab" | "logTimestamps" | "logUrl" | "noBrowser" | "noOpen" | "polyfill" | "port" | "profile" | "publicHost" | "startingUrl"> & {
+    browser?: BrowserType;
+    browserFlags?: string[];
+    excludeBrowserFlags?: string[];
+    preferences?: Record<string, unknown>;
+    persistProfile?: boolean;
+    extensions?: CompanionExtensionsConfig;
+    transpilePackages?: string[];
+    define?: Record<string, unknown>;
+    folders?: import("develop/types").SpecialFoldersConfig;
+    include?: import("develop/types").IncludeFilesConfig;
+    exclude?: import("develop/types").ExcludeFilesConfig;
+    perfBudgets?: import("develop/types").PerfBudgetsConfig;
+} & Pick<import("develop/types").PreviewOptions, "chromiumBinary" | "geckoBinary" | "host" | "logColor" | "logContexts" | "logFormat" | "logLevel" | "logTab" | "logTimestamps" | "logUrl" | "noBrowser" | "noOpen" | "port" | "profile" | "publicHost" | "startingUrl"> & {
+    browser?: BrowserType;
+    browserFlags?: string[];
+    excludeBrowserFlags?: string[];
+    preferences?: Record<string, unknown>;
+    persistProfile?: boolean;
+    extensions?: CompanionExtensionsConfig;
+    transpilePackages?: string[];
+    define?: Record<string, unknown>;
+    folders?: import("develop/types").SpecialFoldersConfig;
+}> & {
+    extensions?: CompanionExtensionsConfig;
+    transpilePackages?: string[];
+    define?: Record<string, unknown>;
+    perfBudgets?: import("develop/types").PerfBudgetsConfig;
+    folders?: import("develop/types").SpecialFoldersConfig;
+    include?: import("develop/types").IncludeFilesConfig;
+    exclude?: import("develop/types").ExcludeFilesConfig;
+}>;
+
+## develop/module#loadProjectConfigDefaults
+declare const loadProjectConfigDefaults: (projectPath: string, envTarget?: PublicConfigEnvTarget) => Promise<{
+    extensions?: CompanionExtensionsConfig;
+    transpilePackages?: string[];
+    define?: Record<string, unknown>;
+    perfBudgets?: import("develop/types").PerfBudgetsConfig;
+    folders?: import("develop/types").SpecialFoldersConfig;
+    include?: import("develop/types").IncludeFilesConfig;
+    exclude?: import("develop/types").ExcludeFilesConfig;
+}>;
+
+## develop/plugin-browsers/index#BrowserController
+interface BrowserController {
+    enableUnifiedLogging(opts: {
+        level?: string;
+        contexts?: string[];
+        format?: 'pretty' | 'json' | 'ndjson';
+        timestamps?: boolean;
+        color?: boolean;
+        urlFilter?: string;
+        tabFilter?: number | string;
+    }): Promise<void>;
+    getExtensionLoadRefusal?(): string | null;
+    retryExtensionLoad?(): Promise<ExtensionLoadRetryResult>;
+    wakeBackground?(): Promise<boolean>;
+}
+
+## develop/plugin-browsers/index#BrowserLaunchOptions
+interface BrowserLaunchOptions {
+    browser: BrowserType;
+    outputPath: string;
+    contextDir: string;
+    extensionsToLoad: string[];
+    mode?: 'development' | 'production';
+    enableDevtools?: boolean;
+    noOpen?: boolean;
+    profile?: string | false;
+    profileSource?: 'flag' | 'config';
+    persistProfile?: boolean;
+    keepProfileChanges?: boolean;
+    copyFromProfile?: string;
+    preferences?: Record<string, unknown>;
+    browserFlags?: string[];
+    excludeBrowserFlags?: string[];
+    startingUrl?: string;
+    chromiumBinary?: string;
+    geckoBinary?: string;
+    instanceId?: string;
+    port?: number | string;
+    dryRun?: boolean;
+    logLevel?: string;
+    logContexts?: string[];
+    logFormat?: 'pretty' | 'json' | 'ndjson';
+    logTimestamps?: boolean;
+    logColor?: boolean;
+    logUrl?: string;
+    logTab?: number | string;
+    emulatorViewerUrl?: string;
+    logSink?: BrowserLogSink;
+    awaitBootRegistrations?: (timeoutMs: number) => Promise<'settled' | 'timeout'>;
+}
+
+## develop/plugin-browsers/index#BrowserLauncherFn
+type BrowserLauncherFn = (opts: BrowserLaunchOptions) => Promise<BrowserController>;
+
+## develop/plugin-browsers/index#BrowserLogSink
+type BrowserLogSink = (event: BrowserLogSinkEvent) => void;
+
+## develop/plugin-browsers/index#BrowserLogSinkEvent
+interface BrowserLogSinkEvent {
+    level: 'log' | 'info' | 'warn' | 'error' | 'debug';
+    text: string;
+    source?: string;
+    url?: string;
+    lineNumber?: number;
+    timestamp?: number;
+}
+
+## develop/plugin-browsers/index#BuildEmitter
+declare class BuildEmitter extends EventEmitter<BuildEventMap> {
+    constructor();
+}
+
+## develop/plugin-browsers/index#BuildErrorEvent
+interface BuildErrorEvent {
+    errors: string[];
+    code?: string;
+}
+
+## develop/plugin-browsers/index#BuildEventMap
+interface BuildEventMap {
+    compiled: [CompiledEvent];
+    error: [BuildErrorEvent];
+}
+
+## develop/plugin-browsers/index#CompiledEvent
+interface CompiledEvent {
+    outputPath: string;
+    contextDir: string;
+    isFirstCompile: boolean;
+    reloadInstruction?: ReloadInstruction;
+    extensionsToLoad?: string[];
+}
+
+## develop/plugin-browsers/index#ExtensionLoadRetryResult
+interface ExtensionLoadRetryResult {
+    status: 'loaded' | 'refused' | 'unknown';
+    reason?: string;
+    extensionId?: string;
+}
+
+## develop/plugin-perf-budgets/categorize#ASSET_CATEGORIES
+declare const ASSET_CATEGORIES: readonly ['content-script', 'service-worker', 'page', 'shared', 'public', 'runtime', 'wasm', 'ignored'];
+
+## develop/plugin-perf-budgets/categorize#AssetCategory
+type AssetCategory = (typeof ASSET_CATEGORIES)[number];
+
+## develop/plugin-perf-budgets/categorize#BudgetCategory
+type BudgetCategory = Exclude<AssetCategory, 'ignored'>;
+
+## develop/plugin-perf-budgets/index#ON_EXCEED_VALUES
+declare const ON_EXCEED_VALUES: readonly ['warn', 'error'];
+
+## develop/plugin-perf-budgets/index#PerfBudgetsConfig
+type PerfBudgetsConfig = Partial<Record<BudgetCategory, number>> & {
+    ignore?: string[];
+    onExceed?: PerfBudgetsOnExceed;
+};
+
+## develop/plugin-perf-budgets/index#PerfBudgetsOnExceed
+type PerfBudgetsOnExceed = (typeof ON_EXCEED_VALUES)[number];
+
+## develop/plugin-reload/classify-reload#RefreshedStylesheet
+interface RefreshedStylesheet {
+    file: string;
+    digest: string;
+}
+
+## develop/plugin-reload/classify-reload#ReloadInstruction
+interface ReloadInstruction {
+    type: ReloadType | 'page';
+    changedContentScriptEntries?: string[];
+    staticContentScriptEntries?: string[];
+    changedAssets?: string[];
+    changedScriptFiles?: string[];
+    refreshedStylesheets?: RefreshedStylesheet[];
+    standalonePages?: string[];
+    label?: string;
+}
+
+## develop/plugin-reload/classify-reload#ReloadType
+type ReloadType = 'full' | 'service-worker' | 'content-scripts';
+
+## develop/types#BrowserConfig
+interface BrowserConfig extends Omit<BrowserOptionsBase, 'browser'> {
+    browser?: BrowserType;
+    browserFlags?: string[];
+    excludeBrowserFlags?: string[];
+    preferences?: Record<string, unknown>;
+    chromiumBinary?: ChromiumOptions['chromiumBinary'];
+    geckoBinary?: GeckoOptions['geckoBinary'];
+    firefoxBinary?: GeckoOptions['geckoBinary'];
+    safariBinary?: SafariOptions['safariBinary'];
+    appName?: SafariOptions['appName'];
+    bundleId?: SafariOptions['bundleId'];
+    developmentTeam?: SafariOptions['developmentTeam'];
+    macOsOnly?: SafariOptions['macOsOnly'];
+    appIcon?: SafariOptions['appIcon'];
+    forceRegenerate?: SafariOptions['forceRegenerate'];
+    folders?: SpecialFoldersConfig;
+    include?: IncludeFilesConfig;
+    exclude?: ExcludeFilesConfig;
+    transpilePackages?: string[];
+    define?: Record<string, unknown>;
+    perfBudgets?: PerfBudgetsConfig;
+    extensions?: CompanionExtensionsConfig;
+}
+
+## develop/types#BrowserDefaulted
+type BrowserDefaulted<T extends {
+    browser: unknown;
+}> = Omit<T, 'browser'> & {
+    browser?: T['browser'];
+};
+
+## develop/types#BrowserOptionsBase
+interface BrowserOptionsBase {
+    noOpen?: boolean;
+    profile?: string | false;
+    persistProfile?: boolean;
+    keepProfileChanges?: boolean;
+    copyFromProfile?: string;
+    startingUrl?: string;
+    browser: BrowserType;
+}
+
+## develop/types#BrowserType
+type BrowserType = 'chrome' | 'edge' | 'firefox' | 'chromium' | 'brave' | 'opera' | 'vivaldi' | 'yandex' | 'waterfox' | 'librewolf' | 'zen' | 'floorp' | 'chromium-based' | 'gecko-based' | 'firefox-based' | 'safari' | 'webkit-based' | 'chromium-emulator';
+
+## develop/types#BuildOptions
+interface BuildOptions extends PublicBuildOptions {
+    install?: boolean;
+    metadataCommand?: SessionCommand;
+    launchFollows?: boolean;
+}
+
+## develop/types#ChromeManifest
+type ChromeManifest = WithoutManifestVersion<Partial<ManifestV2>> & WithoutManifestVersion<Partial<ManifestV3>> & {
+    manifest_version?: 2 | 3;
+    icon_variants?: IconVariant[];
+    browser_action?: {
+        theme_icons?: ThemeIcon[];
+        icon_variants?: IconVariant[];
+    };
+    action?: ManifestV3['action'] & {
+        theme_icons?: ThemeIcon[];
+        icon_variants?: IconVariant[];
+    };
+    page_action?: {
+        icon_variants?: IconVariant[];
+    };
+    omnibox?: {
+        keyword?: string;
+        default_icon?: string | Record<string, string>;
+    };
+    theme_experiment?: ThemeExperiment;
+};
+
+## develop/types#ChromiumOptions
+interface ChromiumOptions extends BrowserOptionsBase {
+    browser: 'chromium-based';
+    chromiumBinary?: string;
+}
+
+## develop/types#ConfigHookContext
+interface ConfigHookContext {
+    browser: BrowserType;
+    mode: 'development' | 'production' | 'none';
+    command: SessionCommand;
+    rspack: typeof import("@rspack/core").rspack;
+}
+
+## develop/types#DevOptions
+interface DevOptions extends PublicDevOptions {
+    install?: boolean;
+    mode?: 'development' | 'production' | 'none';
+}
+
+## develop/types#ExcludeFilesConfig
+type ExcludeFilesConfig = string[];
+
+## develop/types#FileConfig
+interface FileConfig {
+    browser?: {
+        [K in BrowserType]?: BrowserConfig;
+    };
+    commands?: {
+        dev?: Pick<DevOptions, 'profile' | 'chromiumBinary' | 'geckoBinary' | 'safariBinary' | 'appName' | 'bundleId' | 'developmentTeam' | 'macOsOnly' | 'appIcon' | 'forceRegenerate' | 'noOpen' | 'noBrowser' | 'polyfill'> & Pick<DevOptions, 'logLevel' | 'logContexts' | 'logFormat' | 'logTimestamps' | 'logColor' | 'logUrl' | 'logTab' | 'hashContentScripts'> & {
+            browser?: BrowserType;
+            browserFlags?: string[];
+            excludeBrowserFlags?: string[];
+            preferences?: Record<string, unknown>;
+            persistProfile?: boolean;
+            extensions?: CompanionExtensionsConfig;
+            transpilePackages?: string[];
+            define?: Record<string, unknown>;
+            folders?: SpecialFoldersConfig;
+            include?: IncludeFilesConfig;
+            exclude?: ExcludeFilesConfig;
+            perfBudgets?: PerfBudgetsConfig;
+        };
+        start?: Pick<StartOptions, 'profile' | 'chromiumBinary' | 'geckoBinary' | 'polyfill' | 'noOpen' | 'startingUrl' | 'noBrowser' | 'port' | 'host' | 'publicHost' | 'logLevel' | 'logContexts' | 'logFormat' | 'logTimestamps' | 'logColor' | 'logUrl' | 'logTab'> & {
+            browser?: BrowserType;
+            browserFlags?: string[];
+            excludeBrowserFlags?: string[];
+            preferences?: Record<string, unknown>;
+            persistProfile?: boolean;
+            extensions?: CompanionExtensionsConfig;
+            transpilePackages?: string[];
+            define?: Record<string, unknown>;
+            folders?: SpecialFoldersConfig;
+            include?: IncludeFilesConfig;
+            exclude?: ExcludeFilesConfig;
+            perfBudgets?: PerfBudgetsConfig;
+        };
+        preview?: Pick<PreviewOptions, 'profile' | 'chromiumBinary' | 'geckoBinary' | 'noOpen' | 'startingUrl' | 'noBrowser' | 'port' | 'host' | 'publicHost' | 'logLevel' | 'logContexts' | 'logFormat' | 'logTimestamps' | 'logColor' | 'logUrl' | 'logTab'> & {
+            browser?: BrowserType;
+            browserFlags?: string[];
+            excludeBrowserFlags?: string[];
+            preferences?: Record<string, unknown>;
+            persistProfile?: boolean;
+            extensions?: CompanionExtensionsConfig;
+            transpilePackages?: string[];
+            define?: Record<string, unknown>;
+            folders?: SpecialFoldersConfig;
+        };
+        build?: Pick<BuildOptions, 'outDir' | 'zipFilename' | 'zipDir' | 'zip' | 'zipSource' | 'sourceMaps' | 'polyfill' | 'silent' | 'addonLint' | 'minify' | 'safariBinary' | 'appName' | 'bundleId' | 'developmentTeam' | 'macOsOnly' | 'appIcon' | 'forceRegenerate'> & {
+            browser?: BrowserType;
+            extensions?: CompanionExtensionsConfig;
+            transpilePackages?: string[];
+            define?: Record<string, unknown>;
+            folders?: SpecialFoldersConfig;
+            include?: IncludeFilesConfig;
+            exclude?: ExcludeFilesConfig;
+            perfBudgets?: PerfBudgetsConfig;
+        };
+    };
+    extensions?: CompanionExtensionsConfig;
+    transpilePackages?: string[];
+    define?: Record<string, unknown>;
+    perfBudgets?: PerfBudgetsConfig;
+    folders?: SpecialFoldersConfig;
+    include?: IncludeFilesConfig;
+    exclude?: ExcludeFilesConfig;
+    config?: (config: Configuration, context: ConfigHookContext) => Configuration;
+    configResolved?: (config: Configuration, context: ConfigHookContext) => Configuration | undefined | Promise<Configuration | undefined>;
+}
+
+## develop/types#GeckoOptions
+interface GeckoOptions extends BrowserOptionsBase {
+    browser: 'gecko-based';
+    geckoBinary?: string;
+}
+
+## develop/types#IconVariant
+interface IconVariant {
+    [size: \`\${number}\`]: string;
+    any?: string;
+    color_schemes?: Array<'light' | 'dark'>;
+}
+
+## develop/types#IncludeFileEntry
+interface IncludeFileEntry {
+    from: string;
+    minify?: boolean;
+}
+
+## develop/types#IncludeFilesConfig
+type IncludeFilesConfig = Record<string, string | IncludeFileEntry>;
+
+## develop/types#LogOptions
+interface LogOptions {
+    logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all';
+    logContexts?: LogContext[];
+    logFormat?: 'pretty' | 'json' | 'ndjson';
+    logTimestamps?: boolean;
+    logColor?: boolean;
+    logUrl?: string;
+    logTab?: number | string;
+}
+
+## develop/types#Manifest
+type Manifest = ChromeManifest;
+
+## develop/types#PerfBudgetsConfig
+type PerfBudgetsConfig = import("develop/plugin-perf-budgets").PerfBudgetsConfig;
+
+## develop/types#PreviewOptions
+interface PreviewOptions extends PublicPreviewOptions {
+    metadataCommand?: SessionCommand;
+    instanceId?: string;
+    instanceExplicit?: boolean;
+}
+
+## develop/types#PublicBuildOptions
+interface PublicBuildOptions {
+    browser: BrowserOptionsBase['browser'];
+    outDir?: string;
+    chromiumBinary?: ChromiumOptions['chromiumBinary'];
+    geckoBinary?: GeckoOptions['geckoBinary'];
+    firefoxBinary?: GeckoOptions['geckoBinary'];
+    safariBinary?: SafariOptions['safariBinary'];
+    extensions?: CompanionExtensionsConfig;
+    zipFilename?: string;
+    zipDir?: string;
+    zip?: boolean;
+    zipSource?: boolean;
+    sourceMaps?: boolean;
+    polyfill?: boolean;
+    silent?: boolean;
+    addonLint?: boolean;
+    minify?: boolean;
+    mode?: 'development' | 'production' | 'none';
+    failOnWarning?: boolean;
+    exitOnError?: boolean;
+    appName?: SafariOptions['appName'];
+    bundleId?: SafariOptions['bundleId'];
+    developmentTeam?: SafariOptions['developmentTeam'];
+    macOsOnly?: SafariOptions['macOsOnly'];
+    appIcon?: SafariOptions['appIcon'];
+    forceRegenerate?: boolean;
+    safariPackager?: SafariPackagerFn;
+}
+
+## develop/types#PublicDevOptions
+interface PublicDevOptions extends BrowserOptionsBase, LogOptions {
+    polyfill?: boolean;
+    port?: string | number | undefined;
+    host?: string;
+    publicHost?: string;
+    allowedHosts?: string | string[];
+    extensions?: CompanionExtensionsConfig;
+    noBrowser?: boolean;
+    preferences?: Record<string, unknown>;
+    browserFlags?: string[];
+    excludeBrowserFlags?: string[];
+    chromiumBinary?: ChromiumOptions['chromiumBinary'];
+    geckoBinary?: GeckoOptions['geckoBinary'];
+    firefoxBinary?: GeckoOptions['geckoBinary'];
+    safariBinary?: SafariOptions['safariBinary'];
+    hashContentScripts?: boolean;
+    allowControl?: boolean;
+    allowEval?: boolean;
+    exitOnError?: boolean;
+    hintFor?: (code: ErrorCode) => string | undefined;
+    appName?: SafariOptions['appName'];
+    bundleId?: SafariOptions['bundleId'];
+    developmentTeam?: SafariOptions['developmentTeam'];
+    macOsOnly?: SafariOptions['macOsOnly'];
+    appIcon?: SafariOptions['appIcon'];
+    forceRegenerate?: boolean;
+    safariPackager?: SafariPackagerFn;
+}
+
+## develop/types#PublicPreviewOptions
+interface PublicPreviewOptions extends BrowserOptionsBase, LogOptions {
+    mode?: 'production';
+    outputPath?: string;
+    browserFlags?: string[];
+    excludeBrowserFlags?: string[];
+    preferences?: Record<string, unknown>;
+    chromiumBinary?: ChromiumOptions['chromiumBinary'];
+    geckoBinary?: GeckoOptions['geckoBinary'];
+    firefoxBinary?: GeckoOptions['geckoBinary'];
+    extensions?: CompanionExtensionsConfig;
+    noBrowser?: boolean;
+    allowControl?: boolean;
+    allowEval?: boolean;
+    dryRun?: boolean;
+    port?: string | number;
+    host?: string;
+    publicHost?: string;
+}
+
+## develop/types#PublicStartOptions
+interface PublicStartOptions extends BrowserOptionsBase, LogOptions {
+    mode: 'production';
+    polyfill?: boolean;
+    browserFlags?: string[];
+    excludeBrowserFlags?: string[];
+    preferences?: Record<string, unknown>;
+    chromiumBinary?: ChromiumOptions['chromiumBinary'];
+    geckoBinary?: GeckoOptions['geckoBinary'];
+    firefoxBinary?: GeckoOptions['geckoBinary'];
+    extensions?: CompanionExtensionsConfig;
+    noBrowser?: boolean;
+    port?: string | number;
+    host?: string;
+    publicHost?: string;
+}
+
+## develop/types#SafariOptions
+interface SafariOptions extends BrowserOptionsBase {
+    browser: 'webkit-based';
+    safariBinary?: string;
+    appName?: string;
+    bundleId?: string;
+    developmentTeam?: string;
+    macOsOnly?: boolean;
+    appIcon?: string;
+    forceRegenerate?: boolean;
+}
+
+## develop/types#SafariPackagerFn
+type SafariPackagerFn = (distPath: string, mode: 'full' | 'resync', overrides?: SafariPackagerOverrides) => Promise<SafariPackageSummary | void>;
+
+## develop/types#SafariPackagerOverrides
+interface SafariPackagerOverrides {
+    appName?: string;
+    bundleId?: string;
+    developmentTeam?: string;
+    macOsOnly?: boolean;
+    appIcon?: string;
+    forceRegenerate?: boolean;
+    safariBinary?: string;
+    noOpen?: boolean;
+    startingUrl?: string;
+}
+
+## develop/types#SessionCommand
+type SessionCommand = 'dev' | 'start' | 'preview' | 'build';
+
+## develop/types#SpecialFoldersConfig
+interface SpecialFoldersConfig {
+    scripts?: string | false;
+    pages?: string | false;
+    public?: string | false;
+}
+
+## develop/types#StartOptions
+interface StartOptions extends PublicStartOptions {
+    install?: boolean;
+}
+
+## develop/types#ThemeExperiment
+interface ThemeExperiment {
+    stylesheet?: string;
+    stylesheets?: string[];
+    [key: string]: unknown;
+}
+
+## develop/types#ThemeIcon
+interface ThemeIcon {
+    light: string;
+    dark: string;
+    size?: number;
+}
+
+## develop/types#WithoutManifestVersion
+type WithoutManifestVersion<T> = {
+    [K in keyof T as Exclude<K, 'manifest_version'>]: T[K];
+};"
+`;
+
+exports[`the signatures of the package, entry by entry > pins what ./bridge declares > ./bridge 1`] = `
+"# exports
+AnyFrame = develop/dev-server/control-bridge/contracts#AnyFrame
+BootRegistrationsFrame = develop/dev-server/control-bridge/contracts#BootRegistrationsFrame
+BootRegistrationsOutcome = develop/dev-server/control-bridge/contracts#BootRegistrationsOutcome
+BridgeConsumer = develop/dev-server/control-bridge/consumer-client#BridgeConsumer
+BridgeController = develop/dev-server/control-bridge/controller-client#BridgeController
+BridgeEngine = develop/dev-server/control-bridge/contracts#BridgeEngine
+BridgeRefusalCode = develop/dev-server/control-bridge/contracts#BridgeRefusalCode
+BridgeRole = develop/dev-server/control-bridge/contracts#BridgeRole
+BridgeTarget = develop/dev-server/control-bridge/contracts#BridgeTarget
+CLOSE_BAD_HELLO = develop/dev-server/control-bridge/contracts#CLOSE_BAD_HELLO
+CLOSE_BAD_INSTANCE = develop/dev-server/control-bridge/contracts#CLOSE_BAD_INSTANCE
+CLOSE_CONTROL_UNAVAILABLE = develop/dev-server/control-bridge/contracts#CLOSE_CONTROL_UNAVAILABLE
+CLOSE_SLOW_CONSUMER = develop/dev-server/control-bridge/contracts#CLOSE_SLOW_CONSUMER
+CLOSE_TOKEN_REQUIRED = develop/dev-server/control-bridge/contracts#CLOSE_TOKEN_REQUIRED
+CONTROL_ENVELOPE_VERSION = develop/dev-server/control-bridge/contracts#CONTROL_ENVELOPE_VERSION
+CONTROL_WS_PATH = develop/dev-server/control-bridge/contracts#CONTROL_WS_PATH
+ClientFrame = develop/dev-server/control-bridge/contracts#ClientFrame
+CommandFrame = develop/dev-server/control-bridge/contracts#CommandFrame
+CommandInput = develop/dev-server/control-bridge/controller-client#CommandInput
+CommandOp = develop/dev-server/control-bridge/contracts#CommandOp
+ConsumerCloseInfo = develop/dev-server/control-bridge/consumer-client#ConsumerCloseInfo
+ConsumerOptions = develop/dev-server/control-bridge/consumer-client#ConsumerOptions
+ControllerOptions = develop/dev-server/control-bridge/controller-client#ControllerOptions
+DevReloadKind = develop/dev-server/control-bridge/contracts#DevReloadKind
+DxSignalStatus = develop/dev-server/control-bridge/contracts#DxSignalStatus
+GapFrame = develop/dev-server/control-bridge/contracts#GapFrame
+GapReason = develop/dev-server/control-bridge/contracts#GapReason
+HelloFrame = develop/dev-server/control-bridge/contracts#HelloFrame
+IncomingLogEvent = develop/dev-server/control-bridge/contracts#IncomingLogEvent
+LOG_CONTEXTS = develop/dev-server/control-bridge/contracts#LOG_CONTEXTS
+LOG_EVENT_VERSION = develop/dev-server/control-bridge/contracts#LOG_EVENT_VERSION
+LOG_LEVEL_FILTERS = develop/dev-server/control-bridge/log-rule#LOG_LEVEL_FILTERS
+LOG_LEVEL_ORDER = develop/dev-server/control-bridge/log-rule#LOG_LEVEL_ORDER
+LateReloadRestart = develop/dev-server/control-bridge/contracts#LateReloadRestart
+LogContext = develop/dev-server/control-bridge/contracts#LogContext
+LogEvent = develop/dev-server/control-bridge/contracts#LogEvent
+LogEventType = develop/dev-server/control-bridge/contracts#LogEventType
+LogFrame = develop/dev-server/control-bridge/contracts#LogFrame
+LogLevel = develop/dev-server/control-bridge/contracts#LogLevel
+LogQuery = develop/dev-server/control-bridge/log-rule#LogQuery
+LogSince = develop/dev-server/control-bridge/log-rule#LogSince
+PingFrame = develop/dev-server/control-bridge/contracts#PingFrame
+PlaywrightAutomationCommand = develop/bridge-entry#PlaywrightAutomationCommand
+REFUSAL_API_UNAVAILABLE = develop/dev-server/control-bridge/contracts#REFUSAL_API_UNAVAILABLE
+REFUSAL_EXTENSION_LOAD_REFUSED = develop/dev-server/control-bridge/contracts#REFUSAL_EXTENSION_LOAD_REFUSED
+REFUSAL_NEEDS_HEADED_WINDOW = develop/dev-server/control-bridge/contracts#REFUSAL_NEEDS_HEADED_WINDOW
+REFUSAL_NEEDS_USER_GESTURE = develop/dev-server/control-bridge/contracts#REFUSAL_NEEDS_USER_GESTURE
+REFUSAL_NO_BACKGROUND = develop/dev-server/control-bridge/contracts#REFUSAL_NO_BACKGROUND
+REFUSAL_SURFACE_NOT_DECLARED = develop/dev-server/control-bridge/contracts#REFUSAL_SURFACE_NOT_DECLARED
+REFUSAL_SURFACE_NOT_OPEN = develop/dev-server/control-bridge/contracts#REFUSAL_SURFACE_NOT_OPEN
+REFUSAL_SURFACE_REPLY_FAILED = develop/dev-server/control-bridge/contracts#REFUSAL_SURFACE_REPLY_FAILED
+REFUSAL_TAB_NOT_FOUND = develop/dev-server/control-bridge/contracts#REFUSAL_TAB_NOT_FOUND
+REFUSAL_URL_REFUSED = develop/dev-server/control-bridge/contracts#REFUSAL_URL_REFUSED
+ReadyContract = develop/types#ReadyContract
+ReadyContractDocument = develop/dev-server/control-bridge/consumer-client#ReadyContractDocument
+ReadyContractInfo = develop/dev-server/control-bridge/consumer-client#ReadyContractInfo
+ReadyFrame = develop/dev-server/control-bridge/contracts#ReadyFrame
+ReadyMetadata = develop/bridge-entry#ReadyMetadata
+ReadyStatus = develop/plugin-ready-contract/index#ReadyStatus
+ReloadAckFrame = develop/dev-server/control-bridge/contracts#ReloadAckFrame
+ReloadAckOutcome = develop/dev-server/control-bridge/contracts#ReloadAckOutcome
+ReloadFrame = develop/dev-server/control-bridge/contracts#ReloadFrame
+ReloadRestartOutcome = develop/dev-server/control-bridge/contracts#ReloadRestartOutcome
+ReloadType = develop/dev-server/control-bridge/contracts#ReloadType
+ResultFrame = develop/dev-server/control-bridge/contracts#ResultFrame
+ServerFrame = develop/dev-server/control-bridge/contracts#ServerFrame
+actionsPath = develop/lib/session-paths#actionsPath
+browserArtifactsDir = develop/lib/session-contract#browserArtifactsDir
+browserDistDir = develop/lib/session-paths#browserDistDir
+browserProfileRootDir = develop/lib/session-paths#browserProfileRootDir
+buildSummaryPath = develop/lib/session-paths#buildSummaryPath
+controlPortFilePath = develop/lib/session-paths#controlPortFilePath
+controlTokenPath = develop/lib/session-paths#controlTokenPath
+eventsPath = develop/lib/session-paths#eventsPath
+isAfterSince = develop/dev-server/control-bridge/log-rule#isAfterSince
+logLevelRank = develop/dev-server/control-bridge/log-rule#logLevelRank
+logQueryProblem = develop/dev-server/control-bridge/log-rule#logQueryProblem
+logsPath = develop/lib/session-paths#logsPath
+matchesLogQuery = develop/dev-server/control-bridge/log-rule#matchesLogQuery
+parseLogLevelFilter = develop/dev-server/control-bridge/log-rule#parseLogLevelFilter
+parseLogSince = develop/dev-server/control-bridge/log-rule#parseLogSince
+readControlToken = develop/dev-server/control-bridge/session-token#readControlToken
+readLogEvents = develop/dev-server/control-bridge/logs-query#readLogEvents
+readPersistedControlPort = develop/dev-server/control-bridge/control-port-store#readPersistedControlPort
+readReadyContract = develop/dev-server/control-bridge/consumer-client#readReadyContract
+readReadyContractDocument = develop/dev-server/control-bridge/consumer-client#readReadyContractDocument
+readyContractPath = develop/lib/session-contract#readyContractPath
+resolveSessionProjectRoot = develop/lib/session-project-root#resolveSessionProjectRoot
+sessionArtifactsRootDir = develop/lib/session-contract#sessionArtifactsRootDir
+sessionStateDir = develop/lib/session-paths#sessionStateDir
+unknownLogContexts = develop/dev-server/control-bridge/log-rule#unknownLogContexts
+
+# from other packages
+
+# declarations
+
+## develop/bridge-entry#PlaywrightAutomationCommand
+type PlaywrightAutomationCommand = ReadyContract['command'];
+
+## develop/bridge-entry#ReadyMetadata
+type ReadyMetadata = ReadyContract;
+
+## develop/dev-server/control-bridge/consumer-client#BridgeConsumer
+declare class BridgeConsumer {
+    private readonly opts;
+    private socket;
+    private backoff;
+    private readonly maxBackoff;
+    private closed;
+    private timer;
+    private lastCloseInfo;
+    constructor(options: ConsumerOptions);
+    get lastClose(): ConsumerCloseInfo | null;
+    start(): void;
+    close(): void;
+    private url;
+    private connect;
+    private scheduleReconnect;
+}
+
+## develop/dev-server/control-bridge/consumer-client#ConsumerCloseInfo
+interface ConsumerCloseInfo {
+    code: number;
+    reason: string;
+}
+
+## develop/dev-server/control-bridge/consumer-client#ConsumerOptions
+interface ConsumerOptions {
+    controlPort: number;
+    instanceId: string;
+    host?: string;
+    path?: string;
+    token?: string;
+    reconnect?: boolean;
+    onReady?: (frame: ReadyFrame) => void;
+    onLog?: (event: LogEvent) => void;
+    onGap?: (frame: GapFrame) => void;
+    onClose?: (info: ConsumerCloseInfo) => void;
+}
+
+## develop/dev-server/control-bridge/consumer-client#ReadyContractDocument
+type ReadyContractDocument = Partial<ReadyContract> & Record<string, unknown>;
+
+## develop/dev-server/control-bridge/consumer-client#ReadyContractInfo
+interface ReadyContractInfo {
+    controlPort: number;
+    instanceId: string;
+    runId: string;
+    schemaVersion?: number;
+    schema?: number;
+    logsPath?: string;
+    status?: string;
+    command?: string;
+    engine?: string;
+    pid?: number;
+    pidStartedAt?: string;
+    cdpPort?: number;
+    rdpPort?: number;
+    browserPid?: number;
+    browserStartedAt?: string;
+    browserExitedAt?: string;
+    browserExitCode?: number;
+    startedAt?: string;
+    compiledAt?: string;
+    executorAttachedAt?: string;
+    runtime?: string;
+    ts?: string;
+    binary?: string;
+    binaryProvenance?: string;
+}
+
+## develop/dev-server/control-bridge/consumer-client#readReadyContract
+declare function readReadyContract(projectPath: string, browser?: string): ReadyContractInfo | null;
+
+## develop/dev-server/control-bridge/consumer-client#readReadyContractDocument
+declare function readReadyContractDocument(projectPath: string, browser?: string): ReadyContractDocument | null;
+
+## develop/dev-server/control-bridge/contracts#AnyFrame
+type AnyFrame = ClientFrame | ServerFrame;
+
+## develop/dev-server/control-bridge/contracts#BootRegistrationsFrame
+interface BootRegistrationsFrame {
+    type: 'boot-registrations';
+    calls?: number;
+    landed?: boolean;
+    pending?: boolean;
+    late?: boolean;
+    afterMs?: number;
+}
+
+## develop/dev-server/control-bridge/contracts#BootRegistrationsOutcome
+type BootRegistrationsOutcome = 'settled' | 'timeout';
+
+## develop/dev-server/control-bridge/contracts#BridgeEngine
+type BridgeEngine = 'chromium' | 'firefox' | 'webkit' | 'emulator';
+
+## develop/dev-server/control-bridge/contracts#BridgeRefusalCode
+type BridgeRefusalCode = typeof REFUSAL_NEEDS_HEADED_WINDOW | typeof REFUSAL_NEEDS_USER_GESTURE | typeof REFUSAL_SURFACE_NOT_OPEN | typeof REFUSAL_SURFACE_REPLY_FAILED | typeof REFUSAL_API_UNAVAILABLE | typeof REFUSAL_URL_REFUSED | typeof REFUSAL_TAB_NOT_FOUND | typeof REFUSAL_SURFACE_NOT_DECLARED | typeof REFUSAL_EXTENSION_LOAD_REFUSED | typeof REFUSAL_NO_BACKGROUND;
+
+## develop/dev-server/control-bridge/contracts#BridgeRole
+type BridgeRole = 'producer' | 'consumer' | 'controller' | 'viewer';
+
+## develop/dev-server/control-bridge/contracts#BridgeTarget
+interface BridgeTarget {
+    context: LogContext;
+    url?: string;
+    tabId?: number;
+}
+
+## develop/dev-server/control-bridge/contracts#CLOSE_BAD_HELLO
+declare const CLOSE_BAD_HELLO = 4002;
+
+## develop/dev-server/control-bridge/contracts#CLOSE_BAD_INSTANCE
+declare const CLOSE_BAD_INSTANCE = 4001;
+
+## develop/dev-server/control-bridge/contracts#CLOSE_CONTROL_UNAVAILABLE
+declare const CLOSE_CONTROL_UNAVAILABLE = 4003;
+
+## develop/dev-server/control-bridge/contracts#CLOSE_SLOW_CONSUMER
+declare const CLOSE_SLOW_CONSUMER = 4008;
+
+## develop/dev-server/control-bridge/contracts#CLOSE_TOKEN_REQUIRED
+declare const CLOSE_TOKEN_REQUIRED = 4004;
+
+## develop/dev-server/control-bridge/contracts#CONTROL_ENVELOPE_VERSION
+declare const CONTROL_ENVELOPE_VERSION: 1;
+
+## develop/dev-server/control-bridge/contracts#CONTROL_WS_PATH
+declare const CONTROL_WS_PATH = "/extjs-control";
+
+## develop/dev-server/control-bridge/contracts#ClientFrame
+type ClientFrame = HelloFrame | LogFrame | CommandFrame | ReloadAckFrame | BootRegistrationsFrame;
+
+## develop/dev-server/control-bridge/contracts#CommandFrame
+interface CommandFrame {
+    type: 'command';
+    cmdId: string;
+    op: CommandOp;
+    target: BridgeTarget;
+    args?: Record<string, unknown>;
+    timeoutMs?: number;
+}
+
+## develop/dev-server/control-bridge/contracts#CommandOp
+type CommandOp = 'eval' | 'storage.get' | 'storage.set' | 'reload' | 'open' | 'tabs.query' | 'tabs.navigate' | 'inspect';
+
+## develop/dev-server/control-bridge/contracts#DevReloadKind
+type DevReloadKind = ReloadType | 'page';
+
+## develop/dev-server/control-bridge/contracts#DxSignalStatus
+type DxSignalStatus = 'ok' | 'warn' | 'fail';
+
+## develop/dev-server/control-bridge/contracts#GapFrame
+interface GapFrame {
+    type: 'gap';
+    dropped: number;
+    reason: GapReason;
+    sinceSeq: number;
+}
+
+## develop/dev-server/control-bridge/contracts#GapReason
+type GapReason = 'ring_overflow' | 'rate_limit' | 'disk_slow' | 'slow_consumer';
+
+## develop/dev-server/control-bridge/contracts#HelloFrame
+interface HelloFrame {
+    type: 'hello';
+    v: typeof CONTROL_ENVELOPE_VERSION;
+    role: BridgeRole;
+    instanceId: string;
+    token?: string;
+    acksReloads?: boolean;
+    build?: string;
+}
+
+## develop/dev-server/control-bridge/contracts#IncomingLogEvent
+type IncomingLogEvent = Omit<LogEvent, 'seq'> & {
+    seq?: number;
+};
+
+## develop/dev-server/control-bridge/contracts#LOG_CONTEXTS
+declare const LOG_CONTEXTS: readonly ['background', 'content', 'page', 'popup', 'options', 'sidebar', 'devtools', 'newtab', 'history', 'bookmarks'];
+
+## develop/dev-server/control-bridge/contracts#LOG_EVENT_VERSION
+declare const LOG_EVENT_VERSION: 1;
+
+## develop/dev-server/control-bridge/contracts#LateReloadRestart
+interface LateReloadRestart {
+    afterMs: number;
+    runsBuild: boolean;
+}
+
+## develop/dev-server/control-bridge/contracts#LogContext
+type LogContext = (typeof LOG_CONTEXTS)[number];
+
+## develop/dev-server/control-bridge/contracts#LogEvent
+interface LogEvent {
+    v: typeof LOG_EVENT_VERSION;
+    id: string;
+    seq: number;
+    timestamp: number;
+    level: LogLevel;
+    context: LogContext;
+    messageParts: unknown[];
+    eventType?: LogEventType;
+    code?: string;
+    status?: DxSignalStatus;
+    remediation?: string;
+    data?: Record<string, unknown>;
+    url?: string;
+    hostname?: string;
+    tabId?: number;
+    frameId?: number;
+    windowId?: number;
+    title?: string;
+    stack?: string;
+    errorName?: string;
+    sourceExtensionId?: string;
+    incognito?: boolean;
+    runId: string;
+    repeat?: number;
+}
+
+## develop/dev-server/control-bridge/contracts#LogEventType
+type LogEventType = 'log' | 'dx.signal';
+
+## develop/dev-server/control-bridge/contracts#LogFrame
+interface LogFrame {
+    type: 'log';
+    event: LogEvent;
+}
+
+## develop/dev-server/control-bridge/contracts#LogLevel
+type LogLevel = 'log' | 'info' | 'warn' | 'error' | 'debug' | 'trace';
+
+## develop/dev-server/control-bridge/contracts#PingFrame
+interface PingFrame {
+    type: 'ping';
+}
+
+## develop/dev-server/control-bridge/contracts#REFUSAL_API_UNAVAILABLE
+declare const REFUSAL_API_UNAVAILABLE = "api_unavailable";
+
+## develop/dev-server/control-bridge/contracts#REFUSAL_EXTENSION_LOAD_REFUSED
+declare const REFUSAL_EXTENSION_LOAD_REFUSED = "extension_load_refused";
+
+## develop/dev-server/control-bridge/contracts#REFUSAL_NEEDS_HEADED_WINDOW
+declare const REFUSAL_NEEDS_HEADED_WINDOW = "needs_headed_window";
+
+## develop/dev-server/control-bridge/contracts#REFUSAL_NEEDS_USER_GESTURE
+declare const REFUSAL_NEEDS_USER_GESTURE = "needs_user_gesture";
+
+## develop/dev-server/control-bridge/contracts#REFUSAL_NO_BACKGROUND
+declare const REFUSAL_NO_BACKGROUND = "no_background";
+
+## develop/dev-server/control-bridge/contracts#REFUSAL_SURFACE_NOT_DECLARED
+declare const REFUSAL_SURFACE_NOT_DECLARED = "surface_not_declared";
+
+## develop/dev-server/control-bridge/contracts#REFUSAL_SURFACE_NOT_OPEN
+declare const REFUSAL_SURFACE_NOT_OPEN = "surface_not_open";
+
+## develop/dev-server/control-bridge/contracts#REFUSAL_SURFACE_REPLY_FAILED
+declare const REFUSAL_SURFACE_REPLY_FAILED = "surface_reply_failed";
+
+## develop/dev-server/control-bridge/contracts#REFUSAL_TAB_NOT_FOUND
+declare const REFUSAL_TAB_NOT_FOUND = "tab_not_found";
+
+## develop/dev-server/control-bridge/contracts#REFUSAL_URL_REFUSED
+declare const REFUSAL_URL_REFUSED = "url_refused";
+
+## develop/dev-server/control-bridge/contracts#ReadyFrame
+interface ReadyFrame {
+    type: 'ready';
+    runId: string;
+    bufferedFrom?: number;
+    evicted?: number;
+    engine?: BridgeEngine;
+    capabilities?: {
+        eval?: boolean;
+        storage?: boolean;
+        reload?: boolean;
+        open?: Array<'popup' | 'options' | 'sidebar' | 'action' | 'command'>;
+        deepDom?: boolean;
+    };
+}
+
+## develop/dev-server/control-bridge/contracts#ReloadAckFrame
+interface ReloadAckFrame {
+    type: 'reload-ack';
+    reloadType: DevReloadKind;
+    reloadId?: string;
+    label?: string;
+    replayedTabs?: number;
+}
+
+## develop/dev-server/control-bridge/contracts#ReloadAckOutcome
+type ReloadAckOutcome = 'acked' | 'unacked' | 'not-expected';
+
+## develop/dev-server/control-bridge/contracts#ReloadFrame
+interface ReloadFrame {
+    type: 'reload';
+    reloadType: DevReloadKind;
+    reloadId?: string;
+    changedContentScriptEntries?: string[];
+    label?: string;
+    changedFiles?: string[];
+    changedScriptFiles?: string[];
+    refreshedStylesheets?: {
+        file: string;
+        digest: string;
+    }[];
+    standalonePages?: string[];
+    build?: string;
+}
+
+## develop/dev-server/control-bridge/contracts#ReloadRestartOutcome
+type ReloadRestartOutcome = 'restarted' | 'not-restarted' | 'not-expected';
+
+## develop/dev-server/control-bridge/contracts#ReloadType
+type ReloadType = 'full' | 'service-worker' | 'content-scripts';
+
+## develop/dev-server/control-bridge/contracts#ResultFrame
+interface ResultFrame {
+    type: 'result';
+    cmdId: string;
+    ok: boolean;
+    value?: unknown;
+    truncated?: boolean;
+    durationMs?: number;
+    error?: {
+        name: string;
+        message: string;
+        stack?: string;
+        engine?: string;
+        code?: BridgeRefusalCode;
+        hint?: string;
+    };
+}
+
+## develop/dev-server/control-bridge/contracts#ServerFrame
+type ServerFrame = ReadyFrame | LogFrame | GapFrame | ResultFrame | ReloadFrame | PingFrame;
+
+## develop/dev-server/control-bridge/control-port-store#readPersistedControlPort
+declare function readPersistedControlPort(filePath: string): number | null;
+
+## develop/dev-server/control-bridge/controller-client#BridgeController
+declare class BridgeController {
+    private readonly opts;
+    private socket;
+    private ready;
+    private connectPromise;
+    private readonly pending;
+    constructor(options: ControllerOptions);
+    get capabilities(): ReadyFrame['capabilities'] | undefined;
+    connect(): Promise<ReadyFrame>;
+    command(input: CommandInput): Promise<ResultFrame>;
+    close(): void;
+    private resolveResult;
+    private failAllPending;
+}
+
+## develop/dev-server/control-bridge/controller-client#CommandInput
+interface CommandInput {
+    op: CommandOp;
+    target: BridgeTarget;
+    args?: Record<string, unknown>;
+    timeoutMs?: number;
+}
+
+## develop/dev-server/control-bridge/controller-client#ControllerOptions
+interface ControllerOptions {
+    controlPort: number;
+    instanceId: string;
+    token?: string;
+    host?: string;
+    path?: string;
+    connectTimeoutMs?: number;
+    unlockFlag?: string;
+}
+
+## develop/dev-server/control-bridge/log-rule#LOG_LEVEL_FILTERS
+declare const LOG_LEVEL_FILTERS: readonly ["off", "error", "warn", "info", "debug", "trace", "all"];
+
+## develop/dev-server/control-bridge/log-rule#LOG_LEVEL_ORDER
+declare const LOG_LEVEL_ORDER: readonly ['error', 'warn', 'info', 'debug', 'trace'];
+
+## develop/dev-server/control-bridge/log-rule#LogEventLike
+interface LogEventLike {
+    type?: unknown;
+    eventType?: unknown;
+    context?: unknown;
+    level?: unknown;
+    seq?: unknown;
+    timestamp?: unknown;
+    ts?: unknown;
+    url?: unknown;
+    hostname?: unknown;
+    tabId?: unknown;
+    dropped?: unknown;
+    reason?: unknown;
+}
+
+## develop/dev-server/control-bridge/log-rule#LogLevelFilter
+type LogLevelFilter = (typeof LOG_LEVEL_FILTERS)[number] | (string & {});
+
+## develop/dev-server/control-bridge/log-rule#LogQuery
+interface LogQuery {
+    context?: string | string[];
+    level?: LogLevelFilter;
+    signalsOnly?: boolean;
+    since?: number | string;
+    url?: string;
+    tab?: number | string;
+    includeGaps?: boolean;
+}
+
+## develop/dev-server/control-bridge/log-rule#LogSince
+type LogSince = {
+    seq: number;
+} | {
+    time: number;
+};
+
+## develop/dev-server/control-bridge/log-rule#isAfterSince
+declare function isAfterSince(event: LogEventLike, since: LogSince): boolean;
+
+## develop/dev-server/control-bridge/log-rule#logLevelRank
+declare function logLevelRank(level: string): number;
+
+## develop/dev-server/control-bridge/log-rule#logQueryProblem
+declare function logQueryProblem(query: LogQuery): string | null;
+
+## develop/dev-server/control-bridge/log-rule#matchesLogQuery
+declare function matchesLogQuery(event: LogEventLike, query: LogQuery): boolean;
+
+## develop/dev-server/control-bridge/log-rule#parseLogLevelFilter
+declare function parseLogLevelFilter(value: unknown): (typeof LOG_LEVEL_FILTERS)[number] | undefined;
+
+## develop/dev-server/control-bridge/log-rule#parseLogSince
+declare function parseLogSince(value: unknown): LogSince | null | undefined;
+
+## develop/dev-server/control-bridge/log-rule#unknownLogContexts
+declare function unknownLogContexts(context: LogQuery['context']): string[];
+
+## develop/dev-server/control-bridge/logs-query#readLogEvents
+declare function readLogEvents(projectPath: string, browser?: string, query?: LogQuery): LogEventLike[];
+
+## develop/dev-server/control-bridge/session-token#readControlToken
+declare function readControlToken(projectPath: string, browser: string): string | null;
+
+## develop/lib/dev-additions#DevAddition
+interface DevAddition {
+    kind: 'permission' | 'host_permission' | 'web_accessible_resource' | 'manifest_change' | 'browser_flag' | 'browser_preference';
+    value: string;
+    reason: string;
+    matches?: string[];
+    applied?: boolean;
+    cause?: string;
+    change?: string;
+}
+
+## develop/lib/extension-id#ManagedExtensionRecord
+interface ManagedExtensionRecord {
+    path: string;
+    id?: string;
+}
+
+## develop/lib/session-contract#browserArtifactsDir
+declare function browserArtifactsDir(projectPath: string, browser: string): string;
+
+## develop/lib/session-contract#readyContractPath
+declare function readyContractPath(projectPath: string, browser: string): string;
+
+## develop/lib/session-contract#sessionArtifactsRootDir
+declare function sessionArtifactsRootDir(projectPath: string): string;
+
+## develop/lib/session-paths#actionsPath
+declare function actionsPath(projectPath: string, browser: string): string;
+
+## develop/lib/session-paths#browserDistDir
+declare function browserDistDir(projectPath: string, browser: string): string;
+
+## develop/lib/session-paths#browserProfileRootDir
+declare function browserProfileRootDir(projectPath: string, browser: string): string;
+
+## develop/lib/session-paths#buildSummaryPath
+declare function buildSummaryPath(projectPath: string, browser: string): string;
+
+## develop/lib/session-paths#controlPortFilePath
+declare function controlPortFilePath(projectPath: string, browser: string): string;
+
+## develop/lib/session-paths#controlTokenPath
+declare function controlTokenPath(projectPath: string, browser: string): string;
+
+## develop/lib/session-paths#eventsPath
+declare function eventsPath(projectPath: string, browser: string): string;
+
+## develop/lib/session-paths#logsPath
+declare function logsPath(projectPath: string, browser: string): string;
+
+## develop/lib/session-paths#sessionStateDir
+declare function sessionStateDir(projectPath: string): string;
+
+## develop/lib/session-project-root#resolveSessionProjectRoot
+declare function resolveSessionProjectRoot(pathArg?: string): string;
+
+## develop/plugin-ready-contract/index#ReadyStatus
+type ReadyStatus = ReadyContract['status'];
+
+## develop/types#ReadyContract
+interface ReadyContract {
+    schemaVersion: 2;
+    schema: 1;
+    status: 'starting' | 'ready' | 'error' | 'stopped';
+    command: SessionCommand;
+    browser: string;
+    runId: string;
+    startedAt: string;
+    distPath: string;
+    manifestPath: string;
+    port: number | null;
+    host?: string;
+    pid: number;
+    pidStartedAt: string;
+    pidStartId?: string;
+    ts: string;
+    compiledAt: string | null;
+    errors: string[];
+    code?: string;
+    message?: string;
+    endedAsFailedAt?: string;
+    endedAsFailedCode?: string;
+    instanceId?: string;
+    instanceExplicit?: boolean;
+    controlPort: number | null;
+    controlPortUnavailableReason?: string;
+    controlPath?: string;
+    logsPath?: string;
+    toolchainVersion: string;
+    extensionName?: string;
+    extensionVersion?: string;
+    extensionId?: string;
+    extensionIdSource?: 'browser' | 'derived' | 'packager';
+    engine?: 'emulator';
+    managedExtensions?: ManagedExtensionRecord[];
+    devAdditions?: DevAddition[];
+    awaitingExecutorSince?: string;
+    runtime?: 'attached' | 'detached';
+    executorAttachedAt?: string;
+    executorDetachedAt?: string;
+    extensionBaseUrl?: string;
+    reloadedAt?: string;
+    reloadKind?: string;
+    reloadLabel?: string;
+    cdpPort?: number;
+    cdpFaultCode?: string;
+    cdpFaultMessage?: string;
+    rdpPort?: number;
+    rdpPortError?: string;
+    webdriverPort?: number;
+    webdriverSessionId?: string;
+    webdriverUnavailableReason?: string;
+    webdriverRequestPath?: string;
+    safari?: {
+        bundleId: string;
+        extensionId: string;
+        team: string;
+        switchId: string;
+        enableAttempted: boolean;
+        step: string;
+        enabled: boolean | null;
+        listed: boolean | null;
+        otherWebsites: string | null;
+        reason?: string;
+        earlierExtensionIds?: string[];
+    };
+    profilePath?: string;
+    profileReused?: boolean;
+    profileLockedAt?: string;
+    profileLockOwner?: {
+        host: string;
+        pid: number;
+    };
+    browserPid?: number | null;
+    browserStartedAt?: string;
+    browserStartId?: string;
+    launcherPid?: number;
+    launcherStartedAt?: string;
+    launcherStartId?: string;
+    binary?: string;
+    binaryProvenance?: string;
+    binaryPinnedBy?: string;
+    startingUrl?: string;
+    startingUrlOpened?: boolean;
+    startingUrlUnopenedReason?: string;
+    browserExitedAt?: string;
+    browserExitCode?: number | null;
+    browserExitSignal?: string | null;
+    browserLaunchFailedAt?: string;
+    browserLaunchFailedReason?: string;
+    browserLaunchFailedCode?: string;
+    browserUpNotAttachedAt?: string;
+    browserUpNotAttachedWaitMs?: number;
+    browserUpNotAttachedHint?: string;
+    extensionLoadRefusedAt?: string;
+    extensionLoadRefusedReason?: string;
+    extensionLoadRefusedCause?: string;
+}
+
+## develop/types#SessionCommand
+type SessionCommand = 'dev' | 'start' | 'preview' | 'build';"
+`;
+
+exports[`the signatures of the package, entry by entry > pins what ./contracts declares > ./contracts 1`] = `
+"# exports
+AnyFrame = develop/dev-server/control-bridge/contracts#AnyFrame
+BootRegistrationsFrame = develop/dev-server/control-bridge/contracts#BootRegistrationsFrame
+BootRegistrationsOutcome = develop/dev-server/control-bridge/contracts#BootRegistrationsOutcome
+BridgeEngine = develop/dev-server/control-bridge/contracts#BridgeEngine
+BridgeRefusalCode = develop/dev-server/control-bridge/contracts#BridgeRefusalCode
+BridgeRole = develop/dev-server/control-bridge/contracts#BridgeRole
+BridgeTarget = develop/dev-server/control-bridge/contracts#BridgeTarget
+CLOSE_BAD_HELLO = develop/dev-server/control-bridge/contracts#CLOSE_BAD_HELLO
+CLOSE_BAD_INSTANCE = develop/dev-server/control-bridge/contracts#CLOSE_BAD_INSTANCE
+CLOSE_CONTROL_UNAVAILABLE = develop/dev-server/control-bridge/contracts#CLOSE_CONTROL_UNAVAILABLE
+CLOSE_SLOW_CONSUMER = develop/dev-server/control-bridge/contracts#CLOSE_SLOW_CONSUMER
+CLOSE_TOKEN_REQUIRED = develop/dev-server/control-bridge/contracts#CLOSE_TOKEN_REQUIRED
+CONTROL_ENVELOPE_VERSION = develop/dev-server/control-bridge/contracts#CONTROL_ENVELOPE_VERSION
+CONTROL_WS_PATH = develop/dev-server/control-bridge/contracts#CONTROL_WS_PATH
+ClientFrame = develop/dev-server/control-bridge/contracts#ClientFrame
+CommandFrame = develop/dev-server/control-bridge/contracts#CommandFrame
+CommandOp = develop/dev-server/control-bridge/contracts#CommandOp
+DevReloadKind = develop/dev-server/control-bridge/contracts#DevReloadKind
+DxSignalStatus = develop/dev-server/control-bridge/contracts#DxSignalStatus
+GapFrame = develop/dev-server/control-bridge/contracts#GapFrame
+GapReason = develop/dev-server/control-bridge/contracts#GapReason
+HelloFrame = develop/dev-server/control-bridge/contracts#HelloFrame
+IncomingLogEvent = develop/dev-server/control-bridge/contracts#IncomingLogEvent
+LOG_CONTEXTS = develop/dev-server/control-bridge/contracts#LOG_CONTEXTS
+LOG_EVENT_VERSION = develop/dev-server/control-bridge/contracts#LOG_EVENT_VERSION
+LOG_LEVEL_FILTERS = develop/dev-server/control-bridge/log-rule#LOG_LEVEL_FILTERS
+LOG_LEVEL_ORDER = develop/dev-server/control-bridge/log-rule#LOG_LEVEL_ORDER
+LateReloadRestart = develop/dev-server/control-bridge/contracts#LateReloadRestart
+LogContext = develop/dev-server/control-bridge/contracts#LogContext
+LogEvent = develop/dev-server/control-bridge/contracts#LogEvent
+LogEventLike = develop/dev-server/control-bridge/log-rule#LogEventLike
+LogEventType = develop/dev-server/control-bridge/contracts#LogEventType
+LogFrame = develop/dev-server/control-bridge/contracts#LogFrame
+LogLevel = develop/dev-server/control-bridge/contracts#LogLevel
+LogLevelFilter = develop/dev-server/control-bridge/log-rule#LogLevelFilter
+LogQuery = develop/dev-server/control-bridge/log-rule#LogQuery
+LogSince = develop/dev-server/control-bridge/log-rule#LogSince
+PingFrame = develop/dev-server/control-bridge/contracts#PingFrame
+REFUSAL_API_UNAVAILABLE = develop/dev-server/control-bridge/contracts#REFUSAL_API_UNAVAILABLE
+REFUSAL_EXTENSION_LOAD_REFUSED = develop/dev-server/control-bridge/contracts#REFUSAL_EXTENSION_LOAD_REFUSED
+REFUSAL_NEEDS_HEADED_WINDOW = develop/dev-server/control-bridge/contracts#REFUSAL_NEEDS_HEADED_WINDOW
+REFUSAL_NEEDS_USER_GESTURE = develop/dev-server/control-bridge/contracts#REFUSAL_NEEDS_USER_GESTURE
+REFUSAL_NO_BACKGROUND = develop/dev-server/control-bridge/contracts#REFUSAL_NO_BACKGROUND
+REFUSAL_SURFACE_NOT_DECLARED = develop/dev-server/control-bridge/contracts#REFUSAL_SURFACE_NOT_DECLARED
+REFUSAL_SURFACE_NOT_OPEN = develop/dev-server/control-bridge/contracts#REFUSAL_SURFACE_NOT_OPEN
+REFUSAL_SURFACE_REPLY_FAILED = develop/dev-server/control-bridge/contracts#REFUSAL_SURFACE_REPLY_FAILED
+REFUSAL_TAB_NOT_FOUND = develop/dev-server/control-bridge/contracts#REFUSAL_TAB_NOT_FOUND
+REFUSAL_URL_REFUSED = develop/dev-server/control-bridge/contracts#REFUSAL_URL_REFUSED
+ReadyFrame = develop/dev-server/control-bridge/contracts#ReadyFrame
+ReloadAckFrame = develop/dev-server/control-bridge/contracts#ReloadAckFrame
+ReloadAckOutcome = develop/dev-server/control-bridge/contracts#ReloadAckOutcome
+ReloadFrame = develop/dev-server/control-bridge/contracts#ReloadFrame
+ReloadRestartOutcome = develop/dev-server/control-bridge/contracts#ReloadRestartOutcome
+ReloadType = develop/dev-server/control-bridge/contracts#ReloadType
+ResultFrame = develop/dev-server/control-bridge/contracts#ResultFrame
+ServerFrame = develop/dev-server/control-bridge/contracts#ServerFrame
+isAfterSince = develop/dev-server/control-bridge/log-rule#isAfterSince
+logLevelRank = develop/dev-server/control-bridge/log-rule#logLevelRank
+logQueryProblem = develop/dev-server/control-bridge/log-rule#logQueryProblem
+matchesLogQuery = develop/dev-server/control-bridge/log-rule#matchesLogQuery
+parseLogLevelFilter = develop/dev-server/control-bridge/log-rule#parseLogLevelFilter
+parseLogSince = develop/dev-server/control-bridge/log-rule#parseLogSince
+unknownLogContexts = develop/dev-server/control-bridge/log-rule#unknownLogContexts
+
+# from other packages
+
+# declarations
+
+## develop/dev-server/control-bridge/contracts#AnyFrame
+type AnyFrame = ClientFrame | ServerFrame;
+
+## develop/dev-server/control-bridge/contracts#BootRegistrationsFrame
+interface BootRegistrationsFrame {
+    type: 'boot-registrations';
+    calls?: number;
+    landed?: boolean;
+    pending?: boolean;
+    late?: boolean;
+    afterMs?: number;
+}
+
+## develop/dev-server/control-bridge/contracts#BootRegistrationsOutcome
+type BootRegistrationsOutcome = 'settled' | 'timeout';
+
+## develop/dev-server/control-bridge/contracts#BridgeEngine
+type BridgeEngine = 'chromium' | 'firefox' | 'webkit' | 'emulator';
+
+## develop/dev-server/control-bridge/contracts#BridgeRefusalCode
+type BridgeRefusalCode = typeof REFUSAL_NEEDS_HEADED_WINDOW | typeof REFUSAL_NEEDS_USER_GESTURE | typeof REFUSAL_SURFACE_NOT_OPEN | typeof REFUSAL_SURFACE_REPLY_FAILED | typeof REFUSAL_API_UNAVAILABLE | typeof REFUSAL_URL_REFUSED | typeof REFUSAL_TAB_NOT_FOUND | typeof REFUSAL_SURFACE_NOT_DECLARED | typeof REFUSAL_EXTENSION_LOAD_REFUSED | typeof REFUSAL_NO_BACKGROUND;
+
+## develop/dev-server/control-bridge/contracts#BridgeRole
+type BridgeRole = 'producer' | 'consumer' | 'controller' | 'viewer';
+
+## develop/dev-server/control-bridge/contracts#BridgeTarget
+interface BridgeTarget {
+    context: LogContext;
+    url?: string;
+    tabId?: number;
+}
+
+## develop/dev-server/control-bridge/contracts#CLOSE_BAD_HELLO
+declare const CLOSE_BAD_HELLO = 4002;
+
+## develop/dev-server/control-bridge/contracts#CLOSE_BAD_INSTANCE
+declare const CLOSE_BAD_INSTANCE = 4001;
+
+## develop/dev-server/control-bridge/contracts#CLOSE_CONTROL_UNAVAILABLE
+declare const CLOSE_CONTROL_UNAVAILABLE = 4003;
+
+## develop/dev-server/control-bridge/contracts#CLOSE_SLOW_CONSUMER
+declare const CLOSE_SLOW_CONSUMER = 4008;
+
+## develop/dev-server/control-bridge/contracts#CLOSE_TOKEN_REQUIRED
+declare const CLOSE_TOKEN_REQUIRED = 4004;
+
+## develop/dev-server/control-bridge/contracts#CONTROL_ENVELOPE_VERSION
+declare const CONTROL_ENVELOPE_VERSION: 1;
+
+## develop/dev-server/control-bridge/contracts#CONTROL_WS_PATH
+declare const CONTROL_WS_PATH = "/extjs-control";
+
+## develop/dev-server/control-bridge/contracts#ClientFrame
+type ClientFrame = HelloFrame | LogFrame | CommandFrame | ReloadAckFrame | BootRegistrationsFrame;
+
+## develop/dev-server/control-bridge/contracts#CommandFrame
+interface CommandFrame {
+    type: 'command';
+    cmdId: string;
+    op: CommandOp;
+    target: BridgeTarget;
+    args?: Record<string, unknown>;
+    timeoutMs?: number;
+}
+
+## develop/dev-server/control-bridge/contracts#CommandOp
+type CommandOp = 'eval' | 'storage.get' | 'storage.set' | 'reload' | 'open' | 'tabs.query' | 'tabs.navigate' | 'inspect';
+
+## develop/dev-server/control-bridge/contracts#DevReloadKind
+type DevReloadKind = ReloadType | 'page';
+
+## develop/dev-server/control-bridge/contracts#DxSignalStatus
+type DxSignalStatus = 'ok' | 'warn' | 'fail';
+
+## develop/dev-server/control-bridge/contracts#GapFrame
+interface GapFrame {
+    type: 'gap';
+    dropped: number;
+    reason: GapReason;
+    sinceSeq: number;
+}
+
+## develop/dev-server/control-bridge/contracts#GapReason
+type GapReason = 'ring_overflow' | 'rate_limit' | 'disk_slow' | 'slow_consumer';
+
+## develop/dev-server/control-bridge/contracts#HelloFrame
+interface HelloFrame {
+    type: 'hello';
+    v: typeof CONTROL_ENVELOPE_VERSION;
+    role: BridgeRole;
+    instanceId: string;
+    token?: string;
+    acksReloads?: boolean;
+    build?: string;
+}
+
+## develop/dev-server/control-bridge/contracts#IncomingLogEvent
+type IncomingLogEvent = Omit<LogEvent, 'seq'> & {
+    seq?: number;
+};
+
+## develop/dev-server/control-bridge/contracts#LOG_CONTEXTS
+declare const LOG_CONTEXTS: readonly ['background', 'content', 'page', 'popup', 'options', 'sidebar', 'devtools', 'newtab', 'history', 'bookmarks'];
+
+## develop/dev-server/control-bridge/contracts#LOG_EVENT_VERSION
+declare const LOG_EVENT_VERSION: 1;
+
+## develop/dev-server/control-bridge/contracts#LateReloadRestart
+interface LateReloadRestart {
+    afterMs: number;
+    runsBuild: boolean;
+}
+
+## develop/dev-server/control-bridge/contracts#LogContext
+type LogContext = (typeof LOG_CONTEXTS)[number];
+
+## develop/dev-server/control-bridge/contracts#LogEvent
+interface LogEvent {
+    v: typeof LOG_EVENT_VERSION;
+    id: string;
+    seq: number;
+    timestamp: number;
+    level: LogLevel;
+    context: LogContext;
+    messageParts: unknown[];
+    eventType?: LogEventType;
+    code?: string;
+    status?: DxSignalStatus;
+    remediation?: string;
+    data?: Record<string, unknown>;
+    url?: string;
+    hostname?: string;
+    tabId?: number;
+    frameId?: number;
+    windowId?: number;
+    title?: string;
+    stack?: string;
+    errorName?: string;
+    sourceExtensionId?: string;
+    incognito?: boolean;
+    runId: string;
+    repeat?: number;
+}
+
+## develop/dev-server/control-bridge/contracts#LogEventType
+type LogEventType = 'log' | 'dx.signal';
+
+## develop/dev-server/control-bridge/contracts#LogFrame
+interface LogFrame {
+    type: 'log';
+    event: LogEvent;
+}
+
+## develop/dev-server/control-bridge/contracts#LogLevel
+type LogLevel = 'log' | 'info' | 'warn' | 'error' | 'debug' | 'trace';
+
+## develop/dev-server/control-bridge/contracts#PingFrame
+interface PingFrame {
+    type: 'ping';
+}
+
+## develop/dev-server/control-bridge/contracts#REFUSAL_API_UNAVAILABLE
+declare const REFUSAL_API_UNAVAILABLE = "api_unavailable";
+
+## develop/dev-server/control-bridge/contracts#REFUSAL_EXTENSION_LOAD_REFUSED
+declare const REFUSAL_EXTENSION_LOAD_REFUSED = "extension_load_refused";
+
+## develop/dev-server/control-bridge/contracts#REFUSAL_NEEDS_HEADED_WINDOW
+declare const REFUSAL_NEEDS_HEADED_WINDOW = "needs_headed_window";
+
+## develop/dev-server/control-bridge/contracts#REFUSAL_NEEDS_USER_GESTURE
+declare const REFUSAL_NEEDS_USER_GESTURE = "needs_user_gesture";
+
+## develop/dev-server/control-bridge/contracts#REFUSAL_NO_BACKGROUND
+declare const REFUSAL_NO_BACKGROUND = "no_background";
+
+## develop/dev-server/control-bridge/contracts#REFUSAL_SURFACE_NOT_DECLARED
+declare const REFUSAL_SURFACE_NOT_DECLARED = "surface_not_declared";
+
+## develop/dev-server/control-bridge/contracts#REFUSAL_SURFACE_NOT_OPEN
+declare const REFUSAL_SURFACE_NOT_OPEN = "surface_not_open";
+
+## develop/dev-server/control-bridge/contracts#REFUSAL_SURFACE_REPLY_FAILED
+declare const REFUSAL_SURFACE_REPLY_FAILED = "surface_reply_failed";
+
+## develop/dev-server/control-bridge/contracts#REFUSAL_TAB_NOT_FOUND
+declare const REFUSAL_TAB_NOT_FOUND = "tab_not_found";
+
+## develop/dev-server/control-bridge/contracts#REFUSAL_URL_REFUSED
+declare const REFUSAL_URL_REFUSED = "url_refused";
+
+## develop/dev-server/control-bridge/contracts#ReadyFrame
+interface ReadyFrame {
+    type: 'ready';
+    runId: string;
+    bufferedFrom?: number;
+    evicted?: number;
+    engine?: BridgeEngine;
+    capabilities?: {
+        eval?: boolean;
+        storage?: boolean;
+        reload?: boolean;
+        open?: Array<'popup' | 'options' | 'sidebar' | 'action' | 'command'>;
+        deepDom?: boolean;
+    };
+}
+
+## develop/dev-server/control-bridge/contracts#ReloadAckFrame
+interface ReloadAckFrame {
+    type: 'reload-ack';
+    reloadType: DevReloadKind;
+    reloadId?: string;
+    label?: string;
+    replayedTabs?: number;
+}
+
+## develop/dev-server/control-bridge/contracts#ReloadAckOutcome
+type ReloadAckOutcome = 'acked' | 'unacked' | 'not-expected';
+
+## develop/dev-server/control-bridge/contracts#ReloadFrame
+interface ReloadFrame {
+    type: 'reload';
+    reloadType: DevReloadKind;
+    reloadId?: string;
+    changedContentScriptEntries?: string[];
+    label?: string;
+    changedFiles?: string[];
+    changedScriptFiles?: string[];
+    refreshedStylesheets?: {
+        file: string;
+        digest: string;
+    }[];
+    standalonePages?: string[];
+    build?: string;
+}
+
+## develop/dev-server/control-bridge/contracts#ReloadRestartOutcome
+type ReloadRestartOutcome = 'restarted' | 'not-restarted' | 'not-expected';
+
+## develop/dev-server/control-bridge/contracts#ReloadType
+type ReloadType = 'full' | 'service-worker' | 'content-scripts';
+
+## develop/dev-server/control-bridge/contracts#ResultFrame
+interface ResultFrame {
+    type: 'result';
+    cmdId: string;
+    ok: boolean;
+    value?: unknown;
+    truncated?: boolean;
+    durationMs?: number;
+    error?: {
+        name: string;
+        message: string;
+        stack?: string;
+        engine?: string;
+        code?: BridgeRefusalCode;
+        hint?: string;
+    };
+}
+
+## develop/dev-server/control-bridge/contracts#ServerFrame
+type ServerFrame = ReadyFrame | LogFrame | GapFrame | ResultFrame | ReloadFrame | PingFrame;
+
+## develop/dev-server/control-bridge/log-rule#LOG_LEVEL_FILTERS
+declare const LOG_LEVEL_FILTERS: readonly ["off", "error", "warn", "info", "debug", "trace", "all"];
+
+## develop/dev-server/control-bridge/log-rule#LOG_LEVEL_ORDER
+declare const LOG_LEVEL_ORDER: readonly ['error', 'warn', 'info', 'debug', 'trace'];
+
+## develop/dev-server/control-bridge/log-rule#LogEventLike
+interface LogEventLike {
+    type?: unknown;
+    eventType?: unknown;
+    context?: unknown;
+    level?: unknown;
+    seq?: unknown;
+    timestamp?: unknown;
+    ts?: unknown;
+    url?: unknown;
+    hostname?: unknown;
+    tabId?: unknown;
+    dropped?: unknown;
+    reason?: unknown;
+}
+
+## develop/dev-server/control-bridge/log-rule#LogLevelFilter
+type LogLevelFilter = (typeof LOG_LEVEL_FILTERS)[number] | (string & {});
+
+## develop/dev-server/control-bridge/log-rule#LogQuery
+interface LogQuery {
+    context?: string | string[];
+    level?: LogLevelFilter;
+    signalsOnly?: boolean;
+    since?: number | string;
+    url?: string;
+    tab?: number | string;
+    includeGaps?: boolean;
+}
+
+## develop/dev-server/control-bridge/log-rule#LogSince
+type LogSince = {
+    seq: number;
+} | {
+    time: number;
+};
+
+## develop/dev-server/control-bridge/log-rule#isAfterSince
+declare function isAfterSince(event: LogEventLike, since: LogSince): boolean;
+
+## develop/dev-server/control-bridge/log-rule#logLevelRank
+declare function logLevelRank(level: string): number;
+
+## develop/dev-server/control-bridge/log-rule#logQueryProblem
+declare function logQueryProblem(query: LogQuery): string | null;
+
+## develop/dev-server/control-bridge/log-rule#matchesLogQuery
+declare function matchesLogQuery(event: LogEventLike, query: LogQuery): boolean;
+
+## develop/dev-server/control-bridge/log-rule#parseLogLevelFilter
+declare function parseLogLevelFilter(value: unknown): (typeof LOG_LEVEL_FILTERS)[number] | undefined;
+
+## develop/dev-server/control-bridge/log-rule#parseLogSince
+declare function parseLogSince(value: unknown): LogSince | null | undefined;
+
+## develop/dev-server/control-bridge/log-rule#unknownLogContexts
+declare function unknownLogContexts(context: LogQuery['context']): string[];"
+`;
+
+exports[`the signatures of the package, entry by entry > pins what ./manifest declares > ./manifest 1`] = `
+"# exports
+FilterKeysOptions = develop/manifest-entry#FilterKeysOptions
+LocalizableManifest = develop/manifest-entry#LocalizableManifest
+LocalizedNameOptions = develop/manifest-entry#LocalizedNameOptions
+WebkitDroppedPage = develop/manifest-entry#WebkitDroppedPage
+WebkitUnsupportedKey = develop/manifest-entry#WebkitUnsupportedKey
+filterKeysForThisBrowser = develop/manifest-entry#filterKeysForThisBrowser
+findDroppedVendorKeys = develop/manifest-entry#findDroppedVendorKeys
+resolveLocalizedManifestName = develop/manifest-entry#resolveLocalizedManifestName
+webkitDroppedSurfacePages = develop/manifest-entry#webkitDroppedSurfacePages
+webkitUnsupportedManifestKeys = develop/manifest-entry#webkitUnsupportedManifestKeys
+webkitUnsupportedPermissions = develop/manifest-entry#webkitUnsupportedPermissions
+
+# from other packages
+
+# declarations
+
+## develop/dev-server/control-bridge/contracts#LOG_CONTEXTS
+declare const LOG_CONTEXTS: readonly ['background', 'content', 'page', 'popup', 'options', 'sidebar', 'devtools', 'newtab', 'history', 'bookmarks'];
+
+## develop/dev-server/control-bridge/contracts#LogContext
+type LogContext = (typeof LOG_CONTEXTS)[number];
+
+## develop/lib/build-summary#SafariPackageSummary
+interface SafariPackageSummary {
+    appName?: string;
+    bundleId?: string;
+    bundleIdDerived?: boolean;
+    version?: string;
+    appPath?: string;
+    xcodeProjectPath?: string;
+    macOsOnly?: boolean;
+}
+
+## develop/lib/companion-extensions/types#CompanionExtensionsConfig
+type CompanionExtensionsConfig = string[] | {
+    dir?: string;
+    paths?: string[];
+};
+
+## develop/lib/localized-manifest-name#LocalizableManifest
+interface LocalizableManifest {
+    name?: unknown;
+    default_locale?: unknown;
+}
+
+## develop/lib/localized-manifest-name#LocalizedNameOptions
+interface LocalizedNameOptions {
+    whenUnresolved?: string;
+    systemLocale?: string;
+}
+
+## develop/lib/localized-manifest-name#resolveLocalizedManifestName
+declare function resolveLocalizedManifestName(manifest: LocalizableManifest | null | undefined, searchRoots: string[], options?: LocalizedNameOptions): string;
+
+## develop/lib/manifest-types#ManifestAction
+interface ManifestAction {
+    default_icon?: ManifestIcons | undefined;
+    default_title?: string | undefined;
+    default_popup?: string | undefined;
+}
+
+## develop/lib/manifest-types#ManifestBase
+interface ManifestBase {
+    manifest_version: number;
+    name: string;
+    version: string;
+    default_locale?: string | undefined;
+    description?: string | undefined;
+    icons?: ManifestIcons | undefined;
+    author?: {
+        email: string;
+    } | undefined;
+    background_page?: string | undefined;
+    chrome_settings_overrides?: {
+        homepage?: string | undefined;
+        search_provider?: SearchProvider | undefined;
+        startup_pages?: string[] | undefined;
+    } | undefined;
+    chrome_ui_overrides?: {
+        bookmarks_ui?: {
+            remove_bookmark_shortcut?: boolean | undefined;
+            remove_button?: boolean | undefined;
+        } | undefined;
+    } | undefined;
+    chrome_url_overrides?: {
+        bookmarks?: string | undefined;
+        history?: string | undefined;
+        newtab?: string | undefined;
+    } | undefined;
+    commands?: {
+        [name: string]: {
+            suggested_key?: {
+                default?: string | undefined;
+                windows?: string | undefined;
+                mac?: string | undefined;
+                chromeos?: string | undefined;
+                linux?: string | undefined;
+            } | undefined;
+            description?: string | undefined;
+            global?: boolean | undefined;
+        };
+    } | undefined;
+    content_capabilities?: {
+        matches?: string[] | undefined;
+        permissions?: string[] | undefined;
+    } | undefined;
+    content_scripts?: Array<{
+        matches?: string[] | undefined;
+        exclude_matches?: string[] | undefined;
+        css?: string[] | undefined;
+        js?: string[] | undefined;
+        run_at?: string | undefined;
+        all_frames?: boolean | undefined;
+        match_about_blank?: boolean | undefined;
+        include_globs?: string[] | undefined;
+        exclude_globs?: string[] | undefined;
+    }> | undefined;
+    converted_from_user_script?: boolean | undefined;
+    current_locale?: string | undefined;
+    devtools_page?: string | undefined;
+    event_rules?: Array<{
+        event?: string | undefined;
+        actions?: Array<{
+            type: string;
+        }> | undefined;
+        conditions?: PageStateMatcherProperties[] | undefined;
+    }> | undefined;
+    externally_connectable?: {
+        ids?: string[] | undefined;
+        matches?: string[] | undefined;
+        accepts_tls_channel_id?: boolean | undefined;
+    } | undefined;
+    file_browser_handlers?: Array<{
+        id?: string | undefined;
+        default_title?: string | undefined;
+        file_filters?: string[] | undefined;
+    }> | undefined;
+    file_system_provider_capabilities?: {
+        configurable?: boolean | undefined;
+        watchable?: boolean | undefined;
+        multiple_mounts?: boolean | undefined;
+        source?: string | undefined;
+    } | undefined;
+    homepage_url?: string | undefined;
+    import?: Array<{
+        id: string;
+        minimum_version?: string | undefined;
+    }> | undefined;
+    export?: {
+        whitelist?: string[] | undefined;
+    } | undefined;
+    incognito?: string | undefined;
+    input_components?: Array<{
+        name?: string | undefined;
+        type?: string | undefined;
+        id?: string | undefined;
+        description?: string | undefined;
+        language?: string[] | string | undefined;
+        layouts?: string[] | undefined;
+        indicator?: string | undefined;
+    }> | undefined;
+    key?: string | undefined;
+    minimum_chrome_version?: string | undefined;
+    nacl_modules?: Array<{
+        path: string;
+        mime_type: string;
+    }> | undefined;
+    oauth2?: {
+        client_id: string;
+        scopes?: string[] | undefined;
+    } | undefined;
+    offline_enabled?: boolean | undefined;
+    omnibox?: {
+        keyword: string;
+    } | undefined;
+    options_page?: string | undefined;
+    options_ui?: {
+        page?: string | undefined;
+        chrome_style?: boolean | undefined;
+        open_in_tab?: boolean | undefined;
+    } | undefined;
+    platforms?: Array<{
+        nacl_arch?: string | undefined;
+        sub_package_path: string;
+    }> | undefined;
+    plugins?: Array<{
+        path: string;
+    }> | undefined;
+    requirements?: {
+        '3D'?: {
+            features?: string[] | undefined;
+        } | undefined;
+        plugins?: {
+            npapi?: boolean | undefined;
+        } | undefined;
+    } | undefined;
+    sandbox?: {
+        pages: string[];
+        content_security_policy?: string | undefined;
+    } | undefined;
+    short_name?: string | undefined;
+    spellcheck?: {
+        dictionary_language?: string | undefined;
+        dictionary_locale?: string | undefined;
+        dictionary_format?: string | undefined;
+        dictionary_path?: string | undefined;
+    } | undefined;
+    storage?: {
+        managed_schema: string;
+    } | undefined;
+    tts_engine?: {
+        voices: Array<{
+            voice_name: string;
+            lang?: string | undefined;
+            gender?: string | undefined;
+            event_types?: string[] | undefined;
+        }>;
+    } | undefined;
+    update_url?: string | undefined;
+    version_name?: string | undefined;
+    [key: string]: any;
+}
+
+## develop/lib/manifest-types#ManifestIcons
+interface ManifestIcons {
+    [size: number]: string;
+}
+
+## develop/lib/manifest-types#ManifestOptionalPermission
+type ManifestOptionalPermission = Exclude<ManifestPermission, 'debugger' | 'declarativeNetRequest' | 'devtools' | 'experimental' | 'fontSettings' | 'geolocation' | 'proxy' | 'tts' | 'ttsEngine' | 'unlimitedStorage' | 'wallpaper' | 'webAuthenticationProxy'>;
+
+## develop/lib/manifest-types#ManifestPermission
+type ManifestPermission = 'accessibilityFeatures.modify' | 'accessibilityFeatures.read' | 'activeTab' | 'alarms' | 'audio' | 'background' | 'bookmarks' | 'browsingData' | 'certificateProvider' | 'clipboardRead' | 'clipboardWrite' | 'contentSettings' | 'contextMenus' | 'cookies' | 'debugger' | 'declarativeContent' | 'declarativeNetRequest' | 'declarativeNetRequestFeedback' | 'declarativeNetRequestWithHostAccess' | 'declarativeWebRequest' | 'desktopCapture' | 'documentScan' | 'downloads' | 'downloads.open' | 'downloads.shelf' | 'downloads.ui' | 'enterprise.deviceAttributes' | 'enterprise.hardwarePlatform' | 'enterprise.login' | 'enterprise.networkingAttributes' | 'enterprise.platformKeys' | 'experimental' | 'favicon' | 'fileBrowserHandler' | 'fileSystemProvider' | 'fontSettings' | 'gcm' | 'geolocation' | 'history' | 'identity' | 'identity.email' | 'idle' | 'loginState' | 'management' | 'nativeMessaging' | 'notifications' | 'offscreen' | 'pageCapture' | 'platformKeys' | 'power' | 'printerProvider' | 'printing' | 'printingMetrics' | 'privacy' | 'processes' | 'proxy' | 'readingList' | 'scripting' | 'search' | 'sessions' | 'sidePanel' | 'storage' | 'system.cpu' | 'system.display' | 'system.memory' | 'system.storage' | 'systemLog' | 'tabCapture' | 'tabGroups' | 'tabs' | 'topSites' | 'tts' | 'ttsEngine' | 'unlimitedStorage' | 'userScripts' | 'vpnProvider' | 'wallpaper' | 'webAuthenticationProxy' | 'webNavigation' | 'webRequest' | 'webRequestBlocking' | 'webRequestAuthProvider';
+
+## develop/lib/manifest-types#ManifestV2
+interface ManifestV2 extends ManifestBase {
+    manifest_version: 2;
+    browser_action?: ManifestAction | undefined;
+    page_action?: ManifestAction | undefined;
+    background?: {
+        scripts?: string[] | undefined;
+        page?: string | undefined;
+        persistent?: boolean | undefined;
+    } | undefined;
+    content_security_policy?: string | undefined;
+    optional_permissions?: (ManifestOptionalPermission | string)[] | undefined;
+    permissions?: (ManifestPermission | string)[] | undefined;
+    web_accessible_resources?: string[] | undefined;
+}
+
+## develop/lib/manifest-types#ManifestV3
+interface ManifestV3 extends ManifestBase {
+    manifest_version: 3;
+    action?: ManifestAction | undefined;
+    background?: {
+        service_worker: string;
+        type?: 'module';
+    } | undefined;
+    content_scripts?: Array<{
+        matches?: string[] | undefined;
+        exclude_matches?: string[] | undefined;
+        css?: string[] | undefined;
+        js?: string[] | undefined;
+        run_at?: string | undefined;
+        all_frames?: boolean | undefined;
+        match_about_blank?: boolean | undefined;
+        include_globs?: string[] | undefined;
+        exclude_globs?: string[] | undefined;
+        world?: 'ISOLATED' | 'MAIN' | undefined;
+    }> | undefined;
+    content_security_policy?: {
+        extension_pages?: string;
+        sandbox?: string;
+    };
+    host_permissions?: string[] | undefined;
+    optional_permissions?: ManifestOptionalPermission[] | undefined;
+    optional_host_permissions?: string[] | undefined;
+    permissions?: ManifestPermission[] | undefined;
+    web_accessible_resources?: Array<{
+        resources: string[];
+        use_dynamic_url?: boolean | undefined;
+    } & ({
+        extension_ids: string[];
+        matches?: string[] | undefined;
+    } | {
+        matches: string[];
+        extension_ids?: string[] | undefined;
+    })> | undefined;
+}
+
+## develop/lib/manifest-types#PageStateMatcherProperties
+interface PageStateMatcherProperties {
+    pageUrl?: UrlFilter | undefined;
+    css?: string[] | undefined;
+    isBookmarked?: boolean | undefined;
+}
+
+## develop/lib/manifest-types#SearchProvider
+interface SearchProvider {
+    name?: string | undefined;
+    keyword?: string | undefined;
+    favicon_url?: string | undefined;
+    search_url: string;
+    encoding?: string | undefined;
+    suggest_url?: string | undefined;
+    instant_url?: string | undefined;
+    image_url?: string | undefined;
+    search_url_post_params?: string | undefined;
+    suggest_url_post_params?: string | undefined;
+    instant_url_post_params?: string | undefined;
+    image_url_post_params?: string | undefined;
+    alternate_urls?: string[] | undefined;
+    prepopulated_id?: number | undefined;
+    is_default?: boolean | undefined;
+}
+
+## develop/lib/manifest-types#UrlFilter
+interface UrlFilter {
+    cidrBlocks?: string[] | undefined;
+    schemes?: string[] | undefined;
+    urlMatches?: string | undefined;
+    pathContains?: string | undefined;
+    hostSuffix?: string | undefined;
+    hostPrefix?: string | undefined;
+    hostContains?: string | undefined;
+    urlContains?: string | undefined;
+    querySuffix?: string | undefined;
+    urlPrefix?: string | undefined;
+    hostEquals?: string | undefined;
+    urlEquals?: string | undefined;
+    queryContains?: string | undefined;
+    pathPrefix?: string | undefined;
+    pathEquals?: string | undefined;
+    pathSuffix?: string | undefined;
+    queryEquals?: string | undefined;
+    queryPrefix?: string | undefined;
+    urlSuffix?: string | undefined;
+    ports?: Array<number | number[]> | undefined;
+    originAndPathMatches?: string | undefined;
+}
+
+## develop/lib/manifest-utils#CHROMIUM_VENDOR_PREFIXES
+declare const CHROMIUM_VENDOR_PREFIXES: readonly ['chrome', 'edge'];
+
+## develop/lib/manifest-utils#DroppedVendorKey
+interface DroppedVendorKey {
+    path: string;
+    familyPath: string;
+    vendor: (typeof CHROMIUM_VENDOR_PREFIXES)[number];
+    appliedBefore: boolean;
+}
+
+## develop/lib/manifest-utils#FilterKeysOptions
+interface FilterKeysOptions {
+    fallbacks?: readonly string[];
+}
+
+## develop/lib/manifest-utils#filterKeysForThisBrowser
+declare function filterKeysForThisBrowser(manifest: Manifest, browser: DevOptions['browser'], options?: FilterKeysOptions): Manifest;
+
+## develop/lib/manifest-utils#findDroppedVendorKeys
+declare function findDroppedVendorKeys(manifest: Manifest, browser: DevOptions['browser']): DroppedVendorKey[];
+
+## develop/lib/messaging#CODES
+declare const CODES: {
+    readonly E_ARGS: 'E_ARGS';
+    readonly E_PROJECT_NOT_FOUND: 'E_PROJECT_NOT_FOUND';
+    readonly E_MANIFEST_NOT_FOUND: 'E_MANIFEST_NOT_FOUND';
+    readonly E_MANIFEST_INVALID: 'E_MANIFEST_INVALID';
+    readonly E_PACKAGE_JSON_INVALID: 'E_PACKAGE_JSON_INVALID';
+    readonly E_FIRST_COMPILE: 'E_FIRST_COMPILE';
+    readonly E_COMPILE: 'E_COMPILE';
+    readonly E_BROWSER_NOT_FOUND: 'E_BROWSER_NOT_FOUND';
+    readonly E_BROWSER_LAUNCH: 'E_BROWSER_LAUNCH';
+    readonly E_PROFILE_LOCKED: 'E_PROFILE_LOCKED';
+    readonly E_READY_TIMEOUT: 'E_READY_TIMEOUT';
+    readonly E_CONTROL_DENIED: 'E_CONTROL_DENIED';
+    readonly E_CONTROL_UNAVAILABLE: 'E_CONTROL_UNAVAILABLE';
+    readonly E_TOKEN_MISSING: 'E_TOKEN_MISSING';
+    readonly E_NETWORK: 'E_NETWORK';
+    readonly E_INTERRUPTED: 'E_INTERRUPTED';
+    readonly E_NOT_IMPLEMENTED: 'E_NOT_IMPLEMENTED';
+    readonly E_INTERNAL: 'E_INTERNAL';
+    readonly E_UNSUPPORTED_BROWSER: 'E_UNSUPPORTED_BROWSER';
+    readonly E_INVALID_OPTION: 'E_INVALID_OPTION';
+    readonly E_PORT_UNAVAILABLE: 'E_PORT_UNAVAILABLE';
+    readonly E_DEPENDENCY_INSTALL: 'E_DEPENDENCY_INSTALL';
+    readonly E_TEMPLATE_NOT_FOUND: 'E_TEMPLATE_NOT_FOUND';
+    readonly E_DESTINATION_NOT_EMPTY: 'E_DESTINATION_NOT_EMPTY';
+    readonly E_DESTINATION_NOT_WRITABLE: 'E_DESTINATION_NOT_WRITABLE';
+    readonly E_OUTPUT_NOT_WRITABLE: 'E_OUTPUT_NOT_WRITABLE';
+    readonly E_BROWSER_DOWNLOAD: 'E_BROWSER_DOWNLOAD';
+    readonly E_SESSION_NOT_FOUND: 'E_SESSION_NOT_FOUND';
+    readonly E_EVAL_REFUSED: 'E_EVAL_REFUSED';
+    readonly E_CSP_BLOCKS_EVAL: 'E_CSP_BLOCKS_EVAL';
+    readonly E_TARGET_NOT_FOUND: 'E_TARGET_NOT_FOUND';
+    readonly E_HEADED_WINDOW_REQUIRED: 'E_HEADED_WINDOW_REQUIRED';
+    readonly E_USER_GESTURE_REQUIRED: 'E_USER_GESTURE_REQUIRED';
+    readonly E_TIMEOUT: 'E_TIMEOUT';
+    readonly E_PUBLISH_REJECTED: 'E_PUBLISH_REJECTED';
+    readonly E_AUTH_REQUIRED: 'E_AUTH_REQUIRED';
+    readonly E_SAFARI_TOOLCHAIN: 'E_SAFARI_TOOLCHAIN';
+    readonly E_SAFARI_UI: 'E_SAFARI_UI';
+    readonly E_ACCESSIBILITY_DENIED: 'E_ACCESSIBILITY_DENIED';
+    readonly E_EVAL: 'E_EVAL';
+    readonly E_INSPECT: 'E_INSPECT';
+    readonly E_STORAGE: 'E_STORAGE';
+    readonly E_LOGS_NOT_FOUND: 'E_LOGS_NOT_FOUND';
+    readonly E_READY_ERROR_STATUS: 'E_READY_ERROR_STATUS';
+    readonly E_COMMAND_UNSUPPORTED_FOR_TARGET: 'E_COMMAND_UNSUPPORTED_FOR_TARGET';
+    readonly E_FLAG_VALUE_INVALID: 'E_FLAG_VALUE_INVALID';
+    readonly E_FLAG_NOT_SUPPORTED_HERE: 'E_FLAG_NOT_SUPPORTED_HERE';
+    readonly E_DEV_SERVER_START: 'E_DEV_SERVER_START';
+    readonly E_DOCTOR_CHECKS_FAILED: 'E_DOCTOR_CHECKS_FAILED';
+    readonly E_TELEMETRY_WRITE: 'E_TELEMETRY_WRITE';
+    readonly E_PREVIEW_NO_DIST: 'E_PREVIEW_NO_DIST';
+    readonly E_BROWSER_UNINSTALL: 'E_BROWSER_UNINSTALL';
+    readonly E_NODE_VERSION: 'E_NODE_VERSION';
+    readonly E_UNKNOWN_COMMAND: 'E_UNKNOWN_COMMAND';
+    readonly E_REMOVED_FLAG: 'E_REMOVED_FLAG';
+    readonly E_BROWSER_NOT_INSTALLABLE: 'E_BROWSER_NOT_INSTALLABLE';
+    readonly E_PARENT_GONE: 'E_PARENT_GONE';
+    readonly E_REMOTE_URL_UNSUPPORTED: 'E_REMOTE_URL_UNSUPPORTED';
+    readonly E_CONFIG_LOAD: 'E_CONFIG_LOAD';
+    readonly E_OPTIONAL_DEP_UNRESOLVED: 'E_OPTIONAL_DEP_UNRESOLVED';
+    readonly E_OPTIONAL_DEP_LOAD: 'E_OPTIONAL_DEP_LOAD';
+    readonly E_OPTIONAL_DEP_UNKNOWN: 'E_OPTIONAL_DEP_UNKNOWN';
+    readonly E_COMPANION_EXTENSION_PATH: 'E_COMPANION_EXTENSION_PATH';
+    readonly E_MANIFEST_IN_PUBLIC: 'E_MANIFEST_IN_PUBLIC';
+    readonly E_FOLDER_UNREADABLE: 'E_FOLDER_UNREADABLE';
+    readonly E_RUNTIME_NOT_FOUND: 'E_RUNTIME_NOT_FOUND';
+    readonly E_COMPILE_FATAL: 'E_COMPILE_FATAL';
+    readonly E_MODULE_NOT_FOUND: 'E_MODULE_NOT_FOUND';
+    readonly E_ENTRY_NOT_FOUND: 'E_ENTRY_NOT_FOUND';
+    readonly E_ASSET_MISSING: 'E_ASSET_MISSING';
+    readonly E_SCRIPT_DEP_MISSING: 'E_SCRIPT_DEP_MISSING';
+    readonly E_RESERVED_FOLDER: 'E_RESERVED_FOLDER';
+    readonly E_CSS_PARSE: 'E_CSS_PARSE';
+    readonly E_CSS_PREPROCESSOR_MISSING: 'E_CSS_PREPROCESSOR_MISSING';
+    readonly E_CSS_DEAD_REF: 'E_CSS_DEAD_REF';
+    readonly E_LOCALES_LAYOUT: 'E_LOCALES_LAYOUT';
+    readonly E_WAR_INVALID: 'E_WAR_INVALID';
+    readonly E_THEME_INVALID: 'E_THEME_INVALID';
+    readonly E_DEV_SESSION_DIST_SHARED: 'E_DEV_SESSION_DIST_SHARED';
+    readonly E_BACKGROUND_REQUIRED: 'E_BACKGROUND_REQUIRED';
+    readonly E_CONTENT_SCRIPT_SYNTAX: 'E_CONTENT_SCRIPT_SYNTAX';
+    readonly E_PERF_BUDGET: 'E_PERF_BUDGET';
+    readonly E_ZIP_SKIPPED: 'E_ZIP_SKIPPED';
+    readonly E_REMOTE_FETCH_TIMEOUT: 'E_REMOTE_FETCH_TIMEOUT';
+    readonly E_REMOTE_DOWNLOAD: 'E_REMOTE_DOWNLOAD';
+    readonly E_REMOTE_ACCESS_DENIED: 'E_REMOTE_ACCESS_DENIED';
+    readonly E_REMOTE_ZIP_INVALID: 'E_REMOTE_ZIP_INVALID';
+    readonly E_LOCAL_ZIP_NOT_FOUND: 'E_LOCAL_ZIP_NOT_FOUND';
+    readonly E_PROJECT_DOWNLOAD_EMPTY: 'E_PROJECT_DOWNLOAD_EMPTY';
+    readonly E_BROWSER_BINARY_REQUIRED: 'E_BROWSER_BINARY_REQUIRED';
+    readonly E_BROWSER_BINARY_INVALID: 'E_BROWSER_BINARY_INVALID';
+    readonly E_BROWSER_EXITED: 'E_BROWSER_EXITED';
+    readonly E_BROWSER_START_TIMEOUT: 'E_BROWSER_START_TIMEOUT';
+    readonly E_INSTANCE_AMBIGUOUS: 'E_INSTANCE_AMBIGUOUS';
+    readonly E_EXTENSION_LOAD_REFUSED: 'E_EXTENSION_LOAD_REFUSED';
+    readonly E_ADDON_INSTALL: 'E_ADDON_INSTALL';
+    readonly E_BROWSER_CONNECT: 'E_BROWSER_CONNECT';
+    readonly E_BROWSER_CONNECTION_CLOSED: 'E_BROWSER_CONNECTION_CLOSED';
+    readonly E_CDP_NOT_CONNECTED: 'E_CDP_NOT_CONNECTED';
+    readonly E_CDP_TIMEOUT: 'E_CDP_TIMEOUT';
+    readonly E_CDP_OP_FAILED: 'E_CDP_OP_FAILED';
+    readonly E_EXTENSION_ID_UNKNOWN: 'E_EXTENSION_ID_UNKNOWN';
+    readonly E_RDP_PROTOCOL: 'E_RDP_PROTOCOL';
+    readonly E_SESSION_STOPPED: 'E_SESSION_STOPPED';
+    readonly E_SESSION_EXISTS: 'E_SESSION_EXISTS';
+    readonly E_SHUTDOWN_TIMEOUT: 'E_SHUTDOWN_TIMEOUT';
+    readonly E_BROWSER_INSTALL_PRIVILEGE: 'E_BROWSER_INSTALL_PRIVILEGE';
+    readonly E_BROWSER_INSTALL_TIMEOUT: 'E_BROWSER_INSTALL_TIMEOUT';
+    readonly E_BROWSER_INSTALL_BUSY: 'E_BROWSER_INSTALL_BUSY';
+    readonly E_BROWSER_CACHE_NOT_WRITABLE: 'E_BROWSER_CACHE_NOT_WRITABLE';
+    readonly E_BROWSER_FOLDER_FOREIGN: 'E_BROWSER_FOLDER_FOREIGN';
+    readonly E_BROWSER_INSTALLER_NOT_FOUND: 'E_BROWSER_INSTALLER_NOT_FOUND';
+    readonly E_RESTART_REQUIRED: 'E_RESTART_REQUIRED';
+    readonly E_JSON_INVALID: 'E_JSON_INVALID';
+    readonly E_PROJECT_LAYOUT: 'E_PROJECT_LAYOUT';
+    readonly E_ASSET_IMPORT_SHAPE: 'E_ASSET_IMPORT_SHAPE';
+    readonly E_ENV_FILE_UNREADABLE: 'E_ENV_FILE_UNREADABLE';
+    readonly E_INLINE_SCRIPT_SYNTAX: 'E_INLINE_SCRIPT_SYNTAX';
+    readonly W_MANAGED_DEP_CONFLICT: 'W_MANAGED_DEP_CONFLICT';
+    readonly W_TYPES_EMIT: 'W_TYPES_EMIT';
+    readonly W_MODULE_NOT_FOUND: 'W_MODULE_NOT_FOUND';
+    readonly W_ENTRY_NOT_FOUND: 'W_ENTRY_NOT_FOUND';
+    readonly W_ASSET_MISSING: 'W_ASSET_MISSING';
+    readonly W_SCRIPT_DEP_MISSING: 'W_SCRIPT_DEP_MISSING';
+    readonly W_CSS_PARSE: 'W_CSS_PARSE';
+    readonly W_CSS_PREPROCESSOR_MISSING: 'W_CSS_PREPROCESSOR_MISSING';
+    readonly W_CSS_DEAD_REF: 'W_CSS_DEAD_REF';
+    readonly W_POLYFILL_NOT_FOUND: 'W_POLYFILL_NOT_FOUND';
+    readonly W_LOCALES_LAYOUT: 'W_LOCALES_LAYOUT';
+    readonly W_PROD_LOOPBACK_ORIGIN: 'W_PROD_LOOPBACK_ORIGIN';
+    readonly W_NO_ENTRYPOINTS: 'W_NO_ENTRYPOINTS';
+    readonly W_REMOTE_RESOURCE_BLOCKED: 'W_REMOTE_RESOURCE_BLOCKED';
+    readonly W_PERF_BUDGET: 'W_PERF_BUDGET';
+    readonly W_ENV_NO_MATCH: 'W_ENV_NO_MATCH';
+    readonly W_LAUNCH_SKIPPED_COMPILE_ERRORS: 'W_LAUNCH_SKIPPED_COMPILE_ERRORS';
+    readonly W_UNINSTALL_NOOP: 'W_UNINSTALL_NOOP';
+    readonly W_PORT_IN_USE: 'W_PORT_IN_USE';
+    readonly W_LOGS_STREAM_GAP: 'W_LOGS_STREAM_GAP';
+    readonly W_CDP_NOT_CONNECTED: 'W_CDP_NOT_CONNECTED';
+    readonly W_CDP_TIMEOUT: 'W_CDP_TIMEOUT';
+    readonly W_CDP_OP_FAILED: 'W_CDP_OP_FAILED';
+    readonly W_BROWSER_CONNECTION_CLOSED: 'W_BROWSER_CONNECTION_CLOSED';
+    readonly W_EXTENSION_ID_UNKNOWN: 'W_EXTENSION_ID_UNKNOWN';
+    readonly W_MANIFEST_INVALID: 'W_MANIFEST_INVALID';
+    readonly W_WAR_INVALID: 'W_WAR_INVALID';
+    readonly W_RESERVED_FOLDER: 'W_RESERVED_FOLDER';
+    readonly W_INTERNAL: 'W_INTERNAL';
+    readonly W_RESTART_REQUIRED: 'W_RESTART_REQUIRED';
+    readonly W_JSON_INVALID: 'W_JSON_INVALID';
+    readonly W_PROJECT_LAYOUT: 'W_PROJECT_LAYOUT';
+    readonly W_MANIFEST_COMPAT: 'W_MANIFEST_COMPAT';
+    readonly W_STORE_READINESS: 'W_STORE_READINESS';
+    readonly W_PERMISSION_MISMATCH: 'W_PERMISSION_MISMATCH';
+    readonly W_API_UNSUPPORTED: 'W_API_UNSUPPORTED';
+    readonly W_WAR_EXPOSURE: 'W_WAR_EXPOSURE';
+    readonly W_CSS_NOT_APPLIED: 'W_CSS_NOT_APPLIED';
+    readonly W_ENV_SECRET_PUBLIC: 'W_ENV_SECRET_PUBLIC';
+    readonly W_BUILD_CONSTANT_UNDEFINED: 'W_BUILD_CONSTANT_UNDEFINED';
+    readonly W_SCRIPT_WORLD_UNKNOWN: 'W_SCRIPT_WORLD_UNKNOWN';
+    readonly W_ENV_NAME_RESERVED: 'W_ENV_NAME_RESERVED';
+    readonly W_COMPANION_EXTENSION_PATH: 'W_COMPANION_EXTENSION_PATH';
+    readonly W_ENV_DEFINE_WRITTEN: 'W_ENV_DEFINE_WRITTEN';
+    readonly W_ENV_ASSET_NOT_UTF8: 'W_ENV_ASSET_NOT_UTF8';
+    readonly W_HTML_NOT_UTF8: 'W_HTML_NOT_UTF8';
+    readonly W_RELOAD_NOT_APPLIED: 'W_RELOAD_NOT_APPLIED';
+    readonly W_CONTENT_SCRIPT_NOT_INJECTED: 'W_CONTENT_SCRIPT_NOT_INJECTED';
+    readonly W_CONTENT_SCRIPT_CLEANUP: 'W_CONTENT_SCRIPT_CLEANUP';
+    readonly W_CONTENT_SCRIPT_MOUNT: 'W_CONTENT_SCRIPT_MOUNT';
+    readonly W_DEV_SERVER_SOCKET: 'W_DEV_SERVER_SOCKET';
+};
+
+## develop/lib/messaging#ErrorCode
+type ErrorCode = (typeof CODES)[keyof typeof CODES];
+
+## develop/manifest-entry#FilterKeysOptions
+type FilterKeysOptions = FilterKeysOptionsShape;
+
+## develop/manifest-entry#LocalizableManifest
+type LocalizableManifest = LocalizableManifestShape;
+
+## develop/manifest-entry#LocalizedNameOptions
+type LocalizedNameOptions = LocalizedNameOptionsShape;
+
+## develop/manifest-entry#WebkitDroppedPage
+type WebkitDroppedPage = WebkitDroppedPageShape;
+
+## develop/manifest-entry#WebkitUnsupportedKey
+type WebkitUnsupportedKey = WebkitUnsupportedKeyShape;
+
+## develop/manifest-entry#filterKeysForThisBrowser
+declare const filterKeysForThisBrowser: typeof filterKeys;
+
+## develop/manifest-entry#findDroppedVendorKeys
+declare const findDroppedVendorKeys: typeof findDroppedKeys;
+
+## develop/manifest-entry#resolveLocalizedManifestName
+declare const resolveLocalizedManifestName: typeof resolveLocalizedName;
+
+## develop/manifest-entry#webkitDroppedSurfacePages
+declare const webkitDroppedSurfacePages: typeof droppedSurfacePages;
+
+## develop/manifest-entry#webkitUnsupportedManifestKeys
+declare const webkitUnsupportedManifestKeys: typeof unsupportedManifestKeys;
+
+## develop/manifest-entry#webkitUnsupportedPermissions
+declare const webkitUnsupportedPermissions: typeof unsupportedPermissions;
+
+## develop/plugin-web-extension/feature-manifest/manifest-lib/webkit-unsupported-keys#WebkitDroppedPage
+interface WebkitDroppedPage {
+    path: string;
+    key: string;
+    reason: string;
+}
+
+## develop/plugin-web-extension/feature-manifest/manifest-lib/webkit-unsupported-keys#WebkitUnsupportedKey
+interface WebkitUnsupportedKey {
+    key: string;
+    reason: string;
+}
+
+## develop/plugin-web-extension/feature-manifest/manifest-lib/webkit-unsupported-keys#webkitDroppedSurfacePages
+declare function webkitDroppedSurfacePages(manifest: Record<string, unknown> | undefined): WebkitDroppedPage[];
+
+## develop/plugin-web-extension/feature-manifest/manifest-lib/webkit-unsupported-keys#webkitUnsupportedManifestKeys
+declare function webkitUnsupportedManifestKeys(): WebkitUnsupportedKey[];
+
+## develop/plugin-web-extension/feature-manifest/manifest-lib/webkit-unsupported-keys#webkitUnsupportedPermissions
+declare function webkitUnsupportedPermissions(): string[];
+
+## develop/types#BrowserOptionsBase
+interface BrowserOptionsBase {
+    noOpen?: boolean;
+    profile?: string | false;
+    persistProfile?: boolean;
+    keepProfileChanges?: boolean;
+    copyFromProfile?: string;
+    startingUrl?: string;
+    browser: BrowserType;
+}
+
+## develop/types#BrowserType
+type BrowserType = 'chrome' | 'edge' | 'firefox' | 'chromium' | 'brave' | 'opera' | 'vivaldi' | 'yandex' | 'waterfox' | 'librewolf' | 'zen' | 'floorp' | 'chromium-based' | 'gecko-based' | 'firefox-based' | 'safari' | 'webkit-based' | 'chromium-emulator';
+
+## develop/types#ChromeManifest
+type ChromeManifest = WithoutManifestVersion<Partial<ManifestV2>> & WithoutManifestVersion<Partial<ManifestV3>> & {
+    manifest_version?: 2 | 3;
+    icon_variants?: IconVariant[];
+    browser_action?: {
+        theme_icons?: ThemeIcon[];
+        icon_variants?: IconVariant[];
+    };
+    action?: ManifestV3['action'] & {
+        theme_icons?: ThemeIcon[];
+        icon_variants?: IconVariant[];
+    };
+    page_action?: {
+        icon_variants?: IconVariant[];
+    };
+    omnibox?: {
+        keyword?: string;
+        default_icon?: string | Record<string, string>;
+    };
+    theme_experiment?: ThemeExperiment;
+};
+
+## develop/types#ChromiumOptions
+interface ChromiumOptions extends BrowserOptionsBase {
+    browser: 'chromium-based';
+    chromiumBinary?: string;
+}
+
+## develop/types#DevOptions
+interface DevOptions extends PublicDevOptions {
+    install?: boolean;
+    mode?: 'development' | 'production' | 'none';
+}
+
+## develop/types#GeckoOptions
+interface GeckoOptions extends BrowserOptionsBase {
+    browser: 'gecko-based';
+    geckoBinary?: string;
+}
+
+## develop/types#IconVariant
+interface IconVariant {
+    [size: \`\${number}\`]: string;
+    any?: string;
+    color_schemes?: Array<'light' | 'dark'>;
+}
+
+## develop/types#LogOptions
+interface LogOptions {
+    logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all';
+    logContexts?: LogContext[];
+    logFormat?: 'pretty' | 'json' | 'ndjson';
+    logTimestamps?: boolean;
+    logColor?: boolean;
+    logUrl?: string;
+    logTab?: number | string;
+}
+
+## develop/types#Manifest
+type Manifest = ChromeManifest;
+
+## develop/types#PublicDevOptions
+interface PublicDevOptions extends BrowserOptionsBase, LogOptions {
+    polyfill?: boolean;
+    port?: string | number | undefined;
+    host?: string;
+    publicHost?: string;
+    allowedHosts?: string | string[];
+    extensions?: CompanionExtensionsConfig;
+    noBrowser?: boolean;
+    preferences?: Record<string, unknown>;
+    browserFlags?: string[];
+    excludeBrowserFlags?: string[];
+    chromiumBinary?: ChromiumOptions['chromiumBinary'];
+    geckoBinary?: GeckoOptions['geckoBinary'];
+    firefoxBinary?: GeckoOptions['geckoBinary'];
+    safariBinary?: SafariOptions['safariBinary'];
+    hashContentScripts?: boolean;
+    allowControl?: boolean;
+    allowEval?: boolean;
+    exitOnError?: boolean;
+    hintFor?: (code: ErrorCode) => string | undefined;
+    appName?: SafariOptions['appName'];
+    bundleId?: SafariOptions['bundleId'];
+    developmentTeam?: SafariOptions['developmentTeam'];
+    macOsOnly?: SafariOptions['macOsOnly'];
+    appIcon?: SafariOptions['appIcon'];
+    forceRegenerate?: boolean;
+    safariPackager?: SafariPackagerFn;
+}
+
+## develop/types#SafariOptions
+interface SafariOptions extends BrowserOptionsBase {
+    browser: 'webkit-based';
+    safariBinary?: string;
+    appName?: string;
+    bundleId?: string;
+    developmentTeam?: string;
+    macOsOnly?: boolean;
+    appIcon?: string;
+    forceRegenerate?: boolean;
+}
+
+## develop/types#SafariPackagerFn
+type SafariPackagerFn = (distPath: string, mode: 'full' | 'resync', overrides?: SafariPackagerOverrides) => Promise<SafariPackageSummary | void>;
+
+## develop/types#SafariPackagerOverrides
+interface SafariPackagerOverrides {
+    appName?: string;
+    bundleId?: string;
+    developmentTeam?: string;
+    macOsOnly?: boolean;
+    appIcon?: string;
+    forceRegenerate?: boolean;
+    safariBinary?: string;
+    noOpen?: boolean;
+    startingUrl?: string;
+}
+
+## develop/types#ThemeExperiment
+interface ThemeExperiment {
+    stylesheet?: string;
+    stylesheets?: string[];
+    [key: string]: unknown;
+}
+
+## develop/types#ThemeIcon
+interface ThemeIcon {
+    light: string;
+    dark: string;
+    size?: number;
+}
+
+## develop/types#WithoutManifestVersion
+type WithoutManifestVersion<T> = {
+    [K in keyof T as Exclude<K, 'manifest_version'>]: T[K];
+};"
+`;
+
+exports[`the signatures of the package, entry by entry > pins what ./preview declares > ./preview 1`] = `
+"# exports
+PreviewLauncherFn = develop/command-preview#PreviewLauncherFn
+PreviewOptions = develop/types#PublicPreviewOptions
+ResolvedPreviewOptions = develop/command-preview#ResolvedPreviewOptions
+extensionPreview = develop/preview-entry#extensionPreview
+
+# from other packages
+
+# declarations
+
+## develop/command-preview#PreviewBrowserSession
+interface PreviewBrowserSession {
+    wakeBackground?(): Promise<boolean>;
+    ended?: Promise<void>;
+}
+
+## develop/command-preview#PreviewLauncherFn
+type PreviewLauncherFn = (opts: ResolvedPreviewOptions) => Promise<PreviewBrowserSession | undefined | void>;
+
+## develop/command-preview#ResolvedPreviewOptions
+interface ResolvedPreviewOptions {
+    browser: BrowserType;
+    outPath: string;
+    shippedPath?: string;
+    contextDir: string;
+    readyPath: string;
+    extensionsToLoad: string[];
+    noOpen?: boolean;
+    profile?: string | false;
+    profileSource?: 'flag' | 'config';
+    persistProfile?: boolean;
+    keepProfileChanges?: boolean;
+    copyFromProfile?: string;
+    preferences?: Record<string, unknown>;
+    browserFlags?: string[];
+    excludeBrowserFlags?: string[];
+    startingUrl?: string;
+    chromiumBinary?: string;
+    geckoBinary?: string;
+    instanceId?: string;
+    port?: number | string;
+    dryRun?: boolean;
+    logLevel?: string;
+    logContexts?: string[];
+    logFormat?: 'pretty' | 'json' | 'ndjson';
+    logTimestamps?: boolean;
+    logColor?: boolean;
+    logUrl?: string;
+    logTab?: number | string;
+}
+
+## develop/command-preview#extensionPreview
+declare function extensionPreview(pathOrRemoteUrl: string | undefined, previewOptions: BrowserDefaulted<PreviewOptions>, browserLauncher?: PreviewLauncherFn): Promise<{
+    warnings: string[];
+}>;
+
+## develop/dev-server/control-bridge/contracts#LOG_CONTEXTS
+declare const LOG_CONTEXTS: readonly ['background', 'content', 'page', 'popup', 'options', 'sidebar', 'devtools', 'newtab', 'history', 'bookmarks'];
+
+## develop/dev-server/control-bridge/contracts#LogContext
+type LogContext = (typeof LOG_CONTEXTS)[number];
+
+## develop/lib/companion-extensions/types#CompanionExtensionsConfig
+type CompanionExtensionsConfig = string[] | {
+    dir?: string;
+    paths?: string[];
+};
+
+## develop/preview-entry#extensionPreview
+declare const extensionPreview: typeof import("develop/command-preview").extensionPreview;
+
+## develop/types#BrowserDefaulted
+type BrowserDefaulted<T extends {
+    browser: unknown;
+}> = Omit<T, 'browser'> & {
+    browser?: T['browser'];
+};
+
+## develop/types#BrowserOptionsBase
+interface BrowserOptionsBase {
+    noOpen?: boolean;
+    profile?: string | false;
+    persistProfile?: boolean;
+    keepProfileChanges?: boolean;
+    copyFromProfile?: string;
+    startingUrl?: string;
+    browser: BrowserType;
+}
+
+## develop/types#BrowserType
+type BrowserType = 'chrome' | 'edge' | 'firefox' | 'chromium' | 'brave' | 'opera' | 'vivaldi' | 'yandex' | 'waterfox' | 'librewolf' | 'zen' | 'floorp' | 'chromium-based' | 'gecko-based' | 'firefox-based' | 'safari' | 'webkit-based' | 'chromium-emulator';
+
+## develop/types#ChromiumOptions
+interface ChromiumOptions extends BrowserOptionsBase {
+    browser: 'chromium-based';
+    chromiumBinary?: string;
+}
+
+## develop/types#GeckoOptions
+interface GeckoOptions extends BrowserOptionsBase {
+    browser: 'gecko-based';
+    geckoBinary?: string;
+}
+
+## develop/types#LogOptions
+interface LogOptions {
+    logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all';
+    logContexts?: LogContext[];
+    logFormat?: 'pretty' | 'json' | 'ndjson';
+    logTimestamps?: boolean;
+    logColor?: boolean;
+    logUrl?: string;
+    logTab?: number | string;
+}
+
+## develop/types#PreviewOptions
+interface PreviewOptions extends PublicPreviewOptions {
+    metadataCommand?: SessionCommand;
+    instanceId?: string;
+    instanceExplicit?: boolean;
+}
+
+## develop/types#PublicPreviewOptions
+interface PublicPreviewOptions extends BrowserOptionsBase, LogOptions {
+    mode?: 'production';
+    outputPath?: string;
+    browserFlags?: string[];
+    excludeBrowserFlags?: string[];
+    preferences?: Record<string, unknown>;
+    chromiumBinary?: ChromiumOptions['chromiumBinary'];
+    geckoBinary?: GeckoOptions['geckoBinary'];
+    firefoxBinary?: GeckoOptions['geckoBinary'];
+    extensions?: CompanionExtensionsConfig;
+    noBrowser?: boolean;
+    allowControl?: boolean;
+    allowEval?: boolean;
+    dryRun?: boolean;
+    port?: string | number;
+    host?: string;
+    publicHost?: string;
+}
+
+## develop/types#SessionCommand
+type SessionCommand = 'dev' | 'start' | 'preview' | 'build';"
+`;

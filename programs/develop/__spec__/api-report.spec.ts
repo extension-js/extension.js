@@ -1,6 +1,10 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {describe, expect, it} from 'vitest'
+import {beforeAll, describe, expect, it} from 'vitest'
+import {
+  publishedEntries,
+  signatureReports
+} from '../../../scripts/lib/api-signatures.mjs'
 
 const packageDir = path.resolve(__dirname, '..')
 
@@ -92,5 +96,26 @@ describe('the public API of the package, entry by entry', () => {
     expect([...new Set(values)].sort()).toEqual(
       Object.keys(await load()).sort()
     )
+  })
+})
+
+// A caller compiles against the declarations too, not only the names. A
+// parameter, a return type or a field that changes is a line of this diff.
+describe('the signatures of the package, entry by entry', () => {
+  const entries = publishedEntries(packageDir).map((entry) => entry.subpath)
+  let reports: Record<string, string> = {}
+
+  // The declarations are emitted from source once for every entry.
+  beforeAll(() => {
+    reports = signatureReports(packageDir)
+  }, 120_000)
+
+  it('reads the entries the exports map publishes with types', () => {
+    expect(entries).toEqual(Object.keys(ENTRIES))
+  })
+
+  it.each(entries)('pins what %s declares', (entry) => {
+    expect(reports[entry].length).toBeGreaterThan(0)
+    expect(reports[entry]).toMatchSnapshot(entry)
   })
 })
