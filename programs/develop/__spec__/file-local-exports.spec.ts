@@ -1,8 +1,18 @@
 import {describe, expect, it} from 'vitest'
 import {exportedNames, exportsNoProductFileReads} from './helpers/export-uses'
 
-// A name the scan takes for an export though no file could import it.
-const NOT_AN_EXPORT: Array<[file: string, name: string, why: string]> = [
+// The names nothing imports that keep the keyword, each with why.
+const KEPT: Array<[file: string, name: string, why: string]> = [
+  [
+    'lib/live-dev-session.ts',
+    'LiveDevSession',
+    'the declarations name it as the return type of refuseBuildOverLiveSession'
+  ],
+  [
+    'lib/manifest-types.ts',
+    'ManifestIcons',
+    'the declarations name it as the return type of three action overrides'
+  ],
   [
     'plugin-css/css-tools/postcss.ts',
     'initialize',
@@ -20,13 +30,11 @@ describe('what a develop product file exports', () => {
       .filter((use) => use.readBy === 'nothing')
       .map((use) => `${use.file} ${use.name}`)
 
-    expect(unread).toEqual(
-      NOT_AN_EXPORT.map(([file, name]) => `${file} ${name}`)
-    )
+    expect(unread).toEqual(KEPT.map(([file, name]) => `${file} ${name}`))
   })
 
   it('gives every name it lets through a reason', () => {
-    for (const [, , why] of NOT_AN_EXPORT) {
+    for (const [, , why] of KEPT) {
       expect(why.length).toBeGreaterThan(20)
     }
   })

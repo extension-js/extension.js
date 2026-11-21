@@ -11,7 +11,7 @@ import {processStartedAtMs, processStartId} from './process-started-at'
 import {readReadyRecord} from './ready-contract-writer'
 import {readyContractPath} from './session-paths'
 
-interface LiveDevSession {
+export interface LiveDevSession {
   distPath: string
   pid: number
 }

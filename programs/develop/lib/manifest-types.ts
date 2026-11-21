@@ -39,7 +39,7 @@ interface PageStateMatcherProperties {
   isBookmarked?: boolean | undefined
 }
 
-interface ManifestIcons {
+export interface ManifestIcons {
   [size: number]: string
 }
 
