@@ -10,13 +10,16 @@ import {
   stagedCompanionPath
 } from '../../browsers-lib/companion-session'
 import {browserConfig} from '../../run-chromium/chromium-launch/browser-config'
-import {resolveFirefoxLaunchConfig} from '../../run-firefox/firefox-launch/browser-config'
-
-type FirefoxOptions = Parameters<typeof resolveFirefoxLaunchConfig>[1]
+import {
+  type BrowserConfigOptions,
+  resolveFirefoxLaunchConfig
+} from '../../run-firefox/firefox-launch/browser-config'
 
 // The launch reads only the fields a row names, so the rest stay unset.
-function firefoxOptions(options: Partial<FirefoxOptions>): FirefoxOptions {
-  return options as FirefoxOptions
+function firefoxOptions(
+  options: Partial<BrowserConfigOptions>
+): BrowserConfigOptions {
+  return options as BrowserConfigOptions
 }
 
 let root: string
