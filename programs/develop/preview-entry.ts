@@ -6,6 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import type {extensionPreview as PreviewCommand} from './command-preview'
 import {ensureRustMinStack} from './lib/rust-min-stack'
 
 export type {
@@ -20,4 +21,4 @@ ensureRustMinStack()
 
 const preview = await import('./command-preview')
 
-export const extensionPreview = preview.extensionPreview
+export const extensionPreview: typeof PreviewCommand = preview.extensionPreview

@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {
+  rspack as RspackBundler,
   LoaderContext as RspackLoaderContext,
   RspackPluginInstance
 } from '@rspack/core'
@@ -16,6 +17,7 @@ import type {DevSessionCoordinates} from './lib/dev-session-coordinates'
 import type {ManagedExtensionRecord} from './lib/extension-id'
 import type {ManifestV2, ManifestV3} from './lib/manifest-types'
 import type {ErrorCode} from './lib/messaging'
+import type {PerfBudgetsConfig as PluginPerfBudgetsConfig} from './plugin-perf-budgets'
 
 /**
  * Firefox-only `theme_experiment` manifest key.
@@ -623,8 +625,7 @@ type OutputConfig = {
  * one `build` and `start` run. Preview builds nothing, so it takes none.
  * `onExceed: 'error'` makes an overrun fail the build instead of warning.
  */
-export type PerfBudgetsConfig =
-  import('./plugin-perf-budgets').PerfBudgetsConfig
+export type PerfBudgetsConfig = PluginPerfBudgetsConfig
 
 export interface CommonWebpackOptions {
   output: OutputConfig
@@ -906,7 +907,7 @@ export interface ConfigHookContext {
    * The bundler this run compiles with, so a hook reaches `ProvidePlugin`
    * or `NormalModuleReplacementPlugin` with no bundler of the project's own.
    */
-  rspack: typeof import('@rspack/core').rspack
+  rspack: typeof RspackBundler
 }
 
 export interface SpecialFoldersConfig {

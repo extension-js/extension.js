@@ -11,6 +11,7 @@ BuildEmitter (type)
 BuildErrorEvent (type)
 BuildOptions (type)
 BuildSummary (type)
+CommandLayerConfig (type)
 CompanionExtensionsConfig (type)
 CompiledEvent (type)
 DevOptions (type)
@@ -18,6 +19,7 @@ ErrorCode (type)
 FileConfig (type)
 Manifest (type)
 PreviewOptions (type)
+ProjectConfigDefaults (type)
 ReloadInstruction (type)
 ReloadType (type)
 SafariPackageSummary (type)
@@ -224,6 +226,7 @@ BuildEmitter = develop/module#BuildEmitter
 BuildErrorEvent = develop/plugin-browsers/index#BuildErrorEvent
 BuildOptions = develop/types#PublicBuildOptions
 BuildSummary = develop/lib/build-summary#BuildSummary
+CommandLayerConfig = develop/lib/config-loader#CommandLayerConfig
 CompanionExtensionsConfig = develop/lib/companion-extensions/types#CompanionExtensionsConfig
 CompiledEvent = develop/plugin-browsers/index#CompiledEvent
 DevOptions = develop/types#PublicDevOptions
@@ -231,6 +234,7 @@ ErrorCode = develop/lib/messaging#ErrorCode
 FileConfig = develop/types#FileConfig
 Manifest = develop/types#Manifest
 PreviewOptions = develop/types#PublicPreviewOptions
+ProjectConfigDefaults = develop/lib/config-loader#ProjectConfigDefaults
 ReloadInstruction = develop/plugin-reload/classify-reload#ReloadInstruction
 ReloadType = develop/plugin-reload/classify-reload#ReloadType
 SafariPackageSummary = develop/lib/build-summary#SafariPackageSummary
@@ -383,11 +387,20 @@ type CompanionExtensionsConfig = string[] | {
     paths?: string[];
 };
 
+## develop/lib/config-loader#CommandConfigs
+type CommandConfigs = NonNullable<FileConfig['commands']>;
+
+## develop/lib/config-loader#CommandLayerConfig
+type CommandLayerConfig = Partial<CommandConfigs['dev'] & CommandConfigs['build'] & CommandConfigs['start'] & CommandConfigs['preview']> & ProjectConfigDefaults;
+
 ## develop/lib/config-loader#ConfigEnvTarget
 type ConfigEnvTarget = {
     mode: string;
     browser?: string;
 };
+
+## develop/lib/config-loader#ProjectConfigDefaults
+type ProjectConfigDefaults = Pick<FileConfig, 'extensions' | 'transpilePackages' | 'perfBudgets' | 'define' | 'folders' | 'include' | 'exclude'>;
 
 ## develop/lib/config-loader#PublicConfigEnvTarget
 type PublicConfigEnvTarget = Partial<ConfigEnvTarget>;
@@ -860,83 +873,22 @@ declare const BuildEmitter: typeof BuildEmitterInstance;
 type BuildEmitter = BuildEmitterInstance;
 
 ## develop/module#endSessionAsFailed
-declare const endSessionAsFailed: typeof import("develop/dev-server/session-end").endSessionAsFailed;
+declare const endSessionAsFailed: typeof EndSessionAsFailed;
 
 ## develop/module#extensionBuild
-declare const extensionBuild: typeof import("develop/command-build").extensionBuild;
+declare const extensionBuild: typeof BuildCommand;
 
 ## develop/module#extensionDev
-declare const extensionDev: typeof import("develop/command-dev").extensionDev;
+declare const extensionDev: typeof DevCommand;
 
 ## develop/module#extensionPreview
-declare const extensionPreview: typeof import("develop/command-preview").extensionPreview;
+declare const extensionPreview: typeof PreviewCommand;
 
 ## develop/module#loadCommandConfig
-declare const loadCommandConfig: (projectPath: string, command: 'dev' | 'build' | 'start' | 'preview', envTarget?: PublicConfigEnvTarget) => Promise<Partial<Pick<import("develop/types").DevOptions, "appIcon" | "appName" | "bundleId" | "chromiumBinary" | "developmentTeam" | "forceRegenerate" | "geckoBinary" | "macOsOnly" | "noBrowser" | "noOpen" | "polyfill" | "profile" | "safariBinary"> & Pick<import("develop/types").DevOptions, "hashContentScripts" | "logColor" | "logContexts" | "logFormat" | "logLevel" | "logTab" | "logTimestamps" | "logUrl"> & {
-    browser?: BrowserType;
-    browserFlags?: string[];
-    excludeBrowserFlags?: string[];
-    preferences?: Record<string, unknown>;
-    persistProfile?: boolean;
-    extensions?: CompanionExtensionsConfig;
-    transpilePackages?: string[];
-    define?: Record<string, unknown>;
-    folders?: import("develop/types").SpecialFoldersConfig;
-    include?: import("develop/types").IncludeFilesConfig;
-    exclude?: import("develop/types").ExcludeFilesConfig;
-    perfBudgets?: import("develop/types").PerfBudgetsConfig;
-} & Pick<import("develop/types").BuildOptions, "addonLint" | "appIcon" | "appName" | "bundleId" | "developmentTeam" | "forceRegenerate" | "macOsOnly" | "minify" | "outDir" | "polyfill" | "safariBinary" | "silent" | "sourceMaps" | "zip" | "zipDir" | "zipFilename" | "zipSource"> & {
-    browser?: BrowserType;
-    extensions?: CompanionExtensionsConfig;
-    transpilePackages?: string[];
-    define?: Record<string, unknown>;
-    folders?: import("develop/types").SpecialFoldersConfig;
-    include?: import("develop/types").IncludeFilesConfig;
-    exclude?: import("develop/types").ExcludeFilesConfig;
-    perfBudgets?: import("develop/types").PerfBudgetsConfig;
-} & Pick<import("develop/types").StartOptions, "chromiumBinary" | "geckoBinary" | "host" | "logColor" | "logContexts" | "logFormat" | "logLevel" | "logTab" | "logTimestamps" | "logUrl" | "noBrowser" | "noOpen" | "polyfill" | "port" | "profile" | "publicHost" | "startingUrl"> & {
-    browser?: BrowserType;
-    browserFlags?: string[];
-    excludeBrowserFlags?: string[];
-    preferences?: Record<string, unknown>;
-    persistProfile?: boolean;
-    extensions?: CompanionExtensionsConfig;
-    transpilePackages?: string[];
-    define?: Record<string, unknown>;
-    folders?: import("develop/types").SpecialFoldersConfig;
-    include?: import("develop/types").IncludeFilesConfig;
-    exclude?: import("develop/types").ExcludeFilesConfig;
-    perfBudgets?: import("develop/types").PerfBudgetsConfig;
-} & Pick<import("develop/types").PreviewOptions, "chromiumBinary" | "geckoBinary" | "host" | "logColor" | "logContexts" | "logFormat" | "logLevel" | "logTab" | "logTimestamps" | "logUrl" | "noBrowser" | "noOpen" | "port" | "profile" | "publicHost" | "startingUrl"> & {
-    browser?: BrowserType;
-    browserFlags?: string[];
-    excludeBrowserFlags?: string[];
-    preferences?: Record<string, unknown>;
-    persistProfile?: boolean;
-    extensions?: CompanionExtensionsConfig;
-    transpilePackages?: string[];
-    define?: Record<string, unknown>;
-    folders?: import("develop/types").SpecialFoldersConfig;
-}> & {
-    extensions?: CompanionExtensionsConfig;
-    transpilePackages?: string[];
-    define?: Record<string, unknown>;
-    perfBudgets?: import("develop/types").PerfBudgetsConfig;
-    folders?: import("develop/types").SpecialFoldersConfig;
-    include?: import("develop/types").IncludeFilesConfig;
-    exclude?: import("develop/types").ExcludeFilesConfig;
-}>;
+declare const loadCommandConfig: (projectPath: string, command: 'dev' | 'build' | 'start' | 'preview', envTarget?: PublicConfigEnvTarget) => Promise<CommandLayerConfig>;
 
 ## develop/module#loadProjectConfigDefaults
-declare const loadProjectConfigDefaults: (projectPath: string, envTarget?: PublicConfigEnvTarget) => Promise<{
-    extensions?: CompanionExtensionsConfig;
-    transpilePackages?: string[];
-    define?: Record<string, unknown>;
-    perfBudgets?: import("develop/types").PerfBudgetsConfig;
-    folders?: import("develop/types").SpecialFoldersConfig;
-    include?: import("develop/types").IncludeFilesConfig;
-    exclude?: import("develop/types").ExcludeFilesConfig;
-}>;
+declare const loadProjectConfigDefaults: (projectPath: string, envTarget?: PublicConfigEnvTarget) => Promise<ProjectConfigDefaults>;
 
 ## develop/plugin-browsers/index#BrowserController
 interface BrowserController {
@@ -1166,7 +1118,7 @@ interface ConfigHookContext {
     browser: BrowserType;
     mode: 'development' | 'production' | 'none';
     command: SessionCommand;
-    rspack: typeof import("@rspack/core").rspack;
+    rspack: typeof RspackBundler;
 }
 
 ## develop/types#DevOptions
@@ -1282,7 +1234,7 @@ interface LogOptions {
 type Manifest = ChromeManifest;
 
 ## develop/types#PerfBudgetsConfig
-type PerfBudgetsConfig = import("develop/plugin-perf-budgets").PerfBudgetsConfig;
+type PerfBudgetsConfig = PluginPerfBudgetsConfig;
 
 ## develop/types#PreviewOptions
 interface PreviewOptions extends PublicPreviewOptions {
@@ -3383,7 +3335,7 @@ type CompanionExtensionsConfig = string[] | {
 };
 
 ## develop/preview-entry#extensionPreview
-declare const extensionPreview: typeof import("develop/command-preview").extensionPreview;
+declare const extensionPreview: typeof PreviewCommand;
 
 ## develop/types#BrowserDefaulted
 type BrowserDefaulted<T extends {
