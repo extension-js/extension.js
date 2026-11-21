@@ -30,14 +30,48 @@ const {version} = JSON.parse(
 )
 const BANNER = ` 🧩 Extension.js ${version}`
 
-// The answers a home's cache folder keeps, one per registry asked.
-function cachedAnswers(home: CliHome): string[] {
+type CacheEntry = {latest?: string; missed?: boolean; checkedAt: number}
+
+function cacheEntries(home: CliHome): CacheEntry[] {
   const file = path.join(home.cacheHome, 'extensionjs', 'update-check.json')
 
   return fs.existsSync(file)
-    ? Object.keys(JSON.parse(fs.readFileSync(file, 'utf8')))
+    ? Object.values(JSON.parse(fs.readFileSync(file, 'utf8')))
     : []
 }
+
+// The answers a home's cache folder keeps, one per registry that gave one.
+function cachedAnswers(home: CliHome): string[] {
+  return cacheEntries(home).flatMap((entry) =>
+    typeof entry.latest === 'string' ? [entry.latest] : []
+  )
+}
+
+// A registry that takes every request and never answers one.
+async function silentRegistry() {
+  const asked: string[] = []
+  const server = http.createServer((request) => {
+    asked.push(String(request.url))
+  })
+
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+
+  const address = server.address()
+  const port = typeof address === 'object' && address ? address.port : 0
+
+  return {
+    asked,
+    url: `http://127.0.0.1:${port}/`,
+    close: async () => {
+      server.closeAllConnections()
+      await new Promise<void>((resolve) => server.close(() => resolve()))
+    }
+  }
+}
+
+const BUILT = 'Extension built for production'
+// The check's own bound. A run that waited for a silent registry took this long.
+const BOUND_MS = 2000
 
 // dev, start, preview and build ask a registry for the latest version, and the
 // suite's network guard patches this process only, so a child needs a pin.
@@ -278,6 +312,129 @@ describe('the update check of a spawned CLI', () => {
       session.killGroup()
       silent.closeAllConnections()
       await new Promise<void>((resolve) => silent.close(() => resolve()))
+    }
+  })
+
+  // The bound is paid once: the miss is kept, so the next build asks nothing.
+  it('a registry that never answers is not asked again by the next build', async () => {
+    const silent = await silentRegistry()
+    const home = freshCliHome()
+    const options = {home, env: {npm_registry: silent.url}}
+
+    try {
+      const first = await runCli(['build', projectDir], options)
+
+      expect(first.status, first.output).toBe(0)
+      expect(silent.asked).toEqual(['/extension/latest'])
+      expect(first.stderr).toBe('')
+      expect(cacheEntries(home).map((entry) => entry.missed)).toEqual([true])
+      expect(cachedAnswers(home)).toEqual([])
+
+      const second = await runCli(['build', projectDir], options)
+
+      expect(second.status, second.output).toBe(0)
+      expect(silent.asked).toEqual(['/extension/latest'])
+      expect(second.stderr).toBe('')
+      expect(tellsOfUpdate(second.output), second.output).toBe(false)
+    } finally {
+      await silent.close()
+    }
+  })
+
+  it('a later answer replaces the miss', async () => {
+    const home = freshCliHome()
+    const file = path.join(home.cacheHome, 'extensionjs', 'update-check.json')
+    const options = {home, env: {npm_registry: registry}}
+
+    asked.length = 0
+
+    const first = await runCli(['build', projectDir], options)
+
+    expect(first.status, first.output).toBe(0)
+
+    // The same registry, as a run that got no answer over an hour ago left it.
+    const [key] = Object.keys(JSON.parse(fs.readFileSync(file, 'utf8')))
+
+    fs.writeFileSync(
+      file,
+      JSON.stringify({[key]: {missed: true, checkedAt: Date.now() - 3_600_001}})
+    )
+
+    asked.length = 0
+
+    const later = await runCli(['build', projectDir], options)
+
+    expect(later.status, later.output).toBe(0)
+    expect(asked).toEqual(['/extension/latest'])
+    expect(tellsOfUpdate(later.output), later.output).toBe(true)
+    expect(cacheEntries(home).map((entry) => entry.missed)).toEqual([undefined])
+    expect(cachedAnswers(home)).toEqual(['99.0.0'])
+  })
+
+  it('a build that failed does not wait for the registry', async () => {
+    const silent = await silentRegistry()
+    const broken = makeTempFolder('extjs-update-check-broken-')
+
+    fs.writeFileSync(
+      path.join(broken, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        name: 'Broken',
+        version: '1.0.0',
+        background: {service_worker: 'sw.js'}
+      })
+    )
+
+    fs.writeFileSync(path.join(broken, 'sw.js'), 'const broken = ;\n')
+
+    const session = startCli(['build', broken], {
+      home: freshCliHome(),
+      env: {npm_registry: silent.url}
+    })
+
+    try {
+      await session.waitFor(
+        () => session.read().stderr.includes('Build failed'),
+        60_000,
+        'the failed line'
+      )
+
+      const failedAt = Date.now()
+
+      expect(await session.closed).toEqual({status: 1, signal: null})
+      expect(Date.now() - failedAt).toBeLessThan(BOUND_MS - 500)
+    } finally {
+      session.killGroup()
+      await silent.close()
+    }
+  })
+
+  // The build is done and said so. The signal ends the wait, not the build.
+  it.each([
+    'SIGINT',
+    'SIGTERM'
+  ] as const)('%s during the wait ends the run at once with the code of the build', async (signal) => {
+    const silent = await silentRegistry()
+    const session = startCli(['build', projectDir], {
+      home: freshCliHome(),
+      env: {npm_registry: silent.url}
+    })
+
+    try {
+      await session.waitFor(
+        () => session.read().stdout.includes(BUILT),
+        60_000,
+        'the built line'
+      )
+
+      const signaledAt = Date.now()
+
+      expect(await session.stop(signal)).toEqual({status: 0, signal: null})
+      expect(Date.now() - signaledAt).toBeLessThan(BOUND_MS - 500)
+      expect(session.read().stderr).toBe('')
+    } finally {
+      session.killGroup()
+      await silent.close()
     }
   })
 

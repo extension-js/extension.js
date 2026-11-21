@@ -223,21 +223,32 @@ const processTimers: SettleTimers = {
   clear: (timer) => clearTimeout(timer as NodeJS.Timeout)
 }
 
+export interface SettleSignals {
+  once(signal: 'SIGINT' | 'SIGTERM', listener: () => void): unknown
+  removeListener(signal: 'SIGINT' | 'SIGTERM', listener: () => void): unknown
+}
+
 // The lookup never holds the process, so a command that ends first would
 // drop its answer. This holds the run until the check settles, or the bound.
 export function settleUpdateCheck(
   pending: Promise<unknown>,
   boundMs: number = UPDATE_CHECK_BOUND_MS,
-  timers: SettleTimers = processTimers
+  timers: SettleTimers = processTimers,
+  signals: SettleSignals = process
 ): Promise<void> {
   return new Promise((resolve) => {
-    const timer = timers.set(resolve, boundMs)
-
     const done = () => {
       timers.clear(timer)
+      signals.removeListener('SIGINT', done)
+      signals.removeListener('SIGTERM', done)
       resolve()
     }
 
+    const timer = timers.set(done, boundMs)
+
+    // The command is over and told. A signal ends the wait, not the command.
+    signals.once('SIGINT', done)
+    signals.once('SIGTERM', done)
     pending.then(done, done)
   })
 }
@@ -261,7 +272,11 @@ function cacheFolder(
   return path.join(homedir(), '.cache', 'extensionjs')
 }
 
-type CachedAnswers = Record<string, {latest: string; checkedAt: number}>
+// A miss carries no latest, so a reader that only knows answers asks again.
+type CachedAnswers = Record<
+  string,
+  {latest?: string; missed?: boolean; checkedAt: number}
+>
 
 function readCache(file: string): CachedAnswers {
   try {
@@ -300,7 +315,7 @@ async function latestVersion(
     boundMs,
     lookup
   }: Required<Omit<UpdateCheckDeps, 'readPackageJson'>>
-): Promise<string> {
+): Promise<string | null> {
   // Keyed by registry, so one registry's answer never stands in for another.
   const key = createHash('sha256').update(registry.href).digest('hex')
   const file = path.join(
@@ -310,27 +325,35 @@ async function latestVersion(
   const answers = readCache(file)
   const cached = answers[key]
   const time = now()
-
-  if (
+  const fresh =
     cached &&
-    typeof cached.latest === 'string' &&
     time >= cached.checkedAt &&
     time - cached.checkedAt < CACHE_INTERVAL_MS
-  ) {
-    return cached.latest
+
+  if (fresh && typeof cached.latest === 'string') return cached.latest
+  if (fresh && cached.missed === true) return null
+
+  const keep = (entry: CachedAnswers[string]) => {
+    try {
+      fs.mkdirSync(path.dirname(file), {recursive: true})
+      fs.writeFileSync(file, JSON.stringify({...answers, [key]: entry}))
+    } catch {
+      // A cache that cannot be written only means asking again next time.
+    }
   }
 
-  const latest = await lookup(name, registry, boundMs)
+  let latest: string
 
   try {
-    fs.mkdirSync(path.dirname(file), {recursive: true})
-    fs.writeFileSync(
-      file,
-      JSON.stringify({...answers, [key]: {latest, checkedAt: time}})
-    )
-  } catch {
-    // A cache that cannot be written only means asking again next time.
+    latest = await lookup(name, registry, boundMs)
+  } catch (err) {
+    // A silent registry costs the bound, so it is not asked again for an hour.
+    keep({missed: true, checkedAt: time})
+
+    throw err
   }
+
+  keep({latest, checkedAt: time})
 
   return latest
 }
@@ -349,7 +372,7 @@ export default async function checkUpdates({
 
   if (!registry || !isStableVersion(packageJson.version)) return null
 
-  let latest: string
+  let latest: string | null
 
   try {
     latest = await latestVersion(String(packageJson.name), registry, {
@@ -368,7 +391,7 @@ export default async function checkUpdates({
     return null
   }
 
-  if (!isStableVersion(latest)) return null
+  if (latest === null || !isStableVersion(latest)) return null
   if (!semver.gt(latest, String(packageJson.version))) return null
 
   return messages.checkUpdates(packageJson as Record<string, unknown>, {
