@@ -41,14 +41,14 @@ export class WebExtensionPlugin {
   public readonly browser: DevOptions['browser']
   public readonly devSession?: boolean
   public readonly define?: Record<string, unknown>
-  public readonly connectableHost?: string
+  public readonly session?: PluginInterface['session']
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
     this.devSession = options.devSession
     this.define = options.define
-    this.connectableHost = options.connectableHost
+    this.session = options.session
   }
 
   public apply(compiler: Compiler): void {
@@ -103,7 +103,7 @@ export class WebExtensionPlugin {
     new ManifestPlugin({
       browser: this.browser,
       devSession: this.devSession,
-      connectableHost: this.connectableHost,
+      session: this.session,
       manifestPath
     }).apply(compiler)
 

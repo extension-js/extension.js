@@ -10,8 +10,8 @@ import {Compilation, type Compiler} from '@rspack/core'
 import type {LogContext} from '../../dev-server/control-bridge/contracts'
 import {buildBridgeRelaySource} from '../../dev-server/control-bridge/producer-runtime'
 import {prependToEmittedAsset} from '../../lib/asset-source-maps'
+import type {DevSessionCoordinates} from '../../lib/dev-session-coordinates'
 import {buildDeclaredSheetSignalSource} from '../reload-lib/producer-reload'
-import type {BridgeCoordinates} from './inject-bridge-producer'
 import {BRIDGE_STAGE_AFTER_REPORT} from './stages'
 
 // Map an output asset to its bridge context. The background SW and hot/* are
@@ -35,8 +35,8 @@ export const RELAY_TARGETS: ReadonlyArray<{
 export class InjectBridgeRelay {
   private readonly controlPort?: number | null
 
-  constructor(options: Pick<BridgeCoordinates, 'controlPort'> = {}) {
-    this.controlPort = options.controlPort
+  constructor(session?: Pick<DevSessionCoordinates, 'controlPort'>) {
+    this.controlPort = session?.controlPort
   }
 
   apply(compiler: Compiler) {

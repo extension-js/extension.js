@@ -11,6 +11,7 @@ import {
   buildBridgeProducerSource,
   type ProducerExecutor
 } from '../../dev-server/control-bridge/producer-runtime'
+import type {DevSessionCoordinates} from '../../lib/dev-session-coordinates'
 
 // What a dev background runs when a reload frame arrives: re-inject, the
 // script addresses, the sheet swaps, the page tabs and the restart.
@@ -1819,9 +1820,25 @@ export const PRODUCER_RELOAD_EXECUTOR: ProducerExecutor = {
 }
 
 // The producer a dev background runs: the control bridge with this executor.
-export function buildDevProducerSource(opts: BuildProducerOptions): string {
+export interface DevProducerOptions
+  extends Pick<BuildProducerOptions, 'sessionFromFile' | 'context'> {
+  // The session whose control bridge the background dials.
+  session: Pick<
+    DevSessionCoordinates,
+    'controlPort' | 'instanceId' | 'connectableHost'
+  >
+}
+
+// The host is the one the session's browser dials: loopback on this machine,
+// the public host in a container or over a tunnel.
+export function buildDevProducerSource(opts: DevProducerOptions): string {
+  const {session, ...rest} = opts
+
   return buildBridgeProducerSource({
-    ...opts,
+    ...rest,
+    controlPort: session.controlPort,
+    instanceId: session.instanceId,
+    host: session.connectableHost.trim() || '127.0.0.1',
     executor: PRODUCER_RELOAD_EXECUTOR
   })
 }

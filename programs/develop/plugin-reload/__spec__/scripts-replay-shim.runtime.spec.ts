@@ -241,8 +241,11 @@ describe('scripts-replay shim runtime', () => {
     new Function(
       'globalThis',
       buildDevProducerSource({
-        controlPort: 9999,
-        instanceId: 'inst-replay',
+        session: {
+          controlPort: 9999,
+          instanceId: 'inst-replay',
+          connectableHost: ''
+        },
         context: 'background'
       })
     )(fakeGlobal)

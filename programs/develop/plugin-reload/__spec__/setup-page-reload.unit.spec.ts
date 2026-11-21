@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compiler, rspack} from '@rspack/core'
 import {afterAll, afterEach, describe, expect, it, vi} from 'vitest'
+import {sessionOf} from '../../__spec__/helpers/dev-session'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../../plugin-web-extension/feature-scripts/contracts'
 import {
@@ -310,7 +311,10 @@ describe('the hot update client of a page entry', () => {
 
     declarePages(
       compiler,
-      {manifestPath, port: 9191, connectableHost: 'dev.test'},
+      {
+        manifestPath,
+        session: sessionOf({port: 9191, connectableHost: 'dev.test'})
+      },
       [page]
     )
 

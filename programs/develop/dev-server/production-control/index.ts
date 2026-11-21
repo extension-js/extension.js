@@ -42,11 +42,14 @@ import {
 // background runs, the files it and its relay ride and the policy merge.
 // The command hands them over, so this folder reaches into no plugin.
 export interface ControlledBuildParts {
+  // The controlled run names its bridge the way a dev session does.
   producerSource: (options: {
-    controlPort: number
-    instanceId: string
+    session: {
+      controlPort: number
+      instanceId: string
+      connectableHost: string
+    }
     context: 'background'
-    host?: string
   }) => string
   relayTargets: ReadonlyArray<{re: RegExp; context: LogContext}>
   // The emitted files a build of ours runs as its background.
@@ -263,10 +266,12 @@ export function prepareControlledBuild(input: {
   fs.cpSync(input.distPath, input.controlledPath, {recursive: true})
 
   const source = input.parts.producerSource({
-    controlPort: input.controlPort,
-    instanceId: input.instanceId,
-    context: 'background',
-    host: input.host
+    session: {
+      controlPort: input.controlPort,
+      instanceId: input.instanceId,
+      connectableHost: input.host ?? ''
+    },
+    context: 'background'
   })
 
   const manifestPath = path.join(input.controlledPath, 'manifest.json')

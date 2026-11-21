@@ -8,6 +8,7 @@ import {
   writeProject
 } from '../../__spec__/helpers/real-compiler'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+import type {DevSessionCoordinates} from '../../lib/dev-session-coordinates'
 import webpackConfig from '../../rspack-config'
 import {ReloadPlugin} from '../index'
 import {InjectBridgeProducer} from '../steps/inject-bridge-producer'
@@ -47,15 +48,15 @@ function bakedHost(workerSource: string | null | undefined) {
   return /var HOST = "([^"]*)"/.exec(String(workerSource))?.[1] ?? null
 }
 
-// A real development compile of one worker with a producer of these options.
-async function compiledHost(options: Record<string, unknown>) {
+// A real development compile of one worker with a producer of this session.
+async function compiledHost(part: Partial<DevSessionCoordinates>) {
   const root = writeProject(makeTempFolder('extjs-connectable-compile-'), {
     'src/background.js': 'console.log("worker")\n'
   })
   const {errors, files} = await compileFiles(
     root,
     {'background/service_worker': 'src/background.js'},
-    new InjectBridgeProducer(options as never),
+    new InjectBridgeProducer(sessionOf(part)),
     'development'
   )
 
@@ -117,14 +118,16 @@ describe('the connectable host a bridge producer compiles in', () => {
     expect(second).toBe('session-b.example')
   })
 
-  it('is loopback for a blank option, whatever the environment', async () => {
+  it('is loopback for a blank host, whatever the environment', async () => {
     expect(await compiledHost({controlPort: 9001, connectableHost: '  '})).toBe(
       '127.0.0.1'
     )
   })
 
-  it('is loopback when no option names one, whatever the environment says', async () => {
-    expect(await compiledHost({controlPort: 9001})).toBe('127.0.0.1')
+  it('is loopback for an empty host, whatever the environment says', async () => {
+    expect(await compiledHost({controlPort: 9001, connectableHost: ''})).toBe(
+      '127.0.0.1'
+    )
   })
 })
 

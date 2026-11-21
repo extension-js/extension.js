@@ -93,12 +93,9 @@ export type PluginInterface = {
    * (dev CSP, injected permissions, reload client, page HMR) on. A build in
    * development mode is shippable and keeps the author's manifest. */
   devSession?: boolean
-  /** The host this dev session's browser dials, given by the session that
-   * builds the config, so another session's environment does not name it. */
-  connectableHost?: string
-  /** The port this dev session's server listens on, for its page HMR client. */
-  port?: string | number
-  /** The record of the dev session that builds the config, when one does. */
+  /** The record of the dev session that builds the config, when one does.
+   * It names the host the session's browser dials and the port it listens
+   * on, so another session's environment names neither. */
   session?: Readonly<DevSessionCoordinates>
 }
 

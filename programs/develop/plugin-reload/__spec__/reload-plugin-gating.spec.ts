@@ -39,7 +39,7 @@ function applied(
   const compiler = idleCompiler(root, mode)
   const taps = tapsAddedBy(compiler, () =>
     new ReloadPlugin({
-      ...sessionBridge(),
+      session: sessionBridge(),
       manifestPath,
       browser: 'chrome',
       ...options
@@ -136,7 +136,7 @@ describe('ReloadPlugin applies nothing', () => {
       'hot/[id].[fullhash].hot-update.js'
 
     new ReloadPlugin({
-      ...sessionBridge(),
+      session: sessionBridge(),
       manifestPath,
       browser: 'chrome',
       devSession: false

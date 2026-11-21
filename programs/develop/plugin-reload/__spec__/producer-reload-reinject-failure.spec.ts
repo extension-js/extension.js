@@ -93,8 +93,11 @@ function boot(manifest: () => Promise<unknown>) {
   new Function(
     'globalThis',
     buildDevProducerSource({
-      controlPort: 9999,
-      instanceId: 'inst-R',
+      session: {
+        controlPort: 9999,
+        instanceId: 'inst-R',
+        connectableHost: ''
+      },
       context: 'background'
     })
   )(fakeGlobal)

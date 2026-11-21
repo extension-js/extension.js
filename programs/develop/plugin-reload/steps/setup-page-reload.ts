@@ -38,16 +38,12 @@ export class SetupPageReload {
   private readonly manifestPath: string
   private readonly browser: DevOptions['browser']
   private readonly devSession?: boolean
-  private readonly connectableHost?: string
-  private readonly port?: string | number
   private readonly session?: PluginInterface['session']
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
     this.devSession = options.devSession
-    this.connectableHost = options.connectableHost
-    this.port = options.port
     this.session = options.session
   }
 
@@ -66,11 +62,7 @@ export class SetupPageReload {
   }
 
   private addClientToEntries(compiler: Compiler, pages: readonly HtmlPage[]) {
-    const devServerHmrImports = getDevServerHmrImports(compiler, {
-      ...this.session,
-      connectableHost: this.connectableHost ?? this.session?.connectableHost,
-      port: this.port ?? this.session?.port
-    })
+    const devServerHmrImports = getDevServerHmrImports(compiler, this.session)
 
     // The dev server provides its stock socket class to the client. Pointing
     // that file at ours names the page, so a saved page reloads only its tabs.

@@ -265,8 +265,11 @@ function boot(options: {
   new Function(
     'globalThis',
     buildDevProducerSource({
-      controlPort: 9999,
-      instanceId: 'inst-A',
+      session: {
+        controlPort: 9999,
+        instanceId: 'inst-A',
+        connectableHost: ''
+      },
       context: 'background'
     })
   )(fakeGlobal)

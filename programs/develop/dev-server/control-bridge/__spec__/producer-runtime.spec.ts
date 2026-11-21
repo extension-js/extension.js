@@ -1,6 +1,6 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 // The producer a dev background runs: this bridge with the reload executor.
-import {buildDevProducerSource as buildBridgeProducerSource} from '../../../plugin-reload/reload-lib/producer-reload'
+import {buildDevProducerSource} from '../../../plugin-reload/reload-lib/producer-reload'
 import {
   BRIDGE_PRODUCER_SOURCE,
   buildBridgeRelaySource
@@ -137,6 +137,25 @@ function run(src: string, fakeGlobal: Record<string, unknown>) {
   // The IIFE reads `globalThis` first; pass our fake as that parameter.
   // eslint-disable-next-line no-new-func
   new Function('globalThis', src)(fakeGlobal)
+}
+
+// The source a dev background gets for a session that names these values.
+function buildBridgeProducerSource(named: {
+  controlPort: number | null
+  instanceId: string
+  host?: string
+  context?: string
+  sessionFromFile?: boolean
+}): string {
+  return buildDevProducerSource({
+    session: {
+      controlPort: named.controlPort,
+      instanceId: named.instanceId,
+      connectableHost: named.host ?? ''
+    },
+    context: named.context,
+    sessionFromFile: named.sessionFromFile
+  })
 }
 
 describe('bridge producer runtime', () => {

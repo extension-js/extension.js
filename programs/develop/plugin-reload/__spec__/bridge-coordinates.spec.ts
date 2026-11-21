@@ -4,6 +4,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {sessionOf} from '../../__spec__/helpers/dev-session'
 import {idleCompiler, writeProject} from '../../__spec__/helpers/real-compiler'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+import type {DevSessionCoordinates} from '../../lib/dev-session-coordinates'
 import webpackConfig from '../../rspack-config'
 import {ReloadPlugin} from '../index'
 import {bakedBridgeControl} from './helpers/baked-bridge-control'
@@ -21,7 +22,7 @@ vi.mock('../../lib/extensions-to-load', async () => ({
   computeExtensionsToLoad: () => []
 }))
 
-type PluginOptions = ConstructorParameters<typeof ReloadPlugin>[0]
+type SessionPart = Partial<DevSessionCoordinates>
 
 beforeEach(() => {
   vi.stubEnv('EXTENSION_CONTROL_PORT', undefined)
@@ -33,8 +34,8 @@ afterEach(() => {
   vi.unstubAllEnvs()
 })
 
-// A ReloadPlugin with these options, applied to a real idle compiler.
-function appliedPlugin(options: Record<string, unknown> = {}) {
+// A ReloadPlugin of this session, or of none, on a real idle compiler.
+function appliedPlugin(part?: SessionPart) {
   const root = writeProject(makeTempFolder('extjs-bridge-coords-'), {
     'manifest.json': {
       manifest_version: 3,
@@ -49,19 +50,19 @@ function appliedPlugin(options: Record<string, unknown> = {}) {
   new ReloadPlugin({
     manifestPath: path.join(root, 'manifest.json'),
     browser: 'chrome',
-    ...options
-  } as PluginOptions).apply(compiler)
+    session: part ? sessionOf(part) : undefined
+  }).apply(compiler)
 
   return compiler
 }
 
-// What a ReloadPlugin with these options bakes into the control file.
-function bakedControl(options: Record<string, unknown> = {}) {
-  return bakedBridgeControl(appliedPlugin(options))
+// What a ReloadPlugin of this session bakes into the control file.
+function bakedControl(part?: SessionPart) {
+  return bakedBridgeControl(appliedPlugin(part))
 }
 
-function relayApplied(options: Record<string, unknown>) {
-  const {taps} = appliedPlugin(options).hooks.thisCompilation as unknown as {
+function relayApplied(part?: SessionPart) {
+  const {taps} = appliedPlugin(part).hooks.thisCompilation as unknown as {
     taps: Array<{name: string}>
   }
 
@@ -76,16 +77,16 @@ describe('the bridge coordinates a ReloadPlugin bakes', () => {
     expect(bakedControl()).toBeNull()
   })
 
-  it('come from the options over the environment', () => {
+  it('come from the session record over the environment', () => {
     vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
     vi.stubEnv('EXTENSION_INSTANCE_ID', 'from-env')
 
     expect(
-      bakedControl({instanceId: 'from-options', controlPort: 9001})
-    ).toMatchObject({port: 9001, instanceId: 'from-options'})
+      bakedControl({instanceId: 'from-session', controlPort: 9001})
+    ).toMatchObject({port: 9001, instanceId: 'from-session'})
   })
 
-  it('differ for two plugins whose options differ', () => {
+  it('differ for two plugins whose sessions differ', () => {
     vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
     vi.stubEnv('EXTENSION_INSTANCE_ID', 'from-env')
 
@@ -96,16 +97,16 @@ describe('the bridge coordinates a ReloadPlugin bakes', () => {
     expect(second).toMatchObject({port: 9002, instanceId: 'session-b'})
   })
 
-  it('fill no missing option from the environment', () => {
+  it('fill no blank value from the environment', () => {
     vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
     vi.stubEnv('EXTENSION_INSTANCE_ID', 'from-env')
 
-    expect(bakedControl({controlPort: 9001})).toMatchObject({
+    expect(bakedControl({controlPort: 9001, instanceId: ''})).toMatchObject({
       port: 9001,
       instanceId: ''
     })
 
-    expect(bakedControl({instanceId: 'from-options'})).toBeNull()
+    expect(bakedControl({instanceId: 'from-session'})).toBeNull()
   })
 
   it('leave the relay off for a session with no bridge, whatever the environment', () => {
@@ -113,6 +114,7 @@ describe('the bridge coordinates a ReloadPlugin bakes', () => {
 
     expect(relayApplied({controlPort: null})).toBe(false)
     expect(relayApplied({})).toBe(false)
+    expect(relayApplied()).toBe(false)
     expect(relayApplied({controlPort: 9001})).toBe(true)
   })
 
