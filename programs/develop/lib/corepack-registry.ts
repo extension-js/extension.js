@@ -56,7 +56,7 @@ function privateRegistry(value: string | undefined): string | undefined {
   }
 }
 
-type CorepackRegistryOrigin = {
+export type CorepackRegistryOrigin = {
   registry: string
   from: 'npm_config_registry' | '.npmrc'
 }

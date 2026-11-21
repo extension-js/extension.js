@@ -1,5 +1,11 @@
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
-import {exportedNames, exportsNoProductFileReads} from './helpers/export-uses'
+import {
+  COPIED_ELSEWHERE,
+  exportedNames,
+  exportsNoProductFileReads
+} from './helpers/export-uses'
 
 // The names nothing imports that keep the keyword, each with why.
 const KEPT: Array<[file: string, name: string, why: string]> = [
@@ -31,6 +37,28 @@ describe('what a develop product file exports', () => {
       .map((use) => `${use.file} ${use.name}`)
 
     expect(unread).toEqual(KEPT.map(([file, name]) => `${file} ${name}`))
+  })
+
+  // A copy elsewhere reads names no develop file does, so the scan skips
+  // the file. The skip is earned only while the copy is still the same text.
+  it('skips a file only while another program holds the same text', () => {
+    const programs = path.resolve(__dirname, '..', '..')
+    const belowHeader = (file: string) =>
+      fs
+        .readFileSync(path.join(programs, file), 'utf8')
+        .replace(/\r\n/g, '\n')
+        .replace(/^(?:\/\/.*\n)+/, '')
+
+    expect([...COPIED_ELSEWHERE.keys()]).toEqual([
+      'lib/corepack-registry.ts',
+      'lib/messaging.ts'
+    ])
+
+    expect(found.filter((use) => COPIED_ELSEWHERE.has(use.file))).toEqual([])
+
+    for (const [file, copy] of COPIED_ELSEWHERE) {
+      expect(belowHeader(copy), copy).toBe(belowHeader(`develop/${file}`))
+    }
   })
 
   it('gives every name it lets through a reason', () => {
