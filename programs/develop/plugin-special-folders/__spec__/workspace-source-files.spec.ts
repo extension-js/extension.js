@@ -8,6 +8,7 @@ import {
 } from '../../lib/public-private-files'
 import {expectNoWorkspaceAboveTemp} from './helpers/private-files-project'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+import {writeProjectFiles} from '../../__spec__/helpers/extension-project'
 
 // The predicate on its own, for a project two folders below a workspace
 // root. A row is a path from the project and whether each ask may ship it.
@@ -163,11 +164,7 @@ function tree(files: Record<string, string>) {
   // Spelled as the walk spells its answer, or a row fails on Windows.
   const holder = fs.realpathSync.native(tempFolder('extjs-workspace-root-'))
 
-  for (const [relative, contents] of Object.entries(files)) {
-    const file = path.join(holder, relative)
-    fs.mkdirSync(path.dirname(file), {recursive: true})
-    fs.writeFileSync(file, contents)
-  }
+  writeProjectFiles(holder, files)
 
   return holder
 }
