@@ -21,6 +21,7 @@ import {ValidateThemeArrays} from './steps/validate-theme-values'
 import {WarnContentScriptHostAccess} from './steps/warn-content-script-host-access'
 import {WarnDescriptionLength} from './steps/warn-description-length'
 import {WarnIgnoredHostPermissions} from './steps/warn-ignored-host-permissions'
+import {WarnPrefixedPermissionItems} from './steps/warn-prefixed-permission-items'
 import {WarnUndeclaredPermissions} from './steps/warn-undeclared-permissions'
 import {WarnWebAssembly} from './steps/warn-webassembly'
 
@@ -89,6 +90,8 @@ export class ManifestPlugin {
     new WarnDescriptionLength({browser: this.browser}).apply(compiler)
 
     new WarnIgnoredHostPermissions().apply(compiler)
+
+    new WarnPrefixedPermissionItems({browser: this.browser}).apply(compiler)
 
     new WarnContentScriptHostAccess({browser: this.browser}).apply(compiler)
 

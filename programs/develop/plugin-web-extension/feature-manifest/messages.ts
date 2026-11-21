@@ -923,6 +923,28 @@ export function hostPermissionPatternsIgnored(
   ].join('\n')
 }
 
+// The item form is resolved for each browser, and the prefixed key is the
+// documented way to say the same thing.
+export function permissionItemsCarryBrowserPrefix(
+  browser: string,
+  hits: Array<{key: string; item: string; value: string; kept: boolean}>,
+  example: {key: string; items: string[]}
+) {
+  return [
+    `${prefix('warn')} manifest.json puts a browser prefix on a permission item.`,
+    ...hits.map(
+      (hit) =>
+        `${colors.gray('ITEM')} ${colors.red(hit.item)} in ${colors.blue(hit.key)}, ${
+          hit.kept
+            ? `kept as ${colors.green(hit.value)}`
+            : `left out of this ${browser} build`
+        }`
+    ),
+    `No browser reads a prefix inside a list, so the build resolves each item for the browser it names. The documented form puts the prefix on the key, as in ${colors.blue(`"${example.key}": [${example.items.map((item) => `"${item}"`).join(', ')}]`)}.`,
+    'A prefixed key replaces the plain list for that browser, so it repeats the items every browser gets.'
+  ].join('\n')
+}
+
 export function manifestDescriptionOverStoreLimit(
   browser: string,
   length: number,
