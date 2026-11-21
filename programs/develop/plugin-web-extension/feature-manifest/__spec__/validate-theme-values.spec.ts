@@ -2,18 +2,26 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
+import {
+  asCompilation,
+  asCompiler,
+  type TapCallback
+} from '../../__spec__/helpers/rspack-fakes'
 import {setOriginalManifestContent} from '../manifest-lib/manifest'
 import {collectThemeArrayIssues} from '../manifest-lib/theme-values'
 import {ValidateThemeArrays} from '../steps/validate-theme-values'
+import {asManifest} from './helpers/manifest-fakes'
 
 describe('collectThemeArrayIssues', () => {
   const themed = (theme: Record<string, unknown>) =>
-    collectThemeArrayIssues({
-      manifest_version: 3,
-      name: 'x',
-      version: '1.0.0',
-      theme
-    } as any)
+    collectThemeArrayIssues(
+      asManifest({
+        manifest_version: 3,
+        name: 'x',
+        version: '1.0.0',
+        theme
+      })
+    )
 
   it('accepts the arrays and strings a Chromium build loads or translates', () => {
     expect(
@@ -97,7 +105,7 @@ describe('collectThemeArrayIssues', () => {
   })
 
   it('stays silent without a theme', () => {
-    expect(collectThemeArrayIssues({} as any)).toEqual([])
+    expect(collectThemeArrayIssues(asManifest({}))).toEqual([])
     expect(collectThemeArrayIssues(undefined)).toEqual([])
   })
 })
@@ -114,25 +122,25 @@ describe('ValidateThemeArrays step', () => {
   })
 
   const makeCompiler = () => {
-    const compilation: any = {
-      hooks: {processAssets: {tap: (_: any, cb: () => void) => cb()}},
+    const compilation = asCompilation({
+      hooks: {processAssets: {tap: (_: unknown, cb: () => void) => cb()}},
       errors: [],
       warnings: []
-    }
+    })
     // The step validates the manifest EmitManifest read, never the disk.
     setOriginalManifestContent(
       compilation,
       fs.readFileSync(path.join(tmp, 'manifest.json'), 'utf8')
     )
 
-    const compiler: any = {
+    const compiler = asCompiler({
       hooks: {
         thisCompilation: {
-          tap: (_: string, cb: (c: any) => void) => cb(compilation)
+          tap: (_: string, cb: TapCallback) => cb(compilation)
         }
       },
       rspack: {WebpackError: Error}
-    }
+    })
 
     return {compiler, compilation}
   }
@@ -153,9 +161,7 @@ describe('ValidateThemeArrays step', () => {
     })
     const {compiler, compilation} = makeCompiler()
 
-    new ValidateThemeArrays({manifestPath, browser: 'chrome'} as any).apply(
-      compiler
-    )
+    new ValidateThemeArrays({manifestPath, browser: 'chrome'}).apply(compiler)
 
     expect(compilation.errors).toHaveLength(1)
     expect(compilation.errors[0].name).toBe('ThemeArrayInvalid')
@@ -177,9 +183,7 @@ describe('ValidateThemeArrays step', () => {
     })
     const {compiler, compilation} = makeCompiler()
 
-    new ValidateThemeArrays({manifestPath, browser: 'chrome'} as any).apply(
-      compiler
-    )
+    new ValidateThemeArrays({manifestPath, browser: 'chrome'}).apply(compiler)
 
     expect(compilation.errors).toHaveLength(1)
     const message = String(compilation.errors[0].message)
@@ -203,9 +207,7 @@ describe('ValidateThemeArrays step', () => {
     })
     const {compiler, compilation} = makeCompiler()
 
-    new ValidateThemeArrays({manifestPath, browser: 'chrome'} as any).apply(
-      compiler
-    )
+    new ValidateThemeArrays({manifestPath, browser: 'chrome'}).apply(compiler)
 
     expect(compilation.errors).toHaveLength(0)
   })
@@ -219,9 +221,7 @@ describe('ValidateThemeArrays step', () => {
     })
     const {compiler, compilation} = makeCompiler()
 
-    new ValidateThemeArrays({manifestPath, browser: 'firefox'} as any).apply(
-      compiler
-    )
+    new ValidateThemeArrays({manifestPath, browser: 'firefox'}).apply(compiler)
 
     expect(compilation.errors).toHaveLength(0)
   })
@@ -237,9 +237,7 @@ describe('ValidateThemeArrays step', () => {
     })
     const {compiler, compilation} = makeCompiler()
 
-    new ValidateThemeArrays({manifestPath, browser: 'safari'} as any).apply(
-      compiler
-    )
+    new ValidateThemeArrays({manifestPath, browser: 'safari'}).apply(compiler)
 
     expect(compilation.errors).toHaveLength(0)
     expect(compilation.warnings).toHaveLength(1)
@@ -256,9 +254,7 @@ describe('ValidateThemeArrays step', () => {
     })
     const {compiler, compilation} = makeCompiler()
 
-    new ValidateThemeArrays({manifestPath, browser: 'safari'} as any).apply(
-      compiler
-    )
+    new ValidateThemeArrays({manifestPath, browser: 'safari'}).apply(compiler)
 
     expect(compilation.errors).toHaveLength(0)
     expect(compilation.warnings).toHaveLength(0)
@@ -276,7 +272,7 @@ describe('ValidateThemeArrays step', () => {
     new ValidateThemeArrays({
       manifestPath,
       browser: 'webkit-based'
-    } as any).apply(compiler)
+    }).apply(compiler)
 
     expect(compilation.errors).toHaveLength(0)
     expect(compilation.warnings).toHaveLength(1)
@@ -291,9 +287,7 @@ describe('ValidateThemeArrays step', () => {
     })
     const {compiler, compilation} = makeCompiler()
 
-    new ValidateThemeArrays({manifestPath, browser: 'chrome'} as any).apply(
-      compiler
-    )
+    new ValidateThemeArrays({manifestPath, browser: 'chrome'}).apply(compiler)
 
     expect(compilation.errors).toHaveLength(1)
   })

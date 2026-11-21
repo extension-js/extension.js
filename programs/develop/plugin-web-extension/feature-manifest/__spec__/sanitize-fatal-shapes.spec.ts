@@ -48,7 +48,7 @@ describe('sanitizeFatalManifestShapes', () => {
         browser
       )
 
-      expect((manifest.options_ui as any).chrome_style).toBe(true)
+      expect(manifest.options_ui?.chrome_style).toBe(true)
       expect(fixes).toEqual([])
     }
 
@@ -58,7 +58,7 @@ describe('sanitizeFatalManifestShapes', () => {
       'chrome'
     )
 
-    expect((mv2.manifest.options_ui as any).chrome_style).toBe(true)
+    expect(mv2.manifest.options_ui?.chrome_style).toBe(true)
     expect(mv2.fixes).toEqual([])
   })
 
@@ -196,7 +196,7 @@ describe('sanitizeFatalManifestShapes', () => {
         extension_pages: "script-src 'self' 'unsafe-inline'; object-src 'self'"
       }
     } as unknown as Manifest)
-    expect((manifest as any).content_security_policy.extension_pages).toBe(
+    expect(manifest.content_security_policy?.extension_pages).toBe(
       "script-src 'self'; object-src 'self'"
     )
 
@@ -213,7 +213,7 @@ describe('sanitizeFatalManifestShapes', () => {
         extension_pages: "script-src 'unsafe-inline'"
       }
     } as unknown as Manifest)
-    expect((manifest as any).content_security_policy.extension_pages).toBe(
+    expect(manifest.content_security_policy?.extension_pages).toBe(
       "script-src 'self'"
     )
 
@@ -232,7 +232,7 @@ describe('sanitizeFatalManifestShapes', () => {
         content_security_policy: {extension_pages}
       } as unknown as Manifest)
       expect(
-        (manifest as any).content_security_policy.extension_pages,
+        manifest.content_security_policy?.extension_pages,
         extension_pages
       ).toBe(extension_pages)
 
@@ -247,8 +247,8 @@ describe('sanitizeFatalManifestShapes', () => {
       version: '1.0',
       action: {default_popup: 'index.html', default_icon: ''}
     } as unknown as Manifest)
-    expect((manifest as any).action.default_icon).toBeUndefined()
-    expect((manifest as any).action.default_popup).toBe('index.html')
+    expect(manifest.action?.default_icon).toBeUndefined()
+    expect(manifest.action?.default_popup).toBe('index.html')
     expect(fixes).toHaveLength(1)
     expect(fixes[0].field).toBe('action.default_icon')
   })
@@ -260,7 +260,7 @@ describe('sanitizeFatalManifestShapes', () => {
       version: '1.0',
       browser_action: {default_icon: {}}
     } as unknown as Manifest)
-    expect((manifest as any).browser_action.default_icon).toBeUndefined()
+    expect(manifest.browser_action?.default_icon).toBeUndefined()
     expect(fixes).toHaveLength(1)
     expect(fixes[0].field).toBe('browser_action.default_icon')
   })
@@ -275,7 +275,7 @@ describe('sanitizeFatalManifestShapes', () => {
     const {manifest, fixes} = sanitizeFatalManifestShapes(input)
     expect(fixes).toHaveLength(0)
     expect(manifest.version).toBe('2.3.4')
-    expect((manifest as any).action.default_icon).toEqual({'16': 'icon16.png'})
+    expect(manifest.action?.default_icon).toEqual({'16': 'icon16.png'})
   })
 
   it('repairs a non-numeric version string Chrome refuses (wild: MelonTranslate "x.y.z")', () => {
@@ -325,7 +325,7 @@ describe('sanitizeFatalManifestShapes', () => {
       action: {default_popup: 'index.html', default_icon: ''}
     } as unknown as Manifest)
     expect(manifest.version).toBe('1')
-    expect((manifest as any).action.default_icon).toBeUndefined()
+    expect(manifest.action?.default_icon).toBeUndefined()
     expect(fixes).toHaveLength(2)
   })
 
@@ -353,7 +353,7 @@ describe('sanitizeFatalManifestShapes', () => {
         } as unknown as Manifest,
         dir
       )
-      expect((manifest as any).icons).toBeUndefined()
+      expect(manifest.icons).toBeUndefined()
       expect(fixes.map((f) => f.field)).toEqual(['icons.16', 'icons.128'])
     })
 
@@ -371,7 +371,7 @@ describe('sanitizeFatalManifestShapes', () => {
         } as unknown as Manifest,
         dir
       )
-      expect((manifest as any).icons).toEqual({
+      expect(manifest.icons).toEqual({
         '16': 'icons/real.png',
         '48': 'icons/does-not-exist.png'
       })
@@ -393,11 +393,11 @@ describe('sanitizeFatalManifestShapes', () => {
         } as unknown as Manifest,
         dir
       )
-      expect((manifest as any).action.default_icon).toEqual({
+      expect(manifest.action?.default_icon).toEqual({
         '32': 'icons/real.png'
       })
 
-      expect((manifest as any).browser_action.default_icon).toBeUndefined()
+      expect(manifest.browser_action?.default_icon).toBeUndefined()
       expect(fixes.map((f) => f.field)).toEqual([
         'action.default_icon.16',
         'browser_action.default_icon'
@@ -411,7 +411,7 @@ describe('sanitizeFatalManifestShapes', () => {
         version: '1.0.0',
         icons: {'128': 'icons/empty.png'}
       } as unknown as Manifest)
-      expect((manifest as any).icons).toEqual({'128': 'icons/empty.png'})
+      expect(manifest.icons).toEqual({'128': 'icons/empty.png'})
       expect(fixes).toHaveLength(0)
     })
   })
@@ -428,10 +428,10 @@ describe('sanitizeFatalManifestShapes', () => {
           highlight: {description: 42}
         }
       } as unknown as Manifest)
-      const commands = (manifest as any).commands
-      expect(commands['toggle-feature'].description).toBe('toggle-feature')
-      expect(commands.annotate.description).toBe('annotate')
-      expect(commands.highlight.description).toBe('highlight')
+      const commands = manifest.commands
+      expect(commands?.['toggle-feature'].description).toBe('toggle-feature')
+      expect(commands?.annotate.description).toBe('annotate')
+      expect(commands?.highlight.description).toBe('highlight')
       expect(fixes.map((f) => f.field)).toEqual([
         'commands.toggle-feature.description',
         'commands.annotate.description',
@@ -452,9 +452,9 @@ describe('sanitizeFatalManifestShapes', () => {
           }
         }
       } as unknown as Manifest)
-      const commands = (manifest as any).commands
-      expect(commands._execute_action.description).toBeUndefined()
-      expect(commands.annotate.description).toBe('Annotate the page')
+      const commands = manifest.commands
+      expect(commands?._execute_action.description).toBeUndefined()
+      expect(commands?.annotate.description).toBe('Annotate the page')
       expect(fixes).toHaveLength(0)
     })
   })
@@ -468,8 +468,8 @@ describe('sanitizeFatalManifestShapes', () => {
         permissions: 'storage',
         host_permissions: '<all_urls>'
       } as unknown as Manifest)
-      expect((manifest as any).permissions).toEqual(['storage'])
-      expect((manifest as any).host_permissions).toEqual(['<all_urls>'])
+      expect(manifest.permissions).toEqual(['storage'])
+      expect(manifest.host_permissions).toEqual(['<all_urls>'])
       expect(fixes.map((f) => f.field)).toEqual([
         'permissions',
         'host_permissions'
@@ -483,7 +483,7 @@ describe('sanitizeFatalManifestShapes', () => {
         version: '1.0.0',
         permissions: ['storage']
       } as unknown as Manifest)
-      expect((manifest as any).permissions).toEqual(['storage'])
+      expect(manifest.permissions).toEqual(['storage'])
       expect(fixes).toHaveLength(0)
     })
   })

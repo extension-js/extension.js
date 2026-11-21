@@ -2,8 +2,14 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it, vi} from 'vitest'
 import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
+import {
+  asCompilation,
+  asCompiler,
+  type TapCallback
+} from '../../__spec__/helpers/rspack-fakes'
 import {getOriginalManifestContent} from '../manifest-lib/manifest'
 import {EmitManifest} from '../steps/emit-manifest'
+import type {FakeSource, StepDiagnostic} from './helpers/manifest-fakes'
 
 const makeTempFolder = trackTempFolders()
 
@@ -24,32 +30,34 @@ describe('EmitManifest', () => {
       )
     )
 
-    const errors: any[] = []
+    const errors: StepDiagnostic[] = []
     let tapRan = false
     const emitted: Record<string, string> = {}
 
-    const compilation: any = {
+    const compilation = asCompilation({
       errors,
       hooks: {
         processAssets: {
-          tap: (_opts: any, fn: any) => {
+          tap: (_opts: unknown, fn: TapCallback) => {
             tapRan = true
             fn()
           }
         }
       },
-      emitAsset: (name: string, source: any) => {
+      emitAsset: (name: string, source: FakeSource) => {
         emitted[name] = source.source().toString()
       }
-    }
+    })
 
-    const compiler: any = {
+    const compiler = asCompiler({
       hooks: {
-        thisCompilation: {tap: (_name: string, fn: any) => fn(compilation)}
+        thisCompilation: {
+          tap: (_name: string, fn: TapCallback) => fn(compilation)
+        }
       }
-    }
+    })
 
-    const plugin = new EmitManifest({manifestPath} as any)
+    const plugin = new EmitManifest({manifestPath})
     plugin.apply(compiler)
 
     expect(tapRan).toBe(true)
@@ -64,7 +72,7 @@ describe('EmitManifest', () => {
 
     new EmitManifest({
       manifestPath: path.join(tempDir, 'missing.json')
-    } as any).apply(compiler)
+    }).apply(compiler)
 
     expect(errors.length).toBeGreaterThan(0)
   })
@@ -78,26 +86,29 @@ describe('EmitManifest', () => {
     )
 
     const emitted: string[] = []
-    const errors: any[] = []
-    const compilation = (): any => ({
-      errors,
-      hooks: {processAssets: {tap: (_opts: any, fn: any) => fn()}},
-      emitAsset: (_name: string, source: any) => {
-        emitted.push(source.source().toString())
+    const errors: StepDiagnostic[] = []
+    const compilation = () =>
+      asCompilation({
+        errors,
+        hooks: {
+          processAssets: {tap: (_opts: unknown, fn: TapCallback) => fn()}
+        },
+        emitAsset: (_name: string, source: FakeSource) => {
+          emitted.push(source.source().toString())
+        }
+      })
+    const rebuilds: Array<TapCallback> = []
+    const compiler = asCompiler({
+      hooks: {
+        thisCompilation: {
+          tap: (_name: string, fn: TapCallback) => rebuilds.push(fn)
+        }
       }
     })
-    const rebuilds: Array<(compilation: any) => void> = []
-    const compiler: any = {
-      hooks: {
-        thisCompilation: {tap: (_name: string, fn: any) => rebuilds.push(fn)}
-      }
-    }
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     try {
-      new EmitManifest({manifestPath, browser: 'firefox'} as any).apply(
-        compiler
-      )
+      new EmitManifest({manifestPath, browser: 'firefox'}).apply(compiler)
 
       rebuilds[0](compilation())
       rebuilds[0](compilation())

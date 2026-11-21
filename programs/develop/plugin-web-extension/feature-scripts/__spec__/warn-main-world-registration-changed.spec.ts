@@ -11,6 +11,7 @@ import {
   unbindDevSessionRestart
 } from '../../../dev-server/session-restart'
 import {isAwaitingMainWorldRestart} from '../../../dev-server/session-restart-holds'
+import {asCompiler} from '../../__spec__/helpers/rspack-fakes'
 import {WarnMainWorldRegistrationChanged} from '../steps/warn-main-world-registration-changed'
 
 const roots: string[] = []
@@ -69,7 +70,7 @@ function session(background: string, mode = 'development', inRoot?: string) {
       'background/service_worker': at('background.js'),
       'scripts/hook': at('scripts/hook.js')
     }
-  }).apply(compiler as any)
+  }).apply(asCompiler(compiler))
 
   return {
     root,

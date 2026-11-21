@@ -1,13 +1,14 @@
 import {describe, expect, it} from 'vitest'
 import {filterKeysForThisBrowser} from '../../../../lib/manifest-utils'
+import {asBrowser, asManifest} from '../../__spec__/helpers/manifest-fakes'
 
-const MANIFEST = {
+const MANIFEST = asManifest({
   name: 'x',
   'chromium:manifest_version': 3,
   'firefox:manifest_version': 2,
   'chromium:action': {default_title: 'Chromium'},
   'firefox:action': {default_title: 'Firefox'}
-} as any
+})
 
 const CHROMIUM_TARGETS = [
   'chrome',
@@ -37,7 +38,7 @@ const GECKO_TARGETS = [
 describe('browser engine-family manifest fallback', () => {
   for (const browser of CHROMIUM_TARGETS) {
     it(`${browser} falls back to the chromium family`, () => {
-      const patched = filterKeysForThisBrowser(MANIFEST, browser as any) as any
+      const patched = filterKeysForThisBrowser(MANIFEST, asBrowser(browser))
       expect(patched.manifest_version).toBe(3)
       expect(patched.action).toEqual({default_title: 'Chromium'})
     })
@@ -45,7 +46,7 @@ describe('browser engine-family manifest fallback', () => {
 
   for (const browser of GECKO_TARGETS) {
     it(`${browser} falls back to the gecko family`, () => {
-      const patched = filterKeysForThisBrowser(MANIFEST, browser as any) as any
+      const patched = filterKeysForThisBrowser(MANIFEST, asBrowser(browser))
       expect(patched.manifest_version).toBe(2)
       expect(patched.action).toEqual({default_title: 'Firefox'})
     })

@@ -52,10 +52,10 @@ function fromManifest(manifest: Manifest): Pairs {
 
 function fromReload(manifest: Manifest): Pairs {
   return Object.values(buildContentScriptsMeta(manifest))
-    .filter((meta: any) => meta.role === 'main_world_bridge')
-    .map((meta: any): [number, number] => [
+    .filter((meta) => meta.role === 'main_world_bridge')
+    .map((meta): [number, number] => [
       indexOf(meta.mainBundleId),
-      meta.index
+      meta.index as number
     ])
 }
 

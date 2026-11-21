@@ -1,5 +1,6 @@
 import fc from 'fast-check'
 import {describe, expect, it} from 'vitest'
+import type {Manifest} from '../../../../../types'
 import {dropMv2HostKeys, hostPermissions} from '../host_permissions'
 
 const RUNS = {numRuns: 200}
@@ -44,7 +45,7 @@ type Input = typeof manifest extends fc.Arbitrary<infer T> ? T : never
 // The writer spreads the override over the source manifest and then drops the
 // mv2 host keys, so the property composes the same way.
 const fold = (m: Input): Record<string, unknown> =>
-  dropMv2HostKeys({...m, ...hostPermissions(m as any)})
+  dropMv2HostKeys({...m, ...hostPermissions(m as Manifest)})
 
 const list = (source: Record<string, unknown>, key: string) =>
   source[key] as string[] | undefined
@@ -100,7 +101,7 @@ describe('mv2 host_permissions fold properties', () => {
       fc.property(
         manifest.filter((m) => m.manifest_version === 3),
         (m) => {
-          expect(hostPermissions(m as any)).toBeUndefined()
+          expect(hostPermissions(m as Manifest)).toBeUndefined()
           expect(dropMv2HostKeys(m)).toBe(m)
           expect(fold(m)).toEqual(m)
         }

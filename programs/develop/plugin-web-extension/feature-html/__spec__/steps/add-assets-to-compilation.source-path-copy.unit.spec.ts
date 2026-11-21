@@ -2,20 +2,29 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import {
+  asCompiler,
+  type TapCallback
+} from '../../../__spec__/helpers/rspack-fakes'
 import {AddAssetsToCompilation} from '../../steps/add-assets-to-compilation'
+import {
+  type BuildIssue,
+  type FakeAsset,
+  readSource
+} from '../helpers/html-fakes'
 
 function makeCompilation(contextDirectory: string) {
-  const assets: Record<string, any> = {}
-  const compilationObj: any = {
+  const assets: Record<string, FakeAsset> = {}
+  const compilationObj = {
     options: {mode: 'production', output: {path: '/out'}},
     getAsset: (name: string) => assets[name],
     assets,
-    errors: [],
-    warnings: [] as any[],
-    hooks: {processAssets: {tap: (_: any, cb: any) => cb()}},
-    emitAsset: (name: string, src: any) => {
+    errors: [] as BuildIssue[],
+    warnings: [] as BuildIssue[],
+    hooks: {processAssets: {tap: (_: unknown, cb: TapCallback) => cb()}},
+    emitAsset: (name: string, src: unknown) => {
       assets[name] = {
-        source: {source: () => (src.source ? src.source() : src)}
+        source: {source: () => readSource(src)}
       }
     }
   }
@@ -23,10 +32,12 @@ function makeCompilation(contextDirectory: string) {
   return {
     options: {context: contextDirectory},
     hooks: {
-      thisCompilation: {tap: (_: any, fn: any) => fn(compilationObj)}
+      thisCompilation: {
+        tap: (_: unknown, fn: TapCallback) => fn(compilationObj)
+      }
     },
     compilationObj
-  } as any
+  }
 }
 
 describe('AddAssetsToCompilation (source-path copies)', () => {
@@ -51,7 +62,7 @@ describe('AddAssetsToCompilation (source-path copies)', () => {
         'utf8'
       )
 
-      const compiler: any = makeCompilation(tmpDirectoryPath)
+      const compiler = makeCompilation(tmpDirectoryPath)
       compiler.compilationObj.assets[path.basename(htmlFilePath)] = {
         source: {source: () => fs.readFileSync(htmlFilePath, 'utf8')}
       }
@@ -59,7 +70,7 @@ describe('AddAssetsToCompilation (source-path copies)', () => {
       new AddAssetsToCompilation({
         manifestPath: manifestFilePath,
         includeList: {'feature/index': htmlFilePath}
-      } as any).apply(compiler as any)
+      }).apply(asCompiler(compiler))
 
       const emittedAssetNames = Object.keys(compiler.compilationObj.assets)
       const bundled = emittedAssetNames.find((name) =>
@@ -99,7 +110,7 @@ describe('AddAssetsToCompilation (source-path copies)', () => {
         'utf8'
       )
 
-      const compiler: any = makeCompilation(tmpDirectoryPath)
+      const compiler = makeCompilation(tmpDirectoryPath)
       compiler.compilationObj.assets[path.basename(htmlFilePath)] = {
         source: {source: () => fs.readFileSync(htmlFilePath, 'utf8')}
       }
@@ -107,7 +118,7 @@ describe('AddAssetsToCompilation (source-path copies)', () => {
       new AddAssetsToCompilation({
         manifestPath: manifestFilePath,
         includeList: {'feature/index': htmlFilePath}
-      } as any).apply(compiler as any)
+      }).apply(asCompiler(compiler))
 
       const emittedAssetNames = Object.keys(compiler.compilationObj.assets)
 
@@ -140,7 +151,7 @@ describe('AddAssetsToCompilation (source-path copies)', () => {
         'utf8'
       )
 
-      const compiler: any = makeCompilation(tmpDirectoryPath)
+      const compiler = makeCompilation(tmpDirectoryPath)
       compiler.compilationObj.assets[path.basename(htmlFilePath)] = {
         source: {source: () => fs.readFileSync(htmlFilePath, 'utf8')}
       }
@@ -148,7 +159,7 @@ describe('AddAssetsToCompilation (source-path copies)', () => {
       new AddAssetsToCompilation({
         manifestPath: manifestFilePath,
         includeList: {'feature/index': htmlFilePath}
-      } as any).apply(compiler as any)
+      }).apply(asCompiler(compiler))
 
       const emittedAssetNames = Object.keys(compiler.compilationObj.assets)
       expect(emittedAssetNames).not.toContain('public/pic.png')
@@ -175,7 +186,7 @@ describe('AddAssetsToCompilation (source-path copies)', () => {
         'utf8'
       )
 
-      const compiler: any = makeCompilation(tmpDirectoryPath)
+      const compiler = makeCompilation(tmpDirectoryPath)
       compiler.compilationObj.assets[path.basename(htmlFilePath)] = {
         source: {source: () => fs.readFileSync(htmlFilePath, 'utf8')}
       }
@@ -183,10 +194,10 @@ describe('AddAssetsToCompilation (source-path copies)', () => {
       new AddAssetsToCompilation({
         manifestPath: manifestFilePath,
         includeList: {'feature/index': htmlFilePath}
-      } as any).apply(compiler as any)
+      }).apply(asCompiler(compiler))
 
       const folderWarnings = compiler.compilationObj.warnings
-        .map((warning: any) => String(warning.message))
+        .map((warning) => String(warning.message))
         .filter((message: string) => message.includes('references a folder'))
 
       expect(folderWarnings).toHaveLength(1)

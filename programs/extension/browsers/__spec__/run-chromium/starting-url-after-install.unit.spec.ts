@@ -6,17 +6,18 @@ import {expectedChromiumExtensionId} from '../../browsers-lib/banner'
 import type {CompilationLike} from '../../browsers-types'
 import {CDPExtensionController} from '../../run-chromium/cdp/cdp-extension-controller'
 import {chromiumLaunchPlan} from '../../run-chromium/chromium-launch/browser-config'
-import {browserConfig as firefoxBrowserConfig} from '../../run-firefox/firefox-launch/browser-config'
+import {
+  type BrowserConfigOptions,
+  browserConfig as firefoxBrowserConfig
+} from '../../run-firefox/firefox-launch/browser-config'
 import {openStartingUrlAfterBackground} from '../../run-firefox/rdp/remote-firefox/starting-url'
 import {controllerInternals} from '../cdp-controller-fakes'
 
-type FirefoxConfigOptions = Parameters<typeof firefoxBrowserConfig>[1]
-
 // The rows set only the launch fields the starting url decision reads.
 function firefoxOptions(
-  fields: Partial<FirefoxConfigOptions>
-): FirefoxConfigOptions {
-  return fields as FirefoxConfigOptions
+  fields: Partial<BrowserConfigOptions>
+): BrowserConfigOptions {
+  return fields as BrowserConfigOptions
 }
 
 // A page the launch argv opens starts loading while the extension is still

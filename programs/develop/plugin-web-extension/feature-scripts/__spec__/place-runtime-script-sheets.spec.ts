@@ -1,5 +1,6 @@
 import {Compilation, sources} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
+import {asCompiler} from '../../__spec__/helpers/rspack-fakes'
 import {getContentScriptCssProbeMarker} from '../contracts'
 import {
   SHEET_BLOCK_CLOSE,
@@ -48,20 +49,24 @@ function emit(
   }
 
   new PlaceRuntimeScriptSheets({
-    browser: (options.browser || 'chrome') as any,
+    browser: (options.browser || 'chrome') as ConstructorParameters<
+      typeof PlaceRuntimeScriptSheets
+    >[0]['browser'],
     includeList: options.includeList || {
       'scripts/hook': '/project/scripts/hook.js',
       'scripts/plain': '/project/scripts/plain.js'
     }
-  }).apply({
-    options: {context: '/project', mode: options.mode || 'production'},
-    hooks: {
-      thisCompilation: {
-        tap: (_name: string, tapped: (compilation: unknown) => void) =>
-          tapped(compilation)
+  }).apply(
+    asCompiler({
+      options: {context: '/project', mode: options.mode || 'production'},
+      hooks: {
+        thisCompilation: {
+          tap: (_name: string, tapped: (compilation: unknown) => void) =>
+            tapped(compilation)
+        }
       }
-    }
-  } as any)
+    })
+  )
 
   for (let run = 0; run < (options.runs || 1); run++) {
     if (run > 0) options.between?.(store)

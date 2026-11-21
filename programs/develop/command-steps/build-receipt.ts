@@ -49,9 +49,7 @@ export function createBuildReceipt(input: {
       manifestPath,
       port: configOptions.port,
       host: (configOptions as {host?: string}).host,
-      instanceId: configOptions.instanceId,
       instanceExplicit: configOptions.instanceExplicit,
-      controlPort: configOptions.controlPort,
       controlPortUnavailableReason: configOptions.controlPortUnavailableReason,
       controlPath: configOptions.controlPath,
       logsPath: configOptions.logsPath

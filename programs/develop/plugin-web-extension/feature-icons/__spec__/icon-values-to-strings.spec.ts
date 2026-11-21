@@ -38,12 +38,8 @@ describe('iconValuesToStrings', () => {
   })
 
   it('drops non-string leaves', () => {
-    expect(iconValuesToStrings(['a.png', 123 as any, null as any])).toEqual([
-      'a.png'
-    ])
+    expect(iconValuesToStrings(['a.png', 123, null])).toEqual(['a.png'])
 
-    expect(iconValuesToStrings({size: 16 as any, path: 'a.png'})).toEqual([
-      'a.png'
-    ])
+    expect(iconValuesToStrings({size: 16, path: 'a.png'})).toEqual(['a.png'])
   })
 })

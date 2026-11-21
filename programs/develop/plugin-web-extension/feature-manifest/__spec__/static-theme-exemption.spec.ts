@@ -5,6 +5,11 @@ import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 
 import {isStaticTheme, isStaticThemeSource} from '../../../lib/manifest-utils'
 import type {DevOptions, Manifest} from '../../../types'
+import {
+  asCompilation,
+  asCompiler,
+  type TapCallback
+} from '../../__spec__/helpers/rspack-fakes'
 import {setOriginalManifestContent} from '../manifest-lib/manifest'
 import {ApplyDevDefaults} from '../steps/apply-dev-defaults'
 
@@ -103,7 +108,7 @@ function runApplyDevDefaults(
       : JSON.stringify(readAtStart)
   let updated: string | undefined
 
-  const compilation: any = {
+  const compilation = asCompilation({
     errors: [],
     warnings: [],
     modules: [],
@@ -112,26 +117,26 @@ function runApplyDevDefaults(
     updateAsset: (_name: string, source: {source: () => string}) => {
       updated = source.source()
     },
-    hooks: {processAssets: {tap: (_o: any, fn: () => void) => fn()}}
-  }
+    hooks: {processAssets: {tap: (_o: unknown, fn: () => void) => fn()}}
+  })
 
   if (readAtStart !== undefined) {
     setOriginalManifestContent(compilation, original)
   }
 
-  const compiler: any = {
+  const compiler = asCompiler({
     options: {mode: 'development', output: {path: path.dirname(manifestPath)}},
     hooks: {
       thisCompilation: {
-        tap: (_name: string, fn: (c: any) => void) => fn(compilation)
+        tap: (_name: string, fn: TapCallback) => fn(compilation)
       }
     }
-  }
+  })
 
   new ApplyDevDefaults({
     manifestPath,
     browser: browser as DevOptions['browser']
-  } as any).apply(compiler)
+  }).apply(compiler)
 
   return {updated, compilation}
 }

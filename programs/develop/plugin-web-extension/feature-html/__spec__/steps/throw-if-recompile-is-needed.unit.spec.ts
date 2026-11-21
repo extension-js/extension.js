@@ -7,8 +7,12 @@ import {
   DevSessionRestartScheduler,
   unbindDevSessionRestart
 } from '../../../../dev-server/session-restart'
+import {asCompiler} from '../../../__spec__/helpers/rspack-fakes'
 import {getAssetsFromHtml} from '../../html-lib/utils'
 import {ThrowIfRecompileIsNeeded} from '../../steps/throw-if-recompile-is-needed'
+import type {BuildIssue} from '../helpers/html-fakes'
+
+type MakeCompilation = {errors: BuildIssue[]}
 
 type MakeCompiler = {
   modifiedFiles: Set<string>
@@ -16,17 +20,19 @@ type MakeCompiler = {
     make: {
       tapAsync: (
         name: string,
-        fn: (compilation: any, done: () => void) => void
+        fn: (compilation: MakeCompilation, done: () => void) => void
       ) => void
     }
   }
   runMake: () => void
-  _errors: any[]
+  _errors: BuildIssue[]
 }
 
 function makeCompiler(modified: string[] = []): MakeCompiler {
-  const errors: any[] = []
-  let makeHandler: ((compilation: any, done: () => void) => void) | undefined
+  const errors: BuildIssue[] = []
+  let makeHandler:
+    | ((compilation: MakeCompilation, done: () => void) => void)
+    | undefined
 
   const compiler: MakeCompiler = {
     modifiedFiles: new Set(modified),
@@ -107,7 +113,7 @@ describe('ThrowIfRecompileIsNeeded', () => {
     new ThrowIfRecompileIsNeeded({
       manifestPath: path.join(tmp, 'manifest.json'),
       includeList: {page: html}
-    } as any).apply(compiler as any)
+    }).apply(asCompiler(compiler))
 
     writeHtml(html, 'b.js', 'b.css')
     compiler.runMake()
@@ -128,7 +134,7 @@ describe('ThrowIfRecompileIsNeeded', () => {
     new ThrowIfRecompileIsNeeded({
       manifestPath: path.join(tmp, 'manifest.json'),
       includeList: {page: html}
-    } as any).apply(compiler as any)
+    }).apply(asCompiler(compiler))
 
     // Content churn that does not touch script/link entrypoints.
     fs.writeFileSync(
@@ -155,7 +161,7 @@ describe('ThrowIfRecompileIsNeeded', () => {
     new ThrowIfRecompileIsNeeded({
       manifestPath: path.join(tmp, 'manifest.json'),
       includeList: {page: html}
-    } as any).apply(compiler as any)
+    }).apply(asCompiler(compiler))
 
     writeHtml(html, 'b.js', 'b.css')
     compiler.runMake()
@@ -175,7 +181,7 @@ describe('ThrowIfRecompileIsNeeded', () => {
     new ThrowIfRecompileIsNeeded({
       manifestPath: path.join(tmp, 'manifest.json'),
       includeList: {a: pageA, b: pageB}
-    } as any).apply(compiler as any)
+    }).apply(asCompiler(compiler))
 
     writeHtml(pageA, 'a2.js', 'a2.css')
     writeHtml(pageB, 'x2.js', 'x2.css')
@@ -203,7 +209,7 @@ describe('ThrowIfRecompileIsNeeded', () => {
     new ThrowIfRecompileIsNeeded({
       manifestPath: path.join(tmp, 'manifest.json'),
       includeList: {page: html}
-    } as any).apply(compiler as any)
+    }).apply(asCompiler(compiler))
 
     // Backup-style restore: same byte length + restored mtime, different entry.
     restoreHtmlPreservingStat(html, 'b.js', 'b.css', frozenMtimeSec)
@@ -238,7 +244,7 @@ describe('ThrowIfRecompileIsNeeded', () => {
     new ThrowIfRecompileIsNeeded({
       manifestPath: path.join(tmp, 'manifest.json'),
       includeList: {watched, untouched}
-    } as any).apply(compiler as any)
+    }).apply(asCompiler(compiler))
 
     writeHtml(watched, 'b.js', 'b.css')
     writeHtml(untouched, 'u2.js', 'u2.css')
@@ -261,7 +267,7 @@ describe('ThrowIfRecompileIsNeeded', () => {
     new ThrowIfRecompileIsNeeded({
       manifestPath: path.join(tmp, 'manifest.json'),
       includeList: {page: html}
-    } as any).apply(compiler as any)
+    }).apply(asCompiler(compiler))
 
     writeHtml(html, 'b.js', 'b.css')
     compiler.runMake()
@@ -292,7 +298,7 @@ describe('ThrowIfRecompileIsNeeded', () => {
     new ThrowIfRecompileIsNeeded({
       manifestPath: path.join(tmp, 'manifest.json'),
       includeList: {page: html}
-    } as any).apply(compiler as any)
+    }).apply(asCompiler(compiler))
 
     compiler.runMake()
     await new Promise((r) => setTimeout(r, 0))
@@ -319,7 +325,7 @@ describe('ThrowIfRecompileIsNeeded', () => {
     new ThrowIfRecompileIsNeeded({
       manifestPath: path.join(tmp, 'manifest.json'),
       includeList: {page: html}
-    } as any).apply(compiler as any)
+    }).apply(asCompiler(compiler))
 
     fs.writeFileSync(html, pageNaming('a.js'))
     compiler.runMake()
@@ -338,7 +344,7 @@ describe('ThrowIfRecompileIsNeeded', () => {
     new ThrowIfRecompileIsNeeded({
       manifestPath: path.join(tmp, 'manifest.json'),
       includeList: {page: html}
-    } as any).apply(compiler as any)
+    }).apply(asCompiler(compiler))
 
     fs.writeFileSync(html, pageNaming('a.js', 'later.js'))
     compiler.runMake()
@@ -367,7 +373,7 @@ describe('ThrowIfRecompileIsNeeded', () => {
     new ThrowIfRecompileIsNeeded({
       manifestPath: path.join(tmp, 'manifest.json'),
       includeList: {page: html}
-    } as any).apply(compiler as any)
+    }).apply(asCompiler(compiler))
 
     fs.writeFileSync(path.join(tmp, 'late.js'), '')
     fs.writeFileSync(html, `${pageNaming('a.js', 'late.js')}\n`)

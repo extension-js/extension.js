@@ -128,11 +128,10 @@ export class RemoteFirefox {
   }
 
   private resolveRdpPort(compilation?: CompilationLike): number {
-    const instanceId = (this.options as {instanceId?: string})?.instanceId
+    const instanceId = this.options?.instanceId
     // A concrete launch port wins outright and must NOT be re-derived: deriving
     // folds the per-instance offset in a SECOND time and dials a dead port.
-    const resolvedRdpPort = (this.options as {resolvedRdpPort?: number})
-      ?.resolvedRdpPort
+    const resolvedRdpPort = this.options?.resolvedRdpPort
 
     if (typeof resolvedRdpPort === 'number' && resolvedRdpPort > 0) {
       const pinned = resolvePortForInstance(instanceId, 'rdp', resolvedRdpPort)
@@ -140,9 +139,8 @@ export class RemoteFirefox {
       return typeof pinned === 'number' && pinned > 0 ? pinned : resolvedRdpPort
     }
 
-    const devPort = (compilation?.options as {devServer?: {port?: number}})
-      ?.devServer?.port
-    const optionPort = (this.options as {port?: number | string})?.port
+    const devPort = compilation?.options?.devServer?.port
+    const optionPort = this.options?.port
     const normalizedOptionPort =
       typeof optionPort === 'string' ? parseInt(optionPort, 10) : optionPort
     const basePort = (normalizedOptionPort as number) || devPort
