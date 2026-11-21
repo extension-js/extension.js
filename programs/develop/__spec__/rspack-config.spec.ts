@@ -1,5 +1,6 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import type {Compiler, Configuration} from '@rspack/core'
 import {describe, expect, it, vi} from 'vitest'
 import {CompilationPlugin} from '../plugin-compilation'
 import {PlaywrightPlugin} from '../plugin-playwright'
@@ -10,6 +11,9 @@ import {writeProjectFiles} from './helpers/extension-project'
 import {trackTempFolders} from './helpers/temp-folders'
 
 const makeTempFolder = trackTempFolders()
+
+type ProjectStructure = Parameters<typeof webpackConfig>[0]
+type ConfigOptions = Parameters<typeof webpackConfig>[1]
 
 // A dependency the project names with the workspace protocol and that sits
 // in its node_modules, which is what makes the build transpile and watch it.
@@ -45,7 +49,7 @@ describe('webpack-config transpile packages watch behavior', () => {
   it('keeps node_modules ignored when no transpiled package is detected', () => {
     const projectStructure = createProjectStructure()
     const config = webpackConfig(
-      projectStructure as any,
+      projectStructure as ProjectStructure,
       {
         browser: 'chrome',
         mode: 'development',
@@ -58,7 +62,7 @@ describe('webpack-config transpile packages watch behavior', () => {
           )
         },
         noBrowser: true
-      } as any
+      } as ConfigOptions
     )
 
     const ignored = config.watchOptions?.ignored as string[]
@@ -72,7 +76,7 @@ describe('webpack-config transpile packages watch behavior', () => {
       if (linked) linkWorkspacePackage(projectStructure, '@workspace/ui')
 
       const config = webpackConfig(
-        projectStructure as any,
+        projectStructure as ProjectStructure,
         {
           browser: 'chrome',
           mode: 'development',
@@ -85,7 +89,7 @@ describe('webpack-config transpile packages watch behavior', () => {
             )
           },
           noBrowser: true
-        } as any
+        } as ConfigOptions
       )
 
       expect(config.watchOptions?.ignored).toContain('**/.git/**')
@@ -101,7 +105,7 @@ describe('webpack-config transpile packages watch behavior', () => {
     const projectStructure = createProjectStructure()
     const root = path.dirname(projectStructure.manifestPath)
     const config = webpackConfig(
-      projectStructure as any,
+      projectStructure as ProjectStructure,
       {
         browser: 'chrome',
         mode: 'development',
@@ -110,7 +114,7 @@ describe('webpack-config transpile packages watch behavior', () => {
           path: path.join(root, 'dist', 'chrome')
         },
         noBrowser: true
-      } as any
+      } as ConfigOptions
     )
 
     const ignored = config.watchOptions?.ignored as string[]
@@ -139,7 +143,7 @@ describe('webpack-config transpile packages watch behavior', () => {
     linkWorkspacePackage(projectStructure, '@workspace/ui')
 
     const config = webpackConfig(
-      projectStructure as any,
+      projectStructure as ProjectStructure,
       {
         browser: 'chrome',
         mode: 'development',
@@ -152,7 +156,7 @@ describe('webpack-config transpile packages watch behavior', () => {
           )
         },
         noBrowser: true
-      } as any
+      } as ConfigOptions
     )
 
     const ignored = config.watchOptions?.ignored as string[]
@@ -167,7 +171,7 @@ describe('webpack-config transpile packages watch behavior', () => {
   it('disables module concatenation in development to avoid react-refresh __webpack_module__ clash', () => {
     const projectStructure = createProjectStructure()
     const devConfig = webpackConfig(
-      projectStructure as any,
+      projectStructure as ProjectStructure,
       {
         browser: 'chrome',
         mode: 'development',
@@ -180,12 +184,12 @@ describe('webpack-config transpile packages watch behavior', () => {
           )
         },
         noBrowser: true
-      } as any
+      } as ConfigOptions
     )
     expect(devConfig.optimization?.concatenateModules).toBe(false)
 
     const prodConfig = webpackConfig(
-      projectStructure as any,
+      projectStructure as ProjectStructure,
       {
         browser: 'chrome',
         mode: 'production',
@@ -198,7 +202,7 @@ describe('webpack-config transpile packages watch behavior', () => {
           )
         },
         noBrowser: true
-      } as any
+      } as ConfigOptions
     )
     expect(prodConfig.optimization?.concatenateModules).toBe(true)
   })
@@ -208,7 +212,7 @@ describe('webpack-config transpile packages watch behavior', () => {
 
     for (const mode of ['development', 'production'] as const) {
       const config = webpackConfig(
-        projectStructure as any,
+        projectStructure as ProjectStructure,
         {
           browser: 'chrome',
           mode,
@@ -221,7 +225,7 @@ describe('webpack-config transpile packages watch behavior', () => {
             )
           },
           noBrowser: true
-        } as any
+        } as ConfigOptions
       )
       expect(config.optimization?.emitOnErrors).toBe(false)
     }
@@ -235,7 +239,7 @@ describe('webpack-config transpile packages watch behavior', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const session = () =>
       webpackConfig(
-        projectStructure as any,
+        projectStructure as ProjectStructure,
         {
           browser: 'chrome',
           mode: 'development',
@@ -243,7 +247,7 @@ describe('webpack-config transpile packages watch behavior', () => {
           extensions: {paths: [missing]},
           output: {clean: false, path: path.join(root, 'dist', 'chrome')},
           noBrowser: true
-        } as any
+        } as ConfigOptions
       )
 
     takeCodedWarnings()
@@ -282,14 +286,14 @@ describe('webpack-config transpile packages watch behavior', () => {
     })
 
     webpackConfig(
-      projectStructure as any,
+      projectStructure as ProjectStructure,
       {
         browser: 'chrome',
         mode: 'development',
         extensions: {paths: [companion]},
         output: {clean: false, path: output},
         browsersPlugin
-      } as any
+      } as unknown as ConfigOptions
     )
 
     expect(browsersPlugin.extensionsToLoad).toEqual([companion, output])
@@ -298,7 +302,7 @@ describe('webpack-config transpile packages watch behavior', () => {
   it('hashes content-script bundles per-entry by default in development', () => {
     const projectStructure = createProjectStructure()
     const config = webpackConfig(
-      projectStructure as any,
+      projectStructure as ProjectStructure,
       {
         browser: 'chrome',
         mode: 'development',
@@ -311,10 +315,12 @@ describe('webpack-config transpile packages watch behavior', () => {
           )
         },
         noBrowser: true
-      } as any
+      } as ConfigOptions
     )
 
-    const filename = config.output?.filename as any
+    const filename = config.output?.filename as (data: {
+      chunk: {name: string}
+    }) => string
     expect(typeof filename).toBe('function')
     expect(filename({chunk: {name: 'content_scripts/content-0'}})).toBe(
       'content_scripts/content-0.[contenthash:8].js'
@@ -332,7 +338,7 @@ describe('webpack-config transpile packages watch behavior', () => {
   it('emits unhashed content-script filenames when hashContentScripts is false', () => {
     const projectStructure = createProjectStructure()
     const config = webpackConfig(
-      projectStructure as any,
+      projectStructure as ProjectStructure,
       {
         browser: 'chrome',
         mode: 'development',
@@ -346,7 +352,7 @@ describe('webpack-config transpile packages watch behavior', () => {
           )
         },
         noBrowser: true
-      } as any
+      } as ConfigOptions
     )
 
     expect(config.output?.filename).toBe('[name].js')
@@ -355,7 +361,7 @@ describe('webpack-config transpile packages watch behavior', () => {
   it('routes CJS requires through the `require` exports condition', () => {
     const projectStructure = createProjectStructure()
     const config = webpackConfig(
-      projectStructure as any,
+      projectStructure as ProjectStructure,
       {
         browser: 'chrome',
         mode: 'development',
@@ -368,10 +374,10 @@ describe('webpack-config transpile packages watch behavior', () => {
           )
         },
         noBrowser: true
-      } as any
+      } as ConfigOptions
     )
 
-    const resolve: any = config.resolve
+    const resolve = config.resolve
     expect(resolve?.byDependency?.commonjs?.conditionNames).toContain('require')
     expect(resolve?.byDependency?.commonjs?.conditionNames).not.toContain(
       'import'
@@ -383,7 +389,7 @@ describe('webpack-config transpile packages watch behavior', () => {
   it('resolves TypeScript NodeNext ".js" import specifiers to their TS source', () => {
     const projectStructure = createProjectStructure()
     const config = webpackConfig(
-      projectStructure as any,
+      projectStructure as ProjectStructure,
       {
         mode: 'development',
         browser: 'chrome',
@@ -395,10 +401,10 @@ describe('webpack-config transpile packages watch behavior', () => {
           )
         },
         noBrowser: true
-      } as any
+      } as ConfigOptions
     )
 
-    const resolve: any = config.resolve
+    const resolve = config.resolve
     expect(resolve?.extensionAlias?.['.js']).toContain('.ts')
     expect(resolve?.extensionAlias?.['.js']).toContain('.tsx')
     expect(resolve?.extensionAlias?.['.js']).toContain('.js')
@@ -410,7 +416,7 @@ describe('webpack-config transpile packages watch behavior', () => {
   it('externalizes chrome-extension:/moz-extension: URLs as passthrough assets', () => {
     const projectStructure = createProjectStructure()
     const config = webpackConfig(
-      projectStructure as any,
+      projectStructure as ProjectStructure,
       {
         browser: 'chrome',
         mode: 'development',
@@ -423,10 +429,10 @@ describe('webpack-config transpile packages watch behavior', () => {
           )
         },
         noBrowser: true
-      } as any
+      } as ConfigOptions
     )
 
-    const externalFn = (config.externals as any[])[0] as (
+    const externalFn = (config.externals as unknown[])[0] as (
       data: {request?: string},
       cb: (err?: null, result?: string, type?: string) => void
     ) => void
@@ -471,7 +477,7 @@ describe('webpack-config transpile packages watch behavior', () => {
 
     const projectStructure = createProjectStructure()
     const config = webpackConfig(
-      projectStructure as any,
+      projectStructure as ProjectStructure,
       {
         browser: 'chrome',
         mode: 'production',
@@ -484,10 +490,10 @@ describe('webpack-config transpile packages watch behavior', () => {
           )
         },
         noBrowser: true
-      } as any
+      } as ConfigOptions
     )
 
-    const externalFn = (config.externals as any[])[0] as (
+    const externalFn = (config.externals as unknown[])[0] as (
       data: {request?: string; dependencyType?: string; context?: string},
       cb: (err?: null, result?: string, type?: string) => void
     ) => void
@@ -526,7 +532,7 @@ describe('webpack-config transpile packages watch behavior', () => {
 
     const makeExternalFn = () => {
       const config = webpackConfig(
-        projectStructure as any,
+        projectStructure as ProjectStructure,
         {
           browser: 'chrome',
           mode: 'production',
@@ -539,10 +545,10 @@ describe('webpack-config transpile packages watch behavior', () => {
             )
           },
           noBrowser: true
-        } as any
+        } as ConfigOptions
       )
 
-      return (config.externals as any[])[0] as (
+      return (config.externals as unknown[])[0] as (
         data: {
           request?: string
           dependencyType?: string
@@ -637,14 +643,14 @@ describe('a scanned companion entry that leads outside the project', () => {
 
     try {
       webpackConfig(
-        projectStructure as any,
+        projectStructure as ProjectStructure,
         {
           browser: 'chrome',
           mode: 'development',
           extensions: {dir: './extensions'},
           output: {clean: false, path: path.join(root, 'dist', 'chrome')},
           ...options
-        } as any
+        } as ConfigOptions
       )
     } finally {
       spy.mockRestore()
@@ -679,20 +685,22 @@ describe('webpack-config MV2 on chromium warning', () => {
     fs.writeFileSync(manifestPath, JSON.stringify(manifest), 'utf-8')
 
     return webpackConfig(
-      {manifestPath, packageJsonPath} as any,
+      {manifestPath, packageJsonPath} as ProjectStructure,
       {
         browser: 'chrome',
         mode: 'production',
         output: {clean: false, path: path.join(root, 'dist', 'chrome')},
         noBrowser: true
-      } as any
+      } as ConfigOptions
     )
   }
 
-  const captureMv2Tap = (config: any) => {
-    let tapped: ((compilation: any) => void) | undefined
+  type Mv2Tap = (compilation: {warnings: unknown[]}) => void
+
+  const captureMv2Tap = (config: Configuration) => {
+    let tapped: Mv2Tap | undefined
     const hook = {
-      tap: (nameOrOptions: any, fn: any) => {
+      tap: (nameOrOptions: string | {name?: string}, fn: Mv2Tap) => {
         const name =
           typeof nameOrOptions === 'string'
             ? nameOrOptions
@@ -702,11 +710,11 @@ describe('webpack-config MV2 on chromium warning', () => {
       tapAsync: () => undefined,
       tapPromise: () => undefined
     }
-    const compiler: any = {
+    const compiler = {
       hooks: new Proxy({}, {get: () => hook}),
       rspack: {WebpackError: Error},
       options: {}
-    }
+    } as unknown as Compiler
 
     for (const plugin of config.plugins ?? []) {
       if (plugin instanceof WarnManifestV2OnChromium) plugin.apply(compiler)
@@ -724,7 +732,7 @@ describe('webpack-config MV2 on chromium warning', () => {
     const tap = captureMv2Tap(config)
     expect(tap).toBeDefined()
 
-    const compilation: any = {warnings: []}
+    const compilation: {warnings: unknown[]} = {warnings: []}
     tap?.(compilation)
     expect(compilation.warnings).toHaveLength(1)
     expect(String(compilation.warnings[0])).toMatch(/will not install/)
@@ -753,21 +761,21 @@ describe('webpack-config MV2 on chromium warning', () => {
 describe('ready contract carries the control-bridge bind reason', () => {
   const bindReason = 'listen EADDRNOTAVAIL 10.0.0.9:0'
 
-  function findPlaywrightPlugin(config: any) {
+  function findPlaywrightPlugin(config: Configuration) {
     const plugin = (config.plugins ?? []).find(
-      (candidate: any) => candidate instanceof PlaywrightPlugin
-    ) as any
+      (candidate) => candidate instanceof PlaywrightPlugin
+    )
 
     expect(plugin).toBeDefined()
 
-    return plugin
+    return plugin as PlaywrightPlugin
   }
 
   function buildPlaywrightPlugin() {
     const projectStructure = createProjectStructure()
     const root = path.dirname(projectStructure.manifestPath)
     const config = webpackConfig(
-      projectStructure as any,
+      projectStructure as ProjectStructure,
       {
         browser: 'chrome',
         mode: 'development',
@@ -777,7 +785,7 @@ describe('ready contract carries the control-bridge bind reason', () => {
         controlPortUnavailableReason: bindReason,
         output: {clean: false, path: path.join(root, 'dist', 'chrome')},
         noBrowser: true
-      } as any
+      } as ConfigOptions
     )
 
     const plugin = findPlaywrightPlugin(config)
@@ -785,7 +793,7 @@ describe('ready contract carries the control-bridge bind reason', () => {
     return {plugin, root}
   }
 
-  function applyWithFakeCompiler(plugin: any) {
+  function applyWithFakeCompiler(plugin: PlaywrightPlugin) {
     const taps: Record<string, (arg?: unknown) => void> = {}
     const hook = (name: string) => ({
       tap: (_pluginName: string, fn: (arg?: unknown) => void) => {
@@ -800,7 +808,7 @@ describe('ready contract carries the control-bridge bind reason', () => {
         failed: hook('failed'),
         watchClose: hook('watchClose')
       }
-    })
+    } as unknown as Compiler)
 
     return taps
   }
@@ -838,7 +846,7 @@ describe('ready contract carries the control-bridge bind reason', () => {
     const projectStructure = createProjectStructure()
     const root = path.dirname(projectStructure.manifestPath)
     const config = webpackConfig(
-      projectStructure as any,
+      projectStructure as ProjectStructure,
       {
         browser: 'chrome',
         mode: 'development',
@@ -846,7 +854,7 @@ describe('ready contract carries the control-bridge bind reason', () => {
         session: sessionOf({controlPort: 50111}),
         output: {clean: false, path: path.join(root, 'dist', 'chrome')},
         noBrowser: true
-      } as any
+      } as ConfigOptions
     )
     applyWithFakeCompiler(findPlaywrightPlugin(config))
 
@@ -873,14 +881,14 @@ describe('the compile line is told whether a browser launches', () => {
     const projectStructure = createProjectStructure()
     const root = path.dirname(projectStructure.manifestPath)
     const config = webpackConfig(
-      projectStructure as any,
+      projectStructure as ProjectStructure,
       {
         browser: 'chrome',
         mode: 'development',
         metadataCommand: 'dev',
         output: {clean: false, path: path.join(root, 'dist', 'chrome')},
         noBrowser
-      } as any
+      } as ConfigOptions
     )
     const plugin = (config.plugins || []).find(
       (entry) => entry instanceof CompilationPlugin

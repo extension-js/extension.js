@@ -5,7 +5,11 @@ import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
 import {ActionsFileWriter} from '../actions-file'
 import {BridgeBroker} from '../broker'
-import {CONTROL_WS_PATH} from '../contracts'
+import {
+  CONTROL_WS_PATH,
+  type CommandFrame,
+  type ServerFrame
+} from '../contracts'
 import {BridgeController} from '../controller-client'
 import {
   clearControlToken,
@@ -17,7 +21,10 @@ import {type ControlServer, startControlServer} from '../ws-control-server'
 
 function startFakeExecutor(
   port: number,
-  reply: (cmd: any) => any = (cmd) => ({ok: true, value: {echoed: cmd.op}})
+  reply: (cmd: CommandFrame) => Record<string, unknown> | null = (cmd) => ({
+    ok: true,
+    value: {echoed: cmd.op}
+  })
 ): Promise<WebSocket> {
   return new Promise((resolve) => {
     const ws = new WebSocket(`ws://127.0.0.1:${port}${CONTROL_WS_PATH}`)
@@ -35,7 +42,7 @@ function startFakeExecutor(
     })
 
     ws.on('message', (data) => {
-      let frame: any
+      let frame: ServerFrame | CommandFrame
 
       try {
         frame = JSON.parse(data.toString())

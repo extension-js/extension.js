@@ -73,7 +73,7 @@ async function compile(mode: 'development' | 'production') {
     metadataCommand: mode === 'development' ? 'dev' : 'build',
     silent: true,
     output: {clean: false, path: distPath}
-  } as any)
+  } as Parameters<typeof webpackConfig>[1])
   config.plugins = (config.plugins || []).filter(
     (plugin) =>
       plugin?.constructor.name !== 'plugin-browsers' &&

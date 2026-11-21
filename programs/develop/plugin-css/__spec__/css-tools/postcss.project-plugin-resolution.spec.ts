@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import type {StyleLoaderOptions} from '../../common-style-loaders'
 
 describe('project-first postcss plugin resolution', () => {
   let tmp: string
@@ -47,7 +48,9 @@ describe('project-first postcss plugin resolution', () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const {maybeUsePostCss} = await import('../../css-tools/postcss')
-    const rule = await maybeUsePostCss(tmp, {mode: 'production'} as any)
+    const rule = await maybeUsePostCss(tmp, {
+      mode: 'production'
+    } as StyleLoaderOptions)
 
     const opts = rule.options?.postcssOptions
     expect(opts?.config).toBe(false)
@@ -73,7 +76,9 @@ describe('project-first postcss plugin resolution', () => {
     writeFakePlugin(tmp, 'fake-postcss-plugin')
 
     const {maybeUsePostCss} = await import('../../css-tools/postcss')
-    const rule = await maybeUsePostCss(tmp, {mode: 'production'} as any)
+    const rule = await maybeUsePostCss(tmp, {
+      mode: 'production'
+    } as StyleLoaderOptions)
 
     const opts = rule.options?.postcssOptions
     expect(opts?.config).toBe(false)
@@ -100,7 +105,9 @@ describe('project-first postcss plugin resolution', () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const {maybeUsePostCss} = await import('../../css-tools/postcss')
-    const rule = await maybeUsePostCss(tmp, {mode: 'production'} as any)
+    const rule = await maybeUsePostCss(tmp, {
+      mode: 'production'
+    } as StyleLoaderOptions)
 
     const opts = rule.options?.postcssOptions
     expect(opts?.plugins).toHaveLength(1)
@@ -140,7 +147,9 @@ describe('project-first postcss plugin resolution', () => {
     }
 
     const {maybeUsePostCss} = await import('../../css-tools/postcss')
-    const rule = await maybeUsePostCss(tmp, {mode: 'production'} as any)
+    const rule = await maybeUsePostCss(tmp, {
+      mode: 'production'
+    } as StyleLoaderOptions)
     const opts = rule.options?.postcssOptions
 
     expect(opts?.plugins).toHaveLength(1)

@@ -10,6 +10,10 @@ import {
 import * as messages from '../messages'
 import {listOutputFiles} from '../output-files'
 
+type BuildOptions = Parameters<
+  typeof import('../../command-build')['extensionBuild']
+>[1]
+
 const roots: string[] = []
 
 afterAll(() => {
@@ -163,7 +167,7 @@ describe('a production build with the same bytes under two names', () => {
         install: false,
         mode: 'production',
         exitOnError: false
-      } as any)
+      } as BuildOptions)
     } finally {
       if (env.VITEST === undefined) delete process.env.VITEST
       else process.env.VITEST = env.VITEST

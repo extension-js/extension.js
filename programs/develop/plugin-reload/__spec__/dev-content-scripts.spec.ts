@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import type {Compilation, Compiler} from '@rspack/core'
 import {afterAll, afterEach, describe, expect, it, vi} from 'vitest'
 import {getCurrentManifestContent} from '../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import {isDevContentScriptStandInAsset} from '../../plugin-web-extension/feature-scripts/contracts'
@@ -46,7 +47,12 @@ describe('the files a dev session ships beside a content script', () => {
 
 describe('planDevContentScripts', () => {
   const manifest = (content_scripts: unknown, manifest_version = 3) =>
-    ({manifest_version, name: 'x', version: '1', content_scripts}) as any
+    ({
+      manifest_version,
+      name: 'x',
+      version: '1',
+      content_scripts
+    }) as Parameters<typeof planDevContentScripts>[0]
 
   it('replaces each compiled entry with a signalling stub and records the real files in the registry', () => {
     const plan = planDevContentScripts(
@@ -170,7 +176,7 @@ describe('planDevContentScripts', () => {
       'content_scripts/dev-stub-2.js'
     ])
 
-    const world: any = {}
+    const world: World = {}
     new Function('globalThis', plan.stubs['content_scripts/dev-css-2.js'])(
       world
     )
@@ -328,7 +334,7 @@ describe('planDevContentScripts', () => {
   })
 
   it('the marker prelude and the stub are plain scripts that set and send what the worker reads', () => {
-    const world: any = {}
+    const world: World = {}
     new Function(
       'globalThis',
       buildDevContentScriptMarkerPrelude(
@@ -342,7 +348,7 @@ describe('planDevContentScripts', () => {
     })
 
     const sent: unknown[] = []
-    const page: any = {
+    const page = {
       chrome: {runtime: {sendMessage: (msg: unknown) => sent.push(msg)}}
     }
     new Function(
@@ -357,6 +363,34 @@ describe('planDevContentScripts', () => {
 })
 
 type Registration = Record<string, unknown> & {id: string}
+
+// A frame's global scope, as the injected scripts see it.
+type World = Record<string, unknown>
+
+// The options the runtime passes to chrome.scripting.executeScript.
+interface ExecuteOptions {
+  target: {tabId: number; frameIds?: number[]}
+  files?: string[]
+  func?: (...args: unknown[]) => unknown
+  args?: unknown[]
+}
+
+// What the runtime installs on the worker's global for the reload plugin.
+interface DevContentScriptHooks {
+  isReady(): boolean
+  heal(done?: () => void): void
+  reload(entries: string[] | undefined, done: (healed: boolean) => void): void
+}
+
+interface WorkerCalls {
+  register: Registration[]
+  update: Registration[]
+  unregister: Array<{ids: string[]}>
+  execute: ExecuteOptions[]
+  insertCSS: unknown[]
+  reload: number[]
+  runtimeReload: number[]
+}
 
 // What a frame's own clock says about when its document was committed.
 function committedAt(epochMs: number, responseStart = 0) {
@@ -373,13 +407,13 @@ function worker(opts: {
   tabs?: Array<{id: number; url: string; status?: string}>
   excludedTabs?: Array<{id: number; url: string}>
   markers?: Record<string, Record<string, string>>
-  worlds?: Record<string, any>
+  worlds?: Record<string, World>
   assets?: Record<string, string>
   storage?: Record<string, unknown>
   listenerFails?: boolean
 }) {
   const warned: string[] = []
-  const calls: Record<string, unknown[]> = {
+  const calls: WorkerCalls = {
     register: [],
     update: [],
     unregister: [],
@@ -392,7 +426,7 @@ function worker(opts: {
   const registrations: Registration[] = (opts.registered || []).map((r) => ({
     ...r
   }))
-  const worlds: Record<string, any> = opts.worlds || {}
+  const worlds: Record<string, World> = opts.worlds || {}
 
   // A frame Chromium injected by itself committed after the registration.
   for (const [frameId, marker] of Object.entries(opts.markers || {})) {
@@ -409,7 +443,7 @@ function worker(opts: {
   }
 
   let listener: ((msg: unknown, sender: unknown) => void) | undefined
-  const chrome: any = {
+  const chrome = {
     runtime: {
       getURL: (p: string) => `chrome-extension://abc/${p}`,
       reload: () => {
@@ -479,7 +513,7 @@ function worker(opts: {
         calls.insertCSS.push(o)
         cb?.()
       },
-      executeScript: (o: any, cb?: (r: unknown[]) => void) => {
+      executeScript: (o: ExecuteOptions, cb?: (r: unknown[]) => void) => {
         calls.execute.push(o)
 
         for (const frameId of o.target.frameIds || [0]) {
@@ -511,14 +545,16 @@ function worker(opts: {
   }
 
   chrome.scripting.executeScript = (
-    (original) => (o: any, cb?: (r: unknown[]) => void) => {
-      if (typeof o.func === 'function') {
+    (original) => (o: ExecuteOptions, cb?: (r: unknown[]) => void) => {
+      const func = o.func
+
+      if (typeof func === 'function') {
         const frames: number[] = o.target.frameIds || [0]
         cb?.(
           frames.map((frameId) => {
             const fn = new Function(
               'globalThis',
-              `return (${o.func.toString()}).apply(null, arguments[1])`
+              `return (${func.toString()}).apply(null, arguments[1])`
             )
 
             return {frameId, result: fn(worldOf(frameId), o.args)}
@@ -532,7 +568,7 @@ function worker(opts: {
     }
   )(chrome.scripting.executeScript)
 
-  const g: any = {
+  const g: {chrome: typeof chrome; [key: string]: unknown} = {
     chrome,
     console: {
       warn: (...args: unknown[]) => warned.push(args.map(String).join(' '))
@@ -556,13 +592,13 @@ function worker(opts: {
     storage,
     stub: (entry: string, tabId: number, frameId = 0) =>
       listener?.({__extjsDevCsStub: {entry}}, {tab: {id: tabId}, frameId}),
-    hooks: () => g.__extjsDevContentScripts,
+    hooks: () => g.__extjsDevContentScripts as DevContentScriptHooks,
     settle: () => new Promise((r) => setTimeout(r, 20))
   }
 }
 
-const fileInjections = (calls: Record<string, unknown[]>) =>
-  calls.execute.filter((o: any) => Array.isArray(o.files))
+const fileInjections = (calls: WorkerCalls) =>
+  calls.execute.filter((o) => Array.isArray(o.files))
 
 const registry = {
   version: 1,
@@ -756,7 +792,7 @@ describe('dev content scripts runtime', () => {
     // Stall the boot registration by replacing the API before the fetch lands.
     w.g.chrome.scripting.registerContentScripts = (
       _s: unknown,
-      cb: () => void
+      cb?: () => void
     ) => {
       release = cb
     }
@@ -767,14 +803,14 @@ describe('dev content scripts runtime', () => {
     release!()
     await w.settle()
     expect(w.calls.execute).toHaveLength(1)
-    expect((w.calls.execute[0] as any).target).toEqual({
+    expect(w.calls.execute[0].target).toEqual({
       tabId: 9,
       frameIds: [0]
     })
   })
 
   it('a stub signal that finds no registry re-reads the one on disk, registers it and serves the frame', async () => {
-    const opts: any = {}
+    const opts: Parameters<typeof worker>[0] = {}
     const w = worker(opts)
     await w.settle()
     expect(w.calls.register).toEqual([])
@@ -782,14 +818,14 @@ describe('dev content scripts runtime', () => {
     opts.registry = registry
     w.stub('content_scripts/content-0', 4)
     await w.settle()
-    expect(w.calls.register.map((r: any) => r.id)).toEqual(['extjs-dev-cs-0'])
-    expect(fileInjections(w.calls).map((o: any) => o.target)).toEqual([
+    expect(w.calls.register.map((r) => r.id)).toEqual(['extjs-dev-cs-0'])
+    expect(fileInjections(w.calls).map((o) => o.target)).toEqual([
       {tabId: 4, frameIds: [0]}
     ])
   })
 
   it('a stub signal for an entry the loaded registry lacks picks it up from the file on disk', async () => {
-    const opts: any = {registry}
+    const opts: Parameters<typeof worker>[0] = {registry}
     const w = worker(opts)
     await w.settle()
 
@@ -809,12 +845,12 @@ describe('dev content scripts runtime', () => {
 
     w.stub('content_scripts/content-1', 6)
     await w.settle()
-    expect(w.calls.register.map((r: any) => r.id)).toEqual([
+    expect(w.calls.register.map((r) => r.id)).toEqual([
       'extjs-dev-cs-0',
       'extjs-dev-cs-1'
     ])
 
-    expect(fileInjections(w.calls).map((o: any) => o.files)).toEqual([
+    expect(fileInjections(w.calls).map((o) => o.files)).toEqual([
       ['content_scripts/content-1.NEW.js']
     ])
   })
@@ -832,7 +868,7 @@ describe('dev content scripts runtime', () => {
   })
 
   it('a heal that finds no registry re-reads the one on disk before reaching the tabs', async () => {
-    const opts: any = {
+    const opts: Parameters<typeof worker>[0] = {
       tabs: [
         {id: 1, url: 'https://a.test/one', status: 'complete'},
         {id: 3, url: 'https://a.test/skip/me', status: 'complete'}
@@ -850,8 +886,8 @@ describe('dev content scripts runtime', () => {
 
     await w.settle()
     expect(healed).toBe(true)
-    expect(w.calls.register.map((r: any) => r.id)).toEqual(['extjs-dev-cs-0'])
-    expect(fileInjections(w.calls).map((o: any) => o.target)).toEqual([
+    expect(w.calls.register.map((r) => r.id)).toEqual(['extjs-dev-cs-0'])
+    expect(fileInjections(w.calls).map((o) => o.target)).toEqual([
       {tabId: 1, frameIds: [0]}
     ])
   })
@@ -876,13 +912,13 @@ describe('dev content scripts runtime', () => {
 
     await w.settle()
     expect(healed).toBe(true)
-    expect(w.calls.execute.map((o: any) => o.target)).toEqual([
+    expect(w.calls.execute.map((o) => o.target)).toEqual([
       {tabId: 1, frameIds: [0]}
     ])
   })
 
   it('heal re-injects a frame that runs the same file for a previous extension generation, and only once per generation', async () => {
-    const worlds: Record<string, any> = {}
+    const worlds: Record<string, World> = {}
     const tabs = [{id: 1, url: 'https://a.test/one', status: 'complete'}]
     const excludedTabs = [{id: 3, url: 'https://a.test/skip/me'}]
     const first = worker({
@@ -915,7 +951,7 @@ describe('dev content scripts runtime', () => {
   })
 
   it('a frame Chromium covered since boot is left alone by its stub signal and by the heal that follows', async () => {
-    const worlds: Record<string, any> = {}
+    const worlds: Record<string, World> = {}
     const w = worker({
       registry,
       worlds,
@@ -939,7 +975,7 @@ describe('dev content scripts runtime', () => {
 
   it('a frame that committed before the registration and ran the registered script still gets its stylesheet, once', async () => {
     const bundle = 'content_scripts/content-0.NEW.js'
-    const worlds: Record<string, any> = {
+    const worlds: Record<string, World> = {
       '0': {
         [DEV_CONTENT_SCRIPT_MARKER_KEY]: {'content_scripts/content-0': bundle},
         performance: committedAt(Date.now() - 400, 80)
@@ -965,7 +1001,7 @@ describe('dev content scripts runtime', () => {
   })
 
   it('a covered frame whose commit time cannot be read gets the stylesheet rather than none', async () => {
-    const worlds: Record<string, any> = {
+    const worlds: Record<string, World> = {
       '0': {
         [DEV_CONTENT_SCRIPT_MARKER_KEY]: {
           'content_scripts/content-0': 'content_scripts/content-0.NEW.js'
@@ -982,7 +1018,7 @@ describe('dev content scripts runtime', () => {
   })
 
   it('a covered frame is given no second stylesheet by a worker that found the entry already registered', async () => {
-    const worlds: Record<string, any> = {
+    const worlds: Record<string, World> = {
       '0': {
         [DEV_CONTENT_SCRIPT_MARKER_KEY]: {
           'content_scripts/content-0': 'content_scripts/content-0.NEW.js'
@@ -1013,7 +1049,7 @@ describe('dev content scripts runtime', () => {
   // The probe sheet is registered beside the entry's own, so the value it
   // sets on a frame is the browser's own word on whether it added them there.
   it('a covered frame that shows the probe sheet gets no second copy, however early it committed', async () => {
-    const worlds: Record<string, any> = {
+    const worlds: Record<string, World> = {
       '0': {
         [DEV_CONTENT_SCRIPT_MARKER_KEY]: {
           'content_scripts/content-0': 'content_scripts/content-0.NEW.js'
@@ -1037,7 +1073,7 @@ describe('dev content scripts runtime', () => {
   })
 
   it('a covered frame without the probe sheet gets the stylesheet once, however late it committed', async () => {
-    const worlds: Record<string, any> = {
+    const worlds: Record<string, World> = {
       '0': {
         [DEV_CONTENT_SCRIPT_MARKER_KEY]: {
           'content_scripts/content-0': 'content_scripts/content-0.NEW.js'
@@ -1074,7 +1110,7 @@ describe('dev content scripts runtime', () => {
     const marker = {
       'content_scripts/content-0': 'content_scripts/content-0.NEW.js'
     }
-    const worlds: Record<string, any> = {
+    const worlds: Record<string, World> = {
       '0': {
         [DEV_CONTENT_SCRIPT_MARKER_KEY]: {...marker},
         performance: committedAt(Date.now() - 400, 80),
@@ -1112,7 +1148,7 @@ describe('dev content scripts runtime', () => {
           css: ['content_scripts/content-0.aaaaaaaa.css']
         }
       ]
-    } as any)!
+    } as Parameters<typeof planDevContentScripts>[0])!
     const w = worker({
       registry: plan.registry,
       assets: plan.stubs,
@@ -1188,12 +1224,12 @@ describe('dev content scripts runtime', () => {
       tabs: [{id: 1, url: 'https://a.test/one', status: 'complete'}]
     })
     await w.settle()
-    expect(w.calls.register.map((r: any) => r.id)).toEqual(['extjs-dev-cs-0'])
+    expect(w.calls.register.map((r) => r.id)).toEqual(['extjs-dev-cs-0'])
 
     w.stub('content_scripts/content-1', 1)
     w.hooks().heal()
     await w.settle()
-    expect(fileInjections(w.calls).map((o: any) => o.files)).toEqual([
+    expect(fileInjections(w.calls).map((o) => o.files)).toEqual([
       ['content_scripts/content-0.NEW.js']
     ])
   })
@@ -1423,7 +1459,7 @@ describe('SetupDevContentScripts step', () => {
       store.has(name)
         ? {name, source: {source: () => store.get(name)!}}
         : undefined
-    const comp: any = {
+    const comp = {
       errors: [],
       getAssets: () => [...store.keys()].map((name) => asset(name)!),
       getAsset: (name: string) => asset(name),
@@ -1438,15 +1474,15 @@ describe('SetupDevContentScripts step', () => {
       hooks: {
         processAssets: {tap: (_o: unknown, fn: () => void) => taps.push(fn)}
       }
-    }
-    const compiler: any = {
+    } as unknown as Compilation
+    const compiler = {
       hooks: {
         thisCompilation: {
           tap: (_n: string, fn: (c: unknown) => void) => fn(comp)
         },
         done: {tap: () => undefined}
       }
-    }
+    } as unknown as Compiler
 
     const run = () => {
       for (const fn of taps) fn()
@@ -1587,7 +1623,7 @@ describe('SetupDevContentScripts after an entry is removed', () => {
 
   function finish(outputPath: string, emitted: string[], errors: Error[] = []) {
     const done: Array<(stats: unknown) => void> = []
-    const compiler: any = {
+    const compiler = {
       options: {output: {path: outputPath}},
       hooks: {
         thisCompilation: {tap: () => {}},
@@ -1595,7 +1631,7 @@ describe('SetupDevContentScripts after an entry is removed', () => {
           tap: (_n: string, fn: (stats: unknown) => void) => done.push(fn)
         }
       }
-    }
+    } as unknown as Compiler
     new SetupDevContentScripts().apply(compiler)
 
     for (const fn of done) {

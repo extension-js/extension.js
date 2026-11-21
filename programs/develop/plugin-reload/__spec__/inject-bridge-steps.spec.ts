@@ -1,4 +1,4 @@
-import {sources} from '@rspack/core'
+import {type Compilation, type Compiler, sources} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {DEV_BUILD_GLOBAL} from '../reload-dispatch'
 import {buildDeclaredSheetSignalSource} from '../reload-lib/producer-reload'
@@ -9,25 +9,37 @@ import {
 import {InjectBridgeRelay} from '../steps/inject-bridge-relay'
 import {portOf, sessionBridge, setSessionBridge} from './helpers/session-bridge'
 
+// The slice of a compilation the bridge steps read and write.
+interface FakeAsset {
+  name: string
+  source: sources.Source
+}
+
+interface FakeCompilation {
+  __assets: Record<string, FakeAsset>
+  hash?: string
+  [key: string]: unknown
+}
+
 function makeCompiler() {
-  const processAssetsTaps: Array<{cb: () => void; opts: any}> = []
-  let compilation: any
-  const compiler: any = {
+  const processAssetsTaps: Array<{cb: () => void; opts: unknown}> = []
+  let compilation: FakeCompilation = {__assets: {}}
+  const compiler = {
     hooks: {
       thisCompilation: {
-        tap: (_name: string, cb: (c: any) => void) => {
+        tap: (_name: string, cb: (c: unknown) => void) => {
           compilation = {
             getAssets: vi.fn(() => Object.values(compilation.__assets)),
             getAsset: vi.fn((name: string) => compilation.__assets[name]),
-            emitAsset: vi.fn((name: string, src: any) => {
+            emitAsset: vi.fn((name: string, src: sources.Source) => {
               compilation.__assets[name] = {name, source: src}
             }),
-            updateAsset: vi.fn((name: string, src: any) => {
+            updateAsset: vi.fn((name: string, src: sources.Source) => {
               compilation.__assets[name] = {name, source: src}
             }),
             hooks: {
               processAssets: {
-                tap: (opts: any, fn: () => void) => {
+                tap: (opts: unknown, fn: () => void) => {
                   processAssetsTaps.push({opts, cb: fn})
                 }
               }
@@ -39,7 +51,7 @@ function makeCompiler() {
         }
       }
     }
-  }
+  } as unknown as Compiler
 
   return {
     compiler,
@@ -47,7 +59,7 @@ function makeCompiler() {
     runProcessAssets: () => {
       for (const entry of processAssetsTaps) entry.cb()
     },
-    compilation: () => compilation,
+    compilation: () => compilation as unknown as Compilation,
     setHash: (hash: string | undefined) => {
       compilation.hash = hash
     },

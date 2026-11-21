@@ -13,7 +13,7 @@ const setPlatform = (value: NodeJS.Platform) => {
 }
 
 const fakeChild = {
-  on: (ev: string, fn: (...a: any[]) => void) => {
+  on: (ev: string, fn: (code: number) => void) => {
     if (ev === 'close') setImmediate(() => fn(0))
 
     return fakeChild
@@ -23,14 +23,14 @@ const spawnMock = vi.fn((..._args: unknown[]) => fakeChild)
 
 vi.mock('child_process', () => ({
   execFileSync: vi.fn(),
-  spawn: (...args: any[]) => spawnMock(...args),
+  spawn: (...args: unknown[]) => spawnMock(...args),
   spawnSync: vi.fn(() => ({status: 0}))
 }))
 
 // Installs go through cross-spawn, which requires child_process natively and
 // so never sees the mock above. Intercept it at its own seam instead.
 vi.mock('cross-spawn', () => ({
-  spawn: (...args: any[]) => spawnMock(...args),
+  spawn: (...args: unknown[]) => spawnMock(...args),
   sync: vi.fn(() => ({status: 0}))
 }))
 
@@ -59,8 +59,8 @@ describe('package-manager resolution', () => {
       setPlatform('win32')
       fs.writeFileSync(path.join(tempDir, 'package-lock.json'), '{}', 'utf8')
 
-      const {execFileSync} = (await import('node:child_process')) as any
-      execFileSync.mockReturnValue('C:\\nvm4w\\nodejs\\npm.cmd\r\n')
+      const {execFileSync} = await import('node:child_process')
+      vi.mocked(execFileSync).mockReturnValue('C:\\nvm4w\\nodejs\\npm.cmd\r\n')
 
       const {resolvePackageManager, buildInstallCommand} = await import(
         '../package-manager'
@@ -110,13 +110,15 @@ describe('package-manager resolution order', () => {
 
   // Every manager answers `which`, or none does.
   async function resolveWith(onPath: boolean) {
-    const {execFileSync} = (await import('node:child_process')) as any
+    const {execFileSync} = await import('node:child_process')
 
-    execFileSync.mockImplementation((_command: string, args: string[]) => {
-      if (!onPath) throw new Error('not found')
+    vi.mocked(execFileSync).mockImplementation(
+      (_command: string, args?: readonly string[]) => {
+        if (!onPath) throw new Error('not found')
 
-      return `/fake/bin/${args[0]}\n`
-    })
+        return `/fake/bin/${args?.[0]}\n`
+      }
+    )
 
     const {resolvePackageManager} = await import('../package-manager')
 
@@ -341,12 +343,12 @@ describe('package-manager buildInstallCommand', () => {
 })
 
 describe('package-manager projectInstallArgs', () => {
-  const writeProject = (dir: string, pkg: Record<string, any>) => {
+  const writeProject = (dir: string, pkg: Record<string, unknown>) => {
     fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify(pkg))
   }
 
   const withTempProject = (
-    pkg: Record<string, any>,
+    pkg: Record<string, unknown>,
     fn: (dir: string) => void
   ) => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-pm-args-'))
@@ -607,7 +609,11 @@ describe('package-manager execInstallCommand', () => {
     })
 
     expect(spawnMock).toHaveBeenCalledTimes(1)
-    const [command, spawnArgs, options] = (spawnMock.mock.calls as any)[0]
+    const [command, spawnArgs, options] = spawnMock.mock.calls[0] as [
+      string,
+      string[],
+      {cwd?: string}
+    ]
     expect(command).toBe('C:\\path\\to\\pnpm.cmd')
     expect(spawnArgs).toEqual(args)
     expect(options).not.toHaveProperty('shell')
@@ -658,7 +664,9 @@ describe('package-manager execInstallCommand Corepack registry', () => {
   }
 
   function spawnedEnv(): Record<string, string | undefined> {
-    return (spawnMock.mock.calls as any)[0][2].env
+    return (
+      spawnMock.mock.calls[0][2] as {env: Record<string, string | undefined>}
+    ).env
   }
 
   it('points Corepack at the registry the project .npmrc pins', async () => {

@@ -14,6 +14,8 @@ function sink() {
   return {stream, text: () => chunks.join('')}
 }
 
+type InstallError = Error & {exitCode?: number; output: string}
+
 function script(code: string): string[] {
   return ['-e', code]
 }
@@ -23,7 +25,7 @@ describe('execInstallCommand with a tee', () => {
     const out = sink()
     const err = sink()
 
-    const error: any = await execInstallCommand(
+    const error: InstallError = await execInstallCommand(
       process.execPath,
       script(
         "process.stdout.write('Progress: resolved 1\\n'); process.stderr.write('npm error code E404\\n'); process.exitCode = 7"
@@ -43,7 +45,7 @@ describe('execInstallCommand with a tee', () => {
     const out = sink()
     const err = sink()
 
-    const error: any = await execInstallCommand(
+    const error: InstallError = await execInstallCommand(
       process.execPath,
       script(
         "process.stdout.write('x'.repeat(200000) + 'THE END'); process.exitCode = 1"
@@ -71,7 +73,7 @@ describe('execInstallCommand with a tee', () => {
   })
 
   it('carries no output when the caller did not ask for a tee', async () => {
-    const error: any = await execInstallCommand(
+    const error: InstallError = await execInstallCommand(
       process.execPath,
       script('process.exitCode = 3')
     ).catch((caught) => caught)

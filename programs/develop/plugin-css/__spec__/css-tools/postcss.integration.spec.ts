@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import {createRequire as nodeCreateRequire} from 'node:module'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import postcss from 'postcss'
+import postcss, {type AcceptedPlugin} from 'postcss'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {maybeUsePostCss} from '../../css-tools/postcss'
 
@@ -89,7 +89,7 @@ describe('postcss integration (tailwind arbitrary classes)', () => {
     )
 
     const rule = await maybeUsePostCss(tmpRoot, {mode: 'development'})
-    const plugins = (rule.options?.postcssOptions?.plugins || []) as any[]
+    const plugins = (rule.options?.postcssOptions?.plugins || []) as unknown[]
     const executablePlugins = plugins.filter(
       (plugin) =>
         typeof plugin === 'function' ||
@@ -98,7 +98,7 @@ describe('postcss integration (tailwind arbitrary classes)', () => {
     const tailwindPlugin = executablePlugins[0]
     expect(tailwindPlugin).toBeDefined()
 
-    const out = await postcss([tailwindPlugin] as any).process(
+    const out = await postcss([tailwindPlugin] as AcceptedPlugin[]).process(
       fs.readFileSync(cssFile, 'utf8'),
       {from: cssFile}
     )

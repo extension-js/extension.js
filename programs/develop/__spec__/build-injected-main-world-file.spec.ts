@@ -81,6 +81,10 @@ const EXECUTE_WRAP = 'scripting.executeScript = function'
 const BRIDGED_FILES = 'var INJECTABLE = ["scripts/hook.js"];'
 const BRIDGE = 'scripts/extjs-main-world-bridge.js'
 
+interface PageDocument {
+  documentElement: {dataset: Record<string, string>}
+}
+
 describe('a MAIN world file the extension injects with executeScript', () => {
   it('firefox: the background runs the bridge ahead of its injection', async () => {
     const built = await build(
@@ -331,7 +335,7 @@ describe('the value an injected file with a default export ends on', () => {
   ] as const)('%s: the file is an entry the wrapper mounts, so it ends on nothing', async (browser) => {
     const built = await build(project(MOUNTED_FILES), browser)
     const mounted = runOnPage(built.read('scripts/mounted.js'))
-    const html = (mounted.page.document as any).documentElement
+    const html = (mounted.page.document as PageDocument).documentElement
 
     // The default export ran, and neither its return value nor the last
     // statement nor an object of the wrapper comes back as the result.
@@ -343,7 +347,10 @@ describe('the value an injected file with a default export ends on', () => {
 
     const later = runOnPage(built.read('scripts/mounted-later.js'))
 
-    expect((later.page.document as any).documentElement.dataset.later).toBe('1')
+    expect(
+      (later.page.document as PageDocument).documentElement.dataset.later
+    ).toBe('1')
+
     expect(later.value).toBeUndefined()
 
     for (const name of Object.keys(MOUNTED_FILES)) {

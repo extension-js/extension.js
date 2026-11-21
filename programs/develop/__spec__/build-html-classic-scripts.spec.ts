@@ -175,6 +175,12 @@ afterAll(() => {
   fs.rmSync(INLINE_CONSUMER_ROOT, {recursive: true, force: true})
 })
 
+// The globals the bundle leaves on the sandbox the rows read.
+interface PageContext {
+  document: {title: string}
+  Handlebars?: unknown
+}
+
 describe('build: HTML pages with multiple classic scripts (real rspack)', () => {
   it('keeps cross-script implicit globals working in the built page bundle', async () => {
     const summary = await buildFixture(CLASSIC_ROOT)
@@ -196,7 +202,7 @@ describe('build: HTML pages with multiple classic scripts (real rspack)', () => 
       filename: 'action/index.js'
     })
 
-    expect((context as any).document.title).toBe('storage:ok')
+    expect((context as PageContext).document.title).toBe('storage:ok')
   }, 120_000)
 
   it('does not fold pages with type="module" scripts into a classic concat', async () => {
@@ -230,7 +236,7 @@ describe('build: HTML pages with multiple classic scripts (real rspack)', () => 
       {filename: 'action/index.js'}
     )
 
-    expect((context as any).Handlebars).toBeDefined()
+    expect((context as PageContext).Handlebars).toBeDefined()
 
     const inlineOpen = html.indexOf('<script>')
     expect(inlineOpen).toBeGreaterThan(-1)
@@ -238,6 +244,6 @@ describe('build: HTML pages with multiple classic scripts (real rspack)', () => 
     expect(inlineClose).toBeGreaterThan(-1)
     const inlineSource = html.slice(inlineOpen + '<script>'.length, inlineClose)
     vm.runInContext(inlineSource, context, {filename: 'inline-script'})
-    expect((context as any).document.title).toBe('compiled:greeting')
+    expect((context as PageContext).document.title).toBe('compiled:greeting')
   }, 120_000)
 })

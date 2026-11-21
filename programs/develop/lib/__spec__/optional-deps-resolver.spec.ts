@@ -745,13 +745,14 @@ throw new Error('runtime-copy-broken.\\nRequire stack:\\n- index.js')`
     const {ensureOptionalModuleLoaded} = await import(
       '../optional-deps-resolver'
     )
-    const pluginCtor = await ensureOptionalModuleLoaded<any>({
+    const pluginCtor = await ensureOptionalModuleLoaded<unknown>({
       integration: 'React',
       projectPath,
       dependencyId,
       installDependencies: [dependencyId],
       verifyPackageIds: [dependencyId],
-      moduleAdapter: (mod: any) => mod.default || mod
+      moduleAdapter: (mod: unknown) =>
+        (mod as {default?: unknown}).default || mod
     })
 
     expect(typeof pluginCtor).toBe('function')

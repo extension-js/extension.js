@@ -1,3 +1,4 @@
+import type {Compiler} from '@rspack/core'
 import {afterAll, describe, expect, it} from 'vitest'
 import {StaticAssetsPlugin} from '../index'
 import {bundledAssetOutputName} from '../static-assets-lib/asset-output-name'
@@ -6,18 +7,29 @@ import {SMALL_SVG} from './helpers/fixtures'
 
 afterAll(() => removeFixtureRoots())
 
-function applyPlugin() {
-  const compiler: any = {
-    options: {module: {rules: []}},
+// The fields of a rule these specs read.
+interface QueryRule {
+  type?: string
+  resourceQuery?: unknown
+}
+
+// A compiler with only the rules and the hooks the plugin touches.
+function compilerWith(rules: QueryRule[]) {
+  return {
+    options: {module: {rules}},
     hooks: {
       afterEmit: {tap() {}},
       compilation: {tap() {}},
       done: {tap() {}}
     }
-  }
+  } as unknown as Compiler
+}
+
+function applyPlugin() {
+  const compiler = compilerWith([])
   new StaticAssetsPlugin().apply(compiler)
 
-  return compiler.options.module.rules as any[]
+  return compiler.options.module.rules as unknown as QueryRule[]
 }
 
 describe('StaticAssetsPlugin url resourceQuery rule', () => {
@@ -27,7 +39,7 @@ describe('StaticAssetsPlugin url resourceQuery rule', () => {
       (r) => r?.type === 'asset/resource' && r?.resourceQuery instanceof RegExp
     )
     expect(urlRule).toBeTruthy()
-    const re: RegExp = urlRule.resourceQuery
+    const re = (urlRule as QueryRule).resourceQuery as RegExp
     expect(re.test('?url')).toBe(true)
     expect(re.test('?url=1')).toBe(true)
     expect(re.test('?foo&url')).toBe(true)
@@ -38,7 +50,7 @@ describe('StaticAssetsPlugin url resourceQuery rule', () => {
     const urlRule = rules.find(
       (r) => r?.type === 'asset/resource' && r?.resourceQuery instanceof RegExp
     )
-    const re: RegExp = urlRule.resourceQuery
+    const re = (urlRule as QueryRule).resourceQuery as RegExp
 
     const concatQuery =
       '?__extensionjs_classic_concat__=' +
@@ -94,13 +106,13 @@ describe('StaticAssetsPlugin url resourceQuery rule', () => {
 })
 
 describe('StaticAssetsPlugin raw resourceQuery rule', () => {
-  const rawRule = (rules: any[]) =>
+  const rawRule = (rules: QueryRule[]) =>
     rules.find(
       (r) => r?.type === 'asset/source' && r?.resourceQuery instanceof RegExp
     )
 
   it('matches the standalone ?raw import query and nothing else', () => {
-    const re: RegExp = rawRule(applyPlugin()).resourceQuery
+    const re = (rawRule(applyPlugin()) as QueryRule).resourceQuery as RegExp
     expect(re.test('?raw')).toBe(true)
     expect(re.test('?raw=1')).toBe(true)
     expect(re.test('?foo&raw')).toBe(true)
@@ -131,18 +143,12 @@ describe('StaticAssetsPlugin raw resourceQuery rule', () => {
 
   it('leaves a user ?raw rule alone', () => {
     const mine = {resourceQuery: /raw/, type: 'asset/resource'}
-    const compiler: any = {
-      options: {module: {rules: [mine]}},
-      hooks: {
-        afterEmit: {tap() {}},
-        compilation: {tap() {}},
-        done: {tap() {}}
-      }
-    }
+    const compiler = compilerWith([mine])
     new StaticAssetsPlugin().apply(compiler)
-    const rawRules = compiler.options.module.rules.filter(
-      (r: any) =>
-        r?.resourceQuery instanceof RegExp && r.resourceQuery.test('?raw')
+    const rawRules = (
+      compiler.options.module.rules as unknown as QueryRule[]
+    ).filter(
+      (r) => r?.resourceQuery instanceof RegExp && r.resourceQuery.test('?raw')
     )
     expect(rawRules).toEqual([mine])
   })

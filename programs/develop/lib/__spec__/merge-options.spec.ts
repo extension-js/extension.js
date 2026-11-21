@@ -10,7 +10,7 @@ import {
 describe('mergeOptionLayers', () => {
   it('applies stock defaults when neither config nor CLI sets a value', () => {
     expect(
-      mergeOptionLayers<Record<string, any>>(DEV_COMMAND_DEFAULTS)
+      mergeOptionLayers<Record<string, unknown>>(DEV_COMMAND_DEFAULTS)
     ).toMatchObject({
       polyfill: false,
       logFormat: 'pretty',
@@ -21,7 +21,7 @@ describe('mergeOptionLayers', () => {
     })
 
     expect(
-      mergeOptionLayers<Record<string, any>>(BUILD_COMMAND_DEFAULTS)
+      mergeOptionLayers<Record<string, unknown>>(BUILD_COMMAND_DEFAULTS)
     ).toMatchObject({
       polyfill: false,
       zip: false,
@@ -31,14 +31,14 @@ describe('mergeOptionLayers', () => {
     })
 
     expect(
-      mergeOptionLayers<Record<string, any>>(SERVE_COMMAND_DEFAULTS)
+      mergeOptionLayers<Record<string, unknown>>(SERVE_COMMAND_DEFAULTS)
     ).toMatchObject({
       logFormat: 'pretty',
       logLevel: 'off'
     })
 
     expect(
-      mergeOptionLayers<Record<string, any>>(START_BUILD_DEFAULTS)
+      mergeOptionLayers<Record<string, unknown>>(START_BUILD_DEFAULTS)
     ).toMatchObject({
       polyfill: false,
       silent: true
@@ -46,7 +46,7 @@ describe('mergeOptionLayers', () => {
   })
 
   it('lets config-only values beat stock defaults (config-only)', () => {
-    const merged = mergeOptionLayers<Record<string, any>>(
+    const merged = mergeOptionLayers<Record<string, unknown>>(
       DEV_COMMAND_DEFAULTS,
       {startingUrl: 'https://from-browser.example', polyfill: true},
       {
@@ -69,7 +69,7 @@ describe('mergeOptionLayers', () => {
   })
 
   it('lets flag-only values beat stock defaults (flag-only)', () => {
-    const merged = mergeOptionLayers<Record<string, any>>(
+    const merged = mergeOptionLayers<Record<string, unknown>>(
       DEV_COMMAND_DEFAULTS,
       {},
       {},
@@ -85,7 +85,7 @@ describe('mergeOptionLayers', () => {
   it('lets explicit CLI values beat config in both directions (both)', () => {
     // CLI turns silence and zip off over a quiet-by-default config.
     expect(
-      mergeOptionLayers<Record<string, any>>(
+      mergeOptionLayers<Record<string, unknown>>(
         BUILD_COMMAND_DEFAULTS,
         {silent: true, zip: true, polyfill: true},
         {silent: false, zip: false}
@@ -98,7 +98,7 @@ describe('mergeOptionLayers', () => {
 
     // CLI turns the polyfill on over config false.
     expect(
-      mergeOptionLayers<Record<string, any>>(
+      mergeOptionLayers<Record<string, unknown>>(
         DEV_COMMAND_DEFAULTS,
         {polyfill: false, logFormat: 'json'},
         {polyfill: true, logFormat: 'pretty'}
@@ -110,7 +110,7 @@ describe('mergeOptionLayers', () => {
   })
 
   it('ignores undefined CLI keys so config is not clobbered (neither typed)', () => {
-    const merged = mergeOptionLayers<Record<string, any>>(
+    const merged = mergeOptionLayers<Record<string, unknown>>(
       BUILD_COMMAND_DEFAULTS,
       {zip: true, silent: true, polyfill: false},
       {
@@ -129,7 +129,7 @@ describe('mergeOptionLayers', () => {
   })
 
   it('concatenates browserFlags and excludeBrowserFlags across layers with dedup', () => {
-    const merged = mergeOptionLayers<Record<string, any>>(
+    const merged = mergeOptionLayers<Record<string, unknown>>(
       DEV_COMMAND_DEFAULTS,
       {
         browserFlags: ['--from-browser', '--shared'],
@@ -160,7 +160,7 @@ describe('mergeOptionLayers', () => {
   })
 
   it('does not replace an earlier flags list when a later layer omits it', () => {
-    const merged = mergeOptionLayers<Record<string, any>>(
+    const merged = mergeOptionLayers<Record<string, unknown>>(
       DEV_COMMAND_DEFAULTS,
       {browserFlags: ['--from-browser']},
       {polyfill: false},
@@ -173,7 +173,7 @@ describe('mergeOptionLayers', () => {
     // An exclusion contributed by any layer must remove its target from a
     // default-flag list exactly like a single-layer exclusion would, and the
     // dedup must not drop distinct exclusions.
-    const merged = mergeOptionLayers<Record<string, any>>(
+    const merged = mergeOptionLayers<Record<string, unknown>>(
       DEV_COMMAND_DEFAULTS,
       {excludeBrowserFlags: ['--disable-default-a']},
       {excludeBrowserFlags: ['--disable-default-b']},
@@ -199,7 +199,7 @@ describe('mergeOptionLayers', () => {
   })
 
   it('deep-merges preferences with later layers winning on conflict', () => {
-    const merged = mergeOptionLayers<Record<string, any>>(
+    const merged = mergeOptionLayers<Record<string, unknown>>(
       DEV_COMMAND_DEFAULTS,
       {
         preferences: {a: 1, nested: {x: 1, keep: true}, onlyBrowser: 'browser'}
@@ -222,7 +222,7 @@ describe('mergeOptionLayers', () => {
   })
 
   it('merges include key by key, a later layer winning one output path', () => {
-    const merged = mergeOptionLayers<Record<string, any>>(
+    const merged = mergeOptionLayers<Record<string, unknown>>(
       BUILD_COMMAND_DEFAULTS,
       {
         include: {'models/a.onnx': './models/a.onnx', 'data/x.json': './x.json'}
@@ -239,7 +239,7 @@ describe('mergeOptionLayers', () => {
   })
 
   it('merges perfBudgets key by key, so a layer with only ignore keeps a budget', () => {
-    const merged = mergeOptionLayers<Record<string, any>>(
+    const merged = mergeOptionLayers<Record<string, unknown>>(
       BUILD_COMMAND_DEFAULTS,
       {perfBudgets: {wasm: 48 * 1024 * 1024, ignore: ['assets/a.wasm']}},
       {perfBudgets: {page: 2048}},
@@ -254,7 +254,7 @@ describe('mergeOptionLayers', () => {
   })
 
   it('keeps scalar last-wins while combining flags and preferences', () => {
-    const merged = mergeOptionLayers<Record<string, any>>(
+    const merged = mergeOptionLayers<Record<string, unknown>>(
       DEV_COMMAND_DEFAULTS,
       {
         polyfill: true,

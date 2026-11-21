@@ -182,7 +182,7 @@ async function build(root: string, mode: Mode, browser: Browser = 'chrome') {
       install: false,
       mode,
       exitOnError: false
-    } as any)
+    } as Parameters<typeof extensionBuild>[1])
   } finally {
     for (const spy of spies) spy.mockRestore()
 

@@ -79,7 +79,7 @@ function decodeEntities(text: string) {
 describe('build: env values keep their meaning in json and html assets', () => {
   it('lands a quote, a backslash and a < in the manifest and the page intact', async () => {
     const root = project()
-    const summary: any = await build(root)
+    const summary = await build(root)
     expect(summary.errors_count).toBe(0)
 
     const manifest = JSON.parse(read(root, 'manifest.json'))
