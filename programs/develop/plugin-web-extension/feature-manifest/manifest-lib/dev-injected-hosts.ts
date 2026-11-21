@@ -134,7 +134,7 @@ export function matchesHostPermission(pattern: string, url: string): boolean {
   return matchesHostPattern(pattern, url, {ignorePath: true})
 }
 
-export interface InjectedOnlyHostUse {
+interface InjectedOnlyHostUse {
   url: string
   file: string
   pattern: string

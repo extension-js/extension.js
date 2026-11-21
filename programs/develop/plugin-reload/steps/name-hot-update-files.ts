@@ -11,7 +11,7 @@ import {HOT_UPDATES_FOLDER} from '../../lib/hot-update-files'
 
 // A reload session fetches and prunes hot update files by chunk and build
 // hash alone. A dev server with reload off keeps the suffix it writes.
-export function hotUpdateFileNames(reloads: boolean): {
+function hotUpdateFileNames(reloads: boolean): {
   chunk: string
   main: string
 } {

@@ -17,7 +17,6 @@ import {
 } from './webkit-unsupported-keys'
 
 export {
-  WEBKIT_UNSUPPORTED_PERMISSIONS as UNSUPPORTED_PERMISSIONS,
   webkitDroppedSurfacePages,
   webkitUnsupportedManifestKeys,
   webkitUnsupportedPermissions
