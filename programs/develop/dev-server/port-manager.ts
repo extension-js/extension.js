@@ -103,7 +103,7 @@ export function holdPortNow(
   return {port, host, server, release: () => closeReservation(server)}
 }
 
-export interface PortAllocation {
+interface PortAllocation {
   port: number
   instanceId: string
 }

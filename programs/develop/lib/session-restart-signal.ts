@@ -8,7 +8,7 @@
 
 import type {Compiler} from '@rspack/core'
 
-export type DevSessionRestartReason =
+type DevSessionRestartReason =
   | 'scripts'
   | 'html'
   | 'icons'
@@ -58,7 +58,7 @@ export type NoteMainWorldSet = (
 
 // What the dev server answers for a live session. A build with no session
 // has no answers, so a plugin reports the change to the author itself.
-export interface SessionRestartAnswers {
+interface SessionRestartAnswers {
   request(
     compiler: object | undefined,
     request: DevSessionRestartRequest

@@ -99,7 +99,7 @@ export function refusedHostName(header: unknown): string {
   return name.replace(/[^A-Za-z0-9.:_[\]-]/g, '?').slice(0, 255)
 }
 
-export function refusedHostResponse(host: string): string {
+function refusedHostResponse(host: string): string {
   const name = host || 'an empty Host header'
 
   return (
@@ -119,7 +119,7 @@ interface HostCheckingServer {
 
 // Same verdict as the dev server's own Host check, which stays the DNS
 // rebinding defense. Only the refusal changes: it names the host and the fix.
-export function createHostCheckMiddleware(
+function createHostCheckMiddleware(
   devServer: unknown,
   onRefused: (host: string) => void
 ) {
@@ -185,7 +185,7 @@ const LOOPBACK_NAMES = ['localhost', '127.0.0.1', '::1']
 
 // What makes a request part of one session: the address the browser reaches
 // the server at, the origins the session named, and its own extension.
-export interface RequestSiteSession {
+interface RequestSiteSession {
   port: number
   // Host names the server answers on, without brackets or a port.
   sessionHosts: readonly string[]
@@ -375,7 +375,7 @@ export const REFUSED_REQUEST_RESPONSE =
   'Extension.js dev server refused a request from another site.\n' +
   'Open this address directly in the browser to load it.\n'
 
-export function createRequestSiteMiddleware(
+function createRequestSiteMiddleware(
   session: RequestSiteSession,
   onRefused: (origin: string) => void
 ) {

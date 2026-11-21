@@ -267,7 +267,7 @@ function capEventSize(event: ReadyContractEvent): ReadyContractEvent {
 
 // The verdicts a compile writes. A later compile that succeeds clears these
 // and no other error: the rest describe a browser a rebuild does not bring back.
-export const COMPILE_VERDICTS: ReadonlySet<string> = new Set([
+const COMPILE_VERDICTS: ReadonlySet<string> = new Set([
   'compile_error',
   'compile_failed'
 ])
@@ -423,7 +423,7 @@ function deriveDistExtensionId(
 
 // Where the published id came from. Only a derived id is ever recomputed: the
 // browser's own answer and the packager's bundle id describe what really runs.
-export type ExtensionIdSource = 'browser' | 'derived' | 'packager'
+type ExtensionIdSource = 'browser' | 'derived' | 'packager'
 
 function stampReadyExtensionIdFrom(
   packageJsonDir: string,
@@ -572,7 +572,7 @@ function patchContractFile(
   }
 }
 
-export function safariExtensionBase(origin: unknown): string | null {
+function safariExtensionBase(origin: unknown): string | null {
   const found = /^safari-web-extension:\/\/([0-9A-Za-z-]{8,64})\/?$/.exec(
     String(origin || '')
   )
@@ -580,7 +580,7 @@ export function safariExtensionBase(origin: unknown): string | null {
   return found ? `safari-web-extension://${found[1]}/` : null
 }
 
-export interface LiveDevSessionOwner {
+interface LiveDevSessionOwner {
   pid: number
   port?: number | null
   runId: string

@@ -15,7 +15,7 @@ export interface ChunkLoadingBackgroundEntries {
 }
 
 // What a plugin applied before the chunk loading target may change about it.
-export interface ChunkLoadingTargetExtension {
+interface ChunkLoadingTargetExtension {
   // Turns on the background side of the message fallback, which injects a
   // chunk a content script could not import, in the background returned.
   // It gets the one the manifest names and is read when the target applies.

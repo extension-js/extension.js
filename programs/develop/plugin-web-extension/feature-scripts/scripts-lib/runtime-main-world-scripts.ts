@@ -30,7 +30,7 @@ import {
 import {extractRegisteredFileSightings} from './registration-worlds'
 import {getScriptEntries} from './utils'
 
-export interface RuntimeMainWorldEntry {
+interface RuntimeMainWorldEntry {
   entryName: string
   files: string[]
   // The source that holds the registration or injection.
@@ -40,7 +40,7 @@ export interface RuntimeMainWorldEntry {
   copyOf?: string
 }
 
-export interface RuntimeMainWorldOptions {
+interface RuntimeMainWorldOptions {
   includeList: FilepathList
   // The HTML pages this build compiles, whose scripts can register too.
   pageList?: FilepathList
@@ -382,7 +382,7 @@ export function withMainWorldCopyEntries(
   return list
 }
 
-export interface UnknownWorldRegistration {
+interface UnknownWorldRegistration {
   // The source that holds the call, and the line the call starts on.
   file: string
   line: number
@@ -417,7 +417,7 @@ export function findUnknownWorldRegistrations(
   return found
 }
 
-export interface PageRelativeScriptPath {
+interface PageRelativeScriptPath {
   page: string
   // The source that names the path, which may be a module the page imports.
   file: string

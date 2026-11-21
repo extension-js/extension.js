@@ -10,7 +10,7 @@ import type {Compilation, Compiler} from '@rspack/core'
 
 // Emits the files a page or sheet names from the extension root. The HTML
 // feature hands its emitter in, so the public copier never imports it.
-export type RootAbsoluteRefsEmitter = (
+type RootAbsoluteRefsEmitter = (
   compilation: Compilation,
   context: string,
   publicDir: string,

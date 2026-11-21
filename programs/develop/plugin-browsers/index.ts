@@ -136,7 +136,7 @@ export interface BrowserLogSinkEvent {
   timestamp?: number
 }
 
-export type BrowserLogSink = (event: BrowserLogSinkEvent) => void
+type BrowserLogSink = (event: BrowserLogSinkEvent) => void
 
 // The dev server's answer to whether a MAIN world restart replaces this build,
 // handed in so the browser plugins never read session restart state.
@@ -179,7 +179,7 @@ export interface RunnerPlugin {
   setLaunchSettledListener?(listener: () => void): void
 }
 
-export interface BrowsersPluginOptions {
+interface BrowsersPluginOptions {
   /** Injected browser launcher, provided by the CLI from programs/extension/browsers/ */
   launcher: BrowserLauncherFn
   /** Browser-related options forwarded to the launcher (outputPath/contextDir/extensionsToLoad are filled at compile time) */

@@ -56,7 +56,7 @@ function pickEsmCondition(entry: unknown): string | undefined {
 // the bundle and the two reactive graphs never see each other, which reads as
 // dead reactivity: a signal write updates nothing in the DOM. Read the
 // package's own exports map instead and take the ES module it points at.
-export function resolveSolidHyperscript(
+function resolveSolidHyperscript(
   resolveFromProject: ResolveFromProject
 ): string | undefined {
   const packageJsonPath = resolveFromProject('solid-js/package.json')

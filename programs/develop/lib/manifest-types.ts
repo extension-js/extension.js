@@ -9,7 +9,7 @@
 // Copied from @types/chrome 0.1.33 (DefinitelyTyped, MIT License) so the
 // published types read the same whichever Chrome types package a project loads.
 
-export interface UrlFilter {
+interface UrlFilter {
   cidrBlocks?: string[] | undefined
   schemes?: string[] | undefined
   urlMatches?: string | undefined
@@ -33,7 +33,7 @@ export interface UrlFilter {
   originAndPathMatches?: string | undefined
 }
 
-export interface PageStateMatcherProperties {
+interface PageStateMatcherProperties {
   pageUrl?: UrlFilter | undefined
   css?: string[] | undefined
   isBookmarked?: boolean | undefined
@@ -43,13 +43,13 @@ export interface ManifestIcons {
   [size: number]: string
 }
 
-export interface ManifestAction {
+interface ManifestAction {
   default_icon?: ManifestIcons | undefined
   default_title?: string | undefined
   default_popup?: string | undefined
 }
 
-export type ManifestPermission =
+type ManifestPermission =
   | 'accessibilityFeatures.modify'
   | 'accessibilityFeatures.read'
   | 'activeTab'
@@ -133,12 +133,7 @@ export type ManifestPermission =
   | 'webRequestBlocking'
   | 'webRequestAuthProvider'
 
-/**
- * @deprecated Use `ManifestPermission` instead.
- */
-export type ManifestPermissions = ManifestPermission
-
-export type ManifestOptionalPermission = Exclude<
+type ManifestOptionalPermission = Exclude<
   ManifestPermission,
   | 'debugger'
   | 'declarativeNetRequest'
@@ -154,12 +149,7 @@ export type ManifestOptionalPermission = Exclude<
   | 'webAuthenticationProxy'
 >
 
-/**
- * @deprecated Use `ManifestOptionalPermission` instead.
- */
-export type ManifestOptionalPermissions = ManifestOptionalPermission
-
-export interface SearchProvider {
+interface SearchProvider {
   name?: string | undefined
   keyword?: string | undefined
   favicon_url?: string | undefined

@@ -61,7 +61,7 @@ const NOT_A_PACKAGED_FILE = /^(?:[a-z][a-z0-9+.-]*:|\/\/|#|$)/i
 
 // The packaged paths a copied stylesheet names with url(), as the browser
 // resolves them from where the sheet is served.
-export function urlTargetsOfCopiedSheet(name: string, css: string): string[] {
+function urlTargetsOfCopiedSheet(name: string, css: string): string[] {
   const targets = new Set<string>()
 
   for (const match of css.replace(CSS_COMMENT, '').matchAll(CSS_URL)) {

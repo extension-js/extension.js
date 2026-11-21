@@ -13,7 +13,7 @@ import {
   sourceFileMayShip
 } from '../../../lib/public-private-files'
 
-export interface ShipQuestion {
+interface ShipQuestion {
   // The reference as written, when it starts with `/`: a path from the
   // extension root, never an address on this machine.
   rootRef?: string

@@ -118,7 +118,7 @@ const GECKO_ID_SHAPES = [
   /^[a-z0-9-._]*@[a-z0-9-._]+$/i
 ]
 
-export interface GeckoManifestId {
+interface GeckoManifestId {
   // The authored value, whatever its type, or undefined when no key holds one.
   declared: unknown
   // The trimmed ID when Firefox accepts its shape.

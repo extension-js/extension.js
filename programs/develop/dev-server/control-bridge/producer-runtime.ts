@@ -1416,7 +1416,7 @@ export interface ProducerExecutor {
   boot: string
 }
 
-export function composeBridgeProducer(executor?: ProducerExecutor): string {
+function composeBridgeProducer(executor?: ProducerExecutor): string {
   return (
     PRODUCER_HEAD +
     (executor?.handlers ?? '') +
@@ -1431,7 +1431,7 @@ export const BRIDGE_PRODUCER_SOURCE = composeBridgeProducer()
 // Lightweight console RELAY for non-SW contexts: forwards each call to the SW
 // over a NAMED runtime.Port so the extension's own onMessage never loops on it.
 // The devtools page is the exception and sends messages, see postLog below.
-export const BRIDGE_RELAY_SOURCE = `;(function () {
+const BRIDGE_RELAY_SOURCE = `;(function () {
   try {
     var g = (typeof globalThis === "object" && globalThis) ? globalThis : this;
     if (!g || g.__extjsBridgeRelayInstalled) return;
@@ -1700,7 +1700,7 @@ export const BRIDGE_RELAY_SOURCE = `;(function () {
 })();
 `
 
-export interface BuildRelayOptions {
+interface BuildRelayOptions {
   context: string
 }
 

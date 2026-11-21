@@ -18,7 +18,7 @@ export function stripBom(text: string | Buffer): string {
 // it expects names it as the type argument and still guards each read.
 export type ParsedJson = unknown
 
-export interface JsonCommentScan {
+interface JsonCommentScan {
   text: string
   hasComments: boolean
   firstBlockComment: number

@@ -13,11 +13,11 @@ import {codedError} from './coded-error'
 import * as messages from './messages'
 import {CODES} from './messaging'
 
-export type SafariIdentity = Omit<SafariPackagerOverrides, 'noOpen'>
+type SafariIdentity = Omit<SafariPackagerOverrides, 'noOpen'>
 
 // Apple's rule for CFBundleIdentifier: letters, digits, hyphens and periods.
 // A segment may start with a digit (com.1password.ext), none may be empty.
-export function isValidBundleId(value: string): boolean {
+function isValidBundleId(value: string): boolean {
   return /^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*$/.test(value)
 }
 

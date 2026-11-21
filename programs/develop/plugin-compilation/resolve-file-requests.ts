@@ -15,7 +15,7 @@ interface ResolveRequest {
   request?: unknown
 }
 
-export interface FileRequestsOptions {
+interface FileRequestsOptions {
   isFile?: (target: string) => boolean
   platform?: NodeJS.Platform
 }

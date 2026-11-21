@@ -251,11 +251,11 @@ const SCRIPT_EXTENSIONS = new Set([
 ])
 
 // Where a traced literal was found, which fixes how the browser executes it.
-export type LoadContext = 'importScripts' | 'injected' | 'getURL' | 'html'
+type LoadContext = 'importScripts' | 'injected' | 'getURL' | 'html'
 // importScripts and injection payloads always run as classic scripts. A getURL
 // or HTML target is loaded the way its author wrote it, so the file decides.
-export type TracedLoad = 'classic' | 'by-shape'
-export type TracedFormat = 'module' | 'classic'
+type TracedLoad = 'classic' | 'by-shape'
+type TracedFormat = 'module' | 'classic'
 
 export type TracedFilePlan =
   | {kind: 'copy'; sourcePath: string; emitPath: string}
@@ -2720,9 +2720,9 @@ export function extractRuntimeSurfaceLiterals(source: string): string[] {
 // What the browser does with the path: opens it as a page, loads it as an
 // image, shows it as a DevTools panel, or takes it as that panel's icon,
 // which Chrome never fetches, so no run measured its address.
-export type SurfaceRead = 'page' | 'image' | 'panel' | 'panelPage'
+type SurfaceRead = 'page' | 'image' | 'panel' | 'panelPage'
 
-export interface SurfaceReference {
+interface SurfaceReference {
   literal: string
   reads: SurfaceRead
 }
@@ -2880,7 +2880,7 @@ function extractHtmlSubresourceLiterals(html: string): string[] {
 
 // Extract module specifiers a raw (unbundled) ES module resolves against its
 // own URL: static/dynamic imports and re-exports of ./ ../ or /-anchored files.
-export function extractStaticImportLiterals(source: string): string[] {
+function extractStaticImportLiterals(source: string): string[] {
   const code = blankComments(source)
   const literals: string[] = []
   const isFileSpecifier = (spec: string) =>
@@ -3531,7 +3531,7 @@ export function extractOwnAddressLiterals(source: string): string[] {
   return literals
 }
 
-export type ReferenceForm = 'own' | 'root'
+type ReferenceForm = 'own' | 'root'
 
 // What every mention of a path in one script proves: read against the
 // script's address, or handed to getURL. A table or a variable proves neither.

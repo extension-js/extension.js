@@ -19,7 +19,7 @@ import {
 import {startControlServer} from './control-bridge/ws-control-server'
 import * as messages from './messages'
 
-export interface OpenControlBridgeOptions {
+interface OpenControlBridgeOptions {
   broker: BridgeBroker
   host: string
   viewerOrigin: string | null
@@ -31,7 +31,7 @@ export interface OpenControlBridgeOptions {
   startServer?: typeof startControlServer
 }
 
-export interface ControlBridgeOpening {
+interface ControlBridgeOpening {
   controlPort: number | null
   unavailableReason: string | null
   // Closes the control server, for a session that ends without a process exit.

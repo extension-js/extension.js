@@ -12,7 +12,7 @@ import {renameSyncWithRetry} from '../../lib/rename-with-retry'
 import type {BridgeTarget, CommandOp} from './contracts'
 import {isLogFileOwnedByAnotherRun} from './logs-file'
 
-export const ACTION_RECORD_VERSION = 1 as const
+const ACTION_RECORD_VERSION = 1 as const
 
 export interface ActionRecord {
   v: typeof ACTION_RECORD_VERSION
@@ -34,12 +34,12 @@ export interface ActionsSink {
 
 // Action rows carry no header, so the session's logs.ndjson header names
 // the run that owns both files.
-export interface ActionsFileOwner {
+interface ActionsFileOwner {
   runId: string
   logsFilePath: string
 }
 
-export interface ActionsFileOptions {
+interface ActionsFileOptions {
   filePath: string
   owner?: ActionsFileOwner
   maxBytes?: number

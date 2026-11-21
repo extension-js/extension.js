@@ -9,7 +9,7 @@
 import type {Manifest} from '../../../types'
 import {NAMED_CSS_COLORS} from './named-css-colors'
 
-export interface ThemeArrayIssue {
+interface ThemeArrayIssue {
   field: string
   value: string
   write: string

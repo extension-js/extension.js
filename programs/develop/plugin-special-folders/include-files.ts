@@ -17,7 +17,7 @@ import {
 import type {IncludeFilesConfig} from '../types'
 import * as messages from './messages'
 
-export interface IncludeFilesOptions {
+interface IncludeFilesOptions {
   include: IncludeFilesConfig | undefined
   projectRoot: string
 }

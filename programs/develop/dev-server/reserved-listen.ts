@@ -30,7 +30,7 @@ function targetMatches(target: unknown, reservation: PortReservation): boolean {
   )
 }
 
-export interface ReservedHttpServerOptions {
+interface ReservedHttpServerOptions {
   takeReservation: () => PortReservation | null
   onBindError: (error: NodeJS.ErrnoException) => void
   holdOnClose?: () => boolean

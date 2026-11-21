@@ -32,7 +32,7 @@ export interface FirstDoneStats {
 }
 
 // The banner taps one hook, so a host hands it no more than that.
-export interface DoneHookHost {
+interface DoneHookHost {
   hooks: {
     done: {tap(name: string, fn: (stats: FirstDoneStats) => void): void}
   }

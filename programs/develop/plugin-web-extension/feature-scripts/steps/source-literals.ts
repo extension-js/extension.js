@@ -356,7 +356,7 @@ export function escapeRegExp(text: string): string {
 
 // A module as a reader that resolves from any file hands it back, so a
 // specifier written inside that module can be followed too.
-export interface ImportedModule {
+interface ImportedModule {
   source: string
   file: string
 }

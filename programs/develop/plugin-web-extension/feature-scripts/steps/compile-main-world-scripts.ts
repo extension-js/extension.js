@@ -33,7 +33,7 @@ import {
   withoutDevRefresh
 } from './trace-runtime-loaded-files'
 
-export interface MainWorldGroup {
+interface MainWorldGroup {
   index: number
   entryName: string
   files: string[]
@@ -49,7 +49,7 @@ interface MainWorldEntry {
 // The MAIN world content script groups a dev build compiles apart: every js
 // file local and present, no stylesheet, since a stylesheet rides the
 // parent's entry and the group would then emit its bundle twice.
-export function findMainWorldGroups(
+function findMainWorldGroups(
   manifestPath: string,
   browser: DevOptions['browser']
 ): MainWorldGroup[] {

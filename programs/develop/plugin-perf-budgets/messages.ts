@@ -25,7 +25,7 @@ export interface OversizedAsset {
 }
 
 // A build that vendors thousands of files would otherwise print them all.
-export const MAX_LISTED_ASSETS = 20
+const MAX_LISTED_ASSETS = 20
 
 // Which budget a wasm file fell under, in the words its role line uses.
 const WASM_BUDGET_REASON: Partial<Record<BudgetCategory, string>> = {

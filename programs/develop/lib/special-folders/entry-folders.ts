@@ -28,7 +28,7 @@ export function isEntryFolderFile(
     : isScriptsFolderEntry(filePath)
 }
 
-export interface EntryFolderWalk {
+interface EntryFolderWalk {
   // An unreadable folder is thrown as a coded error, or passed over.
   onUnreadable?: 'throw' | 'skip'
 }
@@ -76,7 +76,7 @@ export function walkEntryFolder(
 
 // Named from the folder's parent, so `scripts/locked` reads the same in a
 // moved folder, and never by an absolute path.
-export function unreadableFolderError(
+function unreadableFolderError(
   folderRoot: string,
   unreadable: string,
   code: string

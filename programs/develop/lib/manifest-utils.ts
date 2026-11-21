@@ -72,7 +72,7 @@ const PERMISSION_ITEM_PREFIXES = new Set([
   ...WEBKIT_BASED_BROWSERS
 ])
 
-export interface PrefixedPermissionItem {
+interface PrefixedPermissionItem {
   key: string
   item: string
   prefix: string
@@ -269,7 +269,7 @@ export function winningPrefixedKey(
   return specific ?? family
 }
 
-export interface DroppedVendorKey {
+interface DroppedVendorKey {
   // Dotted location of the key as written, like background.chrome:service_worker
   path: string
   // The same location under chromium:, the rename that keeps the old reach

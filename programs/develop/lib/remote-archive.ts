@@ -10,7 +10,7 @@ import {createHash} from 'node:crypto'
 import * as os from 'node:os'
 import * as path from 'node:path'
 
-export interface TokenExpiry {
+interface TokenExpiry {
   at: Date
   expired: boolean
 }

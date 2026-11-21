@@ -43,7 +43,7 @@ interface AssetLike {
   info?: {sourceFilename?: unknown}
 }
 
-export interface CompilationLike {
+interface CompilationLike {
   chunks?: Iterable<unknown>
   chunkGraph?: ChunkGraphLike
   getAssets?: () => Iterable<AssetLike>

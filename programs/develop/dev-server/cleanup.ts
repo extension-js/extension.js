@@ -14,7 +14,7 @@ import * as messages from './messages'
 import type {PortManager} from './port-manager'
 
 // A self-restart swaps the live server, so shutdown asks for the current one.
-export type DevServerHandle =
+type DevServerHandle =
   | RspackDevServer
   | (() => RspackDevServer | null | undefined)
 
@@ -40,7 +40,7 @@ export const FORCED_SHUTDOWN_EXIT_CODE = 1
 // The wait after the last stop step, so browser plugins finish their cleanup.
 export const EXIT_DELAY_MS = 500
 
-export interface CleanupDependencies {
+interface CleanupDependencies {
   events?: ProcessEventsLike
   exit?: ExitFn
   env?: Readonly<Record<string, string | undefined>>
@@ -93,7 +93,7 @@ async function closeAll(
   setTimeout(() => (failed ? exit(1) : exit()), EXIT_DELAY_MS)
 }
 
-export interface CleanupHandlers {
+interface CleanupHandlers {
   (): void
   // Runs the same shutdown a signal runs, and the process then exits 1.
   endAsFailed: () => Promise<void>

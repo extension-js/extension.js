@@ -42,7 +42,7 @@ interface WarmScan {
   scanned: Promise<void>
 }
 
-export interface WarmAncestorWatchersOptions {
+interface WarmAncestorWatchersOptions {
   platform?: NodeJS.Platform
   realpath?: (target: string) => string
   pollMs?: number

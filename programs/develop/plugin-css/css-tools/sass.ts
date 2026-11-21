@@ -42,9 +42,7 @@ export function isUsingSass(projectPath: string): boolean {
 
 // Resolve Sass from the user's project first, then the Extension.js cache,
 // mirroring the PostCSS/Tailwind strategy for npx-cache installs.
-export function resolveSassImplementation(
-  projectPath: string
-): AnyModule | undefined {
+function resolveSassImplementation(projectPath: string): AnyModule | undefined {
   const extensionRoot = resolveDevelopInstallRoot()
   const bases = [projectPath, extensionRoot || undefined, process.cwd()].filter(
     Boolean

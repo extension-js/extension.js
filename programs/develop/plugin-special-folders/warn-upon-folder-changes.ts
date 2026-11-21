@@ -49,7 +49,7 @@ function readSpecialFolderFiles(
   return found
 }
 
-export interface WarnUponFolderChangesOptions {
+interface WarnUponFolderChangesOptions {
   // The files under the folders right now. The disk walk by default.
   readFolderFiles?: (
     roots: SpecialFoldersRoots,

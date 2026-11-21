@@ -11,7 +11,7 @@ import {
   releaseCompilerFromDevSession
 } from './session-restart'
 
-export interface RestartableServer {
+interface RestartableServer {
   stop?: () => Promise<void>
 }
 
@@ -201,7 +201,7 @@ export function createSessionRestartHandler<Server extends RestartableServer>(
 
 // A bundle that will never serve lets go of its compiler and of the manifest
 // guard its server holds until stopped.
-export function discardRestartBundle(bundle: {
+function discardRestartBundle(bundle: {
   server: RestartableServer
   compiler?: {close: (callback: () => void) => void}
 }): void {
@@ -220,7 +220,7 @@ export function discardRestartBundle(bundle: {
   }
 }
 
-export interface RestartBundleBuild<Compiler, Bundle> {
+interface RestartBundleBuild<Compiler, Bundle> {
   build: () => Promise<Bundle>
   activeCompiler: () => Compiler | null
   setActiveCompiler: (compiler: Compiler | null) => void

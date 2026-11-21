@@ -21,23 +21,6 @@ export function toPosixPath(value: string): string {
   return String(value).split(path.sep).join('/')
 }
 
-// The text CSS reads from an address: `\2e ` and `\.` are both a period,
-// and a backslash ahead of a line break joins the two lines.
-export function unescapeCss(text: string): string {
-  return String(text).replace(
-    /\\(?:([0-9a-f]{1,6})(?:\r\n|[ \t\r\n\f])?|(\r\n|[\s\S]))/gi,
-    (_whole, hex: string | undefined, char: string | undefined) => {
-      if (hex === undefined) return /^[\r\n\f]/.test(char || '') ? '' : char!
-
-      const code = Number.parseInt(hex, 16)
-      const valid =
-        code > 0 && code <= 0x10ffff && (code < 0xd800 || code > 0xdfff)
-
-      return valid ? String.fromCodePoint(code) : '�'
-    }
-  )
-}
-
 const CHECKED_SHEETS = Symbol.for('extensionjs.css-checked-sheets')
 
 // The sheets a page loader ran for, by the name rules match each as.
@@ -50,7 +33,7 @@ export function checkedCssSheets(owner: object): Set<string> {
   return holder[CHECKED_SHEETS]
 }
 
-export interface DeadUrlRefContext {
+interface DeadUrlRefContext {
   issuerDir: string
   roots: string[]
 }
@@ -128,7 +111,7 @@ export function publicOwnedOutputName(
   return toPosixPath(rel)
 }
 
-export interface CssUrlRef {
+interface CssUrlRef {
   isImport: boolean
 }
 

@@ -60,7 +60,7 @@
     },
     "E_PACKAGE_JSON_INVALID": {
       "area": "project",
-      "summary": "The project's package.json cannot be opened, is not parseable JSON, opens with a byte order mark, or is saved as UTF-16."
+      "summary": "The project's package.json is not a file, cannot be opened, is not parseable JSON, opens with a byte order mark, or is saved as UTF-16."
     },
     "E_DEPENDENCY_INSTALL": {
       "area": "project",
@@ -613,7 +613,7 @@
     },
     "W_MANIFEST_COMPAT": {
       "area": "manifest",
-      "summary": "The manifest uses a version, key or host permission pattern that the target browser ignores or is phasing out.",
+      "summary": "The manifest uses a version, key, permission item or host permission pattern that the target browser ignores or is phasing out.",
       "warn": true
     },
     "W_STORE_READINESS": {

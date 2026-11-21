@@ -14,9 +14,9 @@ import {trackJsonDependencies} from './track-dependencies'
 
 // One output file per key: the key is the output path and the value its
 // source. A list had every file write the same output, the last one kept.
-export type JsonIncludeList = Record<string, string | undefined>
+type JsonIncludeList = Record<string, string | undefined>
 
-export interface JsonPluginOptions {
+interface JsonPluginOptions {
   manifestPath: string
   includeList?: JsonIncludeList
   browser?: DevOptions['browser']

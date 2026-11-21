@@ -26,7 +26,7 @@ type ModuleLike = {
   modules?: Iterable<ModuleLike>
 }
 
-export type AssetReferrers = ReadonlyMap<string, ReadonlySet<EntrySurface>>
+type AssetReferrers = ReadonlyMap<string, ReadonlySet<EntrySurface>>
 
 function toArray<T>(value: Iterable<T> | T | null | undefined): T[] {
   if (value === null || value === undefined) return []
