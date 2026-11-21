@@ -26,11 +26,15 @@ const earlierCommandIsTheContract: Same<
   ReadyContract['command']
 > = true
 
+// A Windows checkout holds the sources with CRLF, so every read of one
+// goes through here and the patterns below match on a plain line feed.
+function sourceText(file: string): string {
+  return fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n')
+}
+
 // The interface as written in types.ts, one field per two-space line.
 function readyContractBody(): string {
-  const source = fs
-    .readFileSync(path.join(developRoot, 'types.ts'), 'utf8')
-    .replace(/\r\n/g, '\n')
+  const source = sourceText(path.join(developRoot, 'types.ts'))
   const start = source.indexOf('\nexport interface ReadyContract {\n')
 
   expect(start, 'types.ts declares no ReadyContract interface').toBeGreaterThan(
@@ -52,7 +56,7 @@ function fieldsOfReadyContract(only: 'all' | 'required' = 'all'): string[] {
 // Every field the writer reads off the document on disk. Those are the ones
 // the browser launcher stamps, so the stand-in below stamps each of them.
 function fieldsTheWriterReadsBack(): string[] {
-  const source = fs.readFileSync(writerSourcePath, 'utf8')
+  const source = sourceText(writerSourcePath)
 
   return [
     ...new Set(
@@ -93,7 +97,7 @@ function launcherStampSources(): string[] {
       (file) =>
         file !== writerSourcePath &&
         /from '[./]+(?:develop\/)?(?:lib\/)?ready-contract-writer'/.test(
-          fs.readFileSync(file, 'utf8')
+          sourceText(file)
         )
     )
     .sort()
@@ -106,7 +110,7 @@ function fieldsTheLaunchersStamp(): string[] {
   const fields = new Set<string>()
 
   for (const file of launcherStampSources()) {
-    const source = fs.readFileSync(file, 'utf8')
+    const source = sourceText(file)
 
     for (const m of source.matchAll(/\bready\.([A-Za-z]+) =/g)) {
       fields.add(m[1])
@@ -114,7 +118,7 @@ function fieldsTheLaunchersStamp(): string[] {
   }
 
   // The pid stamps write through the shared writer's table of field names.
-  const shared = fs.readFileSync(sharedWriterPath, 'utf8')
+  const shared = sourceText(sharedWriterPath)
 
   for (const m of shared.matchAll(
     /(?:pid|startedAt|startId): '([A-Za-z]+)'/g
@@ -335,7 +339,7 @@ describe('the ReadyContract type in types.ts', () => {
       .flatMap((program) => productSources(path.join(programsRoot, program)))
       .filter((file) =>
         /\b(?:type|interface) ReadyMetadata\b(?! = ReadyContract\n)/.test(
-          fs.readFileSync(file, 'utf8')
+          sourceText(file)
         )
       )
 
