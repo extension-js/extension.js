@@ -111,6 +111,14 @@ export function packageJsonUnopened(packageJsonPath: string, reason: string) {
   )
 }
 
+export function packageJsonNotAFile(packageJsonPath: string, found: string) {
+  return (
+    `${getLoggingPrefix('error')} package.json is ${found}, not a file.\n` +
+    `${colors.gray('PATH')} ${colors.underline(packageJsonPath)}\n` +
+    `Remove or rename it, or put a package.json file there, then run the command again.`
+  )
+}
+
 export function packageJsonNotUtf8(packageJsonPath: string, encoding: string) {
   return (
     `${getLoggingPrefix('error')} package.json is saved as ${encoding}, which the build cannot resolve modules through.\n` +
