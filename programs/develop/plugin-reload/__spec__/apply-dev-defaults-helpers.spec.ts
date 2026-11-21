@@ -1,14 +1,17 @@
 import {describe, expect, it} from 'vitest'
-import {asManifest} from '../../__spec__/helpers/manifest-fakes'
-import patchBackground from '../apply-dev-defaults-lib/patch-background'
-import {patchV2CSP, patchV3CSP} from '../apply-dev-defaults-lib/patch-csp'
-import patchExternallyConnectable from '../apply-dev-defaults-lib/patch-externally-connectable'
+import type {Manifest} from '../../types'
+import patchBackground from '../reload-lib/dev-manifest/patch-background'
+import {patchV2CSP, patchV3CSP} from '../reload-lib/dev-manifest/patch-csp'
+import patchExternallyConnectable from '../reload-lib/dev-manifest/patch-externally-connectable'
 import {
   DEV_RUNTIME_RESOURCES,
   patchWebResources,
   patchWebResourcesV2,
   patchWebResourcesV3
-} from '../apply-dev-defaults-lib/patch-web-resources'
+} from '../reload-lib/dev-manifest/patch-web-resources'
+
+// A manifest shape the type does not hold, handed in as one.
+const asManifest = (value: unknown) => value as Manifest
 
 describe('ApplyDevDefaults patch helpers', () => {
   it('adds a fallback background script for firefox and mv3 chromium', () => {
@@ -424,5 +427,17 @@ describe('ApplyDevDefaults patch helpers', () => {
 
   it('leaves the key absent when nothing of ours runs in a page', () => {
     expect(patchWebResources(asManifest({manifest_version: 3}))).toEqual({})
+  })
+})
+
+describe('patchV3CSP over a string policy', () => {
+  it('returns the object form even when the author wrote a string', () => {
+    const patched = patchV3CSP({
+      manifest_version: 3,
+      content_security_policy: "script-src 'self'; object-src 'self'"
+    })
+    expect(typeof patched).toBe('object')
+    expect(typeof patched.extension_pages).toBe('string')
+    expect(patched.extension_pages).toContain("script-src 'self'")
   })
 })

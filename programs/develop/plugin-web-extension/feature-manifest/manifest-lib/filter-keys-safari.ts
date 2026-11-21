@@ -16,8 +16,6 @@ import {
   WEBKIT_UNSUPPORTED_TOP_LEVEL_KEYS as UNSUPPORTED_TOP_LEVEL_KEYS
 } from './webkit-unsupported-keys'
 
-export {WEBKIT_UNSUPPORTED_PERMISSIONS as UNSUPPORTED_PERMISSIONS} from './webkit-unsupported-keys'
-
 interface WebkitDroppedKey {
   // Dotted location of what was dropped, like permissions.sidePanel
   path: string

@@ -336,6 +336,8 @@ export class AddScripts {
         (isContentScriptFeature(feature) ||
           isBackgroundScriptsFeature(feature)) &&
         scriptImports.length > 1
+      // Build-mode naming, not reload: a development compile loads the
+      // styles of a CSS-only group through a script, session or not.
       const needsDevelopmentScript =
         compiler.options.mode === 'development' &&
         isContentScriptFeature(feature) &&

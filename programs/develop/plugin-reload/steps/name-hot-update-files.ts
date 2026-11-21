@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Compiler} from '@rspack/core'
+import {HOT_UPDATES_FOLDER} from '../../lib/hot-update-files'
 
 // A reload session fetches and prunes hot update files by chunk and build
 // hash alone. A dev server with reload off keeps the suffix it writes.
@@ -17,8 +18,8 @@ function hotUpdateFileNames(reloads: boolean): {
   const suffix = reloads ? '' : '.hot-update'
 
   return {
-    chunk: `hot/[id].[fullhash]${suffix}.js`,
-    main: `hot/[runtime].[fullhash]${suffix}.json`
+    chunk: `${HOT_UPDATES_FOLDER}/[id].[fullhash]${suffix}.js`,
+    main: `${HOT_UPDATES_FOLDER}/[runtime].[fullhash]${suffix}.json`
   }
 }
 

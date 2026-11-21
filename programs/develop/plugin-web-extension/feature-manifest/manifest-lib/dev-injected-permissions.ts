@@ -6,7 +6,7 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import {isWebkitUnsupportedPermission} from '../../manifest-lib/filter-keys-safari'
+import {isWebkitUnsupportedPermission} from './filter-keys-safari'
 
 const DEV_INJECTED_PERMISSIONS_MV3 = ['scripting', 'tabs', 'storage'] as const
 

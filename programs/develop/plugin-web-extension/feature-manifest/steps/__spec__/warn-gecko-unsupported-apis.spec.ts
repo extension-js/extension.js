@@ -7,8 +7,8 @@ import {
   type TapCallback
 } from '../../../__spec__/helpers/rspack-fakes'
 import {asBrowser} from '../../__spec__/helpers/manifest-fakes'
+import {webkitGuardedRanges} from '../../manifest-lib/webkit-guarded-ranges'
 import {safariMissingMemberDetails} from '../../messages'
-import {webkitGuardedRanges} from '../apply-dev-defaults-lib/webkit-guarded-ranges'
 import {UpdateManifest} from '../update-manifest'
 import {
   callArgumentsAt,

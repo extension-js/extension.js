@@ -4,6 +4,7 @@ import {
   asCompiler,
   type TapCallback
 } from '../../__spec__/helpers/rspack-fakes'
+import {extendManifest} from '../../shared/manifest-extensions'
 import {setOriginalManifestContent} from '../manifest-lib/manifest'
 import {UpdateManifest} from '../steps/update-manifest'
 import {
@@ -62,53 +63,48 @@ describe('UpdateManifest', () => {
     return {compiler, updated, compilation}
   }
 
-  it('applies overrides and dev content_scripts overrides in development', () => {
-    const {compiler, updated} = make(
+  it('applies overrides in development', () => {
+    const {compiler, updated} = make('development')
+    new UpdateManifest({manifestPath: '/m'}).apply(compiler)
+
+    expect(JSON.parse(updated['manifest.json']).icons).toBeDefined()
+  })
+
+  // A development compile renames content scripts, and the plugin that owns
+  // the names is applied after this one, so it is asked through a registry.
+  it('hands the resolved manifest to each extension a later plugin registered', () => {
+    const {compiler, updated, compilation} = make(
       'development',
       JSON.stringify({
         name: 'x',
         content_scripts: [{matches: ['*://*/*'], css: ['a.css']}]
       })
     )
-    new UpdateManifest({manifestPath: '/m'}).apply(compiler)
-    const out = JSON.parse(updated['manifest.json'])
-    expect(out.icons).toBeDefined()
-    expect(out.content_scripts?.[0]?.js).toEqual([
-      'content_scripts/content-0.js'
-    ])
-  })
+    const seen: unknown[] = []
 
-  it('resolves the css-only dev stub to the hashed emitted asset', () => {
-    const {compiler, updated} = make(
-      'development',
-      JSON.stringify({
-        name: 'x',
-        content_scripts: [{matches: ['*://*/*'], css: ['a.css']}]
-      }),
-      ['content_scripts/content-0.deadbeef.js']
-    )
-    new UpdateManifest({manifestPath: '/m'}).apply(compiler)
-    const out = JSON.parse(updated['manifest.json'])
-    expect(out.content_scripts?.[0]?.js).toEqual([
-      'content_scripts/content-0.deadbeef.js'
-    ])
-  })
+    extendManifest(compiler, {
+      manifestResolved: (given, manifest) => {
+        seen.push(given)
 
-  it('derives the css-only stub index from the canonical css path, not array position', () => {
-    const {compiler, updated} = make(
-      'development',
-      JSON.stringify({
-        name: 'x',
-        content_scripts: [
-          {matches: ['*://*/*'], js: ['content_scripts/content-0.js']},
-          {matches: ['*://*/*'], css: ['content_scripts/content-3.css']}
-        ]
+        return {...manifest, name: `${String(manifest.name)} first`}
+      }
+    })
+
+    extendManifest(compiler, {
+      manifestResolved: (_given, manifest) => ({
+        ...manifest,
+        name: `${String(manifest.name)} second`
       })
-    )
+    })
+
     new UpdateManifest({manifestPath: '/m'}).apply(compiler)
+
     const out = JSON.parse(updated['manifest.json'])
-    expect(out.content_scripts?.[1]?.js).toEqual([
-      'content_scripts/content-3.js'
+
+    expect(seen).toEqual([compilation])
+    expect(out.name).toBe('x first second')
+    expect(out.content_scripts).toEqual([
+      {matches: ['*://*/*'], css: ['a.css']}
     ])
   })
 
