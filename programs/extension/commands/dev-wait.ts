@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {tryReadReadyRecord} from '../../develop/lib/ready-contract-writer'
 import {
   isPidAlive,
   pidStartedAtMs
@@ -392,22 +393,14 @@ function readReadyContract(
 ): ReadyContractPayload | undefined {
   if (!fs.existsSync(pending.readyPath)) return undefined
 
-  let payload: ReadyContractPayload | null
+  const read = tryReadReadyRecord(pending.readyPath)
 
-  try {
-    payload = JSON.parse(
-      fs.readFileSync(pending.readyPath, 'utf8')
-    ) as ReadyContractPayload
+  // A contract read while its producer still writes it parses as nothing.
+  // That is a transient state like the ones below, so poll again.
+  pending.lastReadFailure = read.error?.message ?? ''
+  if (read.error) return undefined
 
-    pending.lastReadFailure = ''
-  } catch (error) {
-    // A contract read while its producer still writes it parses as nothing.
-    // That is a transient state like the ones below, so poll again.
-    pending.lastReadFailure =
-      error instanceof Error ? error.message : String(error)
-
-    return undefined
-  }
+  const payload = read.record as ReadyContractPayload | undefined
 
   if (!payload || payload.command !== command) return undefined
 

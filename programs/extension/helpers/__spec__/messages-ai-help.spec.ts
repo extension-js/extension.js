@@ -113,6 +113,7 @@ describe('programAIHelp', () => {
       'browser_exited',
       'browser_launch_failed',
       'restart_failed',
+      'warning',
       'shutdown'
     ])
   })

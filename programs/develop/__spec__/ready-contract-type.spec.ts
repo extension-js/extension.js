@@ -96,7 +96,7 @@ function launcherStampSources(): string[] {
     .filter(
       (file) =>
         file !== writerSourcePath &&
-        /from '[./]+(?:develop\/)?(?:lib\/)?ready-contract-writer'/.test(
+        /\bpatchReadyRecord\b[^}]*\}\s+from\s+'[./]+(?:develop\/)?(?:lib\/)?ready-contract-writer'/.test(
           sourceText(file)
         )
     )

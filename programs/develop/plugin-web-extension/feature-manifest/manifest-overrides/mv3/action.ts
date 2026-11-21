@@ -10,7 +10,6 @@ import type {Manifest, ThemeIcon} from '../../../../types'
 import {getFilename} from '../../../shared/paths'
 import {
   iconOutputPath,
-  iconVariantsOf,
   iconVariantsOutput,
   manifestPageOutputTarget,
   themeIconOutputPath
@@ -37,8 +36,8 @@ export function action(
           )
         }),
 
-        ...(Boolean(iconVariantsOf(manifest.action)) && {
-          icon_variants: iconVariantsOutput(iconVariantsOf(manifest.action))
+        ...(Boolean(manifest.action.icon_variants) && {
+          icon_variants: iconVariantsOutput(manifest.action.icon_variants)
         }),
         ...(manifest.action.default_icon && {
           default_icon:

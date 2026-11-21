@@ -28,13 +28,13 @@ export class ManifestPlugin {
   public readonly manifestPath: string
   public readonly browser: DevOptions['browser']
   private readonly devSession?: boolean
-  private readonly connectableHost?: string
+  private readonly session?: PluginInterface['session']
 
   constructor(options: PluginInterface & {browser: DevOptions['browser']}) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
     this.devSession = options.devSession
-    this.connectableHost = options.connectableHost
+    this.session = options.session
   }
 
   public apply(compiler: Compiler) {
@@ -73,7 +73,7 @@ export class ManifestPlugin {
       manifestPath: this.manifestPath,
       browser: this.browser,
       devSession: this.devSession,
-      connectableHost: this.connectableHost
+      session: this.session
     }).apply(compiler)
 
     new WarnUndeclaredPermissions({

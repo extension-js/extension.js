@@ -169,13 +169,13 @@ export class ApplyDevDefaults {
   private readonly browser: DevOptions['browser']
 
   private readonly devSession?: boolean
-  private readonly connectableHost?: string
+  private readonly session?: PluginInterface['session']
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
     this.devSession = options.devSession
-    this.connectableHost = options.connectableHost
+    this.session = options.session
   }
 
   apply(compiler: Compiler) {
@@ -324,12 +324,12 @@ export class ApplyDevDefaults {
                   ? patchV3CSP(
                       canonicalManifest,
                       this.browser,
-                      this.connectableHost
+                      this.session?.connectableHost
                     )
                   : patchV2CSP(
                       canonicalManifest,
                       this.browser,
-                      this.connectableHost
+                      this.session?.connectableHost
                     ),
 
               // What the dev session calls. MV2 has no host_permissions, so its

@@ -62,7 +62,7 @@ async function compileWith(plugins: Array<{apply(c: Compiler): void}>) {
     output: {path: path.join(root, 'dist'), publicPath: '/'},
     plugins: [
       new ReloadPlugin({
-        ...sessionBridge(),
+        session: sessionBridge(),
         manifestPath: path.join(root, 'manifest.json'),
         browser: 'chrome',
         devSession: true

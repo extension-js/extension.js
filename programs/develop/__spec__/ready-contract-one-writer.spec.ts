@@ -3,7 +3,9 @@ import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 
 // ready.json is read by tools while it is written, so one module owns the
-// write: lib/ready-contract-writer.ts. Every other place hands it a patch.
+// write and the read: lib/ready-contract-writer.ts. Every other place hands
+// it a patch or takes the record it read. Specs read the file by hand on
+// purpose, as the check on that module, and are not scanned.
 const programsRoot = path.resolve(__dirname, '..', '..')
 const PROGRAMS = ['develop', 'extension']
 const WRITER = 'develop/lib/ready-contract-writer.ts'
@@ -73,8 +75,51 @@ function writesOf(text: string): string[] {
   return found
 }
 
-const importsTheWriter = (text: string) =>
-  /from '(?:\.\.?\/)+(?:develop\/)?(?:lib\/)?ready-contract-writer'/.test(text)
+// Everything in node:fs that takes the bytes of a path.
+const FS_READ =
+  /\b(?:readFileSync|readFile|createReadStream|readSync)\s*\(([^;{}]{0,240}?)\)/g
+
+function readsOf(text: string): string[] {
+  const found: string[] = []
+
+  for (const call of text.matchAll(FS_READ)) {
+    if (READY_PATH.test(call[1])) found.push(call[0])
+  }
+
+  // A parse fed by a helper that was handed the ready path is a reader too.
+  for (const call of text.matchAll(
+    /JSON\.parse\(\s*\w+\(\s*ready\w*Path\w*[^;{}]{0,80}?\)/gi
+  )) {
+    found.push(call[0])
+  }
+
+  return [...new Set(found)]
+}
+
+// The names a file takes from the one module, read off its import.
+function takenFromTheWriter(text: string): string[] {
+  const taken = text.match(
+    /import\s+(?:type\s+)?\{([^}]*)\}\s+from\s+'[./]+(?:develop\/)?(?:lib\/)?ready-contract-writer'/
+  )
+
+  return taken
+    ? taken[1]
+        .split(',')
+        .map((name) => name.replace(/^\s*type\s+/, '').trim())
+        .filter(Boolean)
+    : []
+}
+
+const WRITING_NAMES = ['writeReadyRecord', 'patchReadyRecord']
+
+const takes = (text: string, writing: boolean) => {
+  const names = takenFromTheWriter(text)
+
+  return (
+    names.length > 0 &&
+    names.some((name) => WRITING_NAMES.includes(name)) === writing
+  )
+}
 
 describe('who writes ready.json in the engine and the CLI', () => {
   it('reads the sources of both programs', () => {
@@ -97,13 +142,31 @@ describe('who writes ready.json in the engine and the CLI', () => {
   it('names the files that hand the writer a patch', () => {
     expect(
       sources
-        .filter(({text}) => importsTheWriter(text))
+        .filter(({text}) => takes(text, true))
         .map(({file}) => file)
         .sort()
     ).toEqual([
       'develop/plugin-browsers/launch-timeout-stamp.ts',
       'develop/plugin-ready-contract/index.ts',
       'extension/browsers/browsers-lib/ready-stamp.ts'
+    ])
+  })
+
+  it('names the files that only take the record it read', () => {
+    expect(
+      sources
+        .filter(({text}) => takes(text, false))
+        .map(({file}) => file)
+        .sort()
+    ).toEqual([
+      'develop/command-preview.ts',
+      'develop/command-steps/build-receipt.ts',
+      'develop/dev-server/control-bridge/consumer-client.ts',
+      'develop/dev-server/lifecycle-stream.ts',
+      'develop/lib/live-dev-session.ts',
+      'extension/browsers/browsers-lib/banner.ts',
+      'extension/commands/dev-wait.ts',
+      'extension/commands/doctor.ts'
     ])
   })
 
@@ -120,6 +183,43 @@ describe('who writes ready.json in the engine and the CLI', () => {
     expect(plugin).toMatch(
       /function patchContractFile\([\s\S]{0,200}?\n\) \{\n {2}const result = patchReadyRecord\(/
     )
+  })
+
+  it('reads and parses the file in that same module only', () => {
+    const readers = sources
+      .filter(({text}) => readsOf(text).length > 0)
+      .map(({file, text}) => `${file}: ${readsOf(text).join(' | ')}`)
+
+    expect(readers).toHaveLength(1)
+    expect(readers[0].startsWith(`${WRITER}: `)).toBe(true)
+  })
+
+  it('retries a refused rename in one implementation', () => {
+    expect(
+      sources
+        .filter(({text}) =>
+          /function renameSyncWithRetry\b|RETRYABLE_RENAME_CODES\s*=/.test(text)
+        )
+        .map(({file}) => file)
+    ).toEqual(['develop/lib/rename-with-retry.ts'])
+  })
+
+  it('finds a second reader when one is added', () => {
+    const secondReaders = [
+      "JSON.parse(fs.readFileSync(readyPath, 'utf-8'))\n",
+      "const text = fs.readFileSync(readyPathFor(outputPath), 'utf8')\n",
+      "await fs.promises.readFile(readyContractPath(root, 'chrome'), 'utf8')\n",
+      "fs.readFileSync(path.join(dir, 'ready.json'), 'utf8')\n",
+      'JSON.parse(readText(readyPath))\n'
+    ]
+
+    for (const source of secondReaders) {
+      expect(readsOf(source), source).not.toHaveLength(0)
+    }
+
+    expect(readsOf('readReadyRecord(readyPath)\n')).toHaveLength(0)
+    expect(readsOf("fs.readFileSync(eventsPath, 'utf8')\n")).toHaveLength(0)
+    expect(readsOf('fs.existsSync(readyPath)\n')).toHaveLength(0)
   })
 
   it('finds a second writer when one is added', () => {

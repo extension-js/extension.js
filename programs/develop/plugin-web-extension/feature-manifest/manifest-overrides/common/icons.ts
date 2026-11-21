@@ -8,14 +8,10 @@
 
 import type {Manifest} from '../../../../types'
 import {getFilename} from '../../../shared/paths'
-import {
-  iconOutputPath,
-  iconVariantsOf,
-  iconVariantsOutput
-} from '../../normalize-manifest-path'
+import {iconOutputPath, iconVariantsOutput} from '../../normalize-manifest-path'
 
 export function icons(manifest: Manifest) {
-  const variants = iconVariantsOf(manifest)
+  const variants = manifest.icon_variants
 
   if (!manifest.icons && !variants) return manifest.icons
 

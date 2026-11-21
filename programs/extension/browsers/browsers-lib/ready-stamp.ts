@@ -6,12 +6,12 @@
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {
   type PidStartProbes,
   patchReadyRecord,
   type ReadyRecord,
+  readReadyRecord,
   stampLaunchedProcess
 } from '../../../develop/lib/ready-contract-writer'
 import {
@@ -93,10 +93,7 @@ export function readReadyRunId(
   try {
     if (!extensionOutputPath) return undefined
 
-    const readyPath = readyPathFor(extensionOutputPath)
-    if (!fs.existsSync(readyPath)) return undefined
-
-    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    const ready = readReadyRecord(readyPathFor(extensionOutputPath))
     const runId = ready?.runId
 
     // A preview over a live dev session writes nothing, so the record here
@@ -425,11 +422,8 @@ export function readReadyExecutorAttached(
   try {
     if (!extensionOutputPath) return false
 
-    const readyPath = readyPathFor(extensionOutputPath)
-    if (!fs.existsSync(readyPath)) return false
-
-    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-    if (isForeignRun(ready, runId)) return false
+    const ready = readReadyRecord(readyPathFor(extensionOutputPath))
+    if (!ready || isForeignRun(ready, runId)) return false
 
     return (
       typeof ready.executorAttachedAt === 'string' ||
@@ -550,11 +544,8 @@ export function readReadyDevAdditions(
   try {
     if (!extensionOutputPath) return []
 
-    const readyPath = readyPathFor(extensionOutputPath)
-    if (!fs.existsSync(readyPath)) return []
-
     return devAdditionEntries(
-      JSON.parse(fs.readFileSync(readyPath, 'utf-8'))?.devAdditions
+      readReadyRecord(readyPathFor(extensionOutputPath))?.devAdditions
     )
   } catch {
     return []

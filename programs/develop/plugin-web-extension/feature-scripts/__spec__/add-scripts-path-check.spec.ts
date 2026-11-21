@@ -104,7 +104,7 @@ async function buildProject(
     metadataCommand: 'build',
     silent: true,
     output: {clean: true, path: path.join(root, 'dist', 'chrome')}
-  } as Parameters<typeof webpackConfig>[1])
+  })
   config.plugins = (config.plugins || []).filter(
     (plugin) =>
       plugin?.constructor.name !== 'plugin-browsers' &&

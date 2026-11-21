@@ -26,7 +26,7 @@ function thisCompilationTaps(browser: string) {
   const compiler = idleCompiler(root, 'development')
   const taps = tapsAddedBy(compiler, () =>
     new ReloadPlugin({
-      ...sessionBridge(),
+      session: sessionBridge(),
       manifestPath: path.join(root, 'manifest.json'),
       browser
     } as ConstructorParameters<typeof ReloadPlugin>[0]).apply(compiler)

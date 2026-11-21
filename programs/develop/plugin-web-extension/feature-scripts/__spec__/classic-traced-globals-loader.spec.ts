@@ -5,14 +5,13 @@ import {
   INJECTED_CLASSIC_QUERY
 } from '../scripts-lib/completion-value'
 import classicTracedGlobalsLoader, {
+  type ClassicTracedLoaderContext,
   collectExposableClassicNames
 } from '../steps/classic-traced-globals-loader'
 
 // The fake carries only the fields the loader reads, not the whole context.
-function asTracedContext(
-  fake: unknown
-): ThisParameterType<typeof classicTracedGlobalsLoader> {
-  return fake as ThisParameterType<typeof classicTracedGlobalsLoader>
+function asTracedContext(fake: unknown): ClassicTracedLoaderContext {
+  return fake as ClassicTracedLoaderContext
 }
 
 describe('collectExposableClassicNames', () => {
