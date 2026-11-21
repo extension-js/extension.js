@@ -242,7 +242,7 @@ describe('a library host after a build (real rspack)', () => {
 
     const ended = await extensionPreview(
       root,
-      {mode: 'production', metadataCommand: 'start'} as never,
+      {mode: 'production', metadataCommand: 'start'},
       async () => undefined
     ).catch((error: unknown) => error)
 
@@ -267,7 +267,7 @@ describe('a library host after a build (real rspack)', () => {
       browser: 'chrome',
       mode: 'production',
       metadataCommand: 'start'
-    } as never).catch((error: unknown) => error)
+    }).catch((error: unknown) => error)
 
     expect(ended).toBeInstanceOf(Error)
     expect(process.env[PROBE]).toBeUndefined()
@@ -284,7 +284,7 @@ describe('a library host after a build (real rspack)', () => {
     quiet()
     await extensionPreview(
       root,
-      {browser: 'chrome', mode: 'production', dryRun: true} as never,
+      {browser: 'chrome', mode: 'production', dryRun: true},
       async () => undefined
     )
 

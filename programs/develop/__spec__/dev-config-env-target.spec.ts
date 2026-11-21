@@ -117,9 +117,7 @@ describe('the env files a dev session config reads', () => {
     )
 
     // No browser here on purpose: the config names it.
-    await extensionDev(root, {noBrowser: true, install: false} as Parameters<
-      typeof extensionDev
-    >[1])
+    await extensionDev(root, {noBrowser: true, install: false})
 
     expect(startingUrl()).toBe('https://from-firefox.test/')
     // The first run picks the browser, and only a changed name runs it again.

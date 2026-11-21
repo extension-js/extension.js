@@ -71,7 +71,10 @@ Use the `Extension.js – Release Publish` workflow at `.github/workflows/publis
 - Both repositories are pinned by commit in `publish-release.yml`, in each `uses:`
   line and in the `ref:` input beside it. `node scripts/bump-release-gates.mjs`
   moves every pin to the head of its repository, and a spec fails when the pins of
-  one repository differ. The `Release gates freshness` workflow checks weekly,
+  one repository differ. The E2E smoke on `main` reads the templates at the same
+  commit (`PINNED_EXAMPLES_REF` in `e2e-smoke.yml`), and the command moves it too.
+  The pin fixes the templates only: each template still installs its dependencies
+  with no lockfile, so a new upstream release can still reach the smoke. The `Release gates freshness` workflow checks weekly,
   builds a new corpus head with the latest stable, and opens an issue when a pin
   is behind. It cannot push the change, because the Actions token may not edit
   workflow files.

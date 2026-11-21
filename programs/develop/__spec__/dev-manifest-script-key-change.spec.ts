@@ -7,6 +7,7 @@ import {
   DevSessionRestartScheduler,
   unbindDevSessionRestart
 } from '../dev-server/session-restart'
+import type {BrowserType} from '../types'
 import {
   type DevWatchSession,
   errorsOf,
@@ -51,7 +52,7 @@ function project(manifest: Record<string, unknown>, files: string[]) {
   return root
 }
 
-async function readySession(root: string, browser: string) {
+async function readySession(root: string, browser: BrowserType) {
   const session = await openDevWatchSession(root, browser)
   sessions.push(session)
   const first = await session.doneAfter(0)

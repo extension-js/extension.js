@@ -66,7 +66,7 @@ async function compileWith(plugins: Array<{apply(c: Compiler): void}>) {
         manifestPath: path.join(root, 'manifest.json'),
         browser: 'chrome',
         devSession: true
-      } as ConstructorParameters<typeof ReloadPlugin>[0]),
+      }),
       ...plugins
     ]
   })

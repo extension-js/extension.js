@@ -51,7 +51,7 @@ function preview(root: string, entry: string) {
     browser: 'chromium',
     noBrowser: true,
     extensions: [entry]
-  } as never)
+  })
 }
 
 function refusal(folder: string) {
@@ -130,12 +130,16 @@ describe('preview --no-browser and where a named companion sits', () => {
   })
 })
 
-function previewWith(root: string, extensions: unknown) {
+type PreviewExtensions = NonNullable<
+  Parameters<typeof extensionPreview>[1]
+>['extensions']
+
+function previewWith(root: string, extensions: PreviewExtensions) {
   return extensionPreview(root, {
     browser: 'chromium',
     noBrowser: true,
     extensions
-  } as never)
+  })
 }
 
 describe('preview --no-browser and where extensions.dir sits', () => {
@@ -279,7 +283,7 @@ describe('preview --no-browser and a link the scan meets', () => {
       const result = await extensionPreview(root, {
         browser: 'chromium',
         noBrowser: true
-      } as never)
+      })
 
       expect(result?.warnings).toEqual([
         scannedOut('./extensions/linked-out', outside)
@@ -330,7 +334,7 @@ describe('preview --no-browser and a link the scan meets', () => {
           await extensionPreview(root, {
             browser: 'chromium',
             noBrowser: true
-          } as never)
+          })
         )?.warnings
       ).toEqual([])
     }

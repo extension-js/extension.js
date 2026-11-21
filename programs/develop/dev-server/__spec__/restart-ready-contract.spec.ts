@@ -38,7 +38,7 @@ async function makeCompiler(root: string) {
     metadataCommand: 'dev',
     silent: true,
     output: {clean: false, path: path.join(root, 'dist', 'chrome')}
-  } as never)
+  })
   config.plugins = (config.plugins || []).filter(
     (plugin) => plugin?.constructor.name !== 'plugin-browsers'
   )

@@ -67,7 +67,7 @@ describe('the env files a previewed config reads', () => {
     const result = await extensionPreview(root, {
       browser: 'firefox',
       noBrowser: true
-    } as never)
+    })
 
     expect(result?.warnings).toHaveLength(1)
     expect(result?.warnings[0]).toContain('DIR ./extensions/from-firefox')
@@ -78,7 +78,7 @@ describe('the env files a previewed config reads', () => {
       '.env.development': 'from-development',
       '.env.production': 'from-production'
     })
-    const result = await extensionPreview(root, {noBrowser: true} as never)
+    const result = await extensionPreview(root, {noBrowser: true})
 
     expect(result?.warnings).toHaveLength(1)
     expect(result?.warnings[0]).toContain('DIR ./extensions/from-production')
@@ -109,7 +109,7 @@ describe('the env files a previewed config reads', () => {
     const result = await extensionPreview(root, {
       browser: 'firefox',
       noBrowser: true
-    } as never).finally(() => {
+    }).finally(() => {
       previewing = false
     })
 

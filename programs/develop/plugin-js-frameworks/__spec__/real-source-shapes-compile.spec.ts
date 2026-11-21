@@ -94,7 +94,7 @@ async function compileDev(root: string, options: CompileOptions = {}) {
     silent: true,
     define: options.define,
     output: {clean: false, path: path.join(root, 'dist', 'chrome')}
-  } as Parameters<typeof webpackConfig>[1])
+  })
   config.plugins = [
     ...(config.plugins || []).filter(
       (plugin) =>

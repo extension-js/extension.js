@@ -12,6 +12,7 @@ import {
   PAGE,
   project
 } from '../../../__spec__/helpers/private-files-project'
+import type {BrowserType} from '../../../types'
 
 // Whole production builds, one per target: a manifest field that the build
 // compiles names that target, and the row says whose text the output holds.
@@ -26,7 +27,7 @@ type Kind = 'js' | 'css'
 interface Field {
   name: string
   kind: Kind
-  browser?: string
+  browser?: BrowserType
   manifest: (target: string) => Record<string, unknown>
   // Left out for a field read against every target.
   targets?: (kind: Kind) => string[]
