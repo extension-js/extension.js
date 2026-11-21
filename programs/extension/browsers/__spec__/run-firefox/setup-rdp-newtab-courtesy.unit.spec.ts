@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import type {CompilationLike} from '../../browsers-types'
 
 const calls: string[] = []
 const ensureLoaded = vi.fn(async () => {
@@ -50,13 +51,19 @@ const {setupRdpAfterLaunch} = await import(
   '../../run-firefox/firefox-launch/setup-rdp-after-launch'
 )
 
+type Runtime = Parameters<typeof setupRdpAfterLaunch>[0]
+
+function runtime(fields: Partial<Runtime>): Runtime {
+  return fields as Runtime
+}
+
 let out: string
 
 function writeManifest(manifest: Record<string, unknown>) {
   fs.writeFileSync(path.join(out, 'manifest.json'), JSON.stringify(manifest))
 }
 
-const compilation = () => ({options: {output: {path: out}}}) as any
+const compilation = (): CompilationLike => ({options: {output: {path: out}}})
 
 beforeEach(() => {
   out = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-newtab-courtesy-'))
@@ -80,7 +87,12 @@ describe('firefox new-tab courtesy after launch', () => {
       chrome_url_overrides: {newtab: 'newtab.html'}
     })
 
-    await setupRdpAfterLaunch({browser: 'firefox'} as any, compilation(), 9222)
+    await setupRdpAfterLaunch(
+      runtime({browser: 'firefox'}),
+      compilation(),
+      9222
+    )
+
     expect(calls).toEqual(['ensureLoaded', 'openNewTab'])
   })
 
@@ -90,7 +102,12 @@ describe('firefox new-tab courtesy after launch', () => {
       'firefox:chrome_url_overrides': {newtab: 'newtab.html'}
     })
 
-    await setupRdpAfterLaunch({browser: 'firefox'} as any, compilation(), 9222)
+    await setupRdpAfterLaunch(
+      runtime({browser: 'firefox'}),
+      compilation(),
+      9222
+    )
+
     expect(openNewTab).toHaveBeenCalledTimes(1)
   })
 
@@ -101,7 +118,7 @@ describe('firefox new-tab courtesy after launch', () => {
     })
 
     await setupRdpAfterLaunch(
-      {browser: 'firefox', startingUrl: 'https://example.com/'} as any,
+      runtime({browser: 'firefox', startingUrl: 'https://example.com/'}),
       compilation(),
       9222
     )
@@ -115,7 +132,7 @@ describe('firefox new-tab courtesy after launch', () => {
     writeManifest({manifest_version: 3, name: 'plain'})
 
     await setupRdpAfterLaunch(
-      {browser: 'firefox', startingUrl: 'https://example.com/'} as any,
+      runtime({browser: 'firefox', startingUrl: 'https://example.com/'}),
       compilation(),
       9222
     )
@@ -138,11 +155,11 @@ describe('firefox new-tab courtesy after launch', () => {
     })
 
     await setupRdpAfterLaunch(
-      {
+      runtime({
         browser: 'firefox',
         startingUrl: 'https://example.com/',
         awaitBootRegistrations
-      } as any,
+      }),
       compilation(),
       9222
     )
@@ -160,11 +177,11 @@ describe('firefox new-tab courtesy after launch', () => {
     writeManifest({manifest_version: 3, name: 'plain'})
 
     await setupRdpAfterLaunch(
-      {
+      runtime({
         browser: 'firefox',
         startingUrl: 'https://example.com/',
         bootRegistrationsFromBackground: true
-      } as any,
+      }),
       compilation(),
       9222
     )
@@ -196,11 +213,11 @@ describe('firefox new-tab courtesy after launch', () => {
       .mockResolvedValueOnce({count: 2, ageMs: 430})
 
     await setupRdpAfterLaunch(
-      {
+      runtime({
         browser: 'firefox',
         startingUrl: 'https://example.com/',
         bootRegistrationsFromBackground: true
-      } as any,
+      }),
       compilation(),
       9222
     )
@@ -228,7 +245,7 @@ describe('firefox new-tab courtesy after launch', () => {
     writeManifest({manifest_version: 3, name: 'plain'})
 
     await setupRdpAfterLaunch(
-      {browser: 'firefox', startingUrl: 'https://example.com/'} as any,
+      runtime({browser: 'firefox', startingUrl: 'https://example.com/'}),
       compilation(),
       9222
     )
@@ -246,12 +263,12 @@ describe('firefox new-tab courtesy after launch', () => {
     const awaitBootRegistrations = vi.fn(async () => 'settled' as const)
 
     await setupRdpAfterLaunch(
-      {
+      runtime({
         browser: 'firefox',
         startingUrl: 'https://example.com/',
         awaitBootRegistrations,
         bootRegistrationsFromBackground: true
-      } as any,
+      }),
       compilation(),
       9222
     )
@@ -266,7 +283,7 @@ describe('firefox new-tab courtesy after launch', () => {
     const awaitBootRegistrations = vi.fn(async () => 'settled' as const)
 
     await setupRdpAfterLaunch(
-      {browser: 'firefox', awaitBootRegistrations} as any,
+      runtime({browser: 'firefox', awaitBootRegistrations}),
       compilation(),
       9222
     )
@@ -278,11 +295,11 @@ describe('firefox new-tab courtesy after launch', () => {
     writeManifest({manifest_version: 3, name: 'plain'})
 
     await setupRdpAfterLaunch(
-      {
+      runtime({
         browser: 'firefox',
         startingUrl: 'https://example.com/',
         noOpen: true
-      } as any,
+      }),
       compilation(),
       9222
     )
@@ -297,7 +314,7 @@ describe('firefox new-tab courtesy after launch', () => {
     })
 
     await setupRdpAfterLaunch(
-      {browser: 'firefox', noOpen: true} as any,
+      runtime({browser: 'firefox', noOpen: true}),
       compilation(),
       9222
     )
@@ -307,7 +324,12 @@ describe('firefox new-tab courtesy after launch', () => {
 
   it('opens nothing extra for an extension without the override', async () => {
     writeManifest({manifest_version: 3, name: 'plain'})
-    await setupRdpAfterLaunch({browser: 'firefox'} as any, compilation(), 9222)
+    await setupRdpAfterLaunch(
+      runtime({browser: 'firefox'}),
+      compilation(),
+      9222
+    )
+
     expect(openNewTab).not.toHaveBeenCalled()
   })
 
@@ -324,7 +346,7 @@ describe('firefox new-tab courtesy after launch', () => {
 
     try {
       await setupRdpAfterLaunch(
-        {browser: 'firefox'} as any,
+        runtime({browser: 'firefox'}),
         compilation(),
         9222
       )
@@ -352,7 +374,7 @@ describe('firefox new-tab courtesy after launch', () => {
 
     openNewTab.mockRejectedValueOnce(new Error('rdp gone'))
     const controller = await setupRdpAfterLaunch(
-      {browser: 'firefox'} as any,
+      runtime({browser: 'firefox'}),
       compilation(),
       9222
     )

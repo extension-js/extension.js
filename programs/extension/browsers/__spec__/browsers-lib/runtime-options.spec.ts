@@ -2,6 +2,7 @@ import {describe, expect, it} from 'vitest'
 import {
   buildBrowserLaunchRequest,
   pickSharedBrowserRuntimeOptions,
+  type SharedBrowserRuntimeOptions,
   toExtensionLoadList
 } from '../../browsers-lib/runtime-options'
 
@@ -33,7 +34,8 @@ describe('browser runtime-options helpers', () => {
         logColor: false,
         logUrl: true,
         logTab: true
-      } as any)
+        // Keys the picker drops and values it copies unread, off the declared types.
+      } as unknown as SharedBrowserRuntimeOptions)
     ).toStrictEqual({
       persistProfile: true,
       keepProfileChanges: false,

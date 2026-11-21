@@ -2,8 +2,27 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import type {BrowserLogger, CompilationLike} from '../../browsers-types'
 import {createChromiumContext} from '../../run-chromium/chromium-context'
 import {ChromiumLaunchPlugin} from '../../run-chromium/chromium-launch'
+
+// The private launch state the rows set up or read back.
+interface LaunchInternals {
+  closeHandlerContext: {
+    command: 'dev' | 'preview' | 'start'
+    extensionOutputPath?: string
+    runId?: string
+  } | null
+  logger: BrowserLogger
+  didReportReady: boolean
+  readyDeferred: boolean
+  profileReused: boolean
+  browserGone: boolean
+}
+
+function internals(plugin: ChromiumLaunchPlugin) {
+  return plugin as unknown as LaunchInternals
+}
 
 const stripAnsi = (s: string) => s.replace(/\u001b\[[0-9;]*m/g, '')
 
@@ -29,15 +48,16 @@ function makePlugin(tmp: string, runId = 'run-A') {
   )
 
   const plugin = new ChromiumLaunchPlugin(
-    {browser: 'chrome', extension: [outputPath], dryRun: false} as any,
-    createChromiumContext() as any
+    {browser: 'chrome', extension: [outputPath], dryRun: false},
+    createChromiumContext()
   )
-  ;(plugin as any).closeHandlerContext = {
+  internals(plugin).closeHandlerContext = {
     command: 'dev',
     extensionOutputPath: outputPath,
     runId
   }
-  ;(plugin as any).logger = {
+
+  internals(plugin).logger = {
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
@@ -45,9 +65,9 @@ function makePlugin(tmp: string, runId = 'run-A') {
   }
 
   const reportReady = vi.fn(() => {
-    ;(plugin as any).didReportReady = true
+    internals(plugin).didReportReady = true
   })
-  const compilation = {options: {mode: 'development'}} as any
+  const compilation: CompilationLike = {options: {mode: 'development'}}
 
   return {plugin, outputPath, readyPath, reportReady, compilation}
 }
@@ -102,7 +122,7 @@ describe('the ready line waits for the dev runtime to attach', () => {
     const {plugin, readyPath, reportReady, compilation} = makePlugin(tmp)
     const profilePath = path.join(tmp, 'profile')
     fs.mkdirSync(profilePath)
-    ;(plugin as any).profileReused = true
+    internals(plugin).profileReused = true
 
     await plugin.reportReadyWhenAttached({
       compilation,
@@ -130,7 +150,7 @@ describe('the ready line waits for the dev runtime to attach', () => {
     expect(ready.browserUpNotAttachedWaitMs).toBe(120)
     expect(ready.browserUpNotAttachedHint).toMatch(/has not connected/)
     expect(ready.browserUpNotAttachedHint).not.toMatch(/\u001b\[/)
-    expect((plugin as any).readyDeferred).toBe(true)
+    expect(internals(plugin).readyDeferred).toBe(true)
 
     // The watch outlives the grace period: the first attach prints the line.
     stampAttached(readyPath)
@@ -142,7 +162,7 @@ describe('the ready line waits for the dev runtime to attach', () => {
 
   it('describes a fresh profile differently from a reused one', async () => {
     const {plugin, reportReady, compilation} = makePlugin(tmp)
-    ;(plugin as any).profileReused = false
+    internals(plugin).profileReused = false
 
     await plugin.reportReadyWhenAttached({
       compilation,
@@ -154,13 +174,13 @@ describe('the ready line waits for the dev runtime to attach', () => {
     })
 
     expect(warned()).toMatch(/is fresh, so look at the browser window/)
-    ;(plugin as any).browserGone = true
+    internals(plugin).browserGone = true
   })
 
   it('stops waiting when the browser leaves', async () => {
     const {plugin, reportReady, compilation} = makePlugin(tmp)
     setTimeout(() => {
-      ;(plugin as any).browserGone = true
+      internals(plugin).browserGone = true
     }, 40)
 
     await plugin.reportReadyWhenAttached({
@@ -191,7 +211,7 @@ describe('the ready line waits for the dev runtime to attach', () => {
     })
 
     expect(reportReady).not.toHaveBeenCalled()
-    ;(plugin as any).browserGone = true
+    internals(plugin).browserGone = true
   })
 
   it('does not wait where nothing can attach', async () => {
@@ -199,7 +219,7 @@ describe('the ready line waits for the dev runtime to attach', () => {
 
     // Production mode: the ready claim is about the build, not a runtime.
     await plugin.reportReadyWhenAttached({
-      compilation: {options: {mode: 'production'}} as any,
+      compilation: {options: {mode: 'production'}},
       enableCdp: true,
       reportReady,
       graceMs: 5_000
@@ -208,7 +228,7 @@ describe('the ready line waits for the dev runtime to attach', () => {
     expect(reportReady).toHaveBeenCalledTimes(1)
 
     // No CDP: nothing downstream verifies the load either.
-    ;(plugin as any).didReportReady = false
+    internals(plugin).didReportReady = false
     await plugin.reportReadyWhenAttached({
       compilation,
       enableCdp: false,
@@ -219,7 +239,7 @@ describe('the ready line waits for the dev runtime to attach', () => {
     expect(reportReady).toHaveBeenCalledTimes(2)
 
     // A static theme ships no background, so no runtime ever connects.
-    ;(plugin as any).didReportReady = false
+    internals(plugin).didReportReady = false
     fs.writeFileSync(
       path.join(outputPath, 'manifest.json'),
       JSON.stringify({

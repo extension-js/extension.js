@@ -32,8 +32,15 @@ if [[ ! -f "$SCRIPTS_DIR/build-with-manifest.mjs" ]]; then
   exit 1
 fi
 
+# The installs below take no lockfile, so the versions they resolved go in
+# the log and the step summary, where a red run can be read against them.
+print_framework_versions() {
+  node "$SCRIPTS_DIR/list-template-framework-versions.mjs" "$TEMPLATES_DIR" || true
+}
+
 if has_required_templates; then
   echo "Templates already hydrated. Skipping fetch."
+  print_framework_versions
   exit 0
 fi
 
@@ -132,3 +139,4 @@ for template_dir in "$TEMPLATES_DIR"/*/; do
 done
 
 echo "Templates hydrated from extension-js/templates."
+print_framework_versions

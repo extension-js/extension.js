@@ -1,7 +1,16 @@
+import type {SpawnSyncOptions} from 'node:child_process'
 import {beforeEach, describe, expect, it, vi} from 'vitest'
 
-const calls = vi.hoisted(() => [] as Array<{bin: string; opts: any}>)
-const reply = vi.hoisted(() => ({value: {status: 0, stdout: ''} as any}))
+const calls = vi.hoisted(
+  () => [] as Array<{bin: string; opts: SpawnSyncOptions}>
+)
+const reply = vi.hoisted(() => ({
+  value: {status: 0, stdout: ''} as {
+    status: number | null
+    stdout: string
+    error?: Error
+  }
+}))
 
 vi.mock('node:child_process', async () => {
   const actual =
@@ -11,7 +20,7 @@ vi.mock('node:child_process', async () => {
 
   return {
     ...actual,
-    spawnSync: (bin: string, _args: string[], opts: unknown) => {
+    spawnSync: (bin: string, _args: string[], opts: SpawnSyncOptions) => {
       calls.push({bin, opts})
 
       return reply.value
@@ -93,7 +102,7 @@ describe('pidStartedAtMs', () => {
   it('asks ps in the C locale, the one spelling Date.parse reads', () => {
     pidStartedAtMs(1234, 'darwin')
 
-    expect(calls[0].opts.env.LC_ALL).toBe('C')
+    expect(calls[0].opts.env?.LC_ALL).toBe('C')
   })
 })
 

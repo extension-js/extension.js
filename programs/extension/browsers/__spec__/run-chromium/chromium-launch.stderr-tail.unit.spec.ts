@@ -2,12 +2,21 @@ import {EventEmitter} from 'node:events'
 import {PassThrough} from 'node:stream'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 
-const fakeChild = {current: null as any}
+// The child members the launch reads: its pid, its stderr pipe and close.
+type FakeChild = EventEmitter & {
+  pid: number
+  stdio: [null, null, PassThrough]
+}
+
+const fakeChild = {current: null as FakeChild | null}
 
 vi.mock(
   '../../run-chromium/chromium-launch/wsl-support',
   async (importOriginal) => {
-    const actual: any = await importOriginal()
+    const actual =
+      await importOriginal<
+        typeof import('../../run-chromium/chromium-launch/wsl-support')
+      >()
 
     return {
       ...actual,
@@ -20,31 +29,46 @@ vi.mock('../../run-chromium/chromium-launch/process-handlers', () => ({
   setupProcessSignalHandlers: vi.fn(() => () => {})
 }))
 
+import type {BrowserLogger} from '../../browsers-types'
 import {createChromiumContext} from '../../run-chromium/chromium-context'
 import {ChromiumLaunchPlugin} from '../../run-chromium/chromium-launch'
 
-function makeChild() {
-  const child: any = new EventEmitter()
-  child.pid = 4242
-  child.stdio = [null, null, new PassThrough()]
+function makeChild(): FakeChild {
+  const stdio: FakeChild['stdio'] = [null, null, new PassThrough()]
 
-  return child
+  return Object.assign(new EventEmitter(), {pid: 4242, stdio})
+}
+
+// The private members the row sets and the spawn it drives directly.
+interface LaunchInternals {
+  logger: BrowserLogger
+  didReportReady: boolean
+  launchWithDirectSpawn: (
+    binary: string,
+    args: string[],
+    pipe: boolean
+  ) => Promise<unknown>
+}
+
+function internals(plugin: ChromiumLaunchPlugin) {
+  return plugin as unknown as LaunchInternals
 }
 
 async function launchAndCrash(stderr: string, didReportReady = false) {
-  fakeChild.current = makeChild()
+  const child = makeChild()
+  fakeChild.current = child
   const logger = {info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn()}
   const plugin = new ChromiumLaunchPlugin(
-    {browser: 'edge', extension: ['/ext']} as any,
-    createChromiumContext() as any
+    {browser: 'edge', extension: ['/ext']},
+    createChromiumContext()
   )
-  ;(plugin as any).logger = logger
-  ;(plugin as any).didReportReady = didReportReady
+  internals(plugin).logger = logger
+  internals(plugin).didReportReady = didReportReady
 
-  await (plugin as any).launchWithDirectSpawn('/bin/chrome', [], false)
-  fakeChild.current.stdio[2].write(stderr)
+  await internals(plugin).launchWithDirectSpawn('/bin/chrome', [], false)
+  child.stdio[2].write(stderr)
   await new Promise((resolve) => setImmediate(resolve))
-  fakeChild.current.emit('close', 1, null)
+  child.emit('close', 1, null)
 
   return logger.error.mock.calls.map((call: unknown[]) => String(call[0]))
 }

@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {prefix} from '../../../helpers/messaging'
 import * as messages from '../../browsers-lib/messages'
+import type {BrowserLogger, CompilationLike} from '../../browsers-types'
 import {launchBrowser} from '../../index'
 import {
   converterWarnings,
@@ -36,10 +37,11 @@ import {
   detectSafariToolchain,
   isMacOS
 } from '../../run-safari/safari-launch/toolchain'
+import type {SafariPluginLike} from '../../run-safari/safari-types'
 import {type FakeSafariTools, fakeSafariTools} from '../safari-fake-tools'
 
 function makeCompilation(out: string) {
-  return {options: {output: {path: out}}} as any
+  return {options: {output: {path: out}}} as CompilationLike
 }
 
 function writeManifest(dir: string, manifest: Record<string, unknown>) {
@@ -67,7 +69,7 @@ describe('run-safari config', () => {
     const config = resolveSafariBuildConfig(makeCompilation(distDir), {
       extension: [distDir],
       browser: 'safari'
-    } as any)
+    } as SafariPluginLike)
 
     expect(config.appName).toBe('My Cool Extension')
     expect(config.bundleIdentifier).toBe('dev.extensionjs.My-Cool-Extension')
@@ -82,7 +84,7 @@ describe('run-safari config', () => {
       extension: [distDir],
       browser: 'safari',
       bundleId: 'com.example.mine'
-    } as any)
+    } as SafariPluginLike)
 
     expect(config.bundleIdentifier).toBe('com.example.mine')
     expect(config.bundleIdDerived).toBe(false)
@@ -93,7 +95,7 @@ describe('run-safari config', () => {
     const config = resolveSafariBuildConfig(makeCompilation(distDir), {
       extension: [distDir],
       browser: 'safari'
-    } as any)
+    } as SafariPluginLike)
 
     expect(config.bundleIdDerived).toBe(true)
   })
@@ -140,7 +142,7 @@ describe('run-safari config', () => {
     const config = resolveSafariBuildConfig(makeCompilation(distDir), {
       extension: [distDir],
       browser: 'safari'
-    } as any)
+    } as SafariPluginLike)
     expect(config.appVersion).toBe('0.2.0')
     expect(composeXcodebuildArgs(config)).toContain('MARKETING_VERSION=0.2.0')
     expect(composeXcodebuildArgs(config)).toContain(
@@ -190,7 +192,7 @@ describe('run-safari config', () => {
     const config = resolveSafariBuildConfig(makeCompilation(distDir), {
       extension: [distDir],
       browser: 'webkit-based'
-    } as any)
+    } as SafariPluginLike)
     expect(config.appName).toBe('Extension')
     expect(config.bundleIdentifier).toBe('dev.extensionjs.Extension')
   })
@@ -201,7 +203,7 @@ describe('run-safari config', () => {
       extension: [distDir],
       browser: 'safari',
       noOpen: true
-    } as any)
+    } as SafariPluginLike)
     expect(config.open).toBe(false)
   })
 
@@ -210,7 +212,7 @@ describe('run-safari config', () => {
     const config = resolveSafariBuildConfig(makeCompilation(distDir), {
       extension: [distDir],
       browser: 'safari'
-    } as any)
+    } as SafariPluginLike)
     const args = composeConverterArgs(config)
 
     expect(args[0]).toBe('safari-web-extension-converter')
@@ -232,7 +234,7 @@ describe('run-safari config', () => {
     const config = resolveSafariBuildConfig(makeCompilation(distDir), {
       extension: [distDir],
       browser: 'safari'
-    } as any)
+    } as SafariPluginLike)
     const args = composeXcodebuildArgs(config)
 
     expect(macOsSchemeName(config)).toBe('Build Me')
@@ -442,7 +444,7 @@ describe('derived bundle id note timing', () => {
         },
         error: () => {},
         debug: () => {}
-      } as any,
+      } as BrowserLogger,
       warns,
       infos
     }
@@ -452,7 +454,12 @@ describe('derived bundle id note timing', () => {
     const tools = fakeSafariTools()
     const {logger, warns, infos} = channelLogger(tools)
     await packageSafariExtension(
-      {extension: [distDir], browser: 'safari', noOpen: true, tools} as any,
+      {
+        extension: [distDir],
+        browser: 'safari',
+        noOpen: true,
+        tools
+      } as SafariPluginLike,
       distDir,
       logger,
       'full'
@@ -489,7 +496,7 @@ describe('derived bundle id note timing', () => {
         noOpen: true,
         dryRun: true,
         tools
-      } as any,
+      } as SafariPluginLike,
       distDir,
       logger,
       'full'
@@ -513,7 +520,7 @@ describe('derived bundle id note timing', () => {
         bundleId: 'com.example.mine',
         noOpen: true,
         tools
-      } as any,
+      } as SafariPluginLike,
       distDir,
       logger,
       'full'
@@ -528,7 +535,7 @@ describe('derived bundle id note timing', () => {
     const tools = fakeSafariTools()
     const {logger, warns, infos} = channelLogger(tools)
     await packageSafariExtension(
-      {extension: [distDir], browser: 'safari', tools} as any,
+      {extension: [distDir], browser: 'safari', tools} as SafariPluginLike,
       distDir,
       logger,
       'resync'
@@ -624,7 +631,7 @@ describe('manifest fingerprinting', () => {
     return resolveSafariBuildConfig(makeCompilation(dir), {
       extension: [dir],
       browser: 'safari'
-    } as any)
+    } as SafariPluginLike)
   }
 
   it('reports stale when no fingerprint has been saved yet', () => {
@@ -659,7 +666,7 @@ describe('manifest fingerprinting', () => {
       extension: [distDir],
       browser: 'safari',
       bundleId: 'com.example.identity'
-    } as any)
+    } as SafariPluginLike)
     expect(isProjectStale(rebranded)).toBe(true)
   })
 
@@ -672,7 +679,7 @@ describe('manifest fingerprinting', () => {
       extension: [distDir],
       browser: 'safari',
       appName: 'Renamed App'
-    } as any)
+    } as SafariPluginLike)
     expect(isProjectStale(renamed)).toBe(true)
   })
 
@@ -1041,7 +1048,7 @@ describe('safari pipeline through the injected tool host', () => {
       extension: [distDir],
       browser: 'safari',
       ...extra
-    } as any)
+    } as SafariPluginLike)
   }
 
   function collectingLogger(tools: FakeSafariTools, logs: string[]) {
@@ -1066,7 +1073,12 @@ describe('safari pipeline through the injected tool host', () => {
     const tools = opts.tools || fakeSafariTools()
     const logs = opts.logs || []
     const result = await packageSafariExtension(
-      {extension: [distDir], browser: 'safari', tools, ...opts.host} as any,
+      {
+        extension: [distDir],
+        browser: 'safari',
+        tools,
+        ...opts.host
+      } as SafariPluginLike,
       distDir,
       collectingLogger(tools, logs),
       opts.mode || 'full'

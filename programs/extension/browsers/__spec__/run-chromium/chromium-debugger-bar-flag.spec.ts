@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import type {PluginInterface} from '../../browsers-types'
 import {
   browserConfig,
   DEFAULT_BROWSER_FLAGS,
@@ -46,13 +47,13 @@ afterAll(() => {
 
 function flagsFor(
   extension: string | string[],
-  options: Record<string, unknown> = {}
+  options: Partial<PluginInterface> = {}
 ) {
   const out = path.join(outRoot, 'dist', 'chrome')
 
   return browserConfig(
-    {options: {mode: 'development', output: {path: out}}} as any,
-    {extension, browser: 'chrome', ...options} as any,
+    {options: {mode: 'development', output: {path: out}}},
+    {extension, browser: 'chrome', ...options},
     {provision: false}
   )
 }
@@ -74,7 +75,12 @@ describe('the silent debugger flag', () => {
     expect(flagsFor(plain)).toContain(SILENT_DEBUGGER_FLAG)
   })
 
-  for (const browser of ['chrome', 'edge', 'brave', 'chromium-based']) {
+  for (const browser of [
+    'chrome',
+    'edge',
+    'brave',
+    'chromium-based'
+  ] as const) {
     it(`is left out on ${browser} when the manifest declares debugger`, () => {
       const debuggerExtension = extensionDir({
         permissions: ['storage', 'debugger']
@@ -205,7 +211,12 @@ describe('the infobars flag', () => {
     expect(flagsFor(plain)).not.toContain(DISABLE_INFOBARS_FLAG)
   })
 
-  for (const browser of ['chrome', 'edge', 'brave', 'chromium-based']) {
+  for (const browser of [
+    'chrome',
+    'edge',
+    'brave',
+    'chromium-based'
+  ] as const) {
     it(`is passed on ${browser} when the manifest declares debugger`, () => {
       const debuggerExtension = extensionDir({
         permissions: ['storage', 'debugger']
