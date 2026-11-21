@@ -548,7 +548,7 @@ describe('a content script a user loader changed', () => {
             ? []
             : [
                 expect.stringContaining(
-                  'Extension.js: the content script default export failed to run.'
+                  'Extension.js W_CONTENT_SCRIPT_MOUNT: the content script default export failed to run.'
                 )
               ]
         )

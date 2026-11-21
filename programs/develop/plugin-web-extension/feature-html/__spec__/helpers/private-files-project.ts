@@ -1,10 +1,10 @@
 import * as path from 'node:path'
-import {listOutput} from '../../../../plugin-special-folders/__spec__/helpers/compile-harness'
+import {listOutput} from '../../../../__spec__/helpers/compile-harness'
 import {
   MARKER,
   notFoundPaths,
   project
-} from '../../../../plugin-special-folders/__spec__/helpers/private-files-project'
+} from '../../../../__spec__/helpers/private-files-project'
 
 export {
   build,
@@ -17,7 +17,7 @@ export {
   notFoundPaths,
   PAGE,
   pageNotBundledRefs
-} from '../../../../plugin-special-folders/__spec__/helpers/private-files-project'
+} from '../../../../__spec__/helpers/private-files-project'
 
 // The shared fixture project of fake private files, plus dot-named files in
 // public/ that a build ships and the files of one installed package.

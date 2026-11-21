@@ -13,8 +13,7 @@ import {
   isExcludedEntry,
   omitExcludedEntries
 } from '../lib/special-folders/folders-config'
-import {getSpecialFoldersDataForCompiler} from '../plugin-special-folders/get-data'
-import * as specialFoldersMessages from '../plugin-special-folders/messages'
+import {getSpecialFoldersDataForCompiler} from '../lib/special-folders/get-data'
 import type {DevOptions, FilepathList, PluginInterface} from '../types'
 import {HtmlPlugin} from './feature-html'
 import {IconsPlugin} from './feature-icons'
@@ -23,6 +22,7 @@ import {themeImageFields} from './feature-icons/theme-image-fields'
 import {JsonPlugin} from './feature-json'
 import {LocalesPlugin} from './feature-locales'
 import {ManifestPlugin} from './feature-manifest'
+import * as manifestMessages from './feature-manifest/messages'
 import {ScriptsPlugin} from './feature-scripts'
 import {WebResourcesPlugin} from './feature-web-resources'
 import {reportToCompilation} from './shared/compilation-issues'
@@ -85,7 +85,7 @@ export class WebExtensionPlugin {
             reportToCompilation(
               compilation,
               compiler,
-              specialFoldersMessages.manifestNamesExcludedFile(
+              manifestMessages.manifestNamesExcludedFile(
                 path
                   .relative(projectPath || path.dirname(manifestPath), file)
                   .split(path.sep)

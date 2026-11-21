@@ -6,7 +6,7 @@ import {
   canLink,
   expectNothingPrivate,
   project
-} from './helpers/private-files-project'
+} from '../../__spec__/helpers/private-files-project'
 
 // Whole builds of a public/ folder that holds links: to a file and to a
 // folder outside the project, to project content, and to an installed file.

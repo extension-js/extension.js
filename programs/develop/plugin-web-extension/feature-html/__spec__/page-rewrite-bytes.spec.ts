@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
-import {project} from '../../../plugin-special-folders/__spec__/helpers/private-files-project'
+import {project} from '../../../__spec__/helpers/private-files-project'
 import {build} from './helpers/private-files-project'
 
 // The shipped bytes of a page whose markup the env step fills and whose

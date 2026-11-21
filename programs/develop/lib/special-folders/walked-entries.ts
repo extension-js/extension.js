@@ -8,13 +8,8 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
-import {sourceFileMayShip} from '../lib/public-private-files'
-import {
-  foldersRoots,
-  rememberedFolders,
-  type SpecialFolderName
-} from '../lib/special-folders/folders-config'
-import type {SpecialFoldersConfig} from '../types'
+import type {SpecialFoldersConfig} from '../../types'
+import {sourceFileMayShip} from '../public-private-files'
 import {
   type EntryNameCollision,
   entryNameOf,
@@ -22,6 +17,11 @@ import {
   isSkippedEntryName,
   pickEntryFile
 } from './entry-folders'
+import {
+  foldersRoots,
+  rememberedFolders,
+  type SpecialFolderName
+} from './folders-config'
 
 export interface WalkedEntries {
   kept: Record<string, string>

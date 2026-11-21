@@ -284,8 +284,8 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
     var whenReady = [];
 
     // A failure with no fallback left goes to the background console.
-    function say(text, error) {
-      try { g.console.warn("Extension.js: " + text, String(error)); } catch (e) {
+    function say(code, text, error) {
+      try { g.console.warn("Extension.js " + code + ": " + text, String(error)); } catch (e) {
         // A background without a console has nowhere else to report to
       }
     }
@@ -622,7 +622,7 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
       }
       setTimeout(function () { try { chrome.runtime.reload(); } catch (e) {
         // No fallback is left here, the next static edit retries the reload
-        say("the extension could not be reloaded for " + names.join(", ") + ", so open tabs keep the build they have. Reload it from the extensions page.", e);
+        say("W_RELOAD_NOT_APPLIED", "the extension could not be reloaded for " + names.join(", ") + ", so open tabs keep the build they have. Reload it from the extensions page.", e);
       } }, 150);
     }
 
@@ -704,7 +704,7 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
       });
     } catch (e) {
       // Without the listener registered scripts still inject on navigation
-      say("the background could not listen for content script stand-ins, so a page that asks for its content script gets no answer.", e);
+      say("W_CONTENT_SCRIPT_NOT_INJECTED", "the background could not listen for content script stand-ins, so a page that asks for its content script gets no answer.", e);
     }
 
     g.__extjsDevContentScripts = {heal: heal, reload: reload, isReady: function () { return ready; }};

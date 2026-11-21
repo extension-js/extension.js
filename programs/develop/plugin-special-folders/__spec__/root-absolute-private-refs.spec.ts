@@ -13,7 +13,7 @@ import {
   PAGE,
   pageNotBundledRefs,
   project
-} from './helpers/private-files-project'
+} from '../../__spec__/helpers/private-files-project'
 
 // Whole builds of a fixture project: a page, a stylesheet or the manifest
 // names a root-absolute path that public/ does not hold.
