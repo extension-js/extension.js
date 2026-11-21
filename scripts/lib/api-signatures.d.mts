@@ -9,3 +9,10 @@ export function signatureReports(
   packageDir: string,
   root?: string
 ): Record<string, string>
+export function emitDeclarations(
+  sources: string[],
+  outDir: string,
+  root?: string
+): string
+export function reportEntry(declarationsDir: string, entryFile: string): string
+export function reportDeclarationFile(packageDir: string, entry: string): string
