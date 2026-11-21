@@ -27,8 +27,8 @@ import {
   getUserJsConfigFile,
   getUserTypeScriptConfigFile
 } from '../lib/user-tsconfig'
-import {getAssetsFromHtml} from '../plugin-web-extension/feature-html/html-lib/utils'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../plugin-web-extension/feature-scripts/contracts'
+import {getAssetsFromHtml} from '../plugin-web-extension/shared/html-assets'
 import {htmlPageEntries} from '../plugin-web-extension/shared/html-page-entries'
 import {getResolvedManifestFieldsData} from '../plugin-web-extension/shared/manifest-fields'
 import type {DevOptions, Manifest, PluginInterface} from '../types'

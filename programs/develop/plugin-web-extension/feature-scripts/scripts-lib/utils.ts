@@ -13,11 +13,11 @@ import {
   hasPrivateFileName,
   sourceFileMayShip
 } from '../../../lib/public-private-files'
-import {findPublicFile} from '../../../lib/special-folders/resolve-public-folder'
 import type {DevOptions, FilepathList, Manifest} from '../../../types'
-
-export const isRemoteUrl = (entry: string) =>
-  /^([a-z][a-z0-9+.-]*:)?\/\//i.test(entry)
+import {
+  isRemoteUrl,
+  resolveScriptEntryPath
+} from '../../shared/script-entry-path'
 
 // A manifest path written with a leading slash names the extension root,
 // the manifest folder in source space, as the manifest fields resolve it.
@@ -25,37 +25,6 @@ export function manifestEntrySourcePath(entry: string, manifestDir: string) {
   return /^[\\/]/.test(entry)
     ? path.join(manifestDir, entry.replace(/^[\\/]+/, ''))
     : entry
-}
-
-// The one answer to where a manifest entry is read from, for the check that
-// it exists and for the bundler entry alike, so the two cannot disagree.
-// The entry is a manifest fields path: absolute, or relative to the manifest.
-export function resolveScriptEntryPath(
-  entry: string,
-  manifestDir: string,
-  projectPath: string
-) {
-  if (!entry || isRemoteUrl(entry)) return entry
-
-  const source = path.isAbsolute(entry) ? entry : path.join(manifestDir, entry)
-
-  if (fs.existsSync(source)) return source
-
-  // public/ ships at the extension root, so a file it holds answers a path
-  // that names no source file. The path looked at stays the source one.
-  const fromRoot = path.relative(manifestDir, source)
-
-  if (!fromRoot || fromRoot.startsWith('..') || path.isAbsolute(fromRoot)) {
-    return source
-  }
-
-  return (
-    findPublicFile(
-      path.join(manifestDir, 'manifest.json'),
-      projectPath,
-      fromRoot.split(path.sep).join('/')
-    ) || source
-  )
 }
 
 // The files the manifest names apart from the ones the build withholds: a
