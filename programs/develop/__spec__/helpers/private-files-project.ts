@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, expect, vi} from 'vitest'
+import type {BrowserType} from '../../types'
 import {listOutput} from './compile-harness'
 
 // A fixture project of fake private files, one folder below a holder that
@@ -363,6 +364,7 @@ export function expectNothingPrivate(
   if (where === 'everywhere') expect(result.exposed.output).toEqual([])
 }
 
+// Specs pass the browser from a plain string list, so the one field is cast.
 export async function build(root: string, browser = 'chrome'): Promise<Built> {
   const {extensionBuild} = await import('../../command-build')
   const lines: string[] = []
@@ -395,12 +397,12 @@ export async function build(root: string, browser = 'chrome'): Promise<Built> {
     // A build that fails writes no output folder and rejects with its errors.
     try {
       summary = await extensionBuild(root, {
-        browser,
+        browser: browser as BrowserType,
         silent: false,
         install: false,
         mode: 'production',
         exitOnError: false
-      } as never)
+      })
     } catch (error) {
       failure = error as {diagnostics?: unknown[]}
       if (!Array.isArray(failure.diagnostics)) throw error

@@ -58,7 +58,7 @@ async function devCompile(root: string, typed: {polyfill?: boolean} = {}) {
     metadataCommand: 'dev',
     silent: true,
     output: {clean: false, path: distPath}
-  } as Parameters<typeof webpackConfig>[1])
+  })
   config.plugins = (config.plugins || []).filter(
     (plugin) =>
       plugin?.constructor.name !== 'plugin-browsers' &&

@@ -50,7 +50,7 @@ async function dev(root: string) {
     install: false,
     noBrowser: true,
     exitOnError: false
-  } as never)
+  })
 }
 
 describe('dev with a perfBudgets value build refuses', () => {
