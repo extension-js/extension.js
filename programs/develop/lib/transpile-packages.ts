@@ -17,7 +17,7 @@ function normalizePath(filePath: string): string {
   return filePath.replace(/\\/g, '/')
 }
 
-function tryReadJson(filePath: string): ParsedJson | undefined {
+function tryReadJson(filePath: string): {name?: unknown} | undefined {
   try {
     return JSON.parse(fs.readFileSync(filePath, 'utf-8'))
   } catch {
@@ -88,7 +88,8 @@ function getWorkspaceDependencyNames(projectRoot: string): string[] {
   const packageJsonPath = path.join(projectRoot, 'package.json')
 
   try {
-    const packageJson = readPackageJson(packageJsonPath)
+    const packageJson =
+      readPackageJson<Record<string, unknown>>(packageJsonPath)
     const dependencySections = [
       packageJson.dependencies,
       packageJson.devDependencies,

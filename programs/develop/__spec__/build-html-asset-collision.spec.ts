@@ -1,24 +1,17 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // Two pages in different folders that each reference their own ./logo.png
 // are two files. Each built page must point at a file in dist that carries
 // its own bytes, and a reference that leaves the extension root for another
 // folder of the project must still land inside dist.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project() {
-  const outer = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-html-assets-'))
-  )
-  roots.push(outer)
+  const outer = fs.realpathSync(tempFolder('extjs-html-assets-'))
   // The manifest sits in src/, so design/ is project content outside the
   // extension root.
   const projectRoot = path.join(outer, 'app')

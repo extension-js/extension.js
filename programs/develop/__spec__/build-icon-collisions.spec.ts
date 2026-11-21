@@ -1,24 +1,20 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {writeProjectFiles} from './helpers/extension-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // Icons that share a basename in different folders are different files, so
 // the built manifest must name distinct output paths that each carry their
 // own bytes, for the icons map, action icons and theme_icons alike.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project(
   manifest: Record<string, unknown>,
   files: Record<string, string>
 ) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-icon-collisions-'))
-  roots.push(root)
+  const root = tempFolder('extjs-icon-collisions-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'icons', version: '0.0.0'})
@@ -29,11 +25,7 @@ function project(
     JSON.stringify({name: 'Icons', version: '1.0.0', ...manifest})
   )
 
-  for (const [rel, content] of Object.entries(files)) {
-    const abs = path.join(root, rel)
-    fs.mkdirSync(path.dirname(abs), {recursive: true})
-    fs.writeFileSync(abs, content)
-  }
+  writeProjectFiles(root, files)
 
   return root
 }

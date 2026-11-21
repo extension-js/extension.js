@@ -12,12 +12,12 @@ import {type Compilation, type Compiler, WebpackError} from '@rspack/core'
 import {debugLine, isDebug} from '../lib/messaging'
 import {isInsidePath} from '../lib/real-path'
 import {requestSessionRestart} from '../lib/session-restart-signal'
-import {isEntryFolderFile, walkEntryFolder} from './entry-folders'
 import {
   foldersRoots,
   type SpecialFolderName,
   type SpecialFoldersRoots
-} from './folders-config'
+} from '../lib/special-folders/folders-config'
+import {isEntryFolderFile, walkEntryFolder} from './entry-folders'
 import * as messages from './messages'
 import {linkedEntryFiles} from './walked-entries'
 

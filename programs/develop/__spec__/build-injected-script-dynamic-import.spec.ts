@@ -1,22 +1,17 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // A scripts/ file is injected into a page by the scripting API, so a chunk it
 // loads through import() is fetched by that page from the extension origin.
 // The injection target is unknown at build time, so the built manifest must
 // list the chunk as web accessible to every origin, as dev already does.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project(manifestVersion: 2 | 3) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-scripts-dyn-'))
-  roots.push(root)
+  const root = tempFolder('extjs-scripts-dyn-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'scripts-dyn', version: '0.0.0'})

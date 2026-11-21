@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import {writeProjectFiles} from '../../../__spec__/helpers/extension-project'
 import {createLocalImportResolver, rememberBuildResolve} from '../script-graph'
 
 const roots: string[] = []
@@ -19,11 +20,7 @@ function project(files: Record<string, string>) {
   )
   roots.push(root)
 
-  for (const [name, contents] of Object.entries(files)) {
-    const file = path.join(root, name)
-    fs.mkdirSync(path.dirname(file), {recursive: true})
-    fs.writeFileSync(file, contents, 'utf8')
-  }
+  writeProjectFiles(root, files)
 
   return {root, at: (...parts: string[]) => path.join(root, ...parts)}
 }

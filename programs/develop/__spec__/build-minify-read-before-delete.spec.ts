@@ -1,14 +1,10 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 // A single-use const read from a global, a delete of that same property, then
 // the const handed to a function the minifier can inline the call site of.
@@ -31,8 +27,7 @@ const CONTENT_SCRIPT = [
 ].join('\n')
 
 function project() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-read-delete-'))
-  roots.push(root)
+  const root = tempFolder('extjs-read-delete-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'read-delete', version: '0.0.0'})

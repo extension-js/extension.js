@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import type {ExcludeFilesConfig, SpecialFoldersConfig} from '../types'
+import type {ExcludeFilesConfig, SpecialFoldersConfig} from '../../types'
 
 // The `folders` config of each project, keyed by its root, so the plugins
 // that only hold a compiler find the same answer the commands resolved.

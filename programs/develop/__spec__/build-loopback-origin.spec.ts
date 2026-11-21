@@ -1,32 +1,18 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {writeExtensionProject} from './helpers/extension-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project(matches: string[]) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-loopback-'))
-  roots.push(root)
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'loopback', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'loopback',
-      version: '1.0.0',
-      content_scripts: [{matches, js: ['content.js']}]
-    })
-  )
+  const root = tempFolder('extjs-loopback-')
+  writeExtensionProject(root, {
+    name: 'loopback',
+    manifest: {content_scripts: [{matches, js: ['content.js']}]}
+  })
 
   fs.writeFileSync(path.join(root, 'content.js'), 'console.log(1)\n')
 

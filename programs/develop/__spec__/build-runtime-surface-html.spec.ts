@@ -1,14 +1,10 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function write(root: string, rel: string, contents: string) {
   const abs = path.join(root, rel)
@@ -17,8 +13,7 @@ function write(root: string, rel: string, contents: string) {
 }
 
 function project() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-runtime-html-'))
-  roots.push(root)
+  const root = tempFolder('extjs-runtime-html-')
 
   write(
     root,

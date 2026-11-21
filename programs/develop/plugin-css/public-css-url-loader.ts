@@ -16,7 +16,7 @@ import {toProjectRelativePath} from '../lib/resource-path'
 import {
   publicContainmentRoot,
   resolvePublicFolder
-} from '../plugin-special-folders/resolve-public-folder'
+} from '../lib/special-folders/resolve-public-folder'
 import {checkedCssSheets, publicOwnedOutputName} from './css-lib/dead-url-refs'
 import {rewriteCssUrls} from './css-lib/inline-css-imports'
 import {lineRewriteSourceMap} from './css-lib/line-rewrite-source-map'

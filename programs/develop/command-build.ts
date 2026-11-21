@@ -89,17 +89,23 @@ import {
 import {getProjectStructure} from './lib/project'
 import {resolveSafariIdentity} from './lib/safari-identity'
 import {readyContractPath} from './lib/session-paths'
+import {
+  rememberExcludedFiles,
+  rememberSpecialFoldersConfig
+} from './lib/special-folders/folders-config'
 import {parkForStartLaunch} from './lib/start-launch-handoff'
 import {createPlaywrightMetadataWriter} from './plugin-playwright'
-import {rememberExcludedFiles} from './plugin-special-folders/folders-config'
-import {rememberSpecialFoldersConfig} from './plugin-special-folders/get-data'
-import type {BuildOptions, CommonWebpackOptions} from './types'
+import type {
+  BrowserDefaulted,
+  BuildOptions,
+  CommonWebpackOptions
+} from './types'
 
 export {resetBuildToolchainLine} from './command-steps/build-green'
 
 export async function extensionBuild(
   pathOrRemoteUrl: string | undefined,
-  buildOptions?: BuildOptions
+  buildOptions?: BrowserDefaulted<BuildOptions>
 ): Promise<BuildSummary> {
   // `start` prints its build leg as part of its own session, tree aside.
   const mayBeSilent = buildOptions?.metadataCommand !== 'start'
@@ -122,7 +128,7 @@ export async function extensionBuild(
 
 async function runBuild(
   pathOrRemoteUrl: string | undefined,
-  buildOptions: BuildOptions | undefined,
+  buildOptions: BrowserDefaulted<BuildOptions> | undefined,
   goSilent: () => void
 ): Promise<BuildSummary> {
   // `extension start` builds with commands.start values and a silent build.

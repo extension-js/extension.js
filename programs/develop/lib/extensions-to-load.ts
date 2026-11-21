@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import type {Manifest} from '../types'
 import {codedError} from './coded-error'
 import {STOCK_COMPANION_DIR} from './constants'
 import * as messages from './messages'
@@ -23,7 +24,7 @@ function hasNewTabOverride(extensionDir: string): boolean {
 
   try {
     const raw = fs.readFileSync(manifestPath, 'utf-8')
-    const manifest = parseAuthoredJson(raw)
+    const manifest = parseAuthoredJson<Manifest | null>(raw)
     const newtab = manifest?.chrome_url_overrides?.newtab
 
     return typeof newtab === 'string' && newtab.trim().length > 0

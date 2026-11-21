@@ -1,24 +1,19 @@
 import {createHash} from 'node:crypto'
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // The hold a production run puts on its first page lives in the launcher,
 // so the build stays the author's code with no dev runtime reporting for it.
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 type Browser = 'chrome' | 'firefox'
 
 function project(browser: Browser): string {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-boot-bytes-'))
-  roots.push(root)
+  const root = tempFolder('extjs-boot-bytes-')
 
   const api = browser === 'firefox' ? 'browser' : 'chrome'
   const manifest =

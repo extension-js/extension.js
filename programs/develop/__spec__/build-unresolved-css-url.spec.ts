@@ -1,22 +1,18 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, afterEach, describe, expect, it} from 'vitest'
+import {afterEach, describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // url() requests the stylesheet check leaves to the bundler: a bare name with
 // no extension, a scoped package path, a name only public/ holds.
 const UNRESOLVED = ['noext', '@scope/missing/x.png', 'in-public.png']
-const roots: string[] = []
+const tempFolder = trackTempFolders()
 const savedStrict = process.env.EXTENSION_STRICT_REFS
 
 afterEach(() => {
   if (savedStrict === undefined) delete process.env.EXTENSION_STRICT_REFS
   else process.env.EXTENSION_STRICT_REFS = savedStrict
-})
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
 })
 
 function write(root: string, relPath: string, contents: string) {
@@ -26,8 +22,7 @@ function write(root: string, relPath: string, contents: string) {
 }
 
 function project() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-css-unresolved-'))
-  roots.push(root)
+  const root = tempFolder('extjs-css-unresolved-')
 
   write(
     root,
@@ -66,15 +61,7 @@ function project() {
 }
 
 async function build(root: string) {
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
-
-  try {
-    return await buildProject(root, {mode: 'production', exitOnError: false})
-  } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
-  }
+  return await buildProject(root, {mode: 'production', exitOnError: false})
 }
 
 describe('a url() the bundler resolves to nothing', () => {

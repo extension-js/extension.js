@@ -1,17 +1,13 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // A production Firefox build runs addons-linter over the emitted dist and
 // prints what addons.mozilla.org would flag, as warnings, never as errors.
 // addons-linter is a devDependency of this package so the run is real.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function stripAnsi(value: string): string {
   // eslint-disable-next-line no-control-regex
@@ -21,8 +17,7 @@ function stripAnsi(value: string): string {
 // MV2 with no gecko id, plus an eval in the background script: two findings
 // the linter reports on its own, neither of which our manifest step covers.
 function project() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-addon-lint-build-'))
-  roots.push(root)
+  const root = tempFolder('extjs-addon-lint-build-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'lintme', version: '0.0.0'})
@@ -49,8 +44,7 @@ function project() {
 // A code-splitting content script under an MV2 manifest that still writes
 // host_permissions: both findings the build step now avoids on its own.
 function codeSplitProject() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-addon-lint-split-'))
-  roots.push(root)
+  const root = tempFolder('extjs-addon-lint-split-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'splitme', version: '0.0.0'})
@@ -84,8 +78,7 @@ function codeSplitProject() {
 }
 
 function minVersionProject() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-addon-lint-min-'))
-  roots.push(root)
+  const root = tempFolder('extjs-addon-lint-min-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'minme', version: '0.0.0'})
@@ -115,8 +108,7 @@ function minVersionProject() {
 }
 
 function permissionMinVersionProject() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-addon-lint-perm-'))
-  roots.push(root)
+  const root = tempFolder('extjs-addon-lint-perm-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'permme', version: '0.0.0'})
@@ -142,8 +134,7 @@ function permissionMinVersionProject() {
 }
 
 function longDescriptionProject(length: number) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-addon-lint-desc-'))
-  roots.push(root)
+  const root = tempFolder('extjs-addon-lint-desc-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'descme', version: '0.0.0'})
@@ -176,8 +167,7 @@ const TINY_PNG =
   'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAAAAABX3VL4AAAAC0lEQVR4nGNgAAEAAAYAAf6MZ8gAAAAASUVORK5CYII='
 
 function unnamedFileProject() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-addon-lint-file-'))
-  roots.push(root)
+  const root = tempFolder('extjs-addon-lint-file-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'fileme', version: '0.0.0'})
@@ -264,8 +254,7 @@ async function build(
 // A dependency that ships a worker file the build copies out as an asset,
 // with an eval the linter flags: that finding belongs to the package.
 function copiedAssetProject() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-addon-lint-asset-'))
-  roots.push(root)
+  const root = tempFolder('extjs-addon-lint-asset-')
   const lib = path.join(root, 'node_modules', 'fake-lib')
   fs.mkdirSync(path.join(lib, 'dist'), {recursive: true})
   fs.writeFileSync(

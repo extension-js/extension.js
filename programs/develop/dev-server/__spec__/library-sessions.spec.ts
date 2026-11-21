@@ -1,8 +1,8 @@
 import {execFile} from 'node:child_process'
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, beforeEach, describe, expect, it} from 'vitest'
+import {beforeEach, describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {
   skipWithoutDevelopDist,
   skipWithStaleDevelopDist
@@ -12,7 +12,7 @@ import {
 // running, through the real entry: see fixtures/library-sessions.mjs.
 const fixture = path.join(__dirname, 'fixtures', 'library-sessions.mjs')
 const builtEntry = path.join(__dirname, '..', '..', 'dist', 'module.mjs')
-const roots: string[] = []
+const tempFolder = trackTempFolders()
 
 // What the bundler's own dev server writes when it is first loaded.
 const BUNDLER_ENV = ['RSPACK_SERVE']
@@ -65,8 +65,7 @@ interface StreamFrame {
 }
 
 function runHost<Result>(scenario: string, env: Record<string, string> = {}) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-library-host-'))
-  roots.push(root)
+  const root = tempFolder('extjs-library-host-')
 
   // The host starts with no output mode and no pinned id of its own.
   const hostEnv: Record<string, string | undefined> = {
@@ -134,12 +133,6 @@ function runHost<Result>(scenario: string, env: Record<string, string> = {}) {
 beforeEach((context) => {
   skipWithoutDevelopDist(context)
   skipWithStaleDevelopDist(context, builtEntry)
-})
-
-afterAll(() => {
-  for (const root of roots.splice(0)) {
-    fs.rmSync(root, {recursive: true, force: true})
-  }
 })
 
 describe('the library host fixture', () => {

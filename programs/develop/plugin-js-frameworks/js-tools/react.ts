@@ -24,6 +24,9 @@ const REACT_REFRESH_PLUGIN = '@rspack/plugin-react-refresh'
 
 type ReactRefreshPluginCtor = new (...args: unknown[]) => RspackPluginInstance
 
+// v1 is the constructor itself, v2 a namespace naming it.
+type RefreshModule = {default?: unknown; ReactRefreshRspackPlugin?: unknown}
+
 type MaybeUseReactOptions = {
   refreshExclude?: unknown
   disableRefresh?: boolean
@@ -121,7 +124,9 @@ export async function maybeUseReact(
       // v1 exports the ctor as module.exports, v2 a namespace with only the
       // named export: a default wins, then the named export, then the module.
       moduleAdapter: (mod) =>
-        ((mod && (mod.default || mod.ReactRefreshRspackPlugin)) ||
+        ((mod &&
+          ((mod as RefreshModule).default ||
+            (mod as RefreshModule).ReactRefreshRspackPlugin)) ||
           mod) as ReactRefreshPluginCtor
     })
 

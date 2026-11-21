@@ -1,8 +1,8 @@
 import {execFile} from 'node:child_process'
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, beforeEach, describe, expect, it} from 'vitest'
+import {beforeEach, describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {
   skipWithoutDevelopDist,
   skipWithStaleDevelopDist
@@ -12,7 +12,7 @@ import {
 // through the real entry: see fixtures/session-hosts.mjs.
 const fixture = path.join(__dirname, 'fixtures', 'session-hosts.mjs')
 const builtEntry = path.join(__dirname, '..', '..', 'dist', 'module.mjs')
-const roots: string[] = []
+const tempFolder = trackTempFolders()
 
 interface SessionHosts {
   olderStarted: boolean
@@ -26,8 +26,7 @@ interface SessionHosts {
 }
 
 function runHost(): Promise<SessionHosts> {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-session-hosts-'))
-  roots.push(root)
+  const root = tempFolder('extjs-session-hosts-')
 
   // The host starts with no output mode, no pinned id and no host of its own.
   const hostEnv: Record<string, string | undefined> = {
@@ -77,12 +76,6 @@ function runHost(): Promise<SessionHosts> {
 beforeEach((context) => {
   skipWithoutDevelopDist(context)
   skipWithStaleDevelopDist(context, builtEntry)
-})
-
-afterAll(() => {
-  for (const root of roots.splice(0)) {
-    fs.rmSync(root, {recursive: true, force: true})
-  }
 })
 
 describe('two dev sessions of one host process', () => {

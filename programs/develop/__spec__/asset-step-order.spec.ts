@@ -1,11 +1,11 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {type Compiler, rspack, type Stats} from '@rspack/core'
-import {afterAll, beforeAll, describe, expect, it} from 'vitest'
+import {beforeAll, describe, expect, it} from 'vitest'
 import {getProjectStructure} from '../lib/project'
 import webpackConfig from '../rspack-config'
 import {writeProject} from './helpers/real-compiler'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // Steps that share a stage run in the order their plugins were listed, so a
 // step that rewrites a script has to sit at a stage of its own, ahead of
@@ -104,17 +104,14 @@ class RecordAssetSteps {
   }
 }
 
-const roots: string[] = []
+const tempFolder = trackTempFolders()
 let runs: StepRun[] = []
 let errors: string[] = []
 
 const isScript = (name: string) => /\.[cm]?js$/.test(name)
 
 beforeAll(async () => {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-step-order-'))
-  )
-  roots.push(root)
+  const root = fs.realpathSync(tempFolder('extjs-step-order-'))
 
   writeProject(root, {
     'package.json': {private: true, name: 'step-order', version: '0.0.0'},
@@ -178,10 +175,6 @@ beforeAll(async () => {
 
   runs = recorder.runs
 }, 60_000)
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
 
 const indexOf = (name: string) => runs.findIndex((run) => run.name === name)
 const stageOf = (name: string) => runs[indexOf(name)]?.stage
