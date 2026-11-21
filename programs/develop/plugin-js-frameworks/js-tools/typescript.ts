@@ -138,7 +138,7 @@ export function ensureTypeScriptConfig(
 }
 
 // The tsconfig.json written for a TypeScript project that has none.
-export interface DefaultTypeScriptConfig {
+interface DefaultTypeScriptConfig {
   compilerOptions: {
     allowJs: boolean
     allowSyntheticDefaultImports: boolean
