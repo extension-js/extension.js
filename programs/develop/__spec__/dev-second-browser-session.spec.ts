@@ -69,7 +69,7 @@ async function watchSession(root: string, browser: 'chromium' | 'firefox') {
     metadataCommand: 'dev',
     silent: true,
     output: {clean: false, path: distPath}
-  } as any)
+  } as Parameters<typeof webpackConfig>[1])
   config.plugins = (config.plugins || []).filter(
     (plugin) =>
       plugin?.constructor.name !== 'plugin-browsers' &&

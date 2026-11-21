@@ -277,7 +277,21 @@ describe('extension build flag forwarding', () => {
 
   it('reads the project config for the build command before it picks a browser', async () => {
     expect(await run(['build', PROJECT])).toBe(0)
-    expect(configReads[0]).toEqual([PROJECT, 'build'])
+    // No browser is known yet, so the probe reads as the stock one would.
+    expect(configReads[0]).toEqual([
+      PROJECT,
+      'build',
+      {mode: undefined, browser: 'chromium'}
+    ])
+  })
+
+  it('reads the project config in the mode the build was asked for', async () => {
+    expect(await run(['build', PROJECT, '--mode', 'development'])).toBe(0)
+    expect(configReads[0]).toEqual([
+      PROJECT,
+      'build',
+      {mode: 'development', browser: 'chromium'}
+    ])
   })
 })
 

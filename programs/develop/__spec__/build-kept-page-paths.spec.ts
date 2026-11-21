@@ -52,8 +52,16 @@ function read(root: string, rel: string, browser = 'chrome') {
   return fs.readFileSync(dist(root, rel, browser), 'utf8')
 }
 
+// The page slots of a built manifest the rows read.
+interface PageManifest {
+  action: {default_popup?: string}
+  options_ui: {page?: string}
+  side_panel: {default_path?: string}
+  devtools_page?: string
+}
+
 function manifestOf(root: string, browser = 'chrome') {
-  return JSON.parse(read(root, 'manifest.json', browser)) as Record<string, any>
+  return JSON.parse(read(root, 'manifest.json', browser)) as PageManifest
 }
 
 const POPUP_PAGE =

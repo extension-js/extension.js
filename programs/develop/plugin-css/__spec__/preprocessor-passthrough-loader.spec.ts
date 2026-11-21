@@ -17,7 +17,7 @@ function run(resourcePath: string, source: string, rootContext?: string) {
         install: (tool: 'sass' | 'less') => `pnpm add -D ${tool}`
       }),
       emitWarning: (w: Error) => warnings.push(w)
-    } as any,
+    } as unknown as ThisParameterType<typeof preprocessorPassthroughLoader>,
     source
   )
 

@@ -41,12 +41,13 @@ import {
   serializeUserJs
 } from './session-preferences'
 
-type BrowserConfigOptions = {
+export type BrowserConfigOptions = {
   browser: BrowserType
   mode: 'development' | 'production' | 'none'
   browserFlags?: string[]
   excludeBrowserFlags?: string[]
   profile?: string | false
+  persistProfile?: boolean
   preferences?: Record<string, unknown>
   startingUrl?: string
   port?: number | string
@@ -152,8 +153,7 @@ export async function resolveFirefoxLaunchConfig(
       String(browser)
     ),
     useSystemProfile,
-    persistProfile: (configOptions as {persistProfile?: boolean})
-      .persistProfile,
+    persistProfile: configOptions.persistProfile,
     keepProfileChanges: configOptions.keepProfileChanges,
     copyFromProfile: configOptions.copyFromProfile,
     // Resolve relative profile paths against the compilation context, not cwd():

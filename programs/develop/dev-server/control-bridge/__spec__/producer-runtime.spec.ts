@@ -80,6 +80,59 @@ function makeGlobal() {
   }
 }
 
+type FakeConsole = Record<string, (...args: unknown[]) => void>
+type Reply = (response: unknown) => void
+type Listener = (...args: unknown[]) => unknown
+type RelayListener = (msg: unknown, sender: unknown, respond: Reply) => unknown
+
+interface FakeEvent {
+  addListener(fn: Listener): void
+}
+
+interface LogEvent {
+  messageParts: unknown[]
+  [field: string]: unknown
+}
+
+interface BridgeLogMessage {
+  __extjsBridgeLog: LogEvent
+}
+
+interface ParkedFrame {
+  type: string
+  event: LogEvent
+}
+
+interface SurfaceRequest {
+  __extjsEvalRequest?: boolean
+  target: {context: string}
+}
+
+interface Registration {
+  id: string
+  [field: string]: unknown
+}
+
+// The relay answers through the respond callback, and the spec reads the
+// fields of whatever reply it kept.
+interface RelayReply {
+  ok: boolean
+  value: {summary: {bodyChildCount: number}}
+  error: {name: string; code?: string; message: string}
+}
+
+function asReply(reply: unknown) {
+  return reply as RelayReply
+}
+
+function consoleOf(fakeGlobal: Record<string, unknown>) {
+  return fakeGlobal.console as FakeConsole
+}
+
+function fakeEvent(): FakeEvent {
+  return {addListener() {}}
+}
+
 function run(src: string, fakeGlobal: Record<string, unknown>) {
   // The IIFE reads `globalThis` first; pass our fake as that parameter.
   // eslint-disable-next-line no-new-func
@@ -155,7 +208,7 @@ describe('bridge producer runtime', () => {
       fakeGlobal
     )
 
-    const con = fakeGlobal.console as any
+    const con = consoleOf(fakeGlobal)
     con.log('[HMR] Waiting for update signal from WDS...')
     con.info('[webpack-dev-server] Hot Module Replacement enabled.')
     con.warn('[HMR] Cannot apply update. Need to do a full reload!')
@@ -190,7 +243,7 @@ describe('bridge producer runtime', () => {
     })
     run(src, fakeGlobal)
 
-    ;(fakeGlobal.console as any).error('boom', {a: 1})
+    consoleOf(fakeGlobal).error('boom', {a: 1})
 
     const ws = FakeWebSocket.instances[0]
     expect(ws.url).toBe('ws://127.0.0.1:9999/extjs-control')
@@ -979,7 +1032,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
   it('eval popup forwards the relay CSP refusal code instead of flattening it', async () => {
     const ws = setup({
       runtime: {
-        sendMessage: (_msg: any, cb: (r: any) => void) =>
+        sendMessage: (_msg: unknown, cb: Reply) =>
           cb({
             ok: false,
             error: {
@@ -1008,10 +1061,10 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
   })
 
   it('eval popup routes through the surface relay, mirroring inspect', async () => {
-    const sent: any[] = []
+    const sent: SurfaceRequest[] = []
     const ws = setup({
       runtime: {
-        sendMessage: (msg: any, cb: (r: any) => void) => {
+        sendMessage: (msg: SurfaceRequest, cb: Reply) => {
           sent.push(msg)
           cb({ok: true, value: 7})
         },
@@ -1039,7 +1092,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
   it('eval popup with the surface closed reports Unsupported, not a tabId demand', async () => {
     const ws = setup({
       runtime: {
-        sendMessage: (_msg: any, cb: (r: any) => void) => cb(undefined),
+        sendMessage: (_msg: unknown, cb: Reply) => cb(undefined),
         lastError: undefined
       }
     })
@@ -1284,7 +1337,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
   it('eval popup quotes a delivery failure instead of claiming the surface is closed', async () => {
     const ws = setup({
       runtime: {
-        sendMessage: (_msg: any, cb: (r: any) => void) => cb(undefined),
+        sendMessage: (_msg: unknown, cb: Reply) => cb(undefined),
         lastError: {message: 'Promise rejected while sending the response'}
       }
     })
@@ -1313,7 +1366,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
   it('eval popup asks the engine whether the surface is open before blaming a lost reply', async () => {
     const chromeApi = (contexts: unknown[] | null) => ({
       runtime: {
-        sendMessage: (_msg: any, cb: (r: any) => void) => cb(undefined),
+        sendMessage: (_msg: unknown, cb: Reply) => cb(undefined),
         lastError: {
           message: 'The message port closed before a response was received.'
         },
@@ -1368,7 +1421,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
   it('eval popup still reports not open when the engine says no receiver exists', async () => {
     const ws = setup({
       runtime: {
-        sendMessage: (_msg: any, cb: (r: any) => void) => cb(undefined),
+        sendMessage: (_msg: unknown, cb: Reply) => cb(undefined),
         lastError: {
           message:
             'Could not establish connection. Receiving end does not exist.'
@@ -1398,7 +1451,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     const closedSurface = async (context: string, op = 'eval') => {
       const ws = setup({
         runtime: {
-          sendMessage: (_msg: any, cb: (r: any) => void) => cb(undefined),
+          sendMessage: (_msg: unknown, cb: Reply) => cb(undefined),
           lastError: {
             message:
               'Could not establish connection. Receiving end does not exist.'
@@ -1622,7 +1675,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
   it('eval devtools names DevTools, not extension open, when its page is closed', async () => {
     const ws = setup({
       runtime: {
-        sendMessage: (_msg: any, cb: (r: any) => void) => cb(undefined),
+        sendMessage: (_msg: unknown, cb: Reply) => cb(undefined),
         lastError: {
           message: 'The message port closed before a response was received.'
         },
@@ -2657,11 +2710,11 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
 
   it('open action: fires captured onClicked listeners when there is no popup', async () => {
     const fired: unknown[] = []
-    const chromeApi: Record<string, any> = {
+    const chromeApi = {
       action: {
         getPopup: (_d: unknown, cb: (p: string) => void) => cb(''),
         openPopup: () => Promise.resolve(),
-        onClicked: {addListener() {}}
+        onClicked: fakeEvent()
       },
       tabs: {
         query: (_q: unknown, cb: (t: unknown[]) => void) =>
@@ -2688,11 +2741,11 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
   })
 
   it('open action: warns when the manifest declares activeTab (no gesture grant)', async () => {
-    const chromeApi: Record<string, any> = {
+    const chromeApi = {
       action: {
         getPopup: (_d: unknown, cb: (p: string) => void) => cb(''),
         openPopup: () => Promise.resolve(),
-        onClicked: {addListener() {}}
+        onClicked: fakeEvent()
       },
       tabs: {
         query: (_q: unknown, cb: (t: unknown[]) => void) =>
@@ -2722,15 +2775,15 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     const fired: unknown[] = []
     // Real Firefox: browser.* events are DISTINCT wrapper objects, user code
     // registers through them, and chrome.* stays untouched.
-    const browserApi: Record<string, any> = {
-      action: {onClicked: {addListener() {}}},
-      commands: {onCommand: {addListener() {}}}
+    const browserApi = {
+      action: {onClicked: fakeEvent()},
+      commands: {onCommand: fakeEvent()}
     }
-    const chromeApi: Record<string, any> = {
+    const chromeApi = {
       action: {
         getPopup: (_d: unknown, cb: (p: string) => void) => cb(''),
         openPopup: () => Promise.resolve(),
-        onClicked: {addListener() {}}
+        onClicked: fakeEvent()
       },
       tabs: {
         query: (_q: unknown, cb: (t: unknown[]) => void) =>
@@ -2760,18 +2813,18 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     const fired: unknown[] = []
     // Real Firefox MV2: no action namespace, browserAction on both globals,
     // and browser.* events are distinct wrappers.
-    const browserApi: Record<string, any> = {
+    const browserApi = {
       browserAction: {
         getPopup: () => Promise.resolve(''),
         openPopup: () => Promise.resolve(),
-        onClicked: {addListener() {}}
+        onClicked: fakeEvent()
       }
     }
-    const chromeApi: Record<string, any> = {
+    const chromeApi = {
       browserAction: {
         getPopup: (_d: unknown, cb: (p: string) => void) => cb(''),
         openPopup: () => Promise.resolve(),
-        onClicked: {addListener() {}}
+        onClicked: fakeEvent()
       },
       tabs: {
         query: (_q: unknown, cb: (t: unknown[]) => void) =>
@@ -2812,10 +2865,10 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
 
   it('open action: replays browserAction.onClicked on an MV2 Chromium build', async () => {
     const fired: unknown[] = []
-    const chromeApi: Record<string, any> = {
+    const chromeApi = {
       browserAction: {
         getPopup: (_d: unknown, cb: (p: string) => void) => cb(''),
-        onClicked: {addListener() {}}
+        onClicked: fakeEvent()
       },
       tabs: {
         query: (_q: unknown, cb: (t: unknown[]) => void) =>
@@ -2848,7 +2901,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
 
   it('open action: opens an MV2 browser_action popup through browserAction.openPopup', async () => {
     let opened = false
-    const chromeApi: Record<string, any> = {
+    const chromeApi = {
       browserAction: {
         getPopup: (_d: unknown, cb: (p: string) => void) =>
           cb('moz-extension://x/action/index.html'),
@@ -2857,7 +2910,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
 
           return Promise.resolve()
         },
-        onClicked: {addListener() {}}
+        onClicked: fakeEvent()
       },
       runtime: {
         getManifest: () => ({
@@ -2886,7 +2939,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
   it('open action: replays pageAction.onClicked on an MV2 page_action, asking the popup for the tab', async () => {
     const fired: unknown[] = []
     const asked: unknown[] = []
-    const chromeApi: Record<string, any> = {
+    const chromeApi = {
       pageAction: {
         // Both engines require a tabId for a page action's popup.
         getPopup: (d: {tabId?: number}, cb: (p: string) => void) => {
@@ -2895,7 +2948,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
 
           cb('')
         },
-        onClicked: {addListener() {}}
+        onClicked: fakeEvent()
       },
       tabs: {
         query: (_q: unknown, cb: (t: unknown[]) => void) =>
@@ -2929,7 +2982,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
 
   it('open action: opens an MV2 page_action popup through pageAction.openPopup', async () => {
     let opened = false
-    const chromeApi: Record<string, any> = {
+    const chromeApi = {
       pageAction: {
         getPopup: (_d: unknown, cb: (p: string) => void) => cb('page.html'),
         openPopup: () => {
@@ -2937,7 +2990,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
 
           return Promise.resolve()
         },
-        onClicked: {addListener() {}}
+        onClicked: fakeEvent()
       },
       tabs: {
         query: (_q: unknown, cb: (t: unknown[]) => void) =>
@@ -2970,14 +3023,14 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
   it('open action: an MV3 action names its key and leaves pageAction listeners alone', async () => {
     const fired: string[] = []
     // Firefox MV3 still exposes pageAction next to action.
-    const chromeApi: Record<string, any> = {
+    const chromeApi = {
       action: {
         getPopup: (_d: unknown, cb: (p: string) => void) => cb(''),
-        onClicked: {addListener() {}}
+        onClicked: fakeEvent()
       },
       pageAction: {
         getPopup: (_d: unknown, cb: (p: string) => void) => cb(''),
-        onClicked: {addListener() {}}
+        onClicked: fakeEvent()
       },
       tabs: {
         query: (_q: unknown, cb: (t: unknown[]) => void) =>
@@ -3031,11 +3084,11 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
 
   it('open command: replays an onCommand listener registered via browser.* only', async () => {
     const got: Array<[unknown, unknown]> = []
-    const browserApi: Record<string, any> = {
-      commands: {onCommand: {addListener() {}}}
+    const browserApi = {
+      commands: {onCommand: fakeEvent()}
     }
-    const chromeApi: Record<string, any> = {
-      commands: {onCommand: {addListener() {}}},
+    const chromeApi = {
+      commands: {onCommand: fakeEvent()},
       tabs: {
         query: (_q: unknown, cb: (t: unknown[]) => void) =>
           cb([{id: 9, active: true}])
@@ -3067,8 +3120,8 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     const fired: unknown[] = []
     // Polyfill case: chrome.* and browser.* expose the SAME event object, so
     // wrapping both namespaces must not double-capture (or double-fire).
-    const sharedOnClicked = {addListener() {}}
-    const chromeApi: Record<string, any> = {
+    const sharedOnClicked = fakeEvent()
+    const chromeApi = {
       action: {
         getPopup: (_d: unknown, cb: (p: string) => void) => cb(''),
         openPopup: () => Promise.resolve(),
@@ -3102,14 +3155,14 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
 
   it('open action: one callback registered via both namespaces fires once', async () => {
     const fired: unknown[] = []
-    const browserApi: Record<string, any> = {
-      action: {onClicked: {addListener() {}}}
+    const browserApi = {
+      action: {onClicked: fakeEvent()}
     }
-    const chromeApi: Record<string, any> = {
+    const chromeApi = {
       action: {
         getPopup: (_d: unknown, cb: (p: string) => void) => cb(''),
         openPopup: () => Promise.resolve(),
-        onClicked: {addListener() {}}
+        onClicked: fakeEvent()
       },
       tabs: {
         query: (_q: unknown, cb: (t: unknown[]) => void) =>
@@ -3141,8 +3194,8 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
 
   it('open command: replays a captured chrome.commands.onCommand listener', async () => {
     const got: Array<[unknown, unknown]> = []
-    const chromeApi: Record<string, any> = {
-      commands: {onCommand: {addListener() {}}},
+    const chromeApi = {
+      commands: {onCommand: fakeEvent()},
       tabs: {
         query: (_q: unknown, cb: (t: unknown[]) => void) =>
           cb([{id: 9, active: true}])
@@ -3414,12 +3467,12 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
   })
 
   it('the relay answers a surface inspect request for its own context', () => {
-    const listeners: Array<(m: any, s: any, r: any) => unknown> = []
+    const listeners: RelayListener[] = []
     const fakeDoc = {
       title: 'Popup',
       documentElement: {outerHTML: '<html><body><p>popup</p></body></html>'},
       body: {children: {length: 1}},
-      querySelectorAll: () => [] as any[]
+      querySelectorAll: () => [] as unknown[]
     }
     const fakeGlobal: Record<string, unknown> = {
       console: {log: () => {}},
@@ -3429,21 +3482,21 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
         runtime: {
           sendMessage: () => {},
           lastError: undefined,
-          onMessage: {addListener: (fn: any) => listeners.push(fn)}
+          onMessage: {addListener: (fn: RelayListener) => listeners.push(fn)}
         }
       }
     }
     run(buildBridgeRelaySource({context: 'popup'}), fakeGlobal)
     expect(listeners.length).toBe(2)
 
-    const dispatch = (msg: any, respond: (r: any) => void) => {
+    const dispatch = (msg: unknown, respond: Reply) => {
       for (const fn of listeners) fn(msg, {}, respond)
     }
 
-    let responded: any = 'NONE'
+    let responded: unknown = 'NONE'
     dispatch(
       {__extjsInspectRequest: true, target: {context: 'options'}},
-      (r: any) => (responded = r)
+      (r: unknown) => (responded = r)
     )
 
     expect(responded).toBe('NONE')
@@ -3454,7 +3507,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
         target: {context: 'popup'},
         args: {include: ['summary']}
       },
-      (r: any) => (responded = r)
+      (r: unknown) => (responded = r)
     )
 
     expect(responded).toMatchObject({
@@ -3462,11 +3515,11 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       value: {context: 'popup', title: 'Popup'}
     })
 
-    expect(responded.value.summary.bodyChildCount).toBe(1)
+    expect(asReply(responded).value.summary.bodyChildCount).toBe(1)
   })
 
   it('the relay answers a surface eval request for its own context', () => {
-    const listeners: Array<(m: any, s: any, r: any) => unknown> = []
+    const listeners: RelayListener[] = []
     const fakeGlobal: Record<string, unknown> = {
       console: {log: () => {}},
       location: {href: 'chrome-extension://abc/popup.html'},
@@ -3474,24 +3527,24 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
         runtime: {
           sendMessage: () => {},
           lastError: undefined,
-          onMessage: {addListener: (fn: any) => listeners.push(fn)}
+          onMessage: {addListener: (fn: RelayListener) => listeners.push(fn)}
         }
       }
     }
     run(buildBridgeRelaySource({context: 'popup'}), fakeGlobal)
 
-    const dispatch = (msg: any, respond: (r: any) => void) => {
+    const dispatch = (msg: unknown, respond: Reply) => {
       for (const fn of listeners) fn(msg, {}, respond)
     }
 
-    let responded: any = 'NONE'
+    let responded: unknown = 'NONE'
     dispatch(
       {
         __extjsEvalRequest: true,
         target: {context: 'options'},
         args: {expression: '1'}
       },
-      (r: any) => (responded = r)
+      (r: unknown) => (responded = r)
     )
 
     expect(responded).toBe('NONE')
@@ -3502,7 +3555,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
         target: {context: 'popup'},
         args: {expression: '20 + 3'}
       },
-      (r: any) => (responded = r)
+      (r: unknown) => (responded = r)
     )
 
     expect(responded).toMatchObject({ok: true, value: 23})
@@ -3513,11 +3566,11 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
         target: {context: 'popup'},
         args: {expression: 'nope.nope'}
       },
-      (r: any) => (responded = r)
+      (r: unknown) => (responded = r)
     )
 
-    expect(responded.ok).toBe(false)
-    expect(responded.error.name).toBeTruthy()
+    expect(asReply(responded).ok).toBe(false)
+    expect(asReply(responded).error.name).toBeTruthy()
 
     dispatch(
       {
@@ -3528,17 +3581,19 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
             '(function () { var e = new Error("call to eval() blocked by CSP"); e.name = "EvalError"; throw e; })()'
         }
       },
-      (r: any) => (responded = r)
+      (r: unknown) => (responded = r)
     )
 
-    expect(responded.error.code).toBe('csp_blocks_eval')
-    expect(responded.error.message).toContain('content_security_policy')
+    expect(asReply(responded).error.code).toBe('csp_blocks_eval')
+    expect(asReply(responded).error.message).toContain(
+      'content_security_policy'
+    )
   })
 
   // A promise is not structured-cloneable, so the relay settles it before
   // replying; the reply then carries the value, or the rejection as an error.
   it('the relay answers a circular value with the cycle nulled', () => {
-    const listeners: Array<(m: any, s: any, r: any) => unknown> = []
+    const listeners: RelayListener[] = []
     const fakeGlobal: Record<string, unknown> = {
       console: {log: () => {}},
       location: {href: 'chrome-extension://abc/popup.html'},
@@ -3546,13 +3601,13 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
         runtime: {
           sendMessage: () => {},
           lastError: undefined,
-          onMessage: {addListener: (fn: any) => listeners.push(fn)}
+          onMessage: {addListener: (fn: RelayListener) => listeners.push(fn)}
         }
       }
     }
     run(buildBridgeRelaySource({context: 'popup'}), fakeGlobal)
 
-    let responded: any = 'NONE'
+    let responded: unknown = 'NONE'
 
     for (const fn of listeners) {
       fn(
@@ -3564,7 +3619,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
           }
         },
         {},
-        (r: any) => (responded = r)
+        (r: unknown) => (responded = r)
       )
     }
 
@@ -3572,7 +3627,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
   })
 
   it('the relay answers a BigInt as a tagged object that keeps every digit', () => {
-    const listeners: Array<(m: any, s: any, r: any) => unknown> = []
+    const listeners: RelayListener[] = []
     const fakeGlobal: Record<string, unknown> = {
       console: {log: () => {}},
       location: {href: 'chrome-extension://abc/popup.html'},
@@ -3580,14 +3635,14 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
         runtime: {
           sendMessage: () => {},
           lastError: undefined,
-          onMessage: {addListener: (fn: any) => listeners.push(fn)}
+          onMessage: {addListener: (fn: RelayListener) => listeners.push(fn)}
         }
       }
     }
     run(buildBridgeRelaySource({context: 'popup'}), fakeGlobal)
 
     const answer = (expression: string) => {
-      let responded: any = 'NONE'
+      let responded: unknown = 'NONE'
 
       for (const fn of listeners) {
         fn(
@@ -3597,7 +3652,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
             args: {expression}
           },
           {},
-          (r: any) => (responded = r)
+          (r: unknown) => (responded = r)
         )
       }
 
@@ -3619,7 +3674,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
   })
 
   it('the relay settles a promise-valued expression before replying', async () => {
-    const listeners: Array<(m: any, s: any, r: any) => unknown> = []
+    const listeners: RelayListener[] = []
     const fakeGlobal: Record<string, unknown> = {
       console: {log: () => {}},
       location: {href: 'chrome-extension://abc/newtab.html'},
@@ -3627,13 +3682,13 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
         runtime: {
           sendMessage: () => {},
           lastError: undefined,
-          onMessage: {addListener: (fn: any) => listeners.push(fn)}
+          onMessage: {addListener: (fn: RelayListener) => listeners.push(fn)}
         }
       }
     }
     run(buildBridgeRelaySource({context: 'newtab'}), fakeGlobal)
 
-    const dispatch = (msg: any, respond: (r: any) => void) => {
+    const dispatch = (msg: unknown, respond: Reply) => {
       // Several relays listen (eval, inspect); only the one that owns the
       // message keeps the channel open.
       let keepOpen: unknown = false
@@ -3642,14 +3697,14 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       return keepOpen
     }
 
-    let responded: any = 'NONE'
+    let responded: unknown = 'NONE'
     const keepOpen = dispatch(
       {
         __extjsEvalRequest: true,
         target: {context: 'newtab'},
         args: {expression: 'Promise.resolve(40 + 2)'}
       },
-      (r: any) => (responded = r)
+      (r: unknown) => (responded = r)
     )
 
     // The channel stays open and the reply lands once the promise settles.
@@ -3668,11 +3723,11 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
         target: {context: 'newtab'},
         args: {expression: 'Promise.reject(new Error("boom"))'}
       },
-      (r: any) => (responded = r)
+      (r: unknown) => (responded = r)
     )
 
     await waitFor(
-      () => responded.ok === false,
+      () => asReply(responded).ok === false,
       'the relay to reply with the rejection'
     )
 
@@ -3683,14 +3738,14 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
   })
 
   it('the relay keeps the dev server HMR chatter out of the log', () => {
-    const sent: any[] = []
+    const sent: BridgeLogMessage[] = []
     const fakeGlobal: Record<string, unknown> = {
       console: {log: () => {}},
       location: {href: 'chrome-extension://abc/options.html'},
       chrome: {
         runtime: {
           connect: () => ({
-            postMessage: (msg: any) => sent.push(msg),
+            postMessage: (msg: BridgeLogMessage) => sent.push(msg),
             onDisconnect: {addListener: () => {}}
           }),
           sendMessage: () => {},
@@ -3699,10 +3754,8 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       }
     }
     run(buildBridgeRelaySource({context: 'options'}), fakeGlobal)
-    ;(fakeGlobal.console as any).log(
-      '[HMR] Waiting for update signal from WDS...'
-    )
-    ;(fakeGlobal.console as any).log('options ready')
+    consoleOf(fakeGlobal).log('[HMR] Waiting for update signal from WDS...')
+    consoleOf(fakeGlobal).log('options ready')
 
     expect(sent.map((m) => m.__extjsBridgeLog.messageParts[0])).toEqual([
       'options ready'
@@ -3710,23 +3763,24 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
   })
 
   it('the relay (content) forwards console over a NAMED runtime.Port, never sendMessage (echo-SW loop guard)', () => {
-    const sent: any[] = []
-    const sendMessageCalls: any[] = []
+    const sent: BridgeLogMessage[] = []
+    const sendMessageCalls: BridgeLogMessage[] = []
     let connectedName: string | null = null
     const fakeGlobal: Record<string, unknown> = {
       console: {warn: () => {}},
       location: {href: 'https://shop.example/checkout'},
       chrome: {
         runtime: {
-          connect: (opts: any) => {
+          connect: (opts?: {name?: string}) => {
             connectedName = opts?.name || null
 
             return {
-              postMessage: (msg: any) => sent.push(msg),
+              postMessage: (msg: BridgeLogMessage) => sent.push(msg),
               onDisconnect: {addListener: () => {}}
             }
           },
-          sendMessage: (msg: any, _cb: any) => sendMessageCalls.push(msg),
+          sendMessage: (msg: BridgeLogMessage, _cb: unknown) =>
+            sendMessageCalls.push(msg),
           lastError: undefined
         }
       }
@@ -3734,7 +3788,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     const src = buildBridgeRelaySource({context: 'content'})
     expect(src).not.toContain('__EXTJS_CONTEXT__')
     run(src, fakeGlobal)
-    ;(fakeGlobal.console as any).warn('hello from content', {a: 1})
+    consoleOf(fakeGlobal).warn('hello from content', {a: 1})
     expect(sendMessageCalls).toHaveLength(0)
     expect(connectedName).toBe('__extjs-bridge-log__')
     expect(sent).toHaveLength(1)
@@ -3753,7 +3807,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
   // A devtools page connects without a sender.tab, which is how a devtools
   // extension knows its own devtools port. Ours must never join that queue.
   it('the relay (devtools) sends messages and opens NO runtime.Port', () => {
-    const sendMessageCalls: any[] = []
+    const sendMessageCalls: BridgeLogMessage[] = []
     let connects = 0
     const fakeGlobal: Record<string, unknown> = {
       console: {warn: () => {}},
@@ -3768,7 +3822,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
               onDisconnect: {addListener: () => {}}
             }
           },
-          sendMessage: (msg: any, cb: any) => {
+          sendMessage: (msg: BridgeLogMessage, cb: unknown) => {
             sendMessageCalls.push(msg)
             if (typeof cb === 'function') cb()
           },
@@ -3778,7 +3832,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     }
 
     run(buildBridgeRelaySource({context: 'devtools'}), fakeGlobal)
-    ;(fakeGlobal.console as any).warn('hello from devtools')
+    consoleOf(fakeGlobal).warn('hello from devtools')
 
     expect(connects).toBe(0)
     expect(sendMessageCalls).toHaveLength(1)
@@ -3790,7 +3844,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
   })
 
   it('the relay redials the port once when a stale port throws (SW restarted)', () => {
-    const sent: any[] = []
+    const sent: BridgeLogMessage[] = []
     let connects = 0
     const fakeGlobal: Record<string, unknown> = {
       console: {log: () => {}},
@@ -3802,7 +3856,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
             const stale = connects === 1
 
             return {
-              postMessage: (msg: any) => {
+              postMessage: (msg: BridgeLogMessage) => {
                 if (stale) {
                   throw new Error(
                     'Attempting to use a disconnected port object'
@@ -3819,7 +3873,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       }
     }
     run(buildBridgeRelaySource({context: 'content'}), fakeGlobal)
-    ;(fakeGlobal.console as any).log('after sw restart')
+    consoleOf(fakeGlobal).log('after sw restart')
     expect(connects).toBe(2)
     expect(sent).toHaveLength(1)
     expect(sent[0].__extjsBridgeLog.messageParts).toEqual(['after sw restart'])
@@ -3856,19 +3910,25 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
   })
 
   it('SW ships port-relayed content logs over the WS, stamping tabId from the port sender', () => {
-    const connectListeners: Array<(port: any) => void> = []
+    const connectListeners: Array<(port: unknown) => void> = []
     const ws = setup({
       runtime: {
-        onConnect: {addListener: (fn: any) => connectListeners.push(fn)},
+        onConnect: {
+          addListener: (fn: (port: unknown) => void) =>
+            connectListeners.push(fn)
+        },
         onMessage: {addListener: () => {}}
       }
     })
     expect(connectListeners.length).toBe(1)
-    const portMessageListeners: Array<(msg: any) => void> = []
+    const portMessageListeners: Array<(msg: unknown) => void> = []
     connectListeners[0]({
       name: '__extjs-bridge-log__',
       sender: {tab: {id: 7}, frameId: 2, url: 'https://y.test/'},
-      onMessage: {addListener: (fn: any) => portMessageListeners.push(fn)}
+      onMessage: {
+        addListener: (fn: (msg: unknown) => void) =>
+          portMessageListeners.push(fn)
+      }
     })
 
     expect(portMessageListeners.length).toBe(1)
@@ -3905,9 +3965,14 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
   })
 
   it('SW relays a forwarded content-script log over the WS, stamping tabId from the sender', () => {
-    const listeners: Array<(msg: any, sender: any) => void> = []
+    const listeners: Array<(msg: unknown, sender: unknown) => void> = []
     const ws = setup({
-      runtime: {onMessage: {addListener: (fn: any) => listeners.push(fn)}}
+      runtime: {
+        onMessage: {
+          addListener: (fn: (msg: unknown, sender: unknown) => void) =>
+            listeners.push(fn)
+        }
+      }
     })
     expect(listeners.length).toBe(1)
     listeners[0](
@@ -4115,8 +4180,8 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
   })
 
   it('reload broadcast (content-scripts): re-registers dynamic content scripts so NEW tabs get the fresh build', async () => {
-    const registered: any[] = []
-    const updated: any[] = []
+    const registered: Registration[] = []
+    const updated: Registration[] = []
     let existing: Array<{id: string}> = []
     const diskManifest = {
       content_scripts: [
@@ -4139,11 +4204,11 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
           executeScript: (_o: unknown, cb?: () => void) => cb?.(),
           getRegisteredContentScripts: (cb: (s: unknown[]) => void) =>
             cb(existing),
-          registerContentScripts: (s: any[], cb?: () => void) => {
+          registerContentScripts: (s: Registration[], cb?: () => void) => {
             registered.push(...s)
             cb?.()
           },
-          updateContentScripts: (s: any[], cb?: () => void) => {
+          updateContentScripts: (s: Registration[], cb?: () => void) => {
             updated.push(...s)
             cb?.()
           }
@@ -4606,7 +4671,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
   })
 
   it('reload broadcast (page): notify-only, no extension reload, no tab console line, no message to other extensions', async () => {
-    const external: Array<{id: string; msg: any}> = []
+    const external: Array<{id: string; msg: unknown}> = []
     const execCalls: unknown[] = []
     let runtimeReloaded = false
     const ws = setup({
@@ -4648,7 +4713,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
   })
 
   it('reload broadcast (content-scripts): messages no other extension after reinjection', async () => {
-    const external: Array<{id: string; msg: any}> = []
+    const external: Array<{id: string; msg: unknown}> = []
     const queries: Array<{url?: unknown}> = []
     const diskManifest = {
       content_scripts: [
@@ -5115,7 +5180,7 @@ describe('bridge producer runtime, uncaught error capture (#55)', () => {
   it('does not double-emit a throw already logged via console.error', () => {
     const {ws, handlers, fakeGlobal} = setup()
     const err = new Error('logged then thrown')
-    ;(fakeGlobal.console as any).error(err)
+    consoleOf(fakeGlobal).error(err)
     handlers.error[0]({error: err, message: err.message})
     const logs = errorLogs(ws)
     expect(logs).toHaveLength(1)
@@ -5124,7 +5189,7 @@ describe('bridge producer runtime, uncaught error capture (#55)', () => {
 
 describe('bridge relay runtime, uncaught error capture (#55)', () => {
   it('forwards a page/content uncaught error over the log port as level:error', () => {
-    const sent: any[] = []
+    const sent: BridgeLogMessage[] = []
     const handlers: Record<string, Array<(ev: unknown) => void>> = {}
     const fakeGlobal: Record<string, unknown> = {
       console: {error: () => {}},
@@ -5135,7 +5200,7 @@ describe('bridge relay runtime, uncaught error capture (#55)', () => {
       chrome: {
         runtime: {
           connect: () => ({
-            postMessage: (msg: any) => sent.push(msg),
+            postMessage: (msg: BridgeLogMessage) => sent.push(msg),
             onDisconnect: {addListener: () => {}}
           }),
           lastError: undefined
@@ -5225,7 +5290,7 @@ describe('bridge producer runtime, parked errors (#375)', () => {
     })
 
   const parkedOf = (data: Record<string, unknown>) =>
-    (data.__extjsPendingErrors as any[]) || []
+    (data.__extjsPendingErrors as ParkedFrame[] | undefined) || []
 
   it('parks an uncaught error the closed socket could not send', () => {
     const {data, area} = makeStore()

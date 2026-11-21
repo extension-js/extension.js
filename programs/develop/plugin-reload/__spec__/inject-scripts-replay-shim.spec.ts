@@ -1,22 +1,34 @@
-import {sources} from '@rspack/core'
+import {type Compiler, sources} from '@rspack/core'
 import {describe, expect, it, vi} from 'vitest'
 import {InjectScriptsReplayShim} from '../steps/inject-scripts-replay-shim'
 
+// The slice of a compilation the bridge steps read and write.
+interface FakeAsset {
+  name: string
+  source: sources.Source
+}
+
+interface FakeCompilation {
+  __assets: Record<string, FakeAsset>
+  hash?: string
+  [key: string]: unknown
+}
+
 function makeCompiler() {
-  const processAssetsTaps: Array<{cb: () => void; opts: any}> = []
-  let compilation: any
-  const compiler: any = {
+  const processAssetsTaps: Array<{cb: () => void; opts: unknown}> = []
+  let compilation: FakeCompilation = {__assets: {}}
+  const compiler = {
     hooks: {
       thisCompilation: {
-        tap: (_name: string, cb: (c: any) => void) => {
+        tap: (_name: string, cb: (c: unknown) => void) => {
           compilation = {
             getAssets: vi.fn(() => Object.values(compilation.__assets)),
-            updateAsset: vi.fn((name: string, src: any) => {
+            updateAsset: vi.fn((name: string, src: sources.Source) => {
               compilation.__assets[name] = {name, source: src}
             }),
             hooks: {
               processAssets: {
-                tap: (opts: any, fn: () => void) => {
+                tap: (opts: unknown, fn: () => void) => {
                   processAssetsTaps.push({opts, cb: fn})
                 }
               }
@@ -28,7 +40,7 @@ function makeCompiler() {
         }
       }
     }
-  }
+  } as unknown as Compiler
 
   return {
     compiler,

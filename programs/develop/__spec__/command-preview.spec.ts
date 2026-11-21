@@ -90,7 +90,14 @@ function dist(root: string, browser = 'chrome'): string {
   return path.join(root, 'dist', browser)
 }
 
-function readReady(root: string, browser = 'chrome'): Record<string, any> {
+function readReady(
+  root: string,
+  browser = 'chrome'
+): Record<string, unknown> & {
+  ts: string
+  executorAttachedAt: string
+  managedExtensions: Array<{path: string}>
+} {
   return JSON.parse(fs.readFileSync(readyContractPath(root, browser), 'utf8'))
 }
 
@@ -180,7 +187,7 @@ describe('extensionPreview, which runs what a build left', () => {
 
     vi.spyOn(process, 'once').mockImplementation(((
       event: string,
-      listener: (...args: any[]) => void
+      listener: (...args: unknown[]) => void
     ) => {
       if (event === 'exit') {
         exitHandlers.push(listener)
@@ -786,7 +793,7 @@ describe('extensionPreview, which runs what a build left', () => {
 
     // The run record lists what loads beside the user's build, and not it.
     expect(
-      readReady(root).managedExtensions.map((managed: any) => managed.path)
+      readReady(root).managedExtensions.map((managed) => managed.path)
     ).toEqual([
       path.join(root, 'companions', 'a'),
       path.join(root, 'extensions', 'b')

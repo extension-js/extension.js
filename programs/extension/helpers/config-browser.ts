@@ -11,18 +11,28 @@ import {
   loadExtensionDevelopModule
 } from './extension-develop-runtime'
 
+// The browser that runs when neither a flag nor the config names one.
+const STOCK_BROWSER = 'chromium'
+
 // The wrapper picks the vendor list before calling develop, so the file
-// config's commands.<cmd>.browser must be read here; a typed flag wins.
+// config's commands.<cmd>.browser must be read here. A typed flag wins.
+// No browser is known yet, so the config is read as the stock one would
+// read it, which is how the engine makes the same probe.
 export async function resolveConfigBrowser(
   projectPath: string,
   command: 'dev' | 'build' | 'start' | 'preview',
-  loadDevelop: () => Promise<DevelopFor> = loadExtensionDevelopModule
+  loadDevelop: () => Promise<DevelopFor> = loadExtensionDevelopModule,
+  // The mode a build was asked for. Unset, it follows the command.
+  mode?: string
 ): Promise<string | undefined> {
   try {
     const develop: DevelopFor = await loadDevelop()
     if (typeof develop.loadCommandConfig !== 'function') return undefined
 
-    const config = await develop.loadCommandConfig(projectPath, command)
+    const config = await develop.loadCommandConfig(projectPath, command, {
+      mode: mode || undefined,
+      browser: STOCK_BROWSER
+    })
     const browser = config.browser
 
     return typeof browser === 'string' && browser.length > 0

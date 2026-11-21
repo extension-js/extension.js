@@ -86,11 +86,17 @@ function captureConsole() {
   }
 }
 
-function pluginNames(rule: Record<string, any>) {
-  return (rule.options.postcssOptions.plugins as Array<any>).map((plugin) =>
-    plugin && typeof plugin === 'object' && 'postcssPlugin' in plugin
-      ? plugin.postcssPlugin
-      : plugin
+// The postcss-loader rule hands its plugins to postcss under these options.
+interface PostCssRule {
+  options: {postcssOptions: {plugins: unknown[]}}
+}
+
+function pluginNames(rule: Record<string, unknown>) {
+  return (rule as unknown as PostCssRule).options.postcssOptions.plugins.map(
+    (plugin) =>
+      plugin && typeof plugin === 'object' && 'postcssPlugin' in plugin
+        ? plugin.postcssPlugin
+        : plugin
   )
 }
 
