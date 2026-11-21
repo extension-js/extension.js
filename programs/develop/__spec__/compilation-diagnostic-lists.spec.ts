@@ -52,9 +52,6 @@ describe('the warnings and errors of a compilation', () => {
       .map((file) => path.relative(developRoot, file).split(path.sep).join('/'))
       .sort()
 
-    expect(guarding).toEqual([
-      'plugin-reload/steps/inject-bridge-producer.ts',
-      'plugin-reload/steps/strip-content-script-dev-server-runtime.ts'
-    ])
+    expect(guarding).toEqual([])
   })
 })

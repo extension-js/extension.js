@@ -138,7 +138,6 @@ export class StripContentScriptDevServerRuntime {
                 ) as Error & {file?: string; name?: string}
                 warning.name = 'ContentScriptDevServerRuntimeWarning'
                 warning.file = asset.name
-                compilation.warnings ||= []
                 compilation.warnings.push(warning)
               }
             }

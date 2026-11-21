@@ -184,7 +184,7 @@ export class InjectBridgeProducer {
                 compilation as unknown as EmittedCompilation
               )
 
-            if (!compilation.errors?.length) registersAtBoot = registers
+            if (!compilation.errors.length) registersAtBoot = registers
 
             bootRegistrations.set(compilation, registers)
 
