@@ -1130,12 +1130,26 @@ export async function putBackOwnerHiddenFiles(
 
     const target = path.join(projectPath, name)
 
-    await fs.writeFile(target, contents).catch(() => {
-      notRestored.push(target)
-    })
+    if (!(await putBackFile(target, contents))) notRestored.push(target)
   }
 
   return notRestored
+}
+
+// A file that still holds the owner's bytes needs no write, and one it cannot
+// take is not missing either, so only a real difference is reported.
+export async function putBackFile(
+  target: string,
+  contents: string | Buffer
+): Promise<boolean> {
+  const current = await fs.readFile(target).catch(() => null)
+
+  if (current?.equals(Buffer.from(contents))) return true
+
+  return fs.writeFile(target, contents).then(
+    () => true,
+    () => false
+  )
 }
 
 export async function importExternalTemplate(
