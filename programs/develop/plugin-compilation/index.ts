@@ -30,7 +30,7 @@ export class CompilationPlugin {
   public readonly zipSource?: boolean
   public readonly zipFilename?: string
   public readonly zipDir?: string
-  public readonly port?: number
+  public readonly session?: PluginInterface['session']
   public readonly command?: 'dev' | 'start' | 'preview' | 'build'
   public readonly define?: Record<string, unknown>
   public readonly browserLaunchEnabled?: boolean
@@ -41,7 +41,6 @@ export class CompilationPlugin {
       zipSource?: boolean
       zipFilename?: string
       zipDir?: string
-      port?: number
       command?: 'dev' | 'start' | 'preview' | 'build'
       define?: Record<string, unknown>
       browserLaunchEnabled?: boolean
@@ -54,7 +53,7 @@ export class CompilationPlugin {
     this.zipSource = options.zipSource
     this.zipFilename = options.zipFilename
     this.zipDir = options.zipDir
-    this.port = options.port
+    this.session = options.session
     this.command = options.command
     this.browserLaunchEnabled = options.browserLaunchEnabled
   }
@@ -152,7 +151,11 @@ export class CompilationPlugin {
 
     // Tapped first, so the compile line comes after the findings it counts.
     if (!diagnosticsFollow) {
-      setupCompilerDoneDiagnostics(compiler, this.port, this.manifestPath)
+      setupCompilerDoneDiagnostics(
+        compiler,
+        this.session?.port,
+        this.manifestPath
+      )
     }
 
     new BoringPlugin({
