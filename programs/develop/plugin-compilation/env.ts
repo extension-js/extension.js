@@ -37,7 +37,6 @@ import {
 } from '../lib/copied-asset-env'
 import {resolveDevelopDistFile} from '../lib/develop-context'
 import {IMPORT_META_URL_RUNTIME} from '../lib/import-meta-url'
-import {setCurrentManifestContent} from '../lib/manifest/manifest-content'
 import {CODES, debugLine, isDebug} from '../lib/messaging'
 import {toProjectRelativePath} from '../lib/resource-path'
 import type {DevOptions, PluginInterface} from '../types'
@@ -552,10 +551,6 @@ export class EnvPlugin {
             // is left as it is and ships the bytes it was authored with.
             if (filled !== authored) {
               compilation.updateAsset(filename, new sources.RawSource(filled))
-            }
-
-            if (filename === 'manifest.json') {
-              setCurrentManifestContent(compilation, filled.toString('utf8'))
             }
           })
         }

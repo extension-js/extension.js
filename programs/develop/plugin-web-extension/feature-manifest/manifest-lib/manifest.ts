@@ -62,12 +62,10 @@ export function isStaticThemeCompilation(
 
 // The manifest text store lives in lib, where every plugin may read it.
 export {
-  getCurrentManifestContent,
   getManifestContent,
   getOriginalManifest,
   getOriginalManifestContent,
   readManifestAssetText,
-  setCurrentManifestContent,
   setOriginalManifestContent
 } from '../../../lib/manifest/manifest-content'
 

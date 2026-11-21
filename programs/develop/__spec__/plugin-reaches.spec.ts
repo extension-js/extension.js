@@ -156,7 +156,6 @@ const SPEC_REACHES = [
   'plugin-reload -> plugin-web-extension',
   'plugin-reload -> plugin-web-extension/feature-chunk-loading',
   'plugin-reload -> plugin-web-extension/feature-html',
-  'plugin-reload -> plugin-web-extension/feature-manifest/manifest-lib/manifest',
   'plugin-reload -> plugin-web-extension/feature-scripts/__spec__/scripting-calling-styles',
   'plugin-reload -> plugin-web-extension/feature-scripts/contracts',
   'plugin-reload -> plugin-web-extension/feature-scripts/steps/add-content-script-wrapper/content-script-wrapper',

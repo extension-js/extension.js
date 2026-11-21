@@ -18,10 +18,6 @@ const authoredManifestStore = new WeakMap<
   {text: string; parsed?: Manifest}
 >()
 
-// Text handed over by steps outside this folder. Only a compilation that
-// cannot hand its assets back, a spec double, is ever answered from it.
-const handedOverManifestText = new WeakMap<Compilation, string>()
-
 function readAssetSource(asset: {source?: unknown} | null | undefined): string {
   if (!asset) return ''
 
@@ -89,26 +85,6 @@ export function getOriginalManifest(
   entry.parsed ??= parseJsonSafe(entry.text) as Manifest
 
   return entry.parsed
-}
-
-// Kept for the steps outside this folder that still call it. Those steps
-// update the asset in the same breath, and the asset is what gets read.
-export function setCurrentManifestContent(
-  compilation: Compilation,
-  source: string
-): void {
-  handedOverManifestText.set(compilation, source)
-}
-
-// Kept for the same callers: the text of the manifest.json asset.
-export function getCurrentManifestContent(
-  compilation: Compilation
-): string | undefined {
-  if (typeof compilation.getAsset === 'function') {
-    return readManifestAssetText(compilation)
-  }
-
-  return handedOverManifestText.get(compilation)
 }
 
 export function getManifestContent(
