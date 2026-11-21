@@ -8,13 +8,29 @@
 
 import {Compilation, type Compiler, sources, WebpackError} from '@rspack/core'
 import {
+  CANONICAL_CONTENT_SCRIPT_ENTRY_PREFIX,
+  parseCanonicalContentScriptAsset
+} from '../../plugin-web-extension/feature-scripts/contracts'
+import {
   isDevServerClientFile,
   type ModuleId,
   stripDevServerStartup
 } from './remove-content-script-dev-server-runtime'
 
-const CONTENT_SCRIPT_ASSET =
-  /(^|\/)content_scripts\/content-\d+(?:\.[a-f0-9]+)?\.js$/i
+// A content script bundle by its name, under any folder the output adds.
+function isContentScriptBundle(assetName: string): boolean {
+  const at = assetName
+    .toLowerCase()
+    .lastIndexOf(CANONICAL_CONTENT_SCRIPT_ENTRY_PREFIX)
+
+  if (at < 0 || (at > 0 && assetName[at - 1] !== '/')) return false
+
+  return (
+    parseCanonicalContentScriptAsset(
+      assetName.slice(at)
+    )?.extension.toLowerCase() === 'js'
+  )
+}
 
 // The ids of the client modules this file starts: the entry modules of the
 // chunk that wrote it whose file is the dev client. Read from the chunk
@@ -95,7 +111,7 @@ export class StripContentScriptDevServerRuntime {
           },
           () => {
             for (const asset of compilation.getAssets()) {
-              if (!CONTENT_SCRIPT_ASSET.test(asset.name)) continue
+              if (!isContentScriptBundle(asset.name)) continue
 
               const clientIds = devClientEntryIds(compilation, asset.name)
               if (clientIds.length === 0) continue

@@ -108,6 +108,8 @@ export interface ExportUse {
   file: string
   name: string
   readBy: 'nothing' | 'specs'
+  // Whether the exporting file itself names it again past the declaration.
+  usedInFile: boolean
 }
 
 // Every export of a develop product file that no other product file reads.
@@ -172,13 +174,16 @@ export function exportsNoProductFileReads(): ExportUse[] {
   const found: ExportUse[] = []
 
   for (const [file, names] of product) {
+    const words = texts.get(file)?.match(/[A-Za-z_$][\w$]*/g) ?? []
+
     for (const name of names) {
       if (byProduct.get(file)?.has(name)) continue
 
       found.push({
         file: named(file),
         name,
-        readBy: bySpec.get(file)?.has(name) ? 'specs' : 'nothing'
+        readBy: bySpec.get(file)?.has(name) ? 'specs' : 'nothing',
+        usedInFile: words.filter((word) => word === name).length > 1
       })
     }
   }

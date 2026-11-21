@@ -9,7 +9,7 @@ import {
   createLocalImportResolver,
   readScriptText
 } from '../../shared/script-graph'
-import {extractMainWorldRegisteredFileLiterals} from '../scripts-lib/registration-worlds'
+import {extractRegisteredFileSightings} from '../scripts-lib/registration-worlds'
 import {findRuntimeMainWorldEntries} from '../scripts-lib/runtime-main-world-scripts'
 import {
   extractInjectedFileLiterals,
@@ -17,6 +17,15 @@ import {
   planTracedFile,
   TraceRuntimeLoadedFiles
 } from '../steps/trace-runtime-loaded-files'
+
+// The files a registration runs in the page's own world, as the tracer
+// filters the sightings.
+const extractMainWorldRegisteredFileLiterals = (
+  ...read: Parameters<typeof extractRegisteredFileSightings>
+) =>
+  extractRegisteredFileSightings(...read)
+    .filter((sighting) => sighting.world === 'MAIN')
+    .map((sighting) => sighting.file)
 
 // A diagnostic as the step under test reports it.
 type Reported = Error & {file?: string}

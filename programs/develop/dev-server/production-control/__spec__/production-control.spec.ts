@@ -4,7 +4,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {controlledBuildParts} from '../../../controlled-build-parts'
-import {TAKE_BLOCK_OPEN} from '../../../lib/extension-base-from-stack'
+import {takeBlockOpen} from '../../../lib/extension-base-from-stack'
 import {buildDevProducerSource} from '../../../plugin-reload/reload-lib/producer-reload'
 import {readControlToken} from '../../control-bridge/session-token'
 import {
@@ -13,6 +13,8 @@ import {
   type ProductionControlSession,
   startProductionControl
 } from '../index'
+
+const TAKE_BLOCK_OPEN = takeBlockOpen()
 
 let tmpDir: string | undefined
 let session: ProductionControlSession | undefined

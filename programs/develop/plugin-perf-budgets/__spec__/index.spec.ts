@@ -1,7 +1,7 @@
 import type {Compiler} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
+import {ASSET_CATEGORIES} from '../categorize'
 import {
-  ASSET_CATEGORIES,
   BUDGET_BYTES,
   categorizeAsset,
   collectAssetReferrers,

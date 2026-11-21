@@ -1,10 +1,7 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 // The producer a dev background runs: this bridge with the reload executor.
 import {buildDevProducerSource} from '../../../plugin-reload/reload-lib/producer-reload'
-import {
-  BRIDGE_PRODUCER_SOURCE,
-  buildBridgeRelaySource
-} from '../producer-runtime'
+import {buildBridgeRelaySource} from '../producer-runtime'
 
 // A fixed sleep asserts that the state arrived within one budget, which a
 // loaded machine misses. Wait for the state instead, with a ceiling well
@@ -497,10 +494,6 @@ describe('bridge producer runtime', () => {
     expect(executed).toHaveLength(1)
     expect(executed[0].target.tabId).toBe(1)
     expect(registered).toHaveLength(0)
-  })
-
-  it('source has no unresolved placeholders by construction', () => {
-    expect(BRIDGE_PRODUCER_SOURCE).toContain('__EXTJS_CONTROL_PORT__')
   })
 
   it('re-reads the shipped port file after repeated connect failures and dials the new port', async () => {

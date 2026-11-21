@@ -1,7 +1,9 @@
 import {type Compilation, sources} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
 import {prependToEmittedAsset} from '../asset-source-maps'
-import {TAKE_BLOCK_OPEN} from '../extension-base-from-stack'
+import {takeBlockOpen} from '../extension-base-from-stack'
+
+const TAKE_BLOCK_OPEN = takeBlockOpen()
 
 function fakeCompilation(assets: Record<string, string>) {
   const store = new Map(

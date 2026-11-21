@@ -3,12 +3,14 @@ import * as path from 'node:path'
 import {type Compiler, rspack, type Stats} from '@rspack/core'
 import {getProjectStructure} from '../../lib/project'
 import {
-  buildSourceFeatureIndex,
   type ChangedSourcesTracker,
   classifyReloadFromSources,
-  createChangedSourcesTracker,
-  readContentScriptCount
+  createChangedSourcesTracker
 } from '../../plugin-reload'
+import {
+  buildSourceFeatureIndex,
+  readContentScriptCount
+} from '../../plugin-reload/classify-reload'
 import webpackConfig from '../../rspack-config'
 import type {BrowserType, WebpackConfigOptions} from '../../types'
 import {devWatchOptions} from './dev-watch-options'

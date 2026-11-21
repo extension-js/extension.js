@@ -10,11 +10,12 @@ import {
   extensionBaseGlobal,
   prependBehindTakeBlock,
   readTakeBlock,
-  TAKE_BLOCK_OPEN,
   TAKEN_EXTENSION_BASE,
   takeBlockOpen,
   unlessExtensionAddress
 } from '../extension-base-from-stack'
+
+const TAKE_BLOCK_OPEN = takeBlockOpen()
 
 const BASE = 'moz-extension://0f0f0f0f-aaaa-bbbb-cccc-121212121212/'
 

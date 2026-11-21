@@ -7,6 +7,9 @@
     "lib": ["ES2021"],
     "module": "ESNext",
     "noEmit": true,
+    // Nothing is written, but an export whose type cannot be named is
+    // reported here instead of first at compile, where declarations are built.
+    "declaration": true,
     "strict": true,
     "skipLibCheck": true,
     "isolatedModules": true,

@@ -1,9 +1,9 @@
 import {describe, expect, it} from 'vitest'
+import type {ReloadInstruction} from '../index'
 import {
   mergeReloadInstructions,
-  type ReloadInstruction,
   reloadSurvivingPackage
-} from '../index'
+} from '../reload-after-package'
 
 // The package restarts the extension by itself, so the only reload still worth
 // sending is the one a restart cannot deliver.

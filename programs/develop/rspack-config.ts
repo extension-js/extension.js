@@ -69,6 +69,7 @@ import {SetupChunkLoadingTarget} from './plugin-web-extension/feature-chunk-load
 import {findMistypedManifestFields} from './plugin-web-extension/feature-manifest/manifest-lib/sanitize-fatal-shapes'
 import {manifestFieldMistyped} from './plugin-web-extension/feature-manifest/messages'
 import {WarnManifestV2OnChromium} from './plugin-web-extension/feature-manifest/steps/warn-mv2-on-chromium'
+import {isCanonicalContentScriptEntryName} from './plugin-web-extension/feature-scripts/contracts'
 import type {WebpackConfigOptions} from './types'
 
 export default function webpackConfig(
@@ -526,7 +527,7 @@ export default function webpackConfig(
 
               if (
                 typeof chunkName === 'string' &&
-                /^content_scripts\/content-\d+$/.test(chunkName)
+                isCanonicalContentScriptEntryName(chunkName)
               ) {
                 return `${chunkName}.[contenthash:8].js`
               }
