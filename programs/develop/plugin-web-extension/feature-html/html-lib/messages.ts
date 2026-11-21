@@ -435,3 +435,17 @@ export function unbundledScriptImport(
 
   return lines.join('\n')
 }
+
+// A page or a stylesheet that reaches into public/ once the folder is off
+// ships a reference to a file nothing copies.
+export function publicFolderOffRef(
+  asset: string,
+  via: 'a CSS url()' | 'an HTML src/href attribute',
+  ref: string
+) {
+  return (
+    `${asset} references ${colors.underline(ref)} from ${via}, and only public/ holds that file.\n` +
+    `The public folder is turned off, ${colors.blue('folders.public')} is ${colors.blue('false')} in extension.config.js, so the file does not ship and the reference answers 404.\n` +
+    'Turn the folder back on, or move the file out of public/.'
+  )
+}

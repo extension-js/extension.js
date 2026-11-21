@@ -1,13 +1,13 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {beforeAll, describe, expect, it} from 'vitest'
-import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {
   build,
   expectNothingPrivate,
   expectNoWorkspaceAboveTemp,
   MARKER
-} from '../../../plugin-special-folders/__spec__/helpers/private-files-project'
+} from '../../../__spec__/helpers/private-files-project'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 
 // Whole production builds: a manifest at the root or in src/ names, by exact
 // path, a file two folders up, with or without a sheet that names it too.

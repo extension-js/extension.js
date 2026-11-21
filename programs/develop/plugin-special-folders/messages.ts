@@ -25,20 +25,6 @@ export function serverRestartRequiredFromSpecialFolderMessageOnly(
   )
 }
 
-// A page or a stylesheet that reaches into public/ once the folder is off
-// ships a reference to a file nothing copies.
-export function publicFolderOffRef(
-  asset: string,
-  via: 'a CSS url()' | 'an HTML src/href attribute',
-  ref: string
-) {
-  return (
-    `${asset} references ${colors.underline(ref)} from ${via}, and only public/ holds that file.\n` +
-    `The public folder is turned off, ${colors.blue('folders.public')} is ${colors.blue('false')} in extension.config.js, so the file does not ship and the reference answers 404.\n` +
-    'Turn the folder back on, or move the file out of public/.'
-  )
-}
-
 // Both folders print the way the session card prints paths: relative to the
 // project when inside it, otherwise with the home dir collapsed to `~`.
 export function publicMustBeAtProjectRoot(
@@ -99,20 +85,6 @@ export function specialFolderChangeDetected(
   return (
     `${prefix('debug')} folders  change=${action} scope=${folder} ` +
     `path=${relativePath}`
-  )
-}
-
-export function packageScriptLeftOut(relativePaths: string[]) {
-  const one = relativePaths.length === 1
-  const list = relativePaths
-    .map((entry) => `  ${colors.yellow(entry)}`)
-    .join('\n')
-
-  return (
-    `${prefix('debug')} Left ${relativePaths.length} ` +
-    `${one ? 'entry' : 'entries'} in ${colors.yellow('scripts/')} out of ` +
-    `the build, a package.json script runs ${one ? 'it' : 'them'} and ` +
-    `nothing in the extension names ${one ? 'it' : 'them'}:\n${list}`
   )
 }
 
@@ -194,52 +166,12 @@ export function publicFileCollidesWithEntry(
   )
 }
 
-export function devOnlyEntriesLeftOut(relativePaths: string[]) {
-  const one = relativePaths.length === 1
-  const list = relativePaths
-    .map((entry) => `  ${colors.yellow(entry)}`)
-    .join('\n')
-
-  return (
-    `${prefix('debug')} Left ${relativePaths.length} development-only ` +
-    `${one ? 'entry' : 'entries'} out of the production build ` +
-    `(a ${colors.yellow('.dev.')} file in pages/ or scripts/):\n${list}`
-  )
-}
-
-export function excludedEntriesLeftOut(relativePaths: string[]) {
-  const one = relativePaths.length === 1
-  const list = relativePaths
-    .map((entry) => `  ${colors.yellow(entry)}`)
-    .join('\n')
-
-  return (
-    `${prefix('debug')} Left ${relativePaths.length} ` +
-    `${one ? 'entry' : 'entries'} out of the build, ` +
-    `${colors.blue('exclude')} in extension.config.js names ${one ? 'it' : 'them'}:\n${list}`
-  )
-}
-
 export function excludeEntryMissing(entry: string, browser: string) {
   return (
     `${colors.blue('exclude')} in extension.config.js names ` +
     `${colors.yellow(entry)}, and no such file is in the project.\n` +
     `Nothing is left out of the ${colors.blue(browser)} build for it. ` +
     'Fix the path, or remove the entry.'
-  )
-}
-
-export function manifestNamesExcludedFile(
-  relativePath: string,
-  browser: string
-) {
-  return (
-    `manifest.json names ${colors.yellow(relativePath)}, and ` +
-    `${colors.blue('exclude')} in extension.config.js leaves that file ` +
-    `out of the ${colors.blue(browser)} build.\n` +
-    'The reference would answer 404, so the build stops here. Scope the ' +
-    `manifest key to the browsers that ship the file (a ${colors.yellow('chromium:')}, ` +
-    `${colors.yellow('gecko:')} or ${colors.yellow('safari:')} prefix), or remove the file from exclude.`
   )
 }
 
@@ -283,18 +215,6 @@ export function scriptsEntriesOnlyImported(
     `path. For a helper module, add ${colors.blue('exclude')}: ` +
     `${colors.yellow(`[${value}]`)} to extension.config.js. For a script the ` +
     `extension injects, keep it.`
-  )
-}
-
-export function entryFolderUnreadable(
-  relativePath: string,
-  folder: string,
-  code: string
-) {
-  return (
-    `${colors.yellow(relativePath)} cannot be read (${code}), so the build ` +
-    `cannot list the entries in ${colors.yellow(folder)}.\n` +
-    `Give your user read access to it, or move it out of ${folder}.`
   )
 }
 

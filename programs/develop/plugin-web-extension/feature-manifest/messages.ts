@@ -1021,3 +1021,17 @@ export function webAssemblyFetchedFromRemote(
     `Ship the binary in the package: import it with ${colors.blue("new URL('./file.wasm', import.meta.url)")} or place it in ${colors.blue('public/')}, then hand the loader that path.`
   ].join('\n')
 }
+
+export function manifestNamesExcludedFile(
+  relativePath: string,
+  browser: string
+) {
+  return (
+    `manifest.json names ${colors.yellow(relativePath)}, and ` +
+    `${colors.blue('exclude')} in extension.config.js leaves that file ` +
+    `out of the ${colors.blue(browser)} build.\n` +
+    'The reference would answer 404, so the build stops here. Scope the ' +
+    `manifest key to the browsers that ship the file (a ${colors.yellow('chromium:')}, ` +
+    `${colors.yellow('gecko:')} or ${colors.yellow('safari:')} prefix), or remove the file from exclude.`
+  )
+}

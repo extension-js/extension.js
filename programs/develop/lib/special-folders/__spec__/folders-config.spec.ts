@@ -3,7 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import {afterEach, describe, expect, it} from 'vitest'
-import {writeProjectFiles} from '../../__spec__/helpers/extension-project'
+import {writeProjectFiles} from '../../../__spec__/helpers/extension-project'
 import {
   excludedFiles,
   isDevOnlyEntry,
@@ -13,15 +13,15 @@ import {
   rememberExcludedFiles,
   rememberSpecialFoldersConfig,
   resolveExcludedFiles
-} from '../../lib/special-folders/folders-config'
-import {
-  inspectPublicFolders,
-  publicResolveRoots
-} from '../../lib/special-folders/resolve-public-folder'
+} from '../folders-config'
 import {
   getSpecialFoldersDataForCompiler,
   getSpecialFoldersDataForProjectRoot
 } from '../get-data'
+import {
+  inspectPublicFolders,
+  publicResolveRoots
+} from '../resolve-public-folder'
 
 const created: string[] = []
 

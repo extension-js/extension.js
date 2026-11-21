@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
-import {listOutput} from '../../../plugin-special-folders/__spec__/helpers/compile-harness'
+import {listOutput} from '../../../__spec__/helpers/compile-harness'
 import {
   build,
   canLink,
@@ -11,7 +11,7 @@ import {
   notFoundPaths,
   PAGE,
   project
-} from '../../../plugin-special-folders/__spec__/helpers/private-files-project'
+} from '../../../__spec__/helpers/private-files-project'
 
 // Whole production builds, one per target: a manifest field that the build
 // compiles names that target, and the row says whose text the output holds.

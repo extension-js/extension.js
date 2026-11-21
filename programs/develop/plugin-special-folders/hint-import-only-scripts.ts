@@ -14,7 +14,7 @@ import {
   collectReferenceCorpus,
   getSpecialFoldersDataForCompiler,
   referenceSpellings
-} from './get-data'
+} from '../lib/special-folders/get-data'
 import * as messages from './messages'
 
 // An import names a source file, never the file the build emits for it, so

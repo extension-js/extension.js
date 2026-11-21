@@ -27,6 +27,11 @@ import {
   rememberSpecialFoldersConfig
 } from '../lib/special-folders/folders-config'
 import {
+  getSpecialFoldersDataForCompiler,
+  walkedEntriesLeftOut,
+  walkedEntryCollisions
+} from '../lib/special-folders/get-data'
+import {
   inspectPublicFolders,
   publicFolderExists
 } from '../lib/special-folders/resolve-public-folder'
@@ -45,11 +50,6 @@ import {
   explainPublicOutputCollision,
   publicFilesShadowedByEntries
 } from './check-public-output-collision'
-import {
-  getSpecialFoldersDataForCompiler,
-  walkedEntriesLeftOut,
-  walkedEntryCollisions
-} from './get-data'
 import {HintImportOnlyScripts} from './hint-import-only-scripts'
 import {IncludeFiles} from './include-files'
 import * as messages from './messages'

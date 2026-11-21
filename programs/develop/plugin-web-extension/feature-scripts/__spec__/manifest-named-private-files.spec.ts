@@ -11,7 +11,7 @@ import {
   manifest,
   PAGE,
   project
-} from '../../../plugin-special-folders/__spec__/helpers/private-files-project'
+} from '../../../__spec__/helpers/private-files-project'
 
 // Whole production builds, one per target: a manifest key no browser defines
 // names that target, and the row says what the output folder holds.

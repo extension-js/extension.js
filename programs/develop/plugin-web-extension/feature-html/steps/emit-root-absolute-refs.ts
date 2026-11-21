@@ -18,7 +18,6 @@ import {WITHHELD_CSS_REF, withheldCssRefs} from '../../../lib/withheld-file'
 import {templateCopiedAsset} from '../../../plugin-compilation/copied-asset-env'
 import {whyNotRead} from '../../../plugin-css/css-lib/inline-css-imports'
 import * as cssMessages from '../../../plugin-css/css-lib/messages'
-import * as folderMessages from '../../../plugin-special-folders/messages'
 import * as messages from '../../feature-scripts/messages'
 import {
   type CompileRequest,
@@ -211,7 +210,7 @@ export async function emitRootAbsoluteRefs(
         warn(
           compilation,
           origin.asset,
-          folderMessages.publicFolderOffRef(
+          htmlMessages.publicFolderOffRef(
             origin.asset,
             origin.kind === 'css'
               ? 'a CSS url()'
