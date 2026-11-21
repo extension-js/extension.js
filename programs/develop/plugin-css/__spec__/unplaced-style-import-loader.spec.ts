@@ -8,6 +8,7 @@ import unplacedStyleImportLoader, {
   isDeclaredEntry
 } from '../unplaced-style-import-loader'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+import {writeProjectFiles} from '../../__spec__/helpers/extension-project'
 
 // eslint-disable-next-line no-control-regex
 const ANSI = /\u001b\[[0-9;]*m/g
@@ -16,11 +17,7 @@ const tempFolder = trackTempFolders()
 function project(files: Record<string, string>) {
   const root = fs.realpathSync(tempFolder('extjs-unplaced-style-'))
 
-  for (const [name, contents] of Object.entries(files)) {
-    const file = path.join(root, name)
-    fs.mkdirSync(path.dirname(file), {recursive: true})
-    fs.writeFileSync(file, contents)
-  }
+  writeProjectFiles(root, files)
 
   return root
 }
