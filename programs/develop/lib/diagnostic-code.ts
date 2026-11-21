@@ -264,12 +264,6 @@ function twin(code: ErrorCode, prefix: 'E_' | 'W_'): ErrorCode | undefined {
   return hasCode(name) ? name : undefined
 }
 
-export function warningCodeOf(code: ErrorCode): WarningCode | undefined {
-  const name = code.startsWith('W_') ? code : twin(code, 'W_')
-
-  return name as WarningCode | undefined
-}
-
 // A watch session meets the same gap on every rebuild, and says it once.
 const toldGaps = new Set<string>()
 

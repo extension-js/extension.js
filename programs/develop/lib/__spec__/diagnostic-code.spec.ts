@@ -4,10 +4,16 @@ import {
   codeForSeverity,
   diagnosticCode,
   diagnosticName,
-  NAMED_CODES,
-  warningCodeOf
+  NAMED_CODES
 } from '../diagnostic-code'
 import {CODES, type ErrorCode} from '../messaging'
+
+// The W_ name of a class, as CODES spells it, or none for an errors-only one.
+function warningCodeOf(code: ErrorCode): string | undefined {
+  const name = code.startsWith('W_') ? code : `W_${code.slice(2)}`
+
+  return name in CODES ? name : undefined
+}
 
 function named(name: string, message = 'text') {
   return Object.assign(new Error(message), {name})

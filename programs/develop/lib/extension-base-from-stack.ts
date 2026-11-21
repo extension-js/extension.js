@@ -88,8 +88,6 @@ export function takeBlockOpen(global: string = EXTENSION_BASE_GLOBAL): string {
   return `${TAKE_BLOCK_READ}${global}${TAKE_BLOCK_CHECK}`
 }
 
-export const TAKE_BLOCK_OPEN = takeBlockOpen()
-
 // The read a file opens on, whichever extension's global it names.
 export function readTakeBlock(text: string): string | null {
   if (!text.startsWith(TAKE_BLOCK_READ)) return null
