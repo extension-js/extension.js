@@ -481,3 +481,104 @@ describe('UpdateManifest (browser-prefixed background keys)', () => {
     })
   })
 })
+
+// A prefix written on an item of a permission list scopes that one item, as
+// a prefix on a key scopes the key. The browser never sees the prefix.
+describe('UpdateManifest (a browser prefix on a permission item)', () => {
+  const manifest = {
+    manifest_version: 3,
+    name: 'x',
+    version: '1.0.0',
+    permissions: ['storage', 'chromium:sidePanel', 'firefox:menus'],
+    optional_permissions: ['edge:tabGroups', 'gecko:theme'],
+    host_permissions: ['chromium:https://only.chromium/*', 'chrome://favicon/']
+  }
+
+  it.each([
+    [
+      'chrome',
+      ['storage', 'sidePanel'],
+      [],
+      ['https://only.chromium/*', 'chrome://favicon/']
+    ],
+    [
+      'edge',
+      ['storage', 'sidePanel'],
+      ['tabGroups'],
+      ['https://only.chromium/*', 'chrome://favicon/']
+    ],
+    ['firefox', ['storage', 'menus'], ['theme'], ['chrome://favicon/']]
+  ])('keeps for %s the items that name it, without the prefix, and drops the rest', (browser, permissions, optional, hosts) => {
+    const out = runUpdateManifest({mode: 'production', browser, manifest})
+
+    expect(out.permissions).toEqual(permissions)
+    expect(out.optional_permissions).toEqual(optional)
+    expect(out.host_permissions).toEqual(hosts)
+    expect(JSON.stringify(out)).not.toMatch(
+      /"(chromium|firefox|edge|gecko):[a-zA-Z]/
+    )
+  })
+
+  it('lists a permission once when the plain and the prefixed item both name it', () => {
+    const out = runUpdateManifest({
+      mode: 'production',
+      browser: 'chrome',
+      manifest: {...manifest, permissions: ['sidePanel', 'chromium:sidePanel']}
+    })
+
+    expect(out.permissions).toEqual(['sidePanel'])
+  })
+
+  it('reads the items of a list that a prefixed key scoped already', () => {
+    const out = runUpdateManifest({
+      mode: 'production',
+      browser: 'chrome',
+      manifest: {
+        ...manifest,
+        'chromium:permissions': [
+          'storage',
+          'chrome:sidePanel',
+          'edge:tabGroups'
+        ]
+      }
+    })
+
+    expect(out.permissions).toEqual(['storage', 'sidePanel'])
+  })
+
+  it('leaves a manifest with no prefixed item as it was written', () => {
+    const plain = {
+      ...manifest,
+      permissions: ['storage', 'sidePanel'],
+      optional_permissions: ['tabGroups'],
+      host_permissions: ['https://*.example.com/*', 'chrome://favicon/']
+    }
+    const out = runUpdateManifest({
+      mode: 'production',
+      browser: 'chrome',
+      manifest: plain
+    })
+
+    expect(out.permissions).toEqual(plain.permissions)
+    expect(out.optional_permissions).toEqual(plain.optional_permissions)
+    expect(out.host_permissions).toEqual(plain.host_permissions)
+  })
+
+  it('leaves a string with a colon outside the permission lists alone', () => {
+    const out = runUpdateManifest({
+      mode: 'production',
+      browser: 'chrome',
+      manifest: {
+        ...manifest,
+        permissions: ['storage'],
+        optional_permissions: [],
+        host_permissions: [],
+        externally_connectable: {ids: ['chromium:not-a-permission']}
+      }
+    })
+
+    expect(out.externally_connectable.ids).toEqual([
+      'chromium:not-a-permission'
+    ])
+  })
+})

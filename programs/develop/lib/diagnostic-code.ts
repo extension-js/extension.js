@@ -125,6 +125,7 @@ export const NAMED_CODES: Record<string, ErrorCode> = {
   ManifestV2OnChromiumWarning: CODES.W_MANIFEST_COMPAT,
   ManifestLegacyWarning: CODES.W_MANIFEST_COMPAT,
   ManifestHostPermissionWarning: CODES.W_MANIFEST_COMPAT,
+  PrefixedPermissionItemWarning: CODES.W_MANIFEST_COMPAT,
   GeckoAddonIdWarning: CODES.W_MANIFEST_COMPAT,
   WebAssemblyPolicyWarning: CODES.W_MANIFEST_COMPAT,
   ManifestDescriptionWarning: CODES.W_STORE_READINESS,

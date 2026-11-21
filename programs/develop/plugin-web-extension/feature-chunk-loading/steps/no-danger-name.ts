@@ -21,7 +21,9 @@ export class NoDangerNamePlugin {
         compilation.hooks.processAssets.tap(
           {
             name: NoDangerNamePlugin.name,
-            stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
+            // One past the stage the locales, json and icon steps emit at,
+            // so the check reads them wherever it is registered.
+            stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS + 1
           },
           (assets) => {
             for (const name of Object.keys(assets || {})) {
