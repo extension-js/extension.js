@@ -215,7 +215,9 @@ names one, otherwise any mode but production), so it also runs under
   Chromium loads a static content script's bytes once, at extension load,
   so no edit can reach a page through the manifest entry. In development
   each entry's `js` becomes `content_scripts/dev-stub-<n>.js`, which only
-  messages the worker; `content_scripts/dev-registry.json` carries the real
+  messages the worker (the step reports it as a `manifest_change` in the
+  session card and in `devAdditions` of `ready.json`);
+  `content_scripts/dev-registry.json` carries the real
   files, and a runtime prepended to the background bundle registers them
   with `chrome.scripting` at boot (`persistAcrossSessions: false`), injects
   on a stub's signal (and inserts the entry's stylesheet into a frame that
