@@ -57,7 +57,7 @@ async function devSession(
     metadataCommand: 'dev',
     silent: true,
     output: {clean: false, path: distPath}
-  } as never)
+  })
   config.plugins = (config.plugins || []).filter(
     (plugin) => plugin?.constructor.name !== 'plugin-browsers'
   )
