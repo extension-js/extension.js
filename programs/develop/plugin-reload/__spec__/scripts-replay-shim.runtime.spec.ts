@@ -4,6 +4,22 @@ import {SCRIPTS_REPLAY_SHIM_SOURCE} from '../reload-lib/scripts-replay-shim'
 
 type Injection = {target: {tabId: number}; files: string[]; world?: string}
 
+// A background's global: the chrome slice each fake gives it, plus what the
+// shim and the producer install or read on it.
+interface ShimGlobal {
+  chrome: {
+    scripting: {executeScript: (injection: Injection) => unknown}
+    tabs: Record<string, unknown>
+    [key: string]: unknown
+  }
+  __extjsScriptsReplay: (
+    files: string[]
+  ) => Promise<
+    Array<{ok: boolean; tabId: number; files: string[]; error?: string}>
+  >
+  [key: string]: unknown
+}
+
 class FakeWebSocket {
   static instances: FakeWebSocket[] = []
   sent: string[] = []
@@ -32,7 +48,7 @@ function makeGlobal() {
   const calls: Injection[] = []
   const tabsQueries: unknown[] = []
   let reloads = 0
-  const fakeGlobal: any = {
+  const fakeGlobal = {
     chrome: {
       runtime: {
         id: 'ext',
@@ -55,18 +71,18 @@ function makeGlobal() {
         }
       }
     }
-  }
+  } as unknown as ShimGlobal
 
   return {fakeGlobal, calls, tabsQueries, reloads: () => reloads}
 }
 
-function installShim(fakeGlobal: any) {
+function installShim(fakeGlobal: ShimGlobal) {
   // The shim reads `globalThis` first; pass the fake as that parameter.
   // eslint-disable-next-line no-new-func
   new Function('globalThis', SCRIPTS_REPLAY_SHIM_SOURCE)(fakeGlobal)
 }
 
-const inject = (fakeGlobal: any, injection: Injection) =>
+const inject = (fakeGlobal: ShimGlobal, injection: Injection) =>
   fakeGlobal.chrome.scripting.executeScript(injection)
 
 function makeTabbedGlobal(initialTabs: Record<number, string>) {
@@ -76,7 +92,7 @@ function makeTabbedGlobal(initialTabs: Record<number, string>) {
   const tabs = new Map<number, string>(
     Object.entries(initialTabs).map(([id, url]) => [Number(id), url])
   )
-  const fakeGlobal: any = {
+  const fakeGlobal = {
     chrome: {
       scripting: {
         executeScript: (injection: Injection) => {
@@ -102,7 +118,7 @@ function makeTabbedGlobal(initialTabs: Record<number, string>) {
         }
       }
     }
-  }
+  } as unknown as ShimGlobal
   const navigate = (tabId: number, url: string) => tabs.set(tabId, url)
 
   const close = (tabId: number) => {

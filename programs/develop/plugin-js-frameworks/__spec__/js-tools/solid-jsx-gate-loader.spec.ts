@@ -44,8 +44,9 @@ function contextFor(options: Record<string, unknown>) {
   })
 
   return {
-    getOptions: vi.fn(() => options) as any,
-    callback: vi.fn((...args: unknown[]) => done(args)) as any,
+    // The loader reads babelLoader from these options, which each row names.
+    getOptions: vi.fn(() => options as {babelLoader: string}),
+    callback: vi.fn((...args: unknown[]) => done(args)),
     called
   }
 }

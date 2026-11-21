@@ -1,7 +1,11 @@
+import type {Compiler} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {WarnBrowserGlobalWithoutPolyfill} from '../feature-browser-global'
 import {PolyfillPlugin} from '../feature-polyfill'
 import {CompatibilityPlugin} from '../index'
+
+// The plugin only hands the compiler on, so an empty one stands in for it.
+const emptyCompiler = () => ({}) as Compiler
 
 describe('CompatibilityPlugin', () => {
   beforeEach(() => {
@@ -25,7 +29,7 @@ describe('CompatibilityPlugin', () => {
       browser: undefined,
       polyfill: undefined
     })
-    const compiler = {} as any
+    const compiler = emptyCompiler()
 
     plugin.apply(compiler)
 
@@ -43,7 +47,7 @@ describe('CompatibilityPlugin', () => {
       browser: 'chrome',
       polyfill: true
     })
-    const compiler = {} as any
+    const compiler = emptyCompiler()
 
     plugin.apply(compiler)
 
@@ -61,7 +65,7 @@ describe('CompatibilityPlugin', () => {
       polyfill: true
     })
 
-    plugin.apply({} as any)
+    plugin.apply(emptyCompiler())
 
     expect(spyPolyfill).toHaveBeenCalledTimes(0)
   })
@@ -77,7 +81,7 @@ describe('CompatibilityPlugin', () => {
       polyfill: true
     })
 
-    plugin.apply({} as any)
+    plugin.apply(emptyCompiler())
 
     expect(spyPolyfill).toHaveBeenCalledTimes(0)
   })
@@ -93,7 +97,7 @@ describe('CompatibilityPlugin', () => {
       polyfill: true
     })
 
-    plugin.apply({} as any)
+    plugin.apply(emptyCompiler())
 
     expect(spyPolyfill).toHaveBeenCalledTimes(0)
   })
@@ -109,7 +113,7 @@ describe('CompatibilityPlugin', () => {
       polyfill: true
     })
 
-    plugin.apply({} as any)
+    plugin.apply(emptyCompiler())
 
     expect(spyPolyfill).toHaveBeenCalledTimes(0)
   })
@@ -122,11 +126,12 @@ describe('CompatibilityPlugin', () => {
     const plugin = new CompatibilityPlugin({
       manifestPath: '/abs/path/manifest.json',
       // Internal webkit runner forks are one family with safari/webkit-based.
-      browser: 'acme-webkit' as any,
+      // @ts-expect-error a fork name outside BrowserType, read by its family
+      browser: 'acme-webkit',
       polyfill: true
     })
 
-    plugin.apply({} as any)
+    plugin.apply(emptyCompiler())
 
     expect(spyPolyfill).toHaveBeenCalledTimes(0)
   })
