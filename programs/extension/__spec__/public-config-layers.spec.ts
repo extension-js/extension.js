@@ -79,6 +79,32 @@ const everyLayerAgreesWithTheLoader: [
 
 void everyLayerAgreesWithTheLoader
 
+// A key typed any agrees with everything, so the comparison above cannot see
+// one. The bundler hooks are the only loose keys, and the loader types them.
+type IsAny<T> = 0 extends 1 & T ? true : false
+type AnyKeys<T> = {
+  [K in keyof T]-?: IsAny<T[K]> extends true ? K : never
+}[keyof T]
+type HookConfig<Hook> =
+  NonNullable<Hook> extends (config: infer Config, ...rest: never[]) => unknown
+    ? Config
+    : never
+type PublishedCommands = NonNullable<FileConfig['commands']>
+
+const onlyTheBundlerHooksAreLoose: [
+  Same<AnyKeys<ConfigHookContext>, 'rspack'>,
+  IsAny<HookConfig<FileConfig['config']>>,
+  IsAny<HookConfig<FileConfig['configResolved']>>,
+  IsAny<InternalConfigHookContext['rspack']>,
+  IsAny<HookConfig<InternalFileConfig['config']>>,
+  IsAny<HookConfig<InternalFileConfig['configResolved']>>,
+  Same<AnyKeys<FileConfig>, never>,
+  Same<AnyKeys<BrowserConfig>, never>,
+  Same<AnyKeys<NonNullable<PublishedCommands[keyof PublishedCommands]>>, never>
+] = [true, true, true, false, false, false, true, true, true]
+
+void onlyTheBundlerHooksAreLoose
+
 // Budgets belong to the start layer, and preview builds nothing, so it takes
 // none. The compiler is what checks both values.
 const startTakesBudgets: FileConfig = {
@@ -122,6 +148,19 @@ const pkg = JSON.parse(
 )
 
 describe('public config types, per layer', () => {
+  // The hooks stay untyped for this reason: a declaration here that named the
+  // bundler would not resolve where only declared dependencies are linked.
+  it('are published by a package that declares no bundler dependency', () => {
+    const declared = Object.keys({
+      ...pkg.dependencies,
+      ...pkg.peerDependencies,
+      ...pkg.optionalDependencies
+    })
+
+    expect(declared).toContain('extension-develop')
+    expect(declared.filter((name) => /rspack|webpack/.test(name))).toEqual([])
+  })
+
   it('accepts the Safari identity keys the Safari docs show', () => {
     const safari = {
       appName: 'My Extension',
