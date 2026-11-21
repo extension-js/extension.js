@@ -511,7 +511,12 @@ describe('the update check of a spawned CLI', () => {
 
         expect(await session.stop(signal)).toEqual({status: 0, signal: null})
         expect(Date.now() - signaledAt).toBeLessThan(1000)
-        expect(session.read().stderr).toBe('')
+        // Nothing when the signal ended the wait. One line when it landed
+        // before the command returned, which says the signal was seen.
+        expect([
+          '',
+          '⏵⏵⏵ The build had already finished, so there was nothing to stop.\n'
+        ]).toContain(session.read().stderr)
       } finally {
         session.killGroup()
         await silent.close()

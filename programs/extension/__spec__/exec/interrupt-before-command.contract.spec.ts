@@ -396,6 +396,15 @@ describe.skipIf(process.platform === 'win32')(
           expect(await session.closed).toEqual({status: 0, signal: null})
           // The update check's bound is two seconds, and it was not waited.
           expect(Date.now() - releasedAt).toBeLessThan(1500)
+          // The person who pressed the key is told it was seen, once.
+          expect(
+            session
+              .read()
+              .stderr.split('\n')
+              .filter((line) => line.trim())
+          ).toEqual([
+            `⏵⏵⏵ The build had already finished, so there was nothing to stop.`
+          ])
         } finally {
           session.killGroup()
           silent.closeAllConnections()
@@ -421,6 +430,9 @@ describe.skipIf(process.platform === 'win32')(
           expect(
             session.frames<Frame>().map(({ok, status}) => ({ok, status}))
           ).toEqual([{ok: true, status: 'built'}])
+
+          // A machine reads the frame, so the line for a person stays out.
+          expect(session.read().output).not.toContain('nothing to stop')
         } finally {
           session.killGroup()
         }
