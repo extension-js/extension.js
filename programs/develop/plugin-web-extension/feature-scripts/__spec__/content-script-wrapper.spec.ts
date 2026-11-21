@@ -49,6 +49,13 @@ function createLoaderContext(
   }
 }
 
+// The fake carries only the fields the wrapper reads, not the whole context.
+function asWrapperContext(
+  fake: unknown
+): ThisParameterType<typeof contentScriptWrapper> {
+  return fake as ThisParameterType<typeof contentScriptWrapper>
+}
+
 class StubElement {
   attributes = new Map<string, string>()
   style: Record<string, string> = {}
@@ -176,7 +183,7 @@ describe('content-script-wrapper loader', () => {
       'mount()'
     ].join('\n')
 
-    const wrapped = contentScriptWrapper.call(context as any, source)
+    const wrapped = contentScriptWrapper.call(asWrapperContext(context), source)
 
     expect(wrapped).toContain(
       'var __EXTENSIONJS_BUNDLE_KEY="content_scripts/content-0";'
@@ -211,7 +218,7 @@ describe('content-script-wrapper loader', () => {
     )
 
     const wrapped = contentScriptWrapper.call(
-      createLoaderContext(resourcePath, manifestPath) as any,
+      asWrapperContext(createLoaderContext(resourcePath, manifestPath)),
       "console.log('hello scripts folder')"
     )
 
@@ -241,21 +248,21 @@ describe('content-script-wrapper loader', () => {
 
     expect(() =>
       contentScriptWrapper.call(
-        createLoaderContext(resourcePath, manifestPath) as any,
+        asWrapperContext(createLoaderContext(resourcePath, manifestPath)),
         nodeSource
       )
     ).toThrow(/scripts\/ is a reserved folder/i)
 
     expect(() =>
       contentScriptWrapper.call(
-        createLoaderContext(resourcePath, manifestPath) as any,
+        asWrapperContext(createLoaderContext(resourcePath, manifestPath)),
         nodeSource
       )
     ).toThrow(/scripts\/e2e-auth-launcher\.mjs/)
 
     expect(() =>
       contentScriptWrapper.call(
-        createLoaderContext(resourcePath, manifestPath) as any,
+        asWrapperContext(createLoaderContext(resourcePath, manifestPath)),
         nodeSource
       )
     ).toThrow(/shebang/)
@@ -278,7 +285,7 @@ describe('content-script-wrapper loader', () => {
 
     expect(() =>
       contentScriptWrapper.call(
-        createLoaderContext(resourcePath, manifestPath) as any,
+        asWrapperContext(createLoaderContext(resourcePath, manifestPath)),
         "import fs from 'node:fs'\nfs.writeFileSync('x', 'y')\n"
       )
     ).toThrow(/node:/)
@@ -300,7 +307,7 @@ describe('content-script-wrapper loader', () => {
     )
 
     const wrapped = contentScriptWrapper.call(
-      createLoaderContext(resourcePath, manifestPath) as any,
+      asWrapperContext(createLoaderContext(resourcePath, manifestPath)),
       "document.body.dataset.extjs = '1'\n"
     )
     expect(wrapped).toContain(
@@ -325,7 +332,7 @@ describe('content-script-wrapper loader', () => {
 
     const vendored = '!function(e){"use strict";var t={}}(this);\n'
     const wrapped = contentScriptWrapper.call(
-      createLoaderContext(resourcePath, manifestPath) as any,
+      asWrapperContext(createLoaderContext(resourcePath, manifestPath)),
       vendored
     )
 
@@ -356,7 +363,9 @@ describe('content-script-wrapper loader', () => {
     const source = "console.log('prefixed entry')"
 
     const firefox = contentScriptWrapper.call(
-      createLoaderContext(resourcePath, manifestPath, 'firefox') as any,
+      asWrapperContext(
+        createLoaderContext(resourcePath, manifestPath, 'firefox')
+      ),
       source
     )
     expect(firefox).toContain(
@@ -365,7 +374,9 @@ describe('content-script-wrapper loader', () => {
 
     // The same file is a plain module on a chrome build, so it stays untouched.
     const chrome = contentScriptWrapper.call(
-      createLoaderContext(resourcePath, manifestPath, 'chrome') as any,
+      asWrapperContext(
+        createLoaderContext(resourcePath, manifestPath, 'chrome')
+      ),
       source
     )
     expect(chrome).toBe(source)
@@ -391,7 +402,7 @@ describe('content-script-wrapper loader', () => {
     )
 
     const wrapped = contentScriptWrapper.call(
-      createLoaderContext(resourcePath, manifestPath) as any,
+      asWrapperContext(createLoaderContext(resourcePath, manifestPath)),
       "console.log('declared min entry')"
     )
 
@@ -432,10 +443,9 @@ describe('content-script-wrapper loader', () => {
     const wrapAt = (relPath: string) =>
       String(
         contentScriptWrapper.call(
-          createLoaderContext(
-            path.join(manifestDir, relPath),
-            manifestPath
-          ) as any,
+          asWrapperContext(
+            createLoaderContext(path.join(manifestDir, relPath), manifestPath)
+          ),
           source
         )
       )
@@ -494,7 +504,7 @@ describe('content-script-wrapper loader', () => {
     )
 
     const wrapped = contentScriptWrapper.call(
-      createLoaderContext(resourcePath, manifestPath) as any,
+      asWrapperContext(createLoaderContext(resourcePath, manifestPath)),
       "console.log('plain module execution')"
     )
 
@@ -533,12 +543,9 @@ describe('content-script-wrapper loader', () => {
       ]) {
         const wrapped = String(
           contentScriptWrapper.call(
-            createLoaderContext(
-              resourcePath,
-              manifestPath,
-              'chrome',
-              mode
-            ) as any,
+            asWrapperContext(
+              createLoaderContext(resourcePath, manifestPath, 'chrome', mode)
+            ),
             source
           )
         )
@@ -576,10 +583,12 @@ describe('content-script-wrapper loader', () => {
     const linkedResource = path.join(linkedRoot, 'src', 'content', 'scripts.ts')
 
     const wrapped = contentScriptWrapper.call(
-      createLoaderContext(
-        linkedResource,
-        path.join(manifestDir, 'manifest.json')
-      ) as any,
+      asWrapperContext(
+        createLoaderContext(
+          linkedResource,
+          path.join(manifestDir, 'manifest.json')
+        )
+      ),
       'export default function mount(){ return () => {} }\nmount()'
     )
 
@@ -596,35 +605,37 @@ describe('content-script-wrapper loader', () => {
     const source = 'export default function mount(){ return () => {} }'
     const outputs = {
       dev: contentScriptWrapper.call(
-        createLoaderContext(
-          isolated.resourcePath,
-          isolated.manifestPath
-        ) as any,
+        asWrapperContext(
+          createLoaderContext(isolated.resourcePath, isolated.manifestPath)
+        ),
         source
       ),
       production: contentScriptWrapper.call(
-        createLoaderContext(
-          isolated.resourcePath,
-          isolated.manifestPath,
-          undefined,
-          'production'
-        ) as any,
+        asWrapperContext(
+          createLoaderContext(
+            isolated.resourcePath,
+            isolated.manifestPath,
+            undefined,
+            'production'
+          )
+        ),
         source
       ),
       mainWorld: contentScriptWrapper.call(
-        createLoaderContext(
-          mainWorld.resourcePath,
-          mainWorld.manifestPath,
-          undefined,
-          'production'
-        ) as any,
+        asWrapperContext(
+          createLoaderContext(
+            mainWorld.resourcePath,
+            mainWorld.manifestPath,
+            undefined,
+            'production'
+          )
+        ),
         source
       ),
       mainWorldDev: contentScriptWrapper.call(
-        createLoaderContext(
-          mainWorld.resourcePath,
-          mainWorld.manifestPath
-        ) as any,
+        asWrapperContext(
+          createLoaderContext(mainWorld.resourcePath, mainWorld.manifestPath)
+        ),
         source
       )
     }
@@ -673,12 +684,14 @@ describe('a content script whose own teardown throws', () => {
     const entry = writeDeclaredEntry()
     const realm = createRealm()
     const wrapped = contentScriptWrapper.call(
-      createLoaderContext(
-        entry.resourcePath,
-        entry.manifestPath,
-        undefined,
-        mode
-      ) as any,
+      asWrapperContext(
+        createLoaderContext(
+          entry.resourcePath,
+          entry.manifestPath,
+          undefined,
+          mode
+        )
+      ),
       source
     )
 
@@ -757,7 +770,7 @@ describe('what the wrapper hands an extension about each module', () => {
       const options = context.getOptions()
 
       contentScriptWrapper.call(
-        {
+        asWrapperContext({
           ...context,
           getOptions: () => ({
             ...options,
@@ -768,7 +781,7 @@ describe('what the wrapper hands an extension about each module', () => {
               }
             ]
           })
-        } as any,
+        }),
         source
       )
 
@@ -832,7 +845,10 @@ describe('what an extension asks of the wrapper', () => {
 
     return String(
       contentScriptWrapper.call(
-        {...context, getOptions: () => ({...options, extensions})} as any,
+        asWrapperContext({
+          ...context,
+          getOptions: () => ({...options, extensions})
+        }),
         source
       )
     )
@@ -905,12 +921,9 @@ describe('what an extension asks of the wrapper', () => {
     for (const mode of ['development', 'production']) {
       const wrapped = String(
         contentScriptWrapper.call(
-          createLoaderContext(
-            resourcePath,
-            manifestPath,
-            'chrome',
-            mode
-          ) as any,
+          asWrapperContext(
+            createLoaderContext(resourcePath, manifestPath, 'chrome', mode)
+          ),
           source
         )
       )

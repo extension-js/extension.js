@@ -1,6 +1,7 @@
 import * as vm from 'node:vm'
 import {Compilation, sources} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
+import {asCompiler} from '../../__spec__/helpers/rspack-fakes'
 import {
   KeepCompletionValue,
   keepCompletionValueOf
@@ -35,14 +36,16 @@ function emit(assets: Record<string, string>, injected: string[] = []) {
     }
   }
 
-  new KeepCompletionValue().apply({
-    hooks: {
-      thisCompilation: {
-        tap: (_name: string, tapped: (compilation: unknown) => void) =>
-          tapped(compilation)
+  new KeepCompletionValue().apply(
+    asCompiler({
+      hooks: {
+        thisCompilation: {
+          tap: (_name: string, tapped: (compilation: unknown) => void) =>
+            tapped(compilation)
+        }
       }
-    }
-  } as any)
+    })
+  )
 
   for (const name of injected) keepCompletionValueOf(compilation, name)
   for (const pass of passes) pass()

@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {asCompiler, type TapCallback} from '../../__spec__/helpers/rspack-fakes'
 import * as getLocalesModule from '../get-locales'
 import {LocalesPlugin} from '../index'
 
@@ -16,6 +17,27 @@ function createHook() {
     }
   }
 }
+
+// A diagnostic as the plugin reports it.
+type Reported = Error & {file?: string}
+
+// The compilation fakes below, with the files the plugin emitted into them.
+interface FakeCompilation {
+  assets: Record<string, unknown>
+  errors: Reported[]
+  warnings: Reported[]
+  fileDependencies: Set<string>
+  hooks: Record<string, unknown>
+  emitAsset(filename: string, source?: unknown): void
+  deleteAsset?(filename: string): void
+  getAsset?(filename: string): {name: string; source: unknown} | undefined
+  compiler?: unknown
+  _emitted?: string[]
+}
+
+// The fake applyAndProcess builds also deletes and reads assets back.
+type FullFakeCompilation = FakeCompilation &
+  Required<Pick<FakeCompilation, 'deleteAsset' | 'getAsset'>>
 
 const hasAnsi = (s: string) => /\u001b\[[0-9;]*m/.test(s)
 const toPosix = (value: string) => value.replace(/\\/g, '/')
@@ -66,30 +88,30 @@ describe('LocalesPlugin (unit)', () => {
     plugin: LocalesPlugin,
     overrides?: {
       mockGetLocales?: string[]
-      afterEmit?: (compilation: any) => void
+      afterEmit?: (compilation: FullFakeCompilation) => void
     }
   ) {
     const processAssetsHook = createHook()
     const afterProcessAssetsHook = createHook()
     const afterCompileHook = createHook()
     const thisCompilationHook = {
-      tap: (_name: string, cb: (compilation: any) => void) => {
+      tap: (_name: string, cb: TapCallback) => {
         cb(compilation)
       }
     }
 
-    const compilation = {
-      assets: {} as Record<string, unknown>,
-      errors: [] as any[],
-      warnings: [] as any[],
+    const compilation: FullFakeCompilation = {
+      assets: {},
+      errors: [],
+      warnings: [],
       fileDependencies: new Set<string>(),
       hooks: {
         processAssets: processAssetsHook,
         afterProcessAssets: afterProcessAssetsHook
       },
       emitAsset: (filename: string, source: unknown) => {
-        ;(compilation as any)._emitted = (compilation as any)._emitted || []
-        ;(compilation as any)._emitted.push(filename)
+        compilation._emitted = compilation._emitted || []
+        compilation._emitted.push(filename)
         compilation.assets[filename] = source
       },
       deleteAsset: (filename: string) => {
@@ -101,19 +123,19 @@ describe('LocalesPlugin (unit)', () => {
           : undefined
     }
 
-    const compiler = {
+    const compiler = asCompiler({
       options: {context: tmpRoot},
       hooks: {
         thisCompilation: thisCompilationHook,
         afterCompile: {
-          tap: (_name: string, cb: (compilation: any) => void) => {
+          tap: (_name: string, cb: TapCallback) => {
             afterCompileHook.tap('', () => cb(compilation))
           }
         }
       }
-    } as any
+    })
 
-    ;(compilation as any).compiler = compiler
+    compilation.compiler = compiler
 
     if (overrides?.mockGetLocales) {
       vi.spyOn(getLocalesModule, 'getLocales').mockReturnValue(
@@ -122,12 +144,12 @@ describe('LocalesPlugin (unit)', () => {
     }
 
     plugin.apply(compiler)
-    ;(processAssetsHook as any)._runAll()
+    processAssetsHook._runAll()
     overrides?.afterEmit?.(compilation)
-    ;(afterProcessAssetsHook as any)._runAll()
-    ;(afterCompileHook as any)._runAll()
+    afterProcessAssetsHook._runAll()
+    afterCompileHook._runAll()
 
-    return compilation as any
+    return compilation
   }
 
   it('emits every file under a locale folder, json or not', () => {
@@ -139,7 +161,7 @@ describe('LocalesPlugin (unit)', () => {
     const plugin = new LocalesPlugin({manifestPath})
     const compilation = applyAndProcess(plugin)
 
-    const emitted: string[] = (compilation as any)._emitted || []
+    const emitted: string[] = compilation._emitted || []
     expect(
       emitted.some((p) => toPosix(p).endsWith('_locales/en/messages.json'))
     ).toBe(true)
@@ -186,7 +208,7 @@ describe('LocalesPlugin (unit)', () => {
     )
 
     const tappedHooks: string[] = []
-    const compilation: any = {
+    const compilation: FakeCompilation = {
       assets: {},
       errors: [],
       warnings: [],
@@ -199,17 +221,17 @@ describe('LocalesPlugin (unit)', () => {
       },
       emitAsset: () => {}
     }
-    const compiler: any = {
+    const compiler = asCompiler({
       options: {context: tmpRoot},
       hooks: {
         thisCompilation: {
-          tap: (_n: string, cb: (c: any) => void) => cb(compilation)
+          tap: (_n: string, cb: TapCallback) => cb(compilation)
         },
         afterCompile: {
           tap: () => tappedHooks.push('afterCompile')
         }
       }
-    }
+    })
 
     new LocalesPlugin({manifestPath}).apply(compiler)
 
@@ -222,19 +244,19 @@ describe('LocalesPlugin (unit)', () => {
       '{"name":"x","manifest_version":3,"default_locale":"en"}'
     )
 
-    let afterCompile: (compilation: any) => void = () => {}
+    let afterCompile: (compilation: unknown) => void = () => {}
 
-    const compiler: any = {
+    const compiler = asCompiler({
       options: {context: tmpRoot},
       hooks: {
         thisCompilation: {tap: () => {}},
         afterCompile: {
-          tap: (_n: string, cb: (c: any) => void) => {
+          tap: (_n: string, cb: TapCallback) => {
             afterCompile = cb
           }
         }
       }
-    }
+    })
 
     const track = (owner: unknown) => {
       const compilation = {
@@ -274,13 +296,13 @@ describe('LocalesPlugin (unit)', () => {
     const compilation = applyAndProcess(plugin, {mockGetLocales: [missing]})
 
     expect(compilation.warnings.length).toBe(1)
-    const warn: any = compilation.warnings[0]
+    const warn = compilation.warnings[0]
     expect(warn.name).toBe('LocalesPluginMissingFile')
     expect(warn.file).toBe(missing)
     expect(typeof warn.message).toBe('string')
     expect(warn.message).not.toContain(missing)
     expect(hasAnsi(warn.message)).toBe(false)
-    const emitted: string[] = (compilation as any)._emitted || []
+    const emitted: string[] = compilation._emitted || []
     expect(emitted.length).toBe(0)
   })
 
@@ -300,7 +322,7 @@ describe('LocalesPlugin (unit)', () => {
     })
 
     expect(compilation.errors.length).toBe(1)
-    const err: any = compilation.errors[0]
+    const err = compilation.errors[0]
     expect(err.name).toBe('LocalesValidationError')
     expect(err.file).toBe('manifest.json')
     expect(String(err.message)).toContain(
@@ -338,7 +360,7 @@ describe('LocalesPlugin (unit)', () => {
     const compilation = applyAndProcess(plugin)
 
     expect(compilation.errors.length).toBe(1)
-    const err: any = compilation.errors[0]
+    const err = compilation.errors[0]
     expect(err.name).toBe('LocalesValidationError')
     expect(String(err.message)).toContain(
       'The _locales folder exists, but manifest.json is missing default_locale.'
@@ -356,7 +378,7 @@ describe('LocalesPlugin (unit)', () => {
     const compilation = applyAndProcess(plugin)
 
     expect(compilation.errors.length).toBe(1)
-    const err: any = compilation.errors[0]
+    const err = compilation.errors[0]
     expect(err.name).toBe('LocalesValidationError')
     expect(String(err.message)).toContain(
       "Can't parse a locale messages.json file."
@@ -388,7 +410,7 @@ describe('LocalesPlugin (unit)', () => {
     const compilation = applyAndProcess(plugin)
 
     expect(compilation.errors.length).toBe(1)
-    const err: any = compilation.errors[0]
+    const err = compilation.errors[0]
     expect(err.name).toBe('LocalesValidationError')
     expect(String(err.message)).toContain(
       'The manifest references __MSG_extDesc__, but the key "extDesc" isn\'t defined.'
@@ -411,9 +433,9 @@ describe('LocalesPlugin (unit)', () => {
 
     const processAssetsHook = createHook()
     const thisCompilationHook = {
-      tap: (_name: string, cb: (compilation: any) => void) => cb(compilation)
+      tap: (_name: string, cb: TapCallback) => cb(compilation)
     }
-    const compilation: any = {
+    const compilation: FakeCompilation = {
       assets: {},
       errors: [],
       warnings: [],
@@ -424,26 +446,26 @@ describe('LocalesPlugin (unit)', () => {
       },
       emitAsset: vi.fn()
     }
-    const compiler: any = {
+    const compiler = asCompiler({
       options: {context: cleanRoot},
       hooks: {
         thisCompilation: thisCompilationHook,
         afterCompile: {tap: () => {}}
       }
-    }
+    })
 
     const plugin = new LocalesPlugin({manifestPath: missingManifestPath})
     plugin.apply(compiler)
-    ;(processAssetsHook as any)._runAll()
+    processAssetsHook._runAll()
 
     expect(compilation.errors.length).toBe(1)
-    const err: any = compilation.errors[0]
+    const err = compilation.errors[0]
     expect(err.name).toBe('ManifestNotFoundError')
     expect(err.file).toBe(missingManifestPath)
     expect(typeof err.message).toBe('string')
     expect(err.message).toContain("Can't find a manifest.json file.")
     expect(hasAnsi(err.message)).toBe(false)
-    expect((compilation as any)._emitted).toBeUndefined()
+    expect(compilation._emitted).toBeUndefined()
 
     if (fs.existsSync(cleanRoot)) {
       fs.rmSync(cleanRoot, {recursive: true, force: true})
@@ -464,7 +486,7 @@ describe('LocalesPlugin (unit)', () => {
     const compilation = applyAndProcess(plugin)
 
     expect(compilation.errors.length).toBe(1)
-    const err: any = compilation.errors[0]
+    const err = compilation.errors[0]
     expect(err.name).toBe('LocalesValidationError')
     expect(String(err.message)).toContain(
       'default_locale is set, but the _locales folder is missing.'
@@ -481,7 +503,7 @@ describe('LocalesPlugin (unit)', () => {
     const compilation = applyAndProcess(plugin)
 
     expect(compilation.errors.length).toBe(1)
-    const err: any = compilation.errors[0]
+    const err = compilation.errors[0]
     expect(err.name).toBe('LocalesValidationError')
     expect(String(err.message)).toContain('NOT FOUND _locales/fr')
   })
@@ -499,7 +521,7 @@ describe('LocalesPlugin (unit)', () => {
     const compilation = applyAndProcess(plugin)
 
     expect(compilation.errors.length).toBe(1)
-    const err: any = compilation.errors[0]
+    const err = compilation.errors[0]
     expect(err.name).toBe('LocalesValidationError')
     expect(String(err.message)).toContain('NOT FOUND _locales/en/messages.json')
   })
@@ -515,7 +537,7 @@ describe('LocalesPlugin (unit)', () => {
     const compilation = applyAndProcess(plugin)
 
     expect(compilation.errors.length).toBe(1)
-    const err: any = compilation.errors[0]
+    const err = compilation.errors[0]
     expect(err.name).toBe('LocalesValidationError')
     expect(String(err.message)).toContain(
       "Can't parse a locale messages.json file."
@@ -545,9 +567,9 @@ describe('LocalesPlugin (unit)', () => {
     const compilation = (() => {
       const processAssetsHook = createHook()
       const thisCompilationHook = {
-        tap: (_name: string, cb: (compilation: any) => void) => cb(compilation)
+        tap: (_name: string, cb: TapCallback) => cb(compilation)
       }
-      const compilation: any = {
+      const compilation: FakeCompilation = {
         assets: {},
         errors: [],
         warnings: [],
@@ -557,24 +579,24 @@ describe('LocalesPlugin (unit)', () => {
           afterProcessAssets: {tap: () => {}}
         },
         emitAsset: (filename: string) => {
-          ;(compilation as any)._emitted = (compilation as any)._emitted || []
-          ;(compilation as any)._emitted.push(filename)
+          compilation._emitted = compilation._emitted || []
+          compilation._emitted.push(filename)
         }
       }
-      const compiler: any = {
+      const compiler = asCompiler({
         options: {context: pkgRoot},
         hooks: {
           thisCompilation: thisCompilationHook,
           afterCompile: {tap: () => {}}
         }
-      }
+      })
       plugin.apply(compiler)
-      ;(processAssetsHook as any)._runAll()
+      processAssetsHook._runAll()
 
       return compilation
     })()
 
-    const emitted: string[] = (compilation as any)._emitted || []
+    const emitted: string[] = compilation._emitted || []
     expect(emitted.some((p) => p === '_locales/en/messages.json')).toBe(true)
     expect(emitted.some((p) => p.startsWith('src/_locales/'))).toBe(false)
   })
@@ -597,9 +619,9 @@ describe('LocalesPlugin (unit)', () => {
 
     const processAssetsHook = createHook()
     const thisCompilationHook = {
-      tap: (_n: string, cb: (c: any) => void) => cb(compilation)
+      tap: (_n: string, cb: TapCallback) => cb(compilation)
     }
-    const compilation: any = {
+    const compilation: FakeCompilation = {
       assets: {},
       errors: [],
       warnings: [],
@@ -610,32 +632,32 @@ describe('LocalesPlugin (unit)', () => {
       },
       emitAsset: () => {}
     }
-    const compiler: any = {
+    const compiler = asCompiler({
       options: {context: pkgRoot},
       hooks: {
         thisCompilation: thisCompilationHook,
         afterCompile: {tap: () => {}}
       }
-    }
+    })
 
     new LocalesPlugin({manifestPath: srcManifestPath}).apply(compiler)
-    ;(processAssetsHook as any)._runAll()
+    processAssetsHook._runAll()
 
     const error = compilation.errors.find(
-      (e: any) => e.name === 'LocalesValidationError'
+      (e) => e.name === 'LocalesValidationError'
     )
     expect(error).toBeUndefined()
 
     const warning = compilation.warnings.find(
-      (w: any) => w.name === 'LocalesLayoutWarning'
+      (w) => w.name === 'LocalesLayoutWarning'
     )
     expect(warning).toBeDefined()
-    expect(String(warning.message)).toContain('canonically placed')
+    expect(String(warning?.message)).toContain('canonically placed')
 
-    const rows = String(warning.message).split('\n')
+    const rows = String(warning?.message).split('\n')
     expect(rows[1]).toBe(`GOT ${path.join('src', '_locales')}`)
     expect(rows[2]).toBe('EXPECTED _locales')
-    expect(String(warning.message)).not.toContain(pkgRoot)
+    expect(String(warning?.message)).not.toContain(pkgRoot)
   })
 
   it('stays quiet when the manifest folder is its own extension root', () => {
@@ -655,7 +677,7 @@ describe('LocalesPlugin (unit)', () => {
     )
 
     const processAssetsHook = createHook()
-    const compilation: any = {
+    const compilation: FakeCompilation = {
       assets: {},
       errors: [],
       warnings: [],
@@ -666,21 +688,21 @@ describe('LocalesPlugin (unit)', () => {
       },
       emitAsset: () => {}
     }
-    const compiler: any = {
+    const compiler = asCompiler({
       options: {context: pkgRoot},
       hooks: {
         thisCompilation: {
-          tap: (_n: string, cb: (c: any) => void) => cb(compilation)
+          tap: (_n: string, cb: TapCallback) => cb(compilation)
         },
         afterCompile: {tap: () => {}}
       }
-    }
+    })
 
     new LocalesPlugin({manifestPath: nestedManifestPath}).apply(compiler)
-    ;(processAssetsHook as any)._runAll()
+    processAssetsHook._runAll()
 
     expect(
-      compilation.warnings.find((w: any) => w.name === 'LocalesLayoutWarning')
+      compilation.warnings.find((w) => w.name === 'LocalesLayoutWarning')
     ).toBeUndefined()
 
     expect(compilation.errors).toEqual([])
@@ -696,11 +718,11 @@ describe('LocalesPlugin (unit)', () => {
     const compilation = applyAndProcess(plugin)
 
     const layoutWarning = compilation.warnings.find(
-      (w: any) => w.name === 'LocalesLayoutWarning'
+      (w) => w.name === 'LocalesLayoutWarning'
     )
     expect(layoutWarning).toBeUndefined()
     const migrationError = compilation.errors.find(
-      (e: any) =>
+      (e) =>
         e.name === 'LocalesValidationError' &&
         String(e.message).includes('canonically placed')
     )

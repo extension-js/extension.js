@@ -2,21 +2,21 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
-import {browserConfig} from '../../run-firefox/firefox-launch/browser-config'
+import type {CompilationLike} from '../../browsers-types'
+import {
+  type BrowserConfigOptions,
+  browserConfig
+} from '../../run-firefox/firefox-launch/browser-config'
 
-type Compilation = Parameters<typeof browserConfig>[0]
-type Host = Parameters<typeof browserConfig>[1]
-
-// A partial host, cast once. The launch also reads persistProfile, which
-// the options type does not declare.
-function host(fields: Partial<Host> & {persistProfile?: boolean}): Host {
-  return fields as Host
+// A partial host, cast once.
+function host(fields: Partial<BrowserConfigOptions>): BrowserConfigOptions {
+  return fields as BrowserConfigOptions
 }
 
 let project: string
 
 function makeCompilation(out = path.join(project, 'dist', 'firefox')) {
-  return {options: {output: {path: out}}} as Compilation
+  return {options: {output: {path: out}}} as CompilationLike
 }
 
 function extractProfilePath(args: string): string {
@@ -121,13 +121,13 @@ describe('Firefox profile args', () => {
           context: projectA,
           output: {path: path.join(projectA, 'dist', 'firefox')}
         }
-      } as Compilation
+      } as CompilationLike
       const compilationB = {
         options: {
           context: projectB,
           output: {path: path.join(projectB, 'dist', 'firefox')}
         }
-      } as Compilation
+      } as CompilationLike
 
       const argsA = await browserConfig(
         compilationA,

@@ -3,7 +3,9 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {bundledAssetOutputName} from '../../../../plugin-static-assets/static-assets-lib/asset-output-name'
+import {asCompilation} from '../../../__spec__/helpers/rspack-fakes'
 import {patchHtml} from '../../html-lib/patch-html'
+import type {BuildIssue} from '../helpers/html-fakes'
 
 function makeCompilation(mode: 'development' | 'production') {
   return {
@@ -11,8 +13,8 @@ function makeCompilation(mode: 'development' | 'production') {
     getAsset: (_: string) => undefined,
     emitAsset() {},
     updateAsset() {},
-    warnings: [] as any[]
-  } as any
+    warnings: [] as BuildIssue[]
+  }
 }
 
 describe('patchHtml (preserve query/hash)', () => {
@@ -36,7 +38,7 @@ describe('patchHtml (preserve query/hash)', () => {
       )
 
       const updatedHtml = patchHtml(
-        makeCompilation('production') as any,
+        asCompilation(makeCompilation('production')),
         'feature/index',
         htmlFilePath,
         {'feature/index': htmlFilePath},
@@ -66,7 +68,7 @@ describe('patchHtml (preserve query/hash)', () => {
       )
 
       const updatedHtml = patchHtml(
-        makeCompilation('production') as any,
+        asCompilation(makeCompilation('production')),
         'feature/index',
         htmlFilePath,
         {'feature/index': htmlFilePath},

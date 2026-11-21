@@ -1,4 +1,5 @@
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {asManifest} from '../../__spec__/helpers/manifest-fakes'
 import {
   edgeEmbedsOptionsPage,
   reportEdgeEmbeddedOptions,
@@ -14,27 +15,27 @@ describe('Edge embedded options notice', () => {
   })
 
   it('flags an Edge options page that stays embedded', () => {
-    expect(edgeEmbedsOptionsPage(embedded as any, 'edge')).toBe(true)
+    expect(edgeEmbedsOptionsPage(embedded, 'edge')).toBe(true)
     expect(
-      edgeEmbedsOptionsPage({options_ui: {page: 'o.html'}} as any, 'edge')
+      edgeEmbedsOptionsPage(asManifest({options_ui: {page: 'o.html'}}), 'edge')
     ).toBe(true)
   })
 
   it('stays quiet when Edge opens the page in a tab, on other browsers, and with no page', () => {
     expect(
       edgeEmbedsOptionsPage(
-        {options_ui: {page: 'o.html', open_in_tab: true}} as any,
+        asManifest({options_ui: {page: 'o.html', open_in_tab: true}}),
         'edge'
       )
     ).toBe(false)
 
-    expect(edgeEmbedsOptionsPage(embedded as any, 'chrome')).toBe(false)
-    expect(edgeEmbedsOptionsPage(embedded as any, 'firefox')).toBe(false)
-    expect(edgeEmbedsOptionsPage({options_page: 'o.html'} as any, 'edge')).toBe(
-      false
-    )
+    expect(edgeEmbedsOptionsPage(embedded, 'chrome')).toBe(false)
+    expect(edgeEmbedsOptionsPage(embedded, 'firefox')).toBe(false)
+    expect(
+      edgeEmbedsOptionsPage(asManifest({options_page: 'o.html'}), 'edge')
+    ).toBe(false)
 
-    expect(edgeEmbedsOptionsPage({} as any, 'edge')).toBe(false)
+    expect(edgeEmbedsOptionsPage(asManifest({}), 'edge')).toBe(false)
   })
 
   it('prints once per process, naming the edge: prefix remedy', () => {
@@ -43,8 +44,8 @@ describe('Edge embedded options notice', () => {
       lines.push(String(line))
     })
 
-    reportEdgeEmbeddedOptions(embedded as any, 'edge')
-    reportEdgeEmbeddedOptions(embedded as any, 'edge')
+    reportEdgeEmbeddedOptions(embedded, 'edge')
+    reportEdgeEmbeddedOptions(embedded, 'edge')
 
     const text = lines.join('\n').replace(/\u001b\[[0-9;]*m/g, '')
     expect(text.match(/400px/g)).toHaveLength(1)
@@ -58,17 +59,17 @@ describe('Edge embedded options notice', () => {
       lines.push(String(line))
     })
 
-    reportEdgeEmbeddedOptions(embedded as any, 'chrome')
-    reportEdgeEmbeddedOptions(embedded as any, 'firefox')
+    reportEdgeEmbeddedOptions(embedded, 'chrome')
+    reportEdgeEmbeddedOptions(embedded, 'firefox')
     expect(lines).toEqual([])
 
-    reportEdgeEmbeddedOptions(embedded as any, 'edge')
-    reportEdgeEmbeddedOptions(embedded as any, 'chrome')
-    reportEdgeEmbeddedOptions(embedded as any, 'edge')
+    reportEdgeEmbeddedOptions(embedded, 'edge')
+    reportEdgeEmbeddedOptions(embedded, 'chrome')
+    reportEdgeEmbeddedOptions(embedded, 'edge')
     expect(lines).toHaveLength(1)
 
     resetEdgeOptionsNotice()
-    reportEdgeEmbeddedOptions(embedded as any, 'edge')
+    reportEdgeEmbeddedOptions(embedded, 'edge')
     expect(lines).toHaveLength(2)
   })
 })

@@ -1,4 +1,6 @@
 import {describe, expect, it} from 'vitest'
+import type {Manifest} from '../../../../types'
+import {asManifest} from '../../__spec__/helpers/manifest-fakes'
 import {buildCanonicalManifestWithOverrides} from '../../manifest-lib/manifest'
 import {getManifestOverrides} from '../../manifest-overrides'
 
@@ -29,7 +31,7 @@ function unprefixed(manifestVersion: 2 | 3) {
 describe('MV2 content_security_policy through getManifestOverrides', () => {
   it('writes the extension_pages string and drops the object', () => {
     const result = JSON.parse(
-      getManifestOverrides('/p/manifest.json', unprefixed(2) as any)
+      getManifestOverrides('/p/manifest.json', unprefixed(2) as Manifest)
     )
     expect(result.manifest_version).toBe(2)
     expect(result.content_security_policy).toBe(PAGES)
@@ -40,7 +42,7 @@ describe('MV2 content_security_policy through getManifestOverrides', () => {
       getManifestOverrides('/p/manifest.json', {
         ...unprefixed(2),
         content_security_policy: {sandbox: SANDBOX}
-      } as any)
+      } as Manifest)
     )
     expect(result).not.toHaveProperty('content_security_policy')
   })
@@ -50,14 +52,14 @@ describe('MV2 content_security_policy through getManifestOverrides', () => {
       getManifestOverrides('/p/manifest.json', {
         ...unprefixed(2),
         content_security_policy: PAGES
-      } as any)
+      } as Manifest)
     )
     expect(result.content_security_policy).toBe(PAGES)
   })
 
   it('keeps the MV3 object as written', () => {
     const result = JSON.parse(
-      getManifestOverrides('/p/manifest.json', unprefixed(3) as any)
+      getManifestOverrides('/p/manifest.json', unprefixed(3) as Manifest)
     )
     expect(result.content_security_policy).toEqual({
       extension_pages: PAGES,
@@ -70,9 +72,9 @@ describe('MV2 content_security_policy through buildCanonicalManifestWithOverride
   it('writes the string for firefox once the prefixed manifest_version resolves to 2', () => {
     const result = buildCanonicalManifestWithOverrides(
       '/p/manifest.json',
-      source as any,
+      asManifest(source),
       'firefox'
-    ).manifest as any
+    ).manifest as Manifest
     expect(result.manifest_version).toBe(2)
     expect(result.content_security_policy).toBe(PAGES)
   })
@@ -80,9 +82,9 @@ describe('MV2 content_security_policy through buildCanonicalManifestWithOverride
   it('drops a sandbox-only object for firefox', () => {
     const result = buildCanonicalManifestWithOverrides(
       '/p/manifest.json',
-      {...source, content_security_policy: {sandbox: SANDBOX}} as any,
+      asManifest({...source, content_security_policy: {sandbox: SANDBOX}}),
       'firefox'
-    ).manifest as any
+    ).manifest as Manifest
     expect(result.manifest_version).toBe(2)
     expect(result).not.toHaveProperty('content_security_policy')
   })
@@ -90,9 +92,9 @@ describe('MV2 content_security_policy through buildCanonicalManifestWithOverride
   it('keeps the object for chrome where manifest_version resolves to 3', () => {
     const result = buildCanonicalManifestWithOverrides(
       '/p/manifest.json',
-      source as any,
+      asManifest(source),
       'chrome'
-    ).manifest as any
+    ).manifest as Manifest
     expect(result.manifest_version).toBe(3)
     expect(result.content_security_policy).toEqual({
       extension_pages: PAGES,

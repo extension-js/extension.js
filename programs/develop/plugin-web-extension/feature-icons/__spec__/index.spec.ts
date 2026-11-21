@@ -1,14 +1,12 @@
 import {beforeEach, describe, expect, it, vi} from 'vitest'
+import {asCompiler} from '../../__spec__/helpers/rspack-fakes'
 
-const EmitFileMock = vi.fn().mockImplementation(function (
-  this: any,
-  _opts: any
-) {
+const EmitFileMock = vi.fn(function (this: {apply?: unknown}, _opts: unknown) {
   this.apply = vi.fn()
 })
-const AddToFileDependenciesMock = vi.fn().mockImplementation(function (
-  this: any,
-  _opts: any
+const AddToFileDependenciesMock = vi.fn(function (
+  this: {apply?: unknown},
+  _opts: unknown
 ) {
   this.apply = vi.fn()
 })
@@ -32,15 +30,15 @@ describe('IconsPlugin (index.ts)', () => {
     const options = {
       manifestPath: '/project/manifest.json',
       includeList: {icons: ['/icons/a.png']}
-    } as any
+    } as ConstructorParameters<typeof IconsPlugin>[0]
 
     const plugin = new IconsPlugin(options)
-    const fakeCompiler: any = {
+    const fakeCompiler = asCompiler({
       hooks: {
         watchRun: {tapAsync: vi.fn()},
         thisCompilation: {tap: vi.fn()}
       }
-    }
+    })
 
     plugin.apply(fakeCompiler)
 
@@ -52,8 +50,8 @@ describe('IconsPlugin (index.ts)', () => {
     expect(emitCtorArgs).toEqual(options)
     expect(depsCtorArgs).toEqual(options)
 
-    const emitInstance = (EmitFileMock as any).mock.instances[0]
-    const depsInstance = (AddToFileDependenciesMock as any).mock.instances[0]
+    const emitInstance = EmitFileMock.mock.instances[0]
+    const depsInstance = AddToFileDependenciesMock.mock.instances[0]
     expect(emitInstance.apply).toHaveBeenCalledWith(fakeCompiler)
     expect(depsInstance.apply).toHaveBeenCalledWith(fakeCompiler)
   })

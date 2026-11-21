@@ -241,7 +241,7 @@ async function build(root: string, mode: Mode) {
       install: false,
       mode,
       exitOnError: false
-    } as any)
+    } as Parameters<typeof extensionBuild>[1])
   } finally {
     for (const spy of spies) spy.mockRestore()
 
@@ -353,7 +353,7 @@ async function devSessionBundle(root: string, rule: object) {
     metadataCommand: 'dev',
     silent: true,
     output: {clean: true, path: dist}
-  } as any)
+  } as Parameters<typeof webpackConfig>[1])
 
   config.plugins = (config.plugins || []).filter(
     (plugin) =>

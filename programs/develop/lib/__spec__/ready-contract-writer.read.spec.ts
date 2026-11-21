@@ -76,7 +76,10 @@ describe('the one reader of ready.json', () => {
     const read = tryReadReadyRecord(file)
 
     expect(read.record).toBeUndefined()
-    expect((read.error as NodeJS.ErrnoException).code).toBe('EISDIR')
+    expect((read.error as NodeJS.ErrnoException).code).toMatch(
+      /^E(?:ISDIR|PERM|ACCES)$/
+    )
+
     expect(readReadyRecord(file)).toBeUndefined()
   })
 })

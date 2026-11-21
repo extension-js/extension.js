@@ -1,4 +1,5 @@
 import {beforeEach, describe, expect, it, vi} from 'vitest'
+import {asCompiler} from '../../../__spec__/helpers/rspack-fakes'
 
 vi.mock('fs', () => ({
   existsSync: vi.fn((p: string) =>
@@ -10,10 +11,10 @@ vi.mock('fs', () => ({
 }))
 
 vi.mock('../../html-lib/utils', async (orig) => {
-  const mod = (await orig()) as any
+  const mod = await orig<typeof import('../../html-lib/utils')>()
 
   return {
-    ...(mod as Record<string, any>),
+    ...mod,
     getAssetsFromHtml: vi.fn(() => ({
       js: [
         'https://cdn.example.com/lib.js',
@@ -42,15 +43,18 @@ describe('AddScriptsAndStylesToCompilation', () => {
   it('excludes remote and public-root URLs from entry imports', () => {
     const plugin = new AddScriptsAndStylesToCompilation({
       manifestPath: '/proj/manifest.json',
-      includeList: {feature: '/proj/page.html'} as any
-    } as any)
+      includeList: {feature: '/proj/page.html'}
+    })
 
-    const compiler: any = {
-      options: {mode: 'production', entry: {}},
+    const compiler = {
+      options: {
+        mode: 'production',
+        entry: {} as Record<string, {import: string[]}>
+      },
       hooks: {}
     }
 
-    plugin.apply(compiler)
+    plugin.apply(asCompiler(compiler))
 
     const e = compiler.options.entry
     expect(e.feature.import).toContain('/proj/local.js')
