@@ -1,14 +1,12 @@
 import {describe, expect, it, type Mock, vi} from 'vitest'
 import type {BrowserLogger} from '../../browsers-types'
 import {createChromiumContext} from '../../run-chromium/chromium-context'
-import {ChromiumLaunchPlugin} from '../../run-chromium/chromium-launch'
+import {
+  ChromiumLaunchPlugin,
+  type LaunchDoneStats
+} from '../../run-chromium/chromium-launch'
 
-// The stats the done hook reads, as the plugin's own handler declares them.
-interface DoneStats {
-  hasErrors: () => boolean
-  compilation: {options: {mode: string}; errors: Error[]}
-}
-type DoneHandler = (stats: DoneStats) => Promise<void>
+type DoneHandler = (stats: LaunchDoneStats) => Promise<void>
 
 interface FakeCompiler {
   getInfrastructureLogger: () => BrowserLogger

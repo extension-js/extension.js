@@ -61,12 +61,13 @@ import {createChromiumContext} from '../../run-chromium/chromium-context'
 import {ChromiumLaunchPlugin} from '../../run-chromium/chromium-launch'
 import type {ChromiumLaunchOptions} from '../../run-chromium/chromium-types'
 import {createFirefoxContext} from '../../run-firefox/firefox-context'
-import {FirefoxLaunchPlugin} from '../../run-firefox/firefox-launch'
+import {
+  FirefoxLaunchPlugin,
+  type LaunchOptions
+} from '../../run-firefox/firefox-launch'
 import type {FirefoxPluginRuntime} from '../../run-firefox/firefox-types'
 
 import {emptyPathFolder, expectSealedBrowserEnv} from '../sealed-browser-env'
-
-type FirefoxRunOptions = Parameters<FirefoxLaunchPlugin['runOnce']>[1]
 
 // Each plan reads only the fields a row names, so the rest stay unset.
 function chromiumOptions(
@@ -79,10 +80,8 @@ function firefoxRuntime(fields: Record<string, unknown>): FirefoxPluginRuntime {
   return fields as unknown as FirefoxPluginRuntime
 }
 
-function firefoxRunOptions(
-  fields: Partial<FirefoxRunOptions>
-): FirefoxRunOptions {
-  return fields as FirefoxRunOptions
+function firefoxRunOptions(fields: Partial<LaunchOptions>): LaunchOptions {
+  return fields as LaunchOptions
 }
 
 // The plan stops at the launch itself, short of the failure stamp runOnce adds.

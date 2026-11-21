@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {sessionOf} from '../../__spec__/helpers/dev-session'
 import {idleCompiler, writeProject} from '../../__spec__/helpers/real-compiler'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import webpackConfig from '../../rspack-config'
@@ -141,8 +142,7 @@ describe('the reload plugin of a dev session config', () => {
         browser: 'chrome',
         mode: 'development',
         metadataCommand: 'dev',
-        instanceId,
-        controlPort,
+        session: sessionOf({instanceId, controlPort}),
         output: {clean: false, path: path.join(root, 'dist', 'chrome')},
         noBrowser: true
       } as never

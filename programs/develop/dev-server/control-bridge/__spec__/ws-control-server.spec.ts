@@ -1,7 +1,7 @@
 import {afterEach, describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
 import {BridgeBroker} from '../broker'
-import {CONTROL_WS_PATH} from '../contracts'
+import {CONTROL_WS_PATH, type LogFrame, type ServerFrame} from '../contracts'
 import {
   type ControlServer,
   isWebOrigin,
@@ -38,7 +38,10 @@ function connect(port: number): Promise<WebSocket> {
   })
 }
 
-function nextFrame(ws: WebSocket, timeoutMs = 2000): Promise<any> {
+function nextFrame<T = ServerFrame>(
+  ws: WebSocket,
+  timeoutMs = 2000
+): Promise<T> {
   return new Promise((resolve, reject) => {
     const t = setTimeout(
       () => reject(new Error('timeout waiting for frame')),
@@ -103,7 +106,7 @@ describe('ws control server (integration)', () => {
       })
     )
 
-    const logFrame = await nextFrame(consumer)
+    const logFrame = await nextFrame<LogFrame>(consumer)
     expect(logFrame).toMatchObject({type: 'log'})
     expect(logFrame.event).toMatchObject({
       seq: 1,

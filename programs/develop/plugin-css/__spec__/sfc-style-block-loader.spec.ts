@@ -18,6 +18,10 @@ const OWN_PATH = '/develop/dist/sfc-style-block-loader.mjs'
 const PROXY =
   '@import "./Widget.vue.css?vue&type=style&index=0&id=731d5dd6&scoped=true&lang=css!=!-!../node_modules/vue-loader/dist/stylePostLoader.js!../node_modules/vue-loader/dist/index.js??ruleSet[0]!./Widget.vue?vue&type=style&index=0&id=731d5dd6&scoped=true&lang=css";'
 
+// Both loaders read the same slice of a loader context.
+type LoaderContext = ThisParameterType<typeof sfcStyleBlockLoader> &
+  ThisParameterType<typeof deadCssUrlLoader>
+
 function context(overrides: Record<string, unknown> = {}) {
   return {
     resourcePath: '/project/src/Widget.vue',
@@ -32,7 +36,7 @@ function context(overrides: Record<string, unknown> = {}) {
     emitWarning() {},
     emitError() {},
     ...overrides
-  } as any
+  } as unknown as LoaderContext
 }
 
 describe('sfc style block loader', () => {

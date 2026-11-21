@@ -100,7 +100,7 @@ async function build(mode: 'development' | 'production'): Promise<Built> {
       mode,
       polyfill: true,
       exitOnError: false
-    } as any)
+    } as Parameters<typeof extensionBuild>[1])
 
     expect(summary.errors_count).toBe(0)
   } finally {

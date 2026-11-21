@@ -96,13 +96,13 @@ function fakeStats(options: {
 }
 
 function fakeCompiler() {
-  const taps: Record<string, (arg: any) => void> = {}
+  const taps: Record<string, (arg: unknown) => void> = {}
 
   return {
     taps,
     hooks: {
       done: {
-        tap: (_name: string, fn: (stats: any) => void) => {
+        tap: (_name: string, fn: (stats: unknown) => void) => {
           taps.done = fn
         }
       },

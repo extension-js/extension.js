@@ -82,7 +82,9 @@ describe('lib/resource-path', () => {
 
   it('isResourceUnderDirs rejects empty/non-string input', () => {
     expect(isResourceUnderDirs('', ['/x'])).toBe(false)
-    expect(isResourceUnderDirs(undefined as any, ['/x'])).toBe(false)
+    expect(isResourceUnderDirs(undefined as unknown as string, ['/x'])).toBe(
+      false
+    )
   })
 
   it('toResourceKey yields one key for every absolute form of the same path', () => {
@@ -113,7 +115,7 @@ describe('lib/resource-path', () => {
 
   it('toResourceKey passes through empty/non-string input', () => {
     expect(toResourceKey('')).toBe('')
-    expect(toResourceKey(undefined as any)).toBe(undefined)
+    expect(toResourceKey(undefined as unknown as string)).toBe(undefined)
   })
 
   it('reads a module folder from disk once for all the files in it', () => {

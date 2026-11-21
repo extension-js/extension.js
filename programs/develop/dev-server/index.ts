@@ -703,14 +703,13 @@ async function startDevSession(
     extensions: resolvedExtensionsConfig,
     browser: devOptions.browser,
     mode: 'development' as const,
-    instanceId: currentInstance.instanceId,
     instanceExplicit: currentInstance.instanceExplicit,
-    ...controlCoordinates,
+    controlPortUnavailableReason:
+      controlCoordinates.controlPortUnavailableReason,
+    controlPath: controlCoordinates.controlPath,
     logsPath: bridgeLogsRelPath,
-    connectableHost,
     session,
     readyAwaitsExecutor,
-    port: portAllocation.port,
     output: {
       clean: false,
       path: primaryDistPath

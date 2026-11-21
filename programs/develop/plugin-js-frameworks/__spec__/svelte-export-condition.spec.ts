@@ -93,7 +93,7 @@ async function compile(
     metadataCommand: mode === 'production' ? 'build' : 'dev',
     silent: true,
     output: {clean: false, path: path.join(root, 'dist', 'chrome')}
-  } as any)
+  } as Parameters<typeof webpackConfig>[1])
   config.plugins = (config.plugins || []).filter(
     (plugin) =>
       plugin?.constructor.name !== 'plugin-browsers' &&
@@ -114,7 +114,7 @@ async function compile(
 
   const distPath = path.join(root, 'dist', 'chrome')
   const entries = fs.existsSync(distPath)
-    ? (fs.readdirSync(distPath, {recursive: true} as any) as unknown[])
+    ? (fs.readdirSync(distPath, {recursive: true}) as unknown[])
     : []
   const emitted = entries
     .map((entry) => String(entry))

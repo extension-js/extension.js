@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {sessionOf} from '../../__spec__/helpers/dev-session'
 import {
   compileFiles,
   idleCompiler,
@@ -80,9 +81,11 @@ function configHost(connectableHost: string, controlPort: number) {
       browser: 'chrome',
       mode: 'development',
       metadataCommand: 'dev',
-      instanceId: `session-${controlPort}`,
-      controlPort,
-      connectableHost,
+      session: sessionOf({
+        instanceId: `session-${controlPort}`,
+        controlPort,
+        connectableHost
+      }),
       output: {clean: false, path: path.join(root, 'dist', 'chrome')},
       noBrowser: true
     } as never
