@@ -18,6 +18,7 @@ import * as messages from './messages'
 import {isDebug} from './messaging'
 
 export const UPDATE_CHECK_BOUND_MS = 2000
+const BOUND_STEP_MS = 100
 
 // Narrower than NodeJS.ProcessEnv, so a test can hand in only what it sets.
 type Env = Record<string, string | undefined>
@@ -140,10 +141,28 @@ export function lookupLatest(
       agent: false,
       headers: {accept: 'application/json'}
     })
-    const timer = setTimeout(() => {
-      request.destroy(new Error(`No answer from the registry in ${boundMs} ms`))
-    }, boundMs)
+    // Counted in short steps: a stretch where this process kept the event
+    // loop busy, as loading the commands does, uses up one step and no more.
+    const stepMs = Math.min(BOUND_STEP_MS, boundMs)
+    let leftMs = boundMs
+    let timer: NodeJS.Timeout
 
+    const step = () => {
+      leftMs -= stepMs
+
+      if (leftMs <= 0) {
+        request.destroy(
+          new Error(`No answer from the registry in ${boundMs} ms`)
+        )
+
+        return
+      }
+
+      timer = setTimeout(step, Math.min(stepMs, leftMs))
+      timer.unref()
+    }
+
+    timer = setTimeout(step, stepMs)
     timer.unref()
     request.on('socket', (socket) => socket.unref())
     request.on('close', () => clearTimeout(timer))

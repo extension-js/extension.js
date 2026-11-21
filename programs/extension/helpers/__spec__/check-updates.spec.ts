@@ -396,6 +396,52 @@ describe('the update check against a loopback registry', () => {
     expect(Date.now() - started).toBeLessThan(30_000)
   })
 
+  // The CLI loads its commands right after it asks, which blocks the event
+  // loop. That time is the CLI's own, so it must not use up the bound.
+  it('the bound does not count time the process itself kept the event loop busy', async () => {
+    const quick = await registry({
+      status: 200,
+      body: JSON.stringify({version: '99.0.0'})
+    })
+    const scratch = makeTempFolder('extjs-update-busy-')
+    const script = path.join(scratch, 'busy-lookup.mjs')
+    const moduleUrl = pathToFileURL(
+      path.join(__dirname, '..', 'check-updates.ts')
+    )
+
+    fs.writeFileSync(
+      script,
+      `const mod = await import(${JSON.stringify(moduleUrl.href)})\n` +
+        `const lookupLatest = mod.lookupLatest ?? mod.default.lookupLatest\n` +
+        `const asked = lookupLatest('extension', new URL(${JSON.stringify(quick.url)}), 300)\n` +
+        'const until = Date.now() + 900\n' +
+        'while (Date.now() < until) {}\n' +
+        "asked.then((latest) => process.stdout.write('latest ' + latest), (error) => process.stdout.write('failed ' + error.message))\n" +
+        'setTimeout(() => {}, 1500)\n'
+    )
+
+    const child = spawn(process.execPath, ['--import', 'tsx', script], {
+      cwd: path.join(__dirname, '..', '..'),
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: {...process.env, NODE_NO_WARNINGS: '1'}
+    })
+    let stdout = ''
+    let stderr = ''
+
+    child.stdout?.on('data', (chunk) => {
+      stdout += String(chunk)
+    })
+
+    child.stderr?.on('data', (chunk) => {
+      stderr += String(chunk)
+    })
+
+    await new Promise<void>((resolve) => child.once('close', () => resolve()))
+
+    expect(stdout, stderr).toMatch(/^latest \d+\.\d+\.\d+/)
+    expect(quick.asked).toHaveLength(1)
+  })
+
   it('lookupLatest rejects on a bound, never later', async () => {
     const silent = await registry('never')
 
