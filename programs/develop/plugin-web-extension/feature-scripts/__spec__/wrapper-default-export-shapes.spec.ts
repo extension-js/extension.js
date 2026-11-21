@@ -7,7 +7,9 @@ import {Parser, type Program} from 'acorn'
 import {afterAll, describe, expect, it, vi} from 'vitest'
 import {diagnosticCode} from '../../../lib/diagnostic-code'
 import {readDefaultExport} from '../scripts-lib/default-export'
-import contentScriptWrapper from '../steps/add-content-script-wrapper/content-script-wrapper'
+import contentScriptWrapper, {
+  type ContentScriptLoaderContext
+} from '../steps/add-content-script-wrapper/content-script-wrapper'
 
 const roots: string[] = []
 
@@ -65,7 +67,7 @@ function wrap(
           manifestPath: path.join(root, 'manifest.json'),
           mode
         })
-      } as unknown as ThisParameterType<typeof contentScriptWrapper>,
+      } as unknown as ContentScriptLoaderContext,
       source
     )
   )

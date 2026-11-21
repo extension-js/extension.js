@@ -184,14 +184,14 @@ function bridgeSource(names: string[]): string {
   return lines.join('\n')
 }
 
-interface LoaderContext {
+export interface ClassicTracedLoaderContext {
   resourcePath: string
   resourceQuery?: string
   callback(err: Error | null, content?: string, sourceMap?: unknown): void
 }
 
 export default function classicTracedGlobalsLoader(
-  this: LoaderContext,
+  this: ClassicTracedLoaderContext,
   source: string,
   inputSourceMap?: unknown
 ): string | undefined {

@@ -2,7 +2,9 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
-import contentScriptWrapper from '../steps/add-content-script-wrapper/content-script-wrapper'
+import contentScriptWrapper, {
+  type ContentScriptLoaderContext
+} from '../steps/add-content-script-wrapper/content-script-wrapper'
 
 const tempDirs: string[] = []
 
@@ -50,10 +52,8 @@ function createLoaderContext(
 }
 
 // The fake carries only the fields the wrapper reads, not the whole context.
-function asWrapperContext(
-  fake: unknown
-): ThisParameterType<typeof contentScriptWrapper> {
-  return fake as ThisParameterType<typeof contentScriptWrapper>
+function asWrapperContext(fake: unknown): ContentScriptLoaderContext {
+  return fake as ContentScriptLoaderContext
 }
 
 class StubElement {
