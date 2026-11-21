@@ -72,7 +72,7 @@ const PERMISSION_ITEM_PREFIXES = new Set([
   ...WEBKIT_BASED_BROWSERS
 ])
 
-export interface PrefixedPermissionItem {
+interface PrefixedPermissionItem {
   key: string
   item: string
   prefix: string
