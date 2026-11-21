@@ -17,9 +17,10 @@ describe('optional-deps-resolver swallowed errors', () => {
     const attempt = () => {
       try {
         resolveOptionalPackageWithoutInstall({
+          integration: 'Example',
           projectPath: '/definitely/not/a/project',
           dependencyId: 'not-a-real-package-xyz'
-        } as Parameters<typeof resolveOptionalPackageWithoutInstall>[0])
+        })
       } catch {
         // Expected: nothing resolves it.
       }

@@ -46,7 +46,7 @@ async function previewWarnings(target: string | undefined) {
   const result = await extensionPreview(target, {
     browser: 'chrome',
     noBrowser: true
-  } as never)
+  })
 
   return {
     returned: result?.warnings ?? [],

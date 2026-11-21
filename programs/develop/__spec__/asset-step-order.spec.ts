@@ -146,7 +146,7 @@ beforeAll(async () => {
     metadataCommand: 'build',
     silent: true,
     output: {clean: false, path: path.join(root, 'dist', 'safari')}
-  } as never)
+  })
   const recorder = new RecordAssetSteps()
 
   config.plugins = [

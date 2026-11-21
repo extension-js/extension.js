@@ -34,7 +34,7 @@ function compilerOf(root: string) {
     outputPath: path.join(root, 'dist', 'chrome'),
     manifestPath: path.join(root, 'manifest.json'),
     port: 8080
-  } as never).apply(compiler as never)
+  }).apply(compiler as never)
 
   return {
     compiler,

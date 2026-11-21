@@ -114,9 +114,7 @@ describe('what the reload plugin keeps reachable for the manifest', () => {
         manifestPath: path.join(output, 'no-manifest.json'),
         browser: 'chrome',
         devSession
-      } as ConstructorParameters<typeof ReloadPlugin>[0]).apply(
-        compiler as unknown as Compiler
-      )
+      }).apply(compiler as unknown as Compiler)
 
       expect(
         resourcesKeptReachable(compilationOf(compiler, 'development', output))

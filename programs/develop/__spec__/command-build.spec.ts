@@ -433,7 +433,7 @@ describe('extensionBuild', () => {
         zip: undefined,
         silent: undefined,
         polyfill: undefined
-      } as BuildOptions)
+      })
 
       expect(zipsUnder(root)).toHaveLength(1)
       expect(vi.mocked(console.log).mock.calls).toEqual([])
@@ -449,7 +449,7 @@ describe('extensionBuild', () => {
         silent: true,
         install: false,
         addonLint: false
-      } as BuildOptions)
+      })
 
       expect(fromConfig.browser).toBe('firefox')
       expect(
@@ -468,7 +468,7 @@ describe('extensionBuild', () => {
       })
 
       await expect(
-        extensionBuild(misnamed, {silent: true, install: false} as BuildOptions)
+        extensionBuild(misnamed, {silent: true, install: false})
       ).rejects.toThrow(
         /Unsupported browser in extension.config commands.build.browser: nope/
       )
@@ -1313,7 +1313,7 @@ describe('extensionBuild', () => {
       const summary = await extensionBuild(root, {
         silent: true,
         install: false
-      } as BuildOptions)
+      })
 
       expect(summary.browser).toBe('chromium')
       expect(
@@ -1325,12 +1325,13 @@ describe('extensionBuild', () => {
         silent: true,
         install: false,
         chromiumBinary: '/opt/fork/browser'
-      } as BuildOptions)
+      })
 
       expect(forked.browser).toBe('chromium-based')
 
       const untouched = project()
       const failure = await failureOf(
+        // @ts-expect-error a misspelled browser proves the build refuses it
         buildProject(untouched, {browser: 'chorme'})
       )
 

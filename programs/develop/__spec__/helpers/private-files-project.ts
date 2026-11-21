@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, expect, vi} from 'vitest'
+import type {BrowserType} from '../../types'
 import {listOutput} from './compile-harness'
 
 // A fixture project of fake private files, one folder below a holder that
@@ -363,7 +364,10 @@ export function expectNothingPrivate(
   if (where === 'everywhere') expect(result.exposed.output).toEqual([])
 }
 
-export async function build(root: string, browser = 'chrome'): Promise<Built> {
+export async function build(
+  root: string,
+  browser: BrowserType = 'chrome'
+): Promise<Built> {
   const {extensionBuild} = await import('../../command-build')
   const lines: string[] = []
 
@@ -400,7 +404,7 @@ export async function build(root: string, browser = 'chrome'): Promise<Built> {
         install: false,
         mode: 'production',
         exitOnError: false
-      } as never)
+      })
     } catch (error) {
       failure = error as {diagnostics?: unknown[]}
       if (!Array.isArray(failure.diagnostics)) throw error

@@ -71,7 +71,7 @@ async function findings(sheet: string, request: string) {
     metadataCommand: 'build',
     silent: true,
     output: {clean: true, path: path.join(root, 'dist', 'chrome')}
-  } as never)
+  })
 
   config.plugins = (config.plugins || []).filter(
     (plugin) =>

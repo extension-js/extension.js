@@ -97,7 +97,7 @@ describe('opening the control bridge', () => {
       logFile,
       actionsFile,
       print: (line) => printed.push(stripAnsi(line)),
-      startServer: startServer as never
+      startServer: startServer
     })
 
     // Both the preferred-port call and the ephemeral fallback must have run.
@@ -135,9 +135,9 @@ describe('opening the control bridge', () => {
       logFile,
       actionsFile,
       print: () => {},
-      startServer: (async () => {
+      startServer: async () => {
         throw new Error('listen EADDRNOTAVAIL 10.0.0.9:0')
-      }) as never
+      }
     })
     const coordinates = controlCoordinatesOf(opening)
     const contract = () =>
@@ -183,7 +183,7 @@ describe('opening the control bridge', () => {
       ...coordinates,
       mode: 'development',
       outputPath: path.join(root, 'dist', 'chrome')
-    } as never).apply({hooks: anyHook} as never)
+    }).apply({hooks: anyHook} as never)
 
     expect(contract()).toMatchObject(refused)
   })
@@ -203,7 +203,7 @@ describe('opening the control bridge', () => {
       browserName: 'chrome',
       logFile,
       print: () => {},
-      startServer: startServer as never
+      startServer: startServer
     })
 
     expect(startServer.mock.calls).toEqual([

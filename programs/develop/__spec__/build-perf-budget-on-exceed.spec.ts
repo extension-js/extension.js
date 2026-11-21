@@ -84,7 +84,10 @@ function printedErrors(): string {
     .join('\n')
 }
 
-async function build(root: string, mode = 'production') {
+async function build(
+  root: string,
+  mode: 'development' | 'production' = 'production'
+) {
   return buildProject(root, {
     mode,
     exitOnError: false

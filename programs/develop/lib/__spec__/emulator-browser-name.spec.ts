@@ -67,7 +67,7 @@ describe('chromium-emulator as a browser name', () => {
         name: 'x',
         'chromium:minimum_chrome_version': '120',
         'firefox:browser_specific_settings': {gecko: {id: 'x@y'}}
-      } as Parameters<typeof filterKeysForThisBrowser>[0],
+      },
       'chromium-emulator'
     ) as Record<string, unknown>
     expect(filtered.minimum_chrome_version).toBe('120')
