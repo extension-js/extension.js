@@ -1,0 +1,61 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`the signatures of the create package, entry by entry > pins what . declares > . 1`] = `
+"# exports
+CreateLogger = create/module#CreateLogger
+CreateOptions = create/module#CreateOptions
+CreateResult = create/module#CreateResult
+TEMPLATE_ALIASES = create/steps/import-external-template#TEMPLATE_ALIASES
+extensionCreate = create/module#extensionCreate
+resolveTemplateAlias = create/steps/import-external-template#resolveTemplateAlias
+
+# from other packages
+
+# declarations
+
+## create/lib/package-manager#ScaffoldPackageManager
+type ScaffoldPackageManager = 'npm' | 'yarn' | 'pnpm' | 'bun' | 'deno';
+
+## create/module#CreateLogger
+interface CreateLogger {
+    log: (...args: unknown[]) => void;
+    error: (...args: unknown[]) => void;
+}
+
+## create/module#CreateOptions
+interface CreateOptions {
+    template?: string;
+    install?: boolean;
+    cliVersion?: string;
+    logger?: CreateLogger;
+}
+
+## create/module#CreateResult
+interface CreateResult {
+    projectPath: string;
+    projectName: string;
+    packageName: string;
+    template: string;
+    depsInstalled: boolean;
+    installSeconds?: number;
+    packageManager: ScaffoldPackageManager;
+    packageManagerSpec?: string;
+    templateProvenance: TemplateProvenance;
+}
+
+## create/module#extensionCreate
+declare function extensionCreate(projectNameInput: string | undefined, { cliVersion, template, install, logger }: CreateOptions): Promise<CreateResult>;
+
+## create/steps/import-external-template#TEMPLATE_ALIASES
+declare const TEMPLATE_ALIASES: Readonly<Record<string, string>>;
+
+## create/steps/import-external-template#TemplateProvenance
+interface TemplateProvenance {
+    template: string;
+    source: string;
+    ref?: string;
+}
+
+## create/steps/import-external-template#resolveTemplateAlias
+declare function resolveTemplateAlias(name: string): string;"
+`;

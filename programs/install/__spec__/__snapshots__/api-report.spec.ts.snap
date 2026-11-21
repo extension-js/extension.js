@@ -1,0 +1,247 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`the signatures of the install package, entry by entry > pins what . declares > . 1`] = `
+"# exports
+BrowserCacheRootError = install/lib/browser-target#BrowserCacheRootError
+BrowserInstallBusyError = install/lib/browser-target#BrowserInstallBusyError
+BrowserInstallFailedError = install/lib/browser-target#BrowserInstallFailedError
+BrowserInstallForeignFolderError = install/lib/browser-target#BrowserInstallForeignFolderError
+BrowserInstallPrivilegeError = install/lib/browser-target#BrowserInstallPrivilegeError
+BrowserInstallTimeoutError = install/lib/browser-target#BrowserInstallTimeoutError
+BrowserInstallerNotFoundError = install/lib/browser-target#BrowserInstallerNotFoundError
+BrowserNotInstallableError = install/lib/browser-target#BrowserNotInstallableError
+BrowserUninstallError = install/lib/browser-target#BrowserUninstallError
+InstallBrowserTarget = install/lib/browser-target#InstallBrowserTarget
+InstallOptions = install/module#InstallOptions
+LockSeams = install/lib/install-lock#LockSeams
+UninstallFailureKind = install/lib/browser-target#UninstallFailureKind
+UninstallOptions = install/module#UninstallOptions
+UninstallOutcome = install/lib/browser-target#UninstallOutcome
+UninstallResult = install/lib/browser-target#UninstallResult
+extensionInstall = install/module#extensionInstall
+extensionUninstall = install/module#extensionUninstall
+getManagedBrowserInstallDir = install/module#getManagedBrowserInstallDir
+getManagedBrowsersCacheRoot = install/module#getManagedBrowsersCacheRoot
+isBrowserCacheRootError = install/lib/browser-target#isBrowserCacheRootError
+isBrowserInstallBusyError = install/lib/browser-target#isBrowserInstallBusyError
+isBrowserInstallFailedError = install/lib/browser-target#isBrowserInstallFailedError
+isBrowserInstallForeignFolderError = install/lib/browser-target#isBrowserInstallForeignFolderError
+isBrowserInstallPrivilegeError = install/lib/browser-target#isBrowserInstallPrivilegeError
+isBrowserInstallTimeoutError = install/lib/browser-target#isBrowserInstallTimeoutError
+isBrowserInstallerNotFoundError = install/lib/browser-target#isBrowserInstallerNotFoundError
+isBrowserNotInstallableError = install/lib/browser-target#isBrowserNotInstallableError
+isBrowserUninstallError = install/lib/browser-target#isBrowserUninstallError
+normalizeBrowserName = install/lib/browser-target#normalizeBrowserName
+
+# from other packages
+node:child_process#ChildProcess
+node:child_process#SpawnOptions
+
+# declarations
+
+## install/lib/browser-target#BrowserCacheRootError
+declare class BrowserCacheRootError extends Error {
+    readonly code: 'BROWSER_CACHE_ROOT';
+    constructor(message: string);
+}
+
+## install/lib/browser-target#BrowserInstallBusyError
+declare class BrowserInstallBusyError extends Error {
+    readonly code: 'BROWSER_INSTALL_BUSY';
+    constructor(message: string);
+}
+
+## install/lib/browser-target#BrowserInstallFailedError
+declare class BrowserInstallFailedError extends Error {
+    readonly code: 'BROWSER_INSTALL_FAILED';
+    constructor(message: string);
+}
+
+## install/lib/browser-target#BrowserInstallForeignFolderError
+declare class BrowserInstallForeignFolderError extends Error {
+    readonly code: 'BROWSER_INSTALL_FOREIGN_FOLDER';
+    constructor(message: string);
+}
+
+## install/lib/browser-target#BrowserInstallPrivilegeError
+declare class BrowserInstallPrivilegeError extends Error {
+    readonly code: 'BROWSER_INSTALL_PRIVILEGE';
+    constructor(message: string);
+}
+
+## install/lib/browser-target#BrowserInstallTimeoutError
+declare class BrowserInstallTimeoutError extends Error {
+    readonly code: 'BROWSER_INSTALL_TIMEOUT';
+    readonly timeoutMs: number;
+    constructor(message: string, timeoutMs: number);
+}
+
+## install/lib/browser-target#BrowserInstallerNotFoundError
+declare class BrowserInstallerNotFoundError extends Error {
+    readonly code: 'BROWSER_INSTALLER_NOT_FOUND';
+    constructor(message: string);
+}
+
+## install/lib/browser-target#BrowserNotInstallableError
+declare class BrowserNotInstallableError extends Error {
+    readonly code: 'BROWSER_NOT_INSTALLABLE';
+    constructor(message: string);
+}
+
+## install/lib/browser-target#BrowserUninstallError
+declare class BrowserUninstallError extends Error {
+    readonly code: 'BROWSER_UNINSTALL';
+    readonly results: UninstallResult[];
+    constructor(message: string, results: UninstallResult[]);
+}
+
+## install/lib/browser-target#InstallBrowserTarget
+type InstallBrowserTarget = 'chrome' | 'chromium' | 'edge' | 'firefox';
+
+## install/lib/browser-target#UninstallFailureKind
+type UninstallFailureKind = 'removal' | 'permission' | 'foreign' | 'installing';
+
+## install/lib/browser-target#UninstallOutcome
+type UninstallOutcome = 'removed' | 'absent' | 'system' | 'failed';
+
+## install/lib/browser-target#UninstallResult
+interface UninstallResult {
+    browser: InstallBrowserTarget;
+    removed: boolean;
+    path: string;
+    outcome: UninstallOutcome;
+    kind?: UninstallFailureKind;
+    reason?: string;
+    systemPath?: string;
+}
+
+## install/lib/browser-target#isBrowserCacheRootError
+declare function isBrowserCacheRootError(error: unknown): error is BrowserCacheRootError;
+
+## install/lib/browser-target#isBrowserInstallBusyError
+declare function isBrowserInstallBusyError(error: unknown): error is BrowserInstallBusyError;
+
+## install/lib/browser-target#isBrowserInstallFailedError
+declare function isBrowserInstallFailedError(error: unknown): error is BrowserInstallFailedError;
+
+## install/lib/browser-target#isBrowserInstallForeignFolderError
+declare function isBrowserInstallForeignFolderError(error: unknown): error is BrowserInstallForeignFolderError;
+
+## install/lib/browser-target#isBrowserInstallPrivilegeError
+declare function isBrowserInstallPrivilegeError(error: unknown): error is BrowserInstallPrivilegeError;
+
+## install/lib/browser-target#isBrowserInstallTimeoutError
+declare function isBrowserInstallTimeoutError(error: unknown): error is BrowserInstallTimeoutError;
+
+## install/lib/browser-target#isBrowserInstallerNotFoundError
+declare function isBrowserInstallerNotFoundError(error: unknown): error is BrowserInstallerNotFoundError;
+
+## install/lib/browser-target#isBrowserNotInstallableError
+declare function isBrowserNotInstallableError(error: unknown): error is BrowserNotInstallableError;
+
+## install/lib/browser-target#isBrowserUninstallError
+declare function isBrowserUninstallError(error: unknown): error is BrowserUninstallError;
+
+## install/lib/browser-target#normalizeBrowserName
+declare function normalizeBrowserName(input: string): InstallBrowserTarget;
+
+## install/lib/install-lock#LockSeams
+interface LockSeams {
+    now?: () => number;
+    sleep?: (ms: number) => Promise<void>;
+    isAlive?: (pid: number) => boolean;
+    pid?: number;
+    pollMs?: number;
+}
+
+## install/lib/runner#CommandResult
+interface CommandResult {
+    code: number | null;
+    signal: NodeJS.Signals | null;
+    stdout: string;
+    stderr: string;
+    timedOut?: boolean;
+    promptTimedOut?: boolean;
+    interrupted?: NodeJS.Signals;
+}
+
+## install/lib/runner#ForwardedSignal
+type ForwardedSignal = 'SIGINT' | 'SIGTERM';
+
+## install/lib/runner#InstallPlanOptions
+interface InstallPlanOptions {
+    env?: Record<string, string | undefined>;
+    platform?: NodeJS.Platform;
+    cwd?: string;
+}
+
+## install/lib/runner#RunCommandOptions
+interface RunCommandOptions {
+    cwd: string;
+    env: NodeJS.ProcessEnv;
+    timeoutMs?: number;
+    ownGroup?: boolean;
+    promptWaitMs?: number;
+    graceMs?: number;
+    platform?: NodeJS.Platform;
+    signals?: SignalSource;
+    spawnProcess?: SpawnProcess;
+}
+
+## install/lib/runner#SignalSource
+interface SignalSource {
+    on: (signal: ForwardedSignal, listener: () => void) => unknown;
+    off: (signal: ForwardedSignal, listener: () => void) => unknown;
+}
+
+## install/lib/runner#SpawnProcess
+type SpawnProcess = (command: string, args: string[], options: SpawnOptions) => ChildProcess;
+
+## install/lib/runner#SystemEdgeLookup
+interface SystemEdgeLookup {
+    platform?: NodeJS.Platform;
+    env?: Record<string, string | undefined>;
+    exists?: (file: string) => boolean;
+    lookup?: (tool: 'where' | 'which', name: string) => string | null;
+    registry?: (key: string) => string | null;
+}
+
+## install/lib/runner#runCommand
+declare function runCommand(command: string, args: string[], opts: RunCommandOptions): Promise<CommandResult>;
+
+## install/module#InstallOptions
+interface InstallOptions extends InstallPlanOptions {
+    browser: string;
+    defaulted?: boolean;
+    locateInstalledBinary: (destination: string, browser: InstallBrowserTarget) => string | null;
+    runInstaller?: typeof runCommand;
+    stdinIsTTY?: boolean;
+    isRoot?: boolean;
+    systemEdge?: SystemEdgeLookup;
+    removeTree?: (dir: string) => void;
+    lock?: LockSeams;
+}
+
+## install/module#UninstallOptions
+interface UninstallOptions {
+    browser?: string;
+    all?: boolean;
+    env?: Record<string, string | undefined>;
+    platform?: NodeJS.Platform;
+    systemEdge?: SystemEdgeLookup;
+    removeTree?: (dir: string) => void;
+    lock?: LockSeams;
+}
+
+## install/module#extensionInstall
+declare function extensionInstall(options: InstallOptions): Promise<void>;
+
+## install/module#extensionUninstall
+declare function extensionUninstall({ browser, all, env, platform, systemEdge, removeTree, lock: lockSeams }: UninstallOptions): Promise<UninstallResult[]>;
+
+## install/module#getManagedBrowserInstallDir
+declare function getManagedBrowserInstallDir(browser: string): string;
+
+## install/module#getManagedBrowsersCacheRoot
+declare function getManagedBrowsersCacheRoot(): string;"
+`;
