@@ -77,7 +77,7 @@ function configHost(connectableHost: string, controlPort: number) {
   )
 
   const config = webpackConfig(
-    {manifestPath, packageJsonPath: path.join(root, 'package.json')} as never,
+    {manifestPath, packageJsonPath: path.join(root, 'package.json')},
     {
       browser: 'chrome',
       mode: 'development',
@@ -89,7 +89,7 @@ function configHost(connectableHost: string, controlPort: number) {
       }),
       output: {clean: false, path: path.join(root, 'dist', 'chrome')},
       noBrowser: true
-    } as never
+    }
   )
   const plugin = (config.plugins ?? []).find(
     (candidate: unknown) => candidate instanceof ReloadPlugin

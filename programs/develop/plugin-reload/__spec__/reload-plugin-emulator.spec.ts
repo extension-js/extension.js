@@ -6,12 +6,13 @@ import {
   writeProject
 } from '../../__spec__/helpers/real-compiler'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+import type {BrowserType} from '../../types'
 import {ReloadPlugin} from '../index'
 import {sessionBridge, setSessionBridge} from './helpers/session-bridge'
 
 const makeTempFolder = trackTempFolders()
 
-function thisCompilationTaps(browser: string) {
+function thisCompilationTaps(browser: BrowserType) {
   const root = writeProject(makeTempFolder('extjs-reload-engine-'), {
     'manifest.json': {
       manifest_version: 3,
@@ -29,7 +30,7 @@ function thisCompilationTaps(browser: string) {
       session: sessionBridge(),
       manifestPath: path.join(root, 'manifest.json'),
       browser
-    } as ConstructorParameters<typeof ReloadPlugin>[0]).apply(compiler)
+    }).apply(compiler)
   )
 
   return taps.thisCompilation

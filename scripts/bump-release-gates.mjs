@@ -16,9 +16,12 @@ import {fileURLToPath} from 'node:url'
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 export const GATES = ['extension-js/corpus', 'extension-js/templates']
+// The smoke on main has no gate job. It reads the templates at the same
+// commit through PINNED_EXAMPLES_REF, which moves with the templates pin.
 export const FILES = [
   '.github/workflows/publish-release.yml',
-  '.github/workflows/bump-release-gates.yml'
+  '.github/workflows/bump-release-gates.yml',
+  '.github/workflows/e2e-smoke.yml'
 ]
 
 function literal(text) {

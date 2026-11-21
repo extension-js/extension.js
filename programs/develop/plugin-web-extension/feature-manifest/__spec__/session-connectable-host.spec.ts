@@ -71,7 +71,7 @@ async function compileSession(session: {
     // A config built by no session carries no record at all.
     ...(Object.keys(session).length > 0 ? {session: sessionOf(session)} : {}),
     output: {clean: false, path: distPath}
-  } as never)
+  })
   config.plugins = (config.plugins || []).filter(
     (plugin) => plugin?.constructor.name !== 'plugin-browsers'
   )

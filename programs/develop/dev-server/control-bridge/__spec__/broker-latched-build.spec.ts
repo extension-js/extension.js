@@ -40,7 +40,7 @@ function secondSaveWhileRestarting(second: {
   refreshedStylesheets?: {file: string; digest: string}[]
   standalonePages?: string[]
 }) {
-  const b = new BridgeBroker({instanceId: 'inst-1', runId: 'run-A'} as never)
+  const b = new BridgeBroker({instanceId: 'inst-1', runId: 'run-A'})
   const first = new FakeConn('worker-1')
 
   hello(b, first, 'build-1')
@@ -155,8 +155,7 @@ describe('a worker reload held while the worker restarts', () => {
 // The watcher can compile the same bytes twice for two quick saves. The
 // worker that restarted for the first compile reads that build and says so.
 describe('the build the connected backgrounds run', () => {
-  const b = () =>
-    new BridgeBroker({instanceId: 'inst-1', runId: 'run-A'} as never)
+  const b = () => new BridgeBroker({instanceId: 'inst-1', runId: 'run-A'})
 
   it('is the one every connected background named in its hello', () => {
     const broker = b()

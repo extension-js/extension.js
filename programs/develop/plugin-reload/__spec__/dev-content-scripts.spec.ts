@@ -1147,7 +1147,7 @@ describe('dev content scripts runtime', () => {
           css: ['content_scripts/content-0.aaaaaaaa.css']
         }
       ]
-    } as Parameters<typeof planDevContentScripts>[0])!
+    })!
     const w = worker({
       registry: plan.registry,
       assets: plan.stubs,

@@ -2,6 +2,7 @@ import * as crypto from 'node:crypto'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import type {BrowserType} from '../types'
 import {buildProject} from './helpers/build-project'
 import {trackTempFolders} from './helpers/temp-folders'
 
@@ -73,7 +74,7 @@ function project(
   return root
 }
 
-async function build(root: string, browser: string) {
+async function build(root: string, browser: BrowserType) {
   return buildProject(root, {
     browser,
     mode: 'production'

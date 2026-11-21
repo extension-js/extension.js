@@ -144,7 +144,7 @@ describe('the dependencies of this package', () => {
       })
     })
     const {maybeUsePostCss} = await import('../css-tools/postcss')
-    const rule = await maybeUsePostCss(root, {mode: 'production'} as never)
+    const rule = await maybeUsePostCss(root, {mode: 'production'})
     const opts = (
       rule as {options?: {postcssOptions?: Record<string, unknown>}}
     ).options?.postcssOptions
@@ -200,12 +200,12 @@ describe('the three dead url() checks and the .css sibling', () => {
       {
         manifestPath: path.join(root, 'manifest.json'),
         packageJsonPath: path.join(root, 'package.json')
-      } as never,
+      },
       {
         browser: 'chrome',
         mode: 'production',
         output: {clean: false, path: path.join(root, 'out')}
-      } as never
+      }
     )
     const externals = (
       config.externals as Array<
