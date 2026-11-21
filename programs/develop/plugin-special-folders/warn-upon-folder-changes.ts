@@ -13,13 +13,16 @@ import {debugLine, isDebug} from '../lib/messaging'
 import {isInsidePath} from '../lib/real-path'
 import {requestSessionRestart} from '../lib/session-restart-signal'
 import {
+  isEntryFolderFile,
+  walkEntryFolder
+} from '../lib/special-folders/entry-folders'
+import {
   foldersRoots,
   type SpecialFolderName,
   type SpecialFoldersRoots
 } from '../lib/special-folders/folders-config'
-import {isEntryFolderFile, walkEntryFolder} from './entry-folders'
+import {linkedEntryFiles} from '../lib/special-folders/walked-entries'
 import * as messages from './messages'
-import {linkedEntryFiles} from './walked-entries'
 
 type SpecialFolder = SpecialFolderName
 type ChangeType = 'add' | 'remove'

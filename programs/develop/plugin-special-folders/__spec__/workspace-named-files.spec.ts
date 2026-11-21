@@ -9,7 +9,7 @@ import {
   expectNoWorkspaceAboveTemp,
   MARKER,
   PAGE
-} from './helpers/private-files-project'
+} from '../../__spec__/helpers/private-files-project'
 
 // Whole production builds of a project two folders below a workspace root:
 // each route names files of the workspace, and a row says where each landed.

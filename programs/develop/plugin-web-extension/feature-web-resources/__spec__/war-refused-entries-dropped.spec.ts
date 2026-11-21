@@ -9,7 +9,7 @@ import {
   manifest,
   notFoundPaths,
   project
-} from '../../../plugin-special-folders/__spec__/helpers/private-files-project'
+} from '../../../__spec__/helpers/private-files-project'
 
 // Whole production builds: an entry the build copies nothing for is named
 // in a warning, and the manifest in the output folder does not list it.

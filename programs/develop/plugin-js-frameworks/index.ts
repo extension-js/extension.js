@@ -17,13 +17,13 @@ import {toResourceKey} from '../lib/resource-path'
 import {NOT_RAW_RESOURCE_QUERY, RAW_RESOURCE_QUERY} from '../lib/resource-query'
 import {setupInOrder} from '../lib/setup-in-order'
 import {scriptsFolderRoot} from '../lib/special-folders/folders-config'
+import {getSpecialFoldersDataForCompiler} from '../lib/special-folders/get-data'
 import {resolveEngineTargets} from '../lib/swc-targets'
 import {
   createNodeModulesExclude,
   resolveTranspilePackageDirs
 } from '../lib/transpile-packages'
 import {getUserTypeScriptConfigFile} from '../lib/user-tsconfig'
-import {getSpecialFoldersDataForCompiler} from '../plugin-special-folders/get-data'
 import {getAssetsFromHtml} from '../plugin-web-extension/feature-html/html-lib/utils'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../plugin-web-extension/feature-scripts/contracts'
 import {htmlPageEntries} from '../plugin-web-extension/shared/html-page-entries'

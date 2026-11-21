@@ -1,14 +1,14 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
-import {SpecialFoldersPlugin} from '..'
 import {
   buildWith,
   fixtureCompiler,
   makeFixtureRoot,
   removeFixtureRoots,
   watchFixture
-} from './helpers/compile-harness'
+} from '../../__spec__/helpers/compile-harness'
+import {SpecialFoldersPlugin} from '..'
 
 // A file only the copier ships has no module that imports it, so the watch
 // session must see public/ itself for an edit, an addition or a deletion.

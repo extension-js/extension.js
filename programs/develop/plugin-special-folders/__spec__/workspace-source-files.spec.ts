@@ -2,11 +2,11 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
+import {expectNoWorkspaceAboveTemp} from '../../__spec__/helpers/private-files-project'
 import {
   sourceFileMayShip,
   workspaceRootOf
 } from '../../lib/public-private-files'
-import {expectNoWorkspaceAboveTemp} from './helpers/private-files-project'
 
 // The predicate on its own, for a project two folders below a workspace
 // root. A row is a path from the project and whether each ask may ship it.

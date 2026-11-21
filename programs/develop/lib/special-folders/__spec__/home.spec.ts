@@ -22,11 +22,20 @@ function sources(dir: string, found: string[] = []): string[] {
 const named = (file: string) =>
   path.relative(developRoot, file).split(path.sep).join('/')
 
-// The commands, the dev server and four plugins ask where public/ is and
-// what the folders config says, so the answers live where all may read them.
-describe('where the folders config and the public folder are resolved', () => {
+const SHARED = [
+  'folders-config',
+  'resolve-public-folder',
+  'get-data',
+  'entry-folders',
+  'walked-entries'
+]
+
+// The commands, the dev server and four plugins ask where public/ is, what
+// the folders config says and which files pages/ and scripts/ enroll, so the
+// answers live where all may read them.
+describe('where the special folder rules are resolved', () => {
   it('is lib, with no copy left in the special folders plugin', () => {
-    for (const file of ['folders-config', 'resolve-public-folder']) {
+    for (const file of SHARED) {
       expect(fs.existsSync(path.join(pluginDir, `${file}.ts`))).toBe(false)
       expect(
         fs.existsSync(
@@ -39,7 +48,7 @@ describe('where the folders config and the public folder are resolved', () => {
   it('is imported from lib by every file that needs it', () => {
     const reaching = sources(developRoot)
       .filter((file) =>
-        /from '(?:\.{1,2}\/)+(?:plugin-special-folders\/)?(?:folders-config|resolve-public-folder)'/.test(
+        /from '(?:\.{1,2}\/)+(?:plugin-special-folders\/)?(?:folders-config|resolve-public-folder|get-data|entry-folders|walked-entries)'/.test(
           fs.readFileSync(file, 'utf8')
         )
       )
@@ -78,5 +87,24 @@ describe('where the folders config and the public folder are resolved', () => {
     }
 
     expect(handingOut).toEqual([])
+  })
+
+  // The config builder mounts the plugin. Every other file, a spec included,
+  // reads lib, so no plugin depends on the source of this one.
+  it('leaves the plugin read by the config builder alone', () => {
+    const reaching: string[] = []
+
+    for (const file of sources(developRoot)) {
+      if (file.startsWith(pluginDir + path.sep)) continue
+      if (file === __filename) continue
+
+      for (const match of fs
+        .readFileSync(file, 'utf8')
+        .matchAll(/from '([^']*plugin-special-folders[^']*)'/g)) {
+        reaching.push(`${named(file)} -> ${match[1]}`)
+      }
+    }
+
+    expect(reaching).toEqual(['rspack-config.ts -> ./plugin-special-folders'])
   })
 })

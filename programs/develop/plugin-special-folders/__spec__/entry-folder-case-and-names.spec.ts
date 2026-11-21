@@ -3,20 +3,20 @@ import * as path from 'node:path'
 import {stripVTControlCharacters as stripAnsi} from 'node:util'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {
+  compileFixture,
+  makeFixtureRoot,
+  removeFixtureRoots
+} from '../../__spec__/helpers/compile-harness'
+import {
   foldersRoots,
   miscasedEntryFolders,
   rememberSpecialFoldersConfig
 } from '../../lib/special-folders/folders-config'
-import {SpecialFoldersPlugin} from '..'
 import {
   getSpecialFoldersDataForProjectRoot,
   walkedEntryCollisions
-} from '../get-data'
-import {
-  compileFixture,
-  makeFixtureRoot,
-  removeFixtureRoots
-} from './helpers/compile-harness'
+} from '../../lib/special-folders/get-data'
+import {SpecialFoldersPlugin} from '..'
 
 const fixtureRoots: string[] = []
 

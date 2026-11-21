@@ -12,15 +12,15 @@ import {
   rememberExcludedFiles,
   rememberSpecialFoldersConfig,
   resolveExcludedFiles
-} from '../../lib/special-folders/folders-config'
-import {
-  inspectPublicFolders,
-  publicResolveRoots
-} from '../../lib/special-folders/resolve-public-folder'
+} from '../folders-config'
 import {
   getSpecialFoldersDataForCompiler,
   getSpecialFoldersDataForProjectRoot
 } from '../get-data'
+import {
+  inspectPublicFolders,
+  publicResolveRoots
+} from '../resolve-public-folder'
 
 const created: string[] = []
 

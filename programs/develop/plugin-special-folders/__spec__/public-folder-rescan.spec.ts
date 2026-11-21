@@ -1,13 +1,13 @@
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
-import {FileEventAssistPlugin} from '../../dev-server/file-event-assist'
-import {SpecialFoldersPlugin} from '..'
 import {
   fixtureCompiler,
   makeFixtureRoot,
   removeFixtureRoots,
   watchFixture
-} from './helpers/compile-harness'
+} from '../../__spec__/helpers/compile-harness'
+import {FileEventAssistPlugin} from '../../dev-server/file-event-assist'
+import {SpecialFoldersPlugin} from '..'
 
 // A scan asked for while one runs: by a second folder poll, or by the
 // watcher itself. The folder must still rescan afterwards, or an added file

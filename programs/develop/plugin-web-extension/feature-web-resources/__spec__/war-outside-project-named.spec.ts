@@ -7,7 +7,7 @@ import {
   expectNothingPrivate,
   expectNoWorkspaceAboveTemp,
   MARKER
-} from '../../../plugin-special-folders/__spec__/helpers/private-files-project'
+} from '../../../__spec__/helpers/private-files-project'
 
 // Whole production builds: a manifest at the root or in src/ names, by exact
 // path, a file two folders up, with or without a sheet that names it too.

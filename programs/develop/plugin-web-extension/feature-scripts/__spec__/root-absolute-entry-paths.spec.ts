@@ -1,14 +1,14 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
-import {listOutput} from '../../../plugin-special-folders/__spec__/helpers/compile-harness'
+import {listOutput} from '../../../__spec__/helpers/compile-harness'
 import {
   build,
   manifest,
   notFoundPaths,
   PAGE,
   project
-} from '../../../plugin-special-folders/__spec__/helpers/private-files-project'
+} from '../../../__spec__/helpers/private-files-project'
 
 // Whole production builds of a manifest that names a file from the root,
 // `/x`, by where the file sits and where the manifest sits. The row says

@@ -9,7 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {parseJsonSafe} from '../../lib/parse-json-safe'
-import {getSpecialFoldersDataForProjectRoot} from '../../plugin-special-folders/get-data'
+import {getSpecialFoldersDataForProjectRoot} from '../../lib/special-folders/get-data'
 import {getResolvedManifestFieldsData} from '../../plugin-web-extension/shared/manifest-fields'
 import type {DevOptions} from '../../types'
 

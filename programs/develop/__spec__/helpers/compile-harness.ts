@@ -9,7 +9,7 @@ import {
   rspack,
   type Stats
 } from '@rspack/core'
-import {FileEventAssistPlugin} from '../../../dev-server/file-event-assist'
+import {FileEventAssistPlugin} from '../../dev-server/file-event-assist'
 
 // Bare rspack and the plugins under test, on a fixture project in a temp
 // folder. No compiled dist, no loader from another plugin, no browser.

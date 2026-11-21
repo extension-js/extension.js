@@ -8,12 +8,9 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {codedError} from '../lib/coded-error'
-import {CODES} from '../lib/messaging'
-import {
-  isScriptsFolderEntry,
-  type SpecialFolderName
-} from '../lib/special-folders/folders-config'
+import {codedError} from '../coded-error'
+import {CODES} from '../messaging'
+import {isScriptsFolderEntry, type SpecialFolderName} from './folders-config'
 import * as messages from './messages'
 
 // Installed packages are never entries, in any spelling of the folder name.

@@ -3,13 +3,13 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {stripVTControlCharacters as stripAnsi} from 'node:util'
 import {afterEach, describe, expect, it} from 'vitest'
-import {SpecialFoldersPlugin} from '..'
 import {
   compileFixture,
   type FixtureBuild,
   type FixtureFiles,
   removeFixtureRoots
-} from './helpers/compile-harness'
+} from '../../__spec__/helpers/compile-harness'
+import {SpecialFoldersPlugin} from '..'
 
 afterEach(() => {
   removeFixtureRoots()

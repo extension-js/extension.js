@@ -9,8 +9,14 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type {Compiler} from '@rspack/core'
-import {debugLine, isDebug} from '../lib/messaging'
-import {isInsidePath} from '../lib/real-path'
+import type {FilepathList, SpecialFoldersConfig} from '../../types'
+import {debugLine, isDebug} from '../messaging'
+import {isInsidePath} from '../real-path'
+import {
+  type EntryNameCollision,
+  type ScanEntryFolder,
+  scanEntryFolder
+} from './entry-folders'
 import {
   excludedFiles,
   foldersRoots,
@@ -18,13 +24,7 @@ import {
   omitExcludedEntries,
   publicFolderSetting,
   rememberedFolders
-} from '../lib/special-folders/folders-config'
-import type {FilepathList, SpecialFoldersConfig} from '../types'
-import {
-  type EntryNameCollision,
-  type ScanEntryFolder,
-  scanEntryFolder
-} from './entry-folders'
+} from './folders-config'
 import * as messages from './messages'
 import {guardWalkedEntries, type WalkedEntries} from './walked-entries'
 
