@@ -129,7 +129,7 @@ describe('how long a delivery holds the next build', () => {
         instanceId: 'inst-1',
         runId: 'run-1',
         allowControl: true
-      } as never)
+      })
     )
 
     const delivered = alone.reloads.deliver({type: 'full'})

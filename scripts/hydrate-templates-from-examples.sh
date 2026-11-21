@@ -7,8 +7,9 @@ SCRIPTS_DIR="$ROOT_DIR/scripts"
 REPO_URL="https://github.com/extension-js/templates"
 
 # Pin the examples ref so a readiness verdict maps to a known examples commit.
-# Default stays `main` (prior behavior); set EXAMPLES_REF=<sha|tag|branch> in CI
-# to make the acceptance/stability suites reproducible against a fixed point.
+# Default stays `main`, which the nightly lanes read so an upstream change is
+# seen within a day. The smoke on main sets EXAMPLES_REF to the full SHA the
+# release gates pin, so only a change in this repository can turn it red.
 # The resolved SHA is written to templates/.examples-commit for the readiness
 # document's `meta.examplesCommit` field.
 EXAMPLES_REF="${EXAMPLES_REF:-main}"

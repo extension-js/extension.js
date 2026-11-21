@@ -30,7 +30,7 @@ describe('IconsPlugin (index.ts)', () => {
     const options = {
       manifestPath: '/project/manifest.json',
       includeList: {icons: ['/icons/a.png']}
-    } as ConstructorParameters<typeof IconsPlugin>[0]
+    }
 
     const plugin = new IconsPlugin(options)
     const fakeCompiler = asCompiler({

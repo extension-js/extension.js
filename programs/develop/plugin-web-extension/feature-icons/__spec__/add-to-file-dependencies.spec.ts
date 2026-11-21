@@ -51,7 +51,7 @@ describe('AddToFileDependencies step', () => {
       includeList: {
         icons: ['/abs/assets/a.png', '/abs/assets/b.png']
       }
-    } as ConstructorParameters<typeof AddToFileDependencies>[0])
+    })
 
     step.apply(asCompiler(compiler))
 
@@ -82,7 +82,7 @@ describe('AddToFileDependencies step', () => {
       includeList: {
         icons: ['/abs/assets/skip.png', '/abs/assets/keep.png']
       }
-    } as ConstructorParameters<typeof AddToFileDependencies>[0])
+    })
 
     step.apply(asCompiler(compiler))
 
@@ -101,9 +101,7 @@ describe('AddToFileDependencies step', () => {
     new AddToFileDependencies({
       manifestPath: '/abs/project/manifest.json',
       includeList: {icons: ['/abs/assets/a.png']}
-    } as ConstructorParameters<typeof AddToFileDependencies>[0]).apply(
-      asCompiler(compiler)
-    )
+    }).apply(asCompiler(compiler))
 
     expect(Array.from(compilation.fileDependencies)).toEqual([
       '/abs/assets/a.png'
@@ -120,9 +118,7 @@ describe('AddToFileDependencies step', () => {
     new AddToFileDependencies({
       manifestPath: '/abs/project/manifest.json',
       includeList: {icons: ['/abs/assets/gone.png']}
-    } as ConstructorParameters<typeof AddToFileDependencies>[0]).apply(
-      asCompiler(compiler)
-    )
+    }).apply(asCompiler(compiler))
 
     expect(compilation.fileDependencies.size).toBe(0)
     expect(Array.from(compilation.missingDependencies)).toEqual([

@@ -8,6 +8,7 @@ import {
 } from '../../__spec__/helpers/real-compiler'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {chunkLoadingTargetExtensionsFor} from '../../plugin-web-extension/shared/chunk-loading-target-extensions'
+import type {BrowserType} from '../../types'
 import {ReloadPlugin} from '../index'
 import {sessionBridge, setSessionBridge} from './helpers/session-bridge'
 
@@ -33,7 +34,11 @@ function project() {
 
 function applied(
   mode: 'development' | 'production',
-  options: {browser?: string; devSession?: boolean; manifestPath?: string} = {}
+  options: {
+    browser?: BrowserType
+    devSession?: boolean
+    manifestPath?: string
+  } = {}
 ) {
   const {root, manifestPath} = project()
   const compiler = idleCompiler(root, mode)
@@ -43,7 +48,7 @@ function applied(
       manifestPath,
       browser: 'chrome',
       ...options
-    } as ConstructorParameters<typeof ReloadPlugin>[0]).apply(compiler)
+    }).apply(compiler)
   )
 
   return {
@@ -140,7 +145,7 @@ describe('ReloadPlugin applies nothing', () => {
       manifestPath,
       browser: 'chrome',
       devSession: false
-    } as ConstructorParameters<typeof ReloadPlugin>[0]).apply(compiler)
+    }).apply(compiler)
 
     compiler.hooks.environment.call()
 

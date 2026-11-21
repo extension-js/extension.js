@@ -68,7 +68,7 @@ function suspendedFirefox(wakeExecutor?: () => Promise<boolean>) {
     setTimer: scheduler.setTimer,
     clearTimer: scheduler.clearTimer,
     ...(wakeExecutor ? {wakeExecutor} : {})
-  } as never)
+  })
   const page = new FakeConn('event-page')
   hello(b, page)
   b.onClose(page)
@@ -182,7 +182,7 @@ describe('an edit dispatched while the Firefox event page is suspended', () => {
       runId: 'run-A',
       engine: 'firefox',
       wakeExecutor
-    } as never)
+    })
 
     expect(b.broadcastReload(EDIT)).toBe(0)
     expect(await b.deliverLatchedReload()).toBe(false)

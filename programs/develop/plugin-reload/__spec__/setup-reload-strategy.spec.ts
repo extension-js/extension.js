@@ -12,6 +12,7 @@ import {
   type ChunkLoadingBackgroundEntries,
   chunkLoadingTargetExtensionsFor
 } from '../../plugin-web-extension/shared/chunk-loading-target-extensions'
+import type {BrowserType} from '../../types'
 import {SetupReloadStrategy} from '../steps/setup-reload-strategy/index'
 
 const makeTempFolder = trackTempFolders()
@@ -20,7 +21,7 @@ const makeTempFolder = trackTempFolders()
 // reads back the taps and the entries it added.
 function run(
   manifest: object,
-  options: {browser?: string; files?: string[]} = {}
+  options: {browser?: BrowserType; files?: string[]} = {}
 ) {
   const root = makeTempFolder('extjs-reload-strategy-')
   writeProject(root, {
@@ -33,7 +34,7 @@ function run(
     new SetupReloadStrategy({
       manifestPath: path.join(root, 'manifest.json'),
       ...(options.browser ? {browser: options.browser} : {})
-    } as ConstructorParameters<typeof SetupReloadStrategy>[0]).apply(compiler)
+    }).apply(compiler)
   )
   const entry = compiler.options.entry as Record<string, {import: string[]}>
   const [extension] = chunkLoadingTargetExtensionsFor(compiler)
@@ -60,7 +61,7 @@ function run(
 async function fallbackListeners(
   manifest: object,
   entry: Record<string, string>,
-  browser = 'chrome'
+  browser: BrowserType = 'chrome'
 ): Promise<string[]> {
   const root = writeProject(makeTempFolder('extjs-reload-strategy-'), {
     'manifest.json': manifest,
@@ -76,16 +77,12 @@ async function fallbackListeners(
         new SetupReloadStrategy({
           manifestPath,
           browser
-        } as ConstructorParameters<typeof SetupReloadStrategy>[0]).apply(
-          compiler
-        )
+        }).apply(compiler)
 
         new SetupChunkLoadingTarget({
           manifestPath,
           browser
-        } as ConstructorParameters<typeof SetupChunkLoadingTarget>[0]).apply(
-          compiler
-        )
+        }).apply(compiler)
       }
     },
     'development'
@@ -249,7 +246,7 @@ describe('SetupReloadStrategy hot update names', () => {
 
     new SetupReloadStrategy({
       manifestPath: path.join(root, 'manifest.json')
-    } as ConstructorParameters<typeof SetupReloadStrategy>[0]).apply(compiler)
+    }).apply(compiler)
 
     compiler.hooks.environment.call()
 

@@ -2,13 +2,21 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler, Configuration} from '@rspack/core'
 import {describe, expect, it, vi} from 'vitest'
+import {BuildEmitter, type RunnerPlugin} from '../plugin-browsers'
 import {CompilationPlugin} from '../plugin-compilation'
 import {ReadyContractPlugin} from '../plugin-ready-contract'
 import {WarnManifestV2OnChromium} from '../plugin-web-extension/feature-manifest/steps/warn-mv2-on-chromium'
 import webpackConfig from '../rspack-config'
+import type {WebpackConfigOptions} from '../types'
 import {sessionOf} from './helpers/dev-session'
 import {writeProjectFiles} from './helpers/extension-project'
 import {trackTempFolders} from './helpers/temp-folders'
+
+// A browsers plugin that launches nothing. The config reads the list it
+// fills and taps its apply hook.
+function idleBrowsersPlugin(): RunnerPlugin {
+  return {apply() {}, extensionsToLoad: [], emitter: new BuildEmitter()}
+}
 
 const makeTempFolder = trackTempFolders()
 
@@ -48,22 +56,19 @@ function createProjectStructure() {
 describe('webpack-config transpile packages watch behavior', () => {
   it('keeps node_modules ignored when no transpiled package is detected', () => {
     const projectStructure = createProjectStructure()
-    const config = webpackConfig(
-      projectStructure as ProjectStructure,
-      {
-        browser: 'chrome',
-        mode: 'development',
-        output: {
-          clean: false,
-          path: path.join(
-            path.dirname(projectStructure.manifestPath),
-            'dist',
-            'chrome'
-          )
-        },
-        noBrowser: true
-      } as ConfigOptions
-    )
+    const config = webpackConfig(projectStructure, {
+      browser: 'chrome',
+      mode: 'development',
+      output: {
+        clean: false,
+        path: path.join(
+          path.dirname(projectStructure.manifestPath),
+          'dist',
+          'chrome'
+        )
+      },
+      noBrowser: true
+    })
 
     const ignored = config.watchOptions?.ignored as string[]
     expect(ignored).toContain('**/node_modules/**')
@@ -75,22 +80,19 @@ describe('webpack-config transpile packages watch behavior', () => {
 
       if (linked) linkWorkspacePackage(projectStructure, '@workspace/ui')
 
-      const config = webpackConfig(
-        projectStructure as ProjectStructure,
-        {
-          browser: 'chrome',
-          mode: 'development',
-          output: {
-            clean: false,
-            path: path.join(
-              path.dirname(projectStructure.manifestPath),
-              'dist',
-              'chrome'
-            )
-          },
-          noBrowser: true
-        } as ConfigOptions
-      )
+      const config = webpackConfig(projectStructure, {
+        browser: 'chrome',
+        mode: 'development',
+        output: {
+          clean: false,
+          path: path.join(
+            path.dirname(projectStructure.manifestPath),
+            'dist',
+            'chrome'
+          )
+        },
+        noBrowser: true
+      })
 
       expect(config.watchOptions?.ignored).toContain('**/.git/**')
       expect(
@@ -104,18 +106,15 @@ describe('webpack-config transpile packages watch behavior', () => {
   it('ignores by path segment, not substring, a project path containing "dist" stays watched', () => {
     const projectStructure = createProjectStructure()
     const root = path.dirname(projectStructure.manifestPath)
-    const config = webpackConfig(
-      projectStructure as ProjectStructure,
-      {
-        browser: 'chrome',
-        mode: 'development',
-        output: {
-          clean: false,
-          path: path.join(root, 'dist', 'chrome')
-        },
-        noBrowser: true
-      } as ConfigOptions
-    )
+    const config = webpackConfig(projectStructure, {
+      browser: 'chrome',
+      mode: 'development',
+      output: {
+        clean: false,
+        path: path.join(root, 'dist', 'chrome')
+      },
+      noBrowser: true
+    })
 
     const ignored = config.watchOptions?.ignored as string[]
     expect(Array.isArray(ignored)).toBe(true)
@@ -142,22 +141,19 @@ describe('webpack-config transpile packages watch behavior', () => {
 
     linkWorkspacePackage(projectStructure, '@workspace/ui')
 
-    const config = webpackConfig(
-      projectStructure as ProjectStructure,
-      {
-        browser: 'chrome',
-        mode: 'development',
-        output: {
-          clean: false,
-          path: path.join(
-            path.dirname(projectStructure.manifestPath),
-            'dist',
-            'chrome'
-          )
-        },
-        noBrowser: true
-      } as ConfigOptions
-    )
+    const config = webpackConfig(projectStructure, {
+      browser: 'chrome',
+      mode: 'development',
+      output: {
+        clean: false,
+        path: path.join(
+          path.dirname(projectStructure.manifestPath),
+          'dist',
+          'chrome'
+        )
+      },
+      noBrowser: true
+    })
 
     const ignored = config.watchOptions?.ignored as string[]
     expect(ignored).not.toContain('**/node_modules/**')
@@ -170,40 +166,34 @@ describe('webpack-config transpile packages watch behavior', () => {
 
   it('disables module concatenation in development to avoid react-refresh __webpack_module__ clash', () => {
     const projectStructure = createProjectStructure()
-    const devConfig = webpackConfig(
-      projectStructure as ProjectStructure,
-      {
-        browser: 'chrome',
-        mode: 'development',
-        output: {
-          clean: false,
-          path: path.join(
-            path.dirname(projectStructure.manifestPath),
-            'dist',
-            'chrome'
-          )
-        },
-        noBrowser: true
-      } as ConfigOptions
-    )
+    const devConfig = webpackConfig(projectStructure, {
+      browser: 'chrome',
+      mode: 'development',
+      output: {
+        clean: false,
+        path: path.join(
+          path.dirname(projectStructure.manifestPath),
+          'dist',
+          'chrome'
+        )
+      },
+      noBrowser: true
+    })
     expect(devConfig.optimization?.concatenateModules).toBe(false)
 
-    const prodConfig = webpackConfig(
-      projectStructure as ProjectStructure,
-      {
-        browser: 'chrome',
-        mode: 'production',
-        output: {
-          clean: false,
-          path: path.join(
-            path.dirname(projectStructure.manifestPath),
-            'dist',
-            'chrome'
-          )
-        },
-        noBrowser: true
-      } as ConfigOptions
-    )
+    const prodConfig = webpackConfig(projectStructure, {
+      browser: 'chrome',
+      mode: 'production',
+      output: {
+        clean: false,
+        path: path.join(
+          path.dirname(projectStructure.manifestPath),
+          'dist',
+          'chrome'
+        )
+      },
+      noBrowser: true
+    })
     expect(prodConfig.optimization?.concatenateModules).toBe(true)
   })
 
@@ -211,22 +201,19 @@ describe('webpack-config transpile packages watch behavior', () => {
     const projectStructure = createProjectStructure()
 
     for (const mode of ['development', 'production'] as const) {
-      const config = webpackConfig(
-        projectStructure as ProjectStructure,
-        {
-          browser: 'chrome',
-          mode,
-          output: {
-            clean: false,
-            path: path.join(
-              path.dirname(projectStructure.manifestPath),
-              'dist',
-              'chrome'
-            )
-          },
-          noBrowser: true
-        } as ConfigOptions
-      )
+      const config = webpackConfig(projectStructure, {
+        browser: 'chrome',
+        mode,
+        output: {
+          clean: false,
+          path: path.join(
+            path.dirname(projectStructure.manifestPath),
+            'dist',
+            'chrome'
+          )
+        },
+        noBrowser: true
+      })
       expect(config.optimization?.emitOnErrors).toBe(false)
     }
   })
@@ -238,17 +225,14 @@ describe('webpack-config transpile packages watch behavior', () => {
     const missing = path.join(root, 'extensions', 'gone')
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const session = () =>
-      webpackConfig(
-        projectStructure as ProjectStructure,
-        {
-          browser: 'chrome',
-          mode: 'development',
-          metadataCommand: 'dev',
-          extensions: {paths: [missing]},
-          output: {clean: false, path: path.join(root, 'dist', 'chrome')},
-          noBrowser: true
-        } as ConfigOptions
-      )
+      webpackConfig(projectStructure, {
+        browser: 'chrome',
+        mode: 'development',
+        metadataCommand: 'dev',
+        extensions: {paths: [missing]},
+        output: {clean: false, path: path.join(root, 'dist', 'chrome')},
+        noBrowser: true
+      })
 
     takeCodedWarnings()
 
@@ -279,44 +263,38 @@ describe('webpack-config transpile packages watch behavior', () => {
     const root = path.dirname(projectStructure.manifestPath)
     const output = path.join(root, 'dist', 'chrome')
     const companion = path.join(root, 'extensions', 'helper')
-    const browsersPlugin = {apply() {}, extensionsToLoad: [] as string[]}
+    const browsersPlugin = idleBrowsersPlugin()
 
     writeProjectFiles(companion, {
       'manifest.json': {manifest_version: 3, name: 'helper', version: '1.0.0'}
     })
 
-    webpackConfig(
-      projectStructure as ProjectStructure,
-      {
-        browser: 'chrome',
-        mode: 'development',
-        extensions: {paths: [companion]},
-        output: {clean: false, path: output},
-        browsersPlugin
-      } as unknown as ConfigOptions
-    )
+    webpackConfig(projectStructure, {
+      browser: 'chrome',
+      mode: 'development',
+      extensions: {paths: [companion]},
+      output: {clean: false, path: output},
+      browsersPlugin
+    })
 
     expect(browsersPlugin.extensionsToLoad).toEqual([companion, output])
   })
 
   it('hashes content-script bundles per-entry by default in development', () => {
     const projectStructure = createProjectStructure()
-    const config = webpackConfig(
-      projectStructure as ProjectStructure,
-      {
-        browser: 'chrome',
-        mode: 'development',
-        output: {
-          clean: false,
-          path: path.join(
-            path.dirname(projectStructure.manifestPath),
-            'dist',
-            'chrome'
-          )
-        },
-        noBrowser: true
-      } as ConfigOptions
-    )
+    const config = webpackConfig(projectStructure, {
+      browser: 'chrome',
+      mode: 'development',
+      output: {
+        clean: false,
+        path: path.join(
+          path.dirname(projectStructure.manifestPath),
+          'dist',
+          'chrome'
+        )
+      },
+      noBrowser: true
+    })
 
     const filename = config.output?.filename as (data: {
       chunk: {name: string}
@@ -337,45 +315,39 @@ describe('webpack-config transpile packages watch behavior', () => {
 
   it('emits unhashed content-script filenames when hashContentScripts is false', () => {
     const projectStructure = createProjectStructure()
-    const config = webpackConfig(
-      projectStructure as ProjectStructure,
-      {
-        browser: 'chrome',
-        mode: 'development',
-        hashContentScripts: false,
-        output: {
-          clean: false,
-          path: path.join(
-            path.dirname(projectStructure.manifestPath),
-            'dist',
-            'chrome'
-          )
-        },
-        noBrowser: true
-      } as ConfigOptions
-    )
+    const config = webpackConfig(projectStructure, {
+      browser: 'chrome',
+      mode: 'development',
+      hashContentScripts: false,
+      output: {
+        clean: false,
+        path: path.join(
+          path.dirname(projectStructure.manifestPath),
+          'dist',
+          'chrome'
+        )
+      },
+      noBrowser: true
+    })
 
     expect(config.output?.filename).toBe('[name].js')
   })
 
   it('routes CJS requires through the `require` exports condition', () => {
     const projectStructure = createProjectStructure()
-    const config = webpackConfig(
-      projectStructure as ProjectStructure,
-      {
-        browser: 'chrome',
-        mode: 'development',
-        output: {
-          clean: false,
-          path: path.join(
-            path.dirname(projectStructure.manifestPath),
-            'dist',
-            'chrome'
-          )
-        },
-        noBrowser: true
-      } as ConfigOptions
-    )
+    const config = webpackConfig(projectStructure, {
+      browser: 'chrome',
+      mode: 'development',
+      output: {
+        clean: false,
+        path: path.join(
+          path.dirname(projectStructure.manifestPath),
+          'dist',
+          'chrome'
+        )
+      },
+      noBrowser: true
+    })
 
     const resolve = config.resolve
     expect(resolve?.byDependency?.commonjs?.conditionNames).toContain('require')
@@ -388,21 +360,19 @@ describe('webpack-config transpile packages watch behavior', () => {
 
   it('resolves TypeScript NodeNext ".js" import specifiers to their TS source', () => {
     const projectStructure = createProjectStructure()
-    const config = webpackConfig(
-      projectStructure as ProjectStructure,
-      {
-        mode: 'development',
-        browser: 'chrome',
-        output: {
-          path: path.join(
-            path.dirname(projectStructure.manifestPath),
-            'dist',
-            'chrome'
-          )
-        },
-        noBrowser: true
-      } as ConfigOptions
-    )
+    const config = webpackConfig(projectStructure, {
+      mode: 'development',
+      browser: 'chrome',
+      output: {
+        clean: false,
+        path: path.join(
+          path.dirname(projectStructure.manifestPath),
+          'dist',
+          'chrome'
+        )
+      },
+      noBrowser: true
+    })
 
     const resolve = config.resolve
     expect(resolve?.extensionAlias?.['.js']).toContain('.ts')
@@ -415,22 +385,19 @@ describe('webpack-config transpile packages watch behavior', () => {
 
   it('externalizes chrome-extension:/moz-extension: URLs as passthrough assets', () => {
     const projectStructure = createProjectStructure()
-    const config = webpackConfig(
-      projectStructure as ProjectStructure,
-      {
-        browser: 'chrome',
-        mode: 'development',
-        output: {
-          clean: false,
-          path: path.join(
-            path.dirname(projectStructure.manifestPath),
-            'dist',
-            'chrome'
-          )
-        },
-        noBrowser: true
-      } as ConfigOptions
-    )
+    const config = webpackConfig(projectStructure, {
+      browser: 'chrome',
+      mode: 'development',
+      output: {
+        clean: false,
+        path: path.join(
+          path.dirname(projectStructure.manifestPath),
+          'dist',
+          'chrome'
+        )
+      },
+      noBrowser: true
+    })
 
     const externalFn = (config.externals as unknown[])[0] as (
       data: {request?: string},
@@ -476,22 +443,19 @@ describe('webpack-config transpile packages watch behavior', () => {
     fs.writeFileSync(path.join(dir, 'present.png'), 'x')
 
     const projectStructure = createProjectStructure()
-    const config = webpackConfig(
-      projectStructure as ProjectStructure,
-      {
-        browser: 'chrome',
-        mode: 'production',
-        output: {
-          clean: false,
-          path: path.join(
-            path.dirname(projectStructure.manifestPath),
-            'dist',
-            'chrome'
-          )
-        },
-        noBrowser: true
-      } as ConfigOptions
-    )
+    const config = webpackConfig(projectStructure, {
+      browser: 'chrome',
+      mode: 'production',
+      output: {
+        clean: false,
+        path: path.join(
+          path.dirname(projectStructure.manifestPath),
+          'dist',
+          'chrome'
+        )
+      },
+      noBrowser: true
+    })
 
     const externalFn = (config.externals as unknown[])[0] as (
       data: {request?: string; dependencyType?: string; context?: string},
@@ -531,22 +495,19 @@ describe('webpack-config transpile packages watch behavior', () => {
     const projectStructure = createProjectStructure()
 
     const makeExternalFn = () => {
-      const config = webpackConfig(
-        projectStructure as ProjectStructure,
-        {
-          browser: 'chrome',
-          mode: 'production',
-          output: {
-            clean: false,
-            path: path.join(
-              path.dirname(projectStructure.manifestPath),
-              'dist',
-              'chrome'
-            )
-          },
-          noBrowser: true
-        } as ConfigOptions
-      )
+      const config = webpackConfig(projectStructure, {
+        browser: 'chrome',
+        mode: 'production',
+        output: {
+          clean: false,
+          path: path.join(
+            path.dirname(projectStructure.manifestPath),
+            'dist',
+            'chrome'
+          )
+        },
+        noBrowser: true
+      })
 
       return (config.externals as unknown[])[0] as (
         data: {
@@ -621,7 +582,7 @@ describe('webpack-config transpile packages watch behavior', () => {
 })
 
 describe('a scanned companion entry that leads outside the project', () => {
-  function configFor(options: Record<string, unknown>) {
+  function configFor(options: Partial<WebpackConfigOptions>) {
     const projectStructure = createProjectStructure()
     const root = path.dirname(projectStructure.manifestPath)
     const outside = makeTempFolder('extjs-webpack-config-outside-')
@@ -642,16 +603,13 @@ describe('a scanned companion entry that leads outside the project', () => {
       })
 
     try {
-      webpackConfig(
-        projectStructure as ProjectStructure,
-        {
-          browser: 'chrome',
-          mode: 'development',
-          extensions: {dir: './extensions'},
-          output: {clean: false, path: path.join(root, 'dist', 'chrome')},
-          ...options
-        } as ConfigOptions
-      )
+      webpackConfig(projectStructure, {
+        browser: 'chrome',
+        mode: 'development',
+        extensions: {dir: './extensions'},
+        output: {clean: false, path: path.join(root, 'dist', 'chrome')},
+        ...options
+      })
     } finally {
       spy.mockRestore()
     }
@@ -662,7 +620,7 @@ describe('a scanned companion entry that leads outside the project', () => {
   it.skipIf(process.platform === 'win32')(
     'is said by a session that opens a browser',
     () => {
-      const browsersPlugin = {apply() {}, extensionsToLoad: []}
+      const browsersPlugin = idleBrowsersPlugin()
 
       expect(configFor({browsersPlugin})).toHaveLength(1)
     }
@@ -685,13 +643,13 @@ describe('webpack-config MV2 on chromium warning', () => {
     fs.writeFileSync(manifestPath, JSON.stringify(manifest), 'utf-8')
 
     return webpackConfig(
-      {manifestPath, packageJsonPath} as ProjectStructure,
+      {manifestPath, packageJsonPath},
       {
         browser: 'chrome',
         mode: 'production',
         output: {clean: false, path: path.join(root, 'dist', 'chrome')},
         noBrowser: true
-      } as ConfigOptions
+      }
     )
   }
 
@@ -774,19 +732,16 @@ describe('ready contract carries the control-bridge bind reason', () => {
   function buildReadyContractPlugin() {
     const projectStructure = createProjectStructure()
     const root = path.dirname(projectStructure.manifestPath)
-    const config = webpackConfig(
-      projectStructure as ProjectStructure,
-      {
-        browser: 'chrome',
-        mode: 'development',
-        metadataCommand: 'dev',
-        session: sessionOf({controlPort: null}),
-        controlPath: '/__extension_control',
-        controlPortUnavailableReason: bindReason,
-        output: {clean: false, path: path.join(root, 'dist', 'chrome')},
-        noBrowser: true
-      } as ConfigOptions
-    )
+    const config = webpackConfig(projectStructure, {
+      browser: 'chrome',
+      mode: 'development',
+      metadataCommand: 'dev',
+      session: sessionOf({controlPort: null}),
+      controlPath: '/__extension_control',
+      controlPortUnavailableReason: bindReason,
+      output: {clean: false, path: path.join(root, 'dist', 'chrome')},
+      noBrowser: true
+    })
 
     const plugin = findReadyContractPlugin(config)
 
@@ -845,17 +800,14 @@ describe('ready contract carries the control-bridge bind reason', () => {
   it('omits the field when the control bridge bound', () => {
     const projectStructure = createProjectStructure()
     const root = path.dirname(projectStructure.manifestPath)
-    const config = webpackConfig(
-      projectStructure as ProjectStructure,
-      {
-        browser: 'chrome',
-        mode: 'development',
-        metadataCommand: 'dev',
-        session: sessionOf({controlPort: 50111}),
-        output: {clean: false, path: path.join(root, 'dist', 'chrome')},
-        noBrowser: true
-      } as ConfigOptions
-    )
+    const config = webpackConfig(projectStructure, {
+      browser: 'chrome',
+      mode: 'development',
+      metadataCommand: 'dev',
+      session: sessionOf({controlPort: 50111}),
+      output: {clean: false, path: path.join(root, 'dist', 'chrome')},
+      noBrowser: true
+    })
     applyWithFakeCompiler(findReadyContractPlugin(config))
 
     const ready = readReady(root)
@@ -880,16 +832,13 @@ describe('the compile line is told whether a browser launches', () => {
   const launchSetting = (noBrowser: boolean | undefined) => {
     const projectStructure = createProjectStructure()
     const root = path.dirname(projectStructure.manifestPath)
-    const config = webpackConfig(
-      projectStructure as ProjectStructure,
-      {
-        browser: 'chrome',
-        mode: 'development',
-        metadataCommand: 'dev',
-        output: {clean: false, path: path.join(root, 'dist', 'chrome')},
-        noBrowser
-      } as ConfigOptions
-    )
+    const config = webpackConfig(projectStructure, {
+      browser: 'chrome',
+      mode: 'development',
+      metadataCommand: 'dev',
+      output: {clean: false, path: path.join(root, 'dist', 'chrome')},
+      noBrowser
+    })
     const plugin = (config.plugins || []).find(
       (entry) => entry instanceof CompilationPlugin
     ) as CompilationPlugin

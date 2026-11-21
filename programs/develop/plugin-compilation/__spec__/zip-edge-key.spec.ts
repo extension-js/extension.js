@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest'
 import {buildCanonicalManifestWithOverrides} from '../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
-import type {Manifest} from '../../types'
+import type {BrowserType, Manifest} from '../../types'
 import {dropEdgeStoreKey} from '../zip-edge-key'
 
 describe('dropEdgeStoreKey', () => {
@@ -22,18 +22,17 @@ describe('dropEdgeStoreKey', () => {
   })
 
   it('leaves the key alone on every other target', () => {
-    for (const browser of [
+    const others: BrowserType[] = [
       'chrome',
       'chromium',
       'chromium-based',
       'brave',
       'firefox',
       'safari'
-    ]) {
-      const out = dropEdgeStoreKey(
-        withKey,
-        browser as Parameters<typeof dropEdgeStoreKey>[1]
-      )
+    ]
+
+    for (const browser of others) {
+      const out = dropEdgeStoreKey(withKey, browser)
       expect(out.dropped).toBe(false)
       expect(out.manifest).toHaveProperty('key')
     }
