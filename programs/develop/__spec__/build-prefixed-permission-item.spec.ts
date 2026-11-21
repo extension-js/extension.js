@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import type {BrowserType} from '../types'
 import {buildProject} from './helpers/build-project'
 import {writeProjectFiles} from './helpers/extension-project'
 import {trackTempFolders} from './helpers/temp-folders'
@@ -42,7 +43,7 @@ const builtManifest = (root: string, browser: string) =>
   )
 
 describe('a browser prefix on a permission item, on a real build', () => {
-  it.each([
+  it.each<[BrowserType, string[]]>([
     ['chrome', ['storage', 'sidePanel']],
     ['firefox', ['storage']]
   ])(
