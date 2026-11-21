@@ -454,6 +454,11 @@ async function runUntilEnd(argv: string[], deps: RunDeps): Promise<number> {
       await settleUpdateCheck(pendingUpdateCheck)
     }
 
+    // The exit code stays the build's, so the signal is answered in words.
+    if (interruptedAfterBuildTold() && !asJson) {
+      deps.stderr(`${messages.signalAfterBuild()}\n`)
+    }
+
     // The command wrote its own ending, so a late signal adds no frame.
     claimInterruptFrame()
     markCommandSuccess()
