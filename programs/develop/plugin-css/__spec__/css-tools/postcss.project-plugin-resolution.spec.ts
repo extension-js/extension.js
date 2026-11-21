@@ -2,7 +2,6 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import type {StyleLoaderOptions} from '../../common-style-loaders'
 import type {PostCssOptions} from '../../css-tools/postcss'
 
 // The resolved plugin list the rows read back.
@@ -56,7 +55,7 @@ describe('project-first postcss plugin resolution', () => {
     const {maybeUsePostCss} = await import('../../css-tools/postcss')
     const rule = await maybeUsePostCss(tmp, {
       mode: 'production'
-    } as StyleLoaderOptions)
+    })
 
     const opts = rule.options?.postcssOptions as PluginsView
     expect(opts?.config).toBe(false)
@@ -84,7 +83,7 @@ describe('project-first postcss plugin resolution', () => {
     const {maybeUsePostCss} = await import('../../css-tools/postcss')
     const rule = await maybeUsePostCss(tmp, {
       mode: 'production'
-    } as StyleLoaderOptions)
+    })
 
     const opts = rule.options?.postcssOptions as PluginsView
     expect(opts?.config).toBe(false)
@@ -113,7 +112,7 @@ describe('project-first postcss plugin resolution', () => {
     const {maybeUsePostCss} = await import('../../css-tools/postcss')
     const rule = await maybeUsePostCss(tmp, {
       mode: 'production'
-    } as StyleLoaderOptions)
+    })
 
     const opts = rule.options?.postcssOptions as PluginsView
     expect(opts?.plugins).toHaveLength(1)
@@ -155,7 +154,7 @@ describe('project-first postcss plugin resolution', () => {
     const {maybeUsePostCss} = await import('../../css-tools/postcss')
     const rule = await maybeUsePostCss(tmp, {
       mode: 'production'
-    } as StyleLoaderOptions)
+    })
     const opts = rule.options?.postcssOptions as PluginsView
 
     expect(opts?.plugins).toHaveLength(1)
