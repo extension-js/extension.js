@@ -15,6 +15,10 @@ import {parseAuthoredJson} from '../../../lib/parse-json-safe'
 import type {DevOptions, FilepathList, PluginInterface} from '../../../types'
 import {classicConcatEntry, isClassicScript} from '../../shared/classic-concat'
 import {
+  isRemoteUrl,
+  resolveScriptEntryPath
+} from '../../shared/script-entry-path'
+import {
   EXTENSIONJS_CONTENT_SCRIPT_LAYER,
   parseCanonicalContentScriptEntryIndex
 } from '../contracts'
@@ -22,8 +26,6 @@ import * as messages from '../messages'
 import {
   getCssEntries,
   getScriptEntries,
-  isRemoteUrl,
-  resolveScriptEntryPath,
   withheldEntryKind
 } from '../scripts-lib/utils'
 import {AddContentScriptWrapper} from './add-content-script-wrapper'

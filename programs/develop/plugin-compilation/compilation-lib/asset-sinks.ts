@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as acorn from 'acorn'
-import {toJsStringLiteral} from './js-literal'
+import {toJsStringLiteral} from '../../lib/js-literal'
 
 export function escapeForJsonAsset(value: string): string {
   return JSON.stringify(value).slice(1, -1)

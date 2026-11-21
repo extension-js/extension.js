@@ -169,24 +169,6 @@ export function defaultTypeScriptConfig(projectPath: string) {
   }
 }
 
-// A JavaScript project keeps its path aliases in jsconfig.json, which the
-// bundler's resolver reads the same way; without this a shadcn-style
-// `@/*` alias in a JS project resolved nothing until the person moved the
-// same block into a tsconfig (leon, 2026-10-21). Resolution only: a
-// jsconfig earns no TypeScript scaffold and no TypeScript parser.
-export function getUserJsConfigFile(projectPath: string) {
-  const searchDirs = [findNearestPackageJsonDirectory(projectPath), projectPath]
-
-  for (const dir of searchDirs) {
-    if (!dir) continue
-
-    const jsconfigPath = path.join(dir, 'jsconfig.json')
-    if (fs.existsSync(jsconfigPath)) return jsconfigPath
-  }
-
-  return undefined
-}
-
 function writeTsConfig(projectPath: string) {
   // getUserTypeScriptConfigFile reads beside the nearest package.json, so
   // the scaffold must land there too: writing beside a nested manifest dir

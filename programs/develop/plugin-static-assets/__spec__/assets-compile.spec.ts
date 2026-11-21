@@ -1,8 +1,8 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {bundledAssetOutputName} from '../../lib/asset-output-name'
 import {StaticAssetsPlugin} from '../index'
-import {bundledAssetOutputName} from '../static-assets-lib/asset-output-name'
 import {
   assertOutputInside,
   compileFixture,

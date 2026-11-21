@@ -171,10 +171,11 @@ function purgeStaleHashedContentScripts(
       try {
         fs.unlinkSync(path.join(csDir, name))
       } catch {
-        // Ignore
+        // A file in use stays and the next build retries it: pruning must
+        // never fail a compile.
       }
     }
   } catch {
-    // Ignore
+    // A folder that cannot be listed is pruned on the next build instead.
   }
 }

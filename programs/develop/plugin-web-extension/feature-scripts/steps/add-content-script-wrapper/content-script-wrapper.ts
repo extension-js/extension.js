@@ -32,6 +32,10 @@ import {
   canonicalizeDir,
   canonicalizeResourcePath
 } from '../../../../lib/resource-path'
+import {
+  extensionBaseAttributeFor,
+  extensionBaseGlobalFor
+} from '../../../../lib/taken-extension-base'
 import type {DevOptions, Manifest} from '../../../../types'
 import {
   CONTENT_SCRIPT_OWNER_KEY_ATTRIBUTE,
@@ -53,10 +57,6 @@ import {
   readDefaultExport,
   refuseDefaultExportLostToLoaders
 } from '../../scripts-lib/default-export'
-import {
-  extensionBaseAttributeFor,
-  extensionBaseGlobalFor
-} from '../../scripts-lib/taken-extension-base'
 import {refuseTopLevelAwait} from '../../scripts-lib/top-level-await'
 
 export interface ContentScriptLoaderContext {

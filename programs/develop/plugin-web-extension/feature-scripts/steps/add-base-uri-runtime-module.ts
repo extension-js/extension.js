@@ -16,8 +16,8 @@ import {
   GECKO_EXTENSION_SCHEME,
   unlessExtensionAddress
 } from '../../../lib/extension-base-from-stack'
+import {extensionBaseAttributeFor} from '../../../lib/taken-extension-base'
 import type {DevOptions} from '../../../types'
-import {extensionBaseAttributeFor} from '../scripts-lib/taken-extension-base'
 
 // The bundler's base URI runtime is document.baseURI under the jsonp loader
 // and undefined under no loader, and a worker has neither a document nor a

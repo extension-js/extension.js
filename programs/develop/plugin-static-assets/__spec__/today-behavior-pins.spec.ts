@@ -1,9 +1,9 @@
 import * as path from 'node:path'
 import type {RuleSetRule} from '@rspack/core'
 import {afterAll, describe, expect, it} from 'vitest'
+import {bundledAssetOutputName} from '../../lib/asset-output-name'
 import {diagnosticCode, diagnosticName} from '../../lib/diagnostic-code'
 import {StaticAssetsPlugin} from '../index'
-import {bundledAssetOutputName} from '../static-assets-lib/asset-output-name'
 import {
   compileFixture,
   ORIGIN,

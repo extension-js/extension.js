@@ -9,12 +9,12 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as parse5utilities from 'parse5-utilities'
-import {hasPrivateFileName} from '../../../lib/public-private-files'
-import {isOsPathUnder} from '../../../lib/real-path'
 import {
   type AssetHashOptions,
   bundledAssetOutputName
-} from '../../../plugin-static-assets/static-assets-lib/asset-output-name'
+} from '../../../lib/asset-output-name'
+import {hasPrivateFileName} from '../../../lib/public-private-files'
+import {isOsPathUnder} from '../../../lib/real-path'
 import type {FilepathList} from '../../../types'
 import {externalAssetOutputPath} from '../../feature-manifest/normalize-manifest-path'
 import {type HtmlStaticAttribute, parseHtml} from './parse-html'

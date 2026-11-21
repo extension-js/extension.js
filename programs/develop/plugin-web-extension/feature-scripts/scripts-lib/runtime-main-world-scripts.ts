@@ -10,6 +10,10 @@ import * as fs from 'node:fs'
 import type {FilepathList} from '../../../types'
 import {getAssetsFromHtml} from '../../feature-html/html-lib/utils'
 import {
+  isRemoteUrl,
+  resolveScriptEntryPath
+} from '../../shared/script-entry-path'
+import {
   collectModuleSpecifiers,
   createLocalImportResolver,
   type LocalImportResolver,
@@ -24,7 +28,7 @@ import {
   resolveExtensionPath
 } from '../steps/trace-runtime-loaded-files'
 import {extractRegisteredFileSightings} from './registration-worlds'
-import {getScriptEntries, isRemoteUrl, resolveScriptEntryPath} from './utils'
+import {getScriptEntries} from './utils'
 
 export interface RuntimeMainWorldEntry {
   entryName: string

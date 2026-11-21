@@ -6,15 +6,15 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import {replaceCssUrlRefs} from '../../../plugin-css/css-lib/dead-url-refs'
+import {replaceCssUrlRefs} from '../../../lib/dead-url-refs'
+import {
+  dropSourceMapComment,
+  sfcStyleBlockId
+} from '../../../lib/sfc-style-block'
 import {
   EXTENSION_ROOT_PLACEHOLDER,
   toRuntimeStylesheetModule
 } from '../../../plugin-css/css-lib/inline-content-script-css'
-import {
-  dropSourceMapComment,
-  sfcStyleBlockId
-} from '../../../plugin-css/css-lib/sfc-style-block'
 import {createContentScriptCssProbeMarkerPattern} from '../contracts'
 
 // A step that runs again on a file it already wrote finds the sheet between

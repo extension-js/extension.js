@@ -12,6 +12,10 @@ import {Compilation, type Compiler} from '@rspack/core'
 import {prependToEmittedAsset} from '../../../lib/asset-source-maps'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
 import {extensionSchemeFor} from '../../../lib/extension-base-from-stack'
+import {
+  extensionBaseAttributeFor,
+  isEntryFile
+} from '../../../lib/taken-extension-base'
 import type {DevOptions, FilepathList, PluginInterface} from '../../../types'
 import {
   namesSheet,
@@ -19,10 +23,6 @@ import {
   runtimeScriptSheetName,
   withoutSheetBlock
 } from '../scripts-lib/runtime-script-sheet'
-import {
-  extensionBaseAttributeFor,
-  isEntryFile
-} from '../scripts-lib/taken-extension-base'
 
 // A scripts/ file is injected by a call the author wrote, which names only
 // the script. So the sheet of its CSS modules rides in the script itself.

@@ -1,7 +1,10 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
-import {getLocales, localeFoldersWithoutMessages} from '../get-locales'
+import {
+  getLocales,
+  localeFoldersWithoutMessages
+} from '../../../lib/get-locales'
 
 const toPosix = (value: string) => value.replace(/\\/g, '/')
 

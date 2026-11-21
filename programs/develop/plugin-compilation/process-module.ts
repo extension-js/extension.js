@@ -6,7 +6,7 @@
 //  ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═══╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {toJsStringLiteral} from './compilation-lib/js-literal'
+import {toJsStringLiteral} from '../lib/js-literal'
 
 // A bundle has no process global, so code that reads one is handed this
 // module. Its env carries the public values import.meta.env carries.

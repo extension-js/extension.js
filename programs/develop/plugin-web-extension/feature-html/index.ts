@@ -9,10 +9,12 @@
 import type {Compiler} from '@rspack/core'
 import type {DevOptions, FilepathList, PluginInterface} from '../../types'
 import {htmlPagesExtensionsFor} from '../shared/html-page-extensions'
+import {emitRootAbsoluteRefsWith} from '../shared/root-absolute-refs-emitter'
 import {AddAssetsToCompilation} from './steps/add-assets-to-compilation'
 import {AddScriptsAndStylesToCompilation} from './steps/add-scripts-and-styles-to-compilation'
 import {AddToFileDependencies} from './steps/add-to-file-dependencies'
 import {EmitHtmlFile} from './steps/emit-html-file'
+import {emitRootAbsoluteRefs} from './steps/emit-root-absolute-refs'
 import {HandleCommonErrors} from './steps/handle-common-errors'
 import {ThrowIfRecompileIsNeeded} from './steps/throw-if-recompile-is-needed'
 import {UpdateHtmlFile} from './steps/update-html-file'
@@ -32,6 +34,9 @@ export class HtmlPlugin {
     const includeList = {
       ...(this.includeList || {})
     }
+
+    // The public copier runs this late, once the pages and sheets exist.
+    emitRootAbsoluteRefsWith(compiler, emitRootAbsoluteRefs)
 
     new EmitHtmlFile({
       manifestPath: this.manifestPath,

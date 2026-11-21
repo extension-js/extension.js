@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import * as fs from 'node:fs'
+import type {DevOptions, Manifest} from '../types'
 import {
   EXTENSION_BASE_ATTRIBUTE,
   EXTENSION_BASE_GLOBAL,
@@ -14,10 +15,9 @@ import {
   extensionBaseGlobal,
   readTakeBlock,
   takeBlockOpen
-} from '../../../lib/extension-base-from-stack'
-import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
-import {parseAuthoredJson} from '../../../lib/parse-json-safe'
-import type {DevOptions, Manifest} from '../../../types'
+} from './extension-base-from-stack'
+import {filterKeysForThisBrowser} from './manifest-utils'
+import {parseAuthoredJson} from './parse-json-safe'
 
 const TAKE_BLOCK_CLOSE = '\n}'
 

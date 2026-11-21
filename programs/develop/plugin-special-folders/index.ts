@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {Compilation, type Compiler, rspack} from '@rspack/core'
+import {localeDirsWithoutMessages} from '../lib/get-locales'
 import {debugLine, isDebug} from '../lib/messaging'
 import {
   findPublicEnvFiles,
@@ -35,10 +36,9 @@ import {
   inspectPublicFolders,
   publicFolderExists
 } from '../lib/special-folders/resolve-public-folder'
-import {emitRootAbsoluteRefs} from '../plugin-web-extension/feature-html/steps/emit-root-absolute-refs'
-import {localeDirsWithoutMessages} from '../plugin-web-extension/feature-locales/get-locales'
 import {htmlPageEntries} from '../plugin-web-extension/shared/html-page-entries'
 import {getResolvedManifestFieldsData} from '../plugin-web-extension/shared/manifest-fields'
+import {rootAbsoluteRefsEmitterFor} from '../plugin-web-extension/shared/root-absolute-refs-emitter'
 import type {
   DevOptions,
   ExcludeFilesConfig,
@@ -287,10 +287,10 @@ export class SpecialFoldersPlugin {
             // Late enough that HTML and CSS assets exist to be scanned.
             stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE
           },
-          () =>
+          async () =>
             // Root refs resolve from the EXTENSION root (the manifest dir),
             // which is not always the compiler context / package.json dir.
-            emitRootAbsoluteRefs(
+            rootAbsoluteRefsEmitterFor(compiler)?.(
               compilation,
               path.dirname(manifestPath),
               publicDir,

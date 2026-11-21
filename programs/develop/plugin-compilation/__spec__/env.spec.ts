@@ -4,14 +4,13 @@ import {type Compiler, EntryPlugin, type Stats} from '@rspack/core'
 import {afterAll, afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {buildProject} from '../../__spec__/helpers/build-project'
 import {getPreloadedEnvKeys} from '../../lib/config-loader'
-import {getCurrentManifestContent} from '../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import {
-  EnvPlugin,
-  getEnvFileLayers,
   IMPORT_META_URL_RUNTIME,
-  importMetaUrlForEmitPath,
-  toJsStringLiteral
-} from '../env'
+  importMetaUrlForEmitPath
+} from '../../lib/import-meta-url'
+import {toJsStringLiteral} from '../../lib/js-literal'
+import {getCurrentManifestContent} from '../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
+import {EnvPlugin, getEnvFileLayers} from '../env'
 import {
   type CompileOptions,
   compile,

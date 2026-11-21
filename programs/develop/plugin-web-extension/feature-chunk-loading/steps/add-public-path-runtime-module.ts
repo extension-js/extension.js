@@ -18,8 +18,8 @@ import {
   TAKEN_EXTENSION_BASE,
   unlessExtensionAddress
 } from '../../../lib/extension-base-from-stack'
+import {extensionBaseAttributeFor} from '../../../lib/taken-extension-base'
 import type {DevOptions} from '../../../types'
-import {extensionBaseAttributeFor} from '../../feature-scripts/scripts-lib/taken-extension-base'
 
 const basic = [
   `var isBrowser = !!(() => { try { return globalThis.browser.runtime.getURL("/") } catch(e) {

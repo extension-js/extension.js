@@ -18,6 +18,7 @@ import {
   shippableText
 } from '../../../lib/emitted-evidence'
 import type {DevOptions, PluginInterface} from '../../../types'
+import {scannableSourcePath} from '../../shared/scannable-source-path'
 import {isWebkitUnsupportedPermission} from '../manifest-lib/filter-keys-safari'
 import {
   getManifestContent,
@@ -32,8 +33,7 @@ import {
   declaredHostPatterns,
   devInjectedHostPatterns,
   findInjectedOnlyHostUses,
-  optionalHostPatterns,
-  scannableSourcePath
+  optionalHostPatterns
 } from './apply-dev-defaults-lib/dev-injected-hosts'
 import {
   devInjectedPermissions,

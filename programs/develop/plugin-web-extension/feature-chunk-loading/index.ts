@@ -12,6 +12,7 @@ import type {Compiler} from '@rspack/core'
 import {isGeckoBasedBrowser} from '../../lib/constants'
 import {extensionSchemeFor} from '../../lib/extension-base-from-stack'
 import {parseAuthoredJson} from '../../lib/parse-json-safe'
+import {extensionBaseAttributeFor} from '../../lib/taken-extension-base'
 import type {
   DevOptions,
   FilepathList,
@@ -20,7 +21,6 @@ import type {
 } from '../../types'
 import {filterKeysForThisBrowser} from '../feature-manifest/manifest-lib/manifest'
 import {findRuntimeMainWorldEntries} from '../feature-scripts/scripts-lib/runtime-main-world-scripts'
-import {extensionBaseAttributeFor} from '../feature-scripts/scripts-lib/taken-extension-base'
 import {chunkLoadingTargetExtensionsFor} from '../shared/chunk-loading-target-extensions'
 import {classicConcatFiles} from '../shared/classic-concat'
 import {getBackgroundEntryName} from './background-entry-name'

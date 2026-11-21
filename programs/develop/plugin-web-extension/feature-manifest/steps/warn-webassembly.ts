@@ -18,9 +18,9 @@ import {
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 import {parseJsonSafe} from '../../../lib/parse-json-safe'
 import type {DevOptions, Manifest} from '../../../types'
+import {scannableSourcePath} from '../../shared/scannable-source-path'
 import {getOriginalManifestContent} from '../manifest-lib/manifest'
 import * as messages from '../messages'
-import {scannableSourcePath} from './apply-dev-defaults-lib/dev-injected-hosts'
 import {relativeToProject} from './warn-gecko-unsupported-apis'
 
 export const WASM_POLICY_SOURCE = "'wasm-unsafe-eval'"

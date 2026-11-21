@@ -2,6 +2,8 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compiler, rspack, type Stats} from '@rspack/core'
 import {afterAll, describe, expect, it} from 'vitest'
+import {ageProjectFiles} from '../../__spec__/helpers/dev-watch-session'
+import {watchBuilds} from '../../__spec__/helpers/watch-builds'
 import {StaticAssetsPlugin} from '../index'
 import {makeFixtureRoot, removeFixtureRoots} from './helpers/compile-harness'
 import {pngOfSize} from './helpers/fixtures'
@@ -17,9 +19,12 @@ const listAssets = (outputPath: string) =>
 // each rebuild reports through `done` once its files are on disk.
 async function watchFixture(
   files: Record<string, string | Buffer>,
-  steps: Array<(root: string) => void>
+  steps: Array<Record<string, Buffer>>
 ) {
   const root = makeFixtureRoot(files)
+  // A fixture as new as the first build makes the watcher build once more.
+  ageProjectFiles(root)
+
   const outputPath = path.join(root, 'dist')
   const compiler: Compiler = rspack({
     context: root,
@@ -37,36 +42,29 @@ async function watchFixture(
   const snapshots: string[][] = []
   const errors: string[] = []
 
-  await new Promise<void>((resolve, reject) => {
-    let step = 0
-    let pending = false
-    const watching = compiler.watch(
-      {aggregateTimeout: 50, poll: 100},
-      (error, stats) => {
-        if (error) return reject(error)
-        // A rebuild the watcher starts on its own before the edit is not one.
-        if (pending) return
+  const record = (stats: Stats) => {
+    const json = stats.toJson({errors: true})
+    errors.push(...(json.errors || []).map((e) => e.message))
+    snapshots.push(listAssets(outputPath))
+  }
 
-        const json = (stats as Stats).toJson({errors: true})
-        errors.push(...(json.errors || []).map((e) => e.message))
-        snapshots.push(listAssets(outputPath))
+  const watch = watchBuilds(compiler, {aggregateTimeout: 50, poll: 100})
 
-        if (step < steps.length) {
-          const next = steps[step++]
-          pending = true
-          // Polled and past the watcher's start time, so the edit is seen.
-          setTimeout(() => {
-            next(root)
-            pending = false
-          }, 500)
+  try {
+    record(await watch.first)
 
-          return
-        }
-
-        watching.close(() => resolve())
-      }
-    )
-  })
+    for (const step of steps) {
+      record(
+        await watch.after(Object.keys(step), () => {
+          for (const [name, bytes] of Object.entries(step)) {
+            fs.writeFileSync(path.join(root, name), bytes)
+          }
+        })
+      )
+    }
+  } finally {
+    await watch.close()
+  }
 
   return {snapshots, errors}
 }
@@ -81,12 +79,7 @@ describe('a dev session rewriting an asset', () => {
         'index.js':
           "import photo from './photo.png'\nimport './style.css'\nself.out = {photo}\n"
       },
-      [
-        (root) => {
-          fs.writeFileSync(path.join(root, 'photo.png'), pngOfSize(5001))
-          fs.writeFileSync(path.join(root, 'bg.png'), pngOfSize(6001))
-        }
-      ]
+      [{'photo.png': pngOfSize(5001), 'bg.png': pngOfSize(6001)}]
     )
 
     expect(errors).toEqual([])
@@ -106,10 +99,7 @@ describe('a dev session rewriting an asset', () => {
         'dist/assets/kept.txt': 'not ours\n',
         'index.js': "import photo from './photo.png'\nself.out = {photo}\n"
       },
-      [
-        (root) =>
-          fs.writeFileSync(path.join(root, 'photo.png'), pngOfSize(5001))
-      ]
+      [{'photo.png': pngOfSize(5001)}]
     )
 
     expect(snapshots[1]).toContain('kept.txt')

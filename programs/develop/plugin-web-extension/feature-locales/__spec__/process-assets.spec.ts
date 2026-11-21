@@ -6,9 +6,10 @@ import {afterEach, describe, expect, it, vi} from 'vitest'
 // A missing locale file is reported by its own path, so the person can go
 // and fix it; an array index like "0" names nothing.
 const missing = vi.hoisted(() => ({path: ''}))
-vi.mock('../get-locales', async () => {
-  const actual =
-    await vi.importActual<typeof import('../get-locales')>('../get-locales')
+vi.mock('../../../lib/get-locales', async () => {
+  const actual = await vi.importActual<
+    typeof import('../../../lib/get-locales')
+  >('../../../lib/get-locales')
 
   return {
     ...actual,

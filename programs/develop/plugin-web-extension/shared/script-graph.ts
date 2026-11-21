@@ -15,8 +15,10 @@ import {
 } from '../../lib/package-manager'
 import {isInsidePath} from '../../lib/real-path'
 import {canonicalizeDir} from '../../lib/resource-path'
-import {getUserTypeScriptConfigFile} from '../../lib/user-tsconfig'
-import {getUserJsConfigFile} from '../../plugin-js-frameworks/js-tools/typescript'
+import {
+  getUserJsConfigFile,
+  getUserTypeScriptConfigFile
+} from '../../lib/user-tsconfig'
 
 const SCRIPT_SRC_PATTERN = /<script[^>]*\ssrc\s*=\s*["']([^"']+)["']/gi
 
