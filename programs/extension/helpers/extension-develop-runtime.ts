@@ -16,11 +16,6 @@ import {CODES} from './messaging'
 
 const require = createRequire(import.meta.url)
 
-// The loosest view of the engine, for the bridge entry and for the loaders a
-// spec injects. The build and preview loaders default to the real types.
-// biome-ignore lint/suspicious/noExplicitAny: dynamic module loading boundary, callers narrow per import
-export type AnyDevelopModule = any
-
 // The engine's own types, so a call into it is checked against what it exports.
 export type DevelopModule = typeof import('extension-develop')
 export type DevelopPreviewModule = typeof import('extension-develop/preview')
@@ -41,7 +36,13 @@ export type DevelopLauncher = import('extension-develop').BrowserLauncherFn
 export type DevelopPreviewLauncher =
   import('extension-develop/preview').PreviewLauncherFn
 
-function parseJsonSafe(filePath: string): AnyDevelopModule {
+// The two package.json fields the engine lookup reads.
+interface EnginePackageJson {
+  name?: string
+  version?: string
+}
+
+function parseJsonSafe(filePath: string): EnginePackageJson | null {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'))
 }
 
@@ -391,12 +392,12 @@ export function developLoadFailure(error: unknown, root: string): Error {
 
 // The engine of a checkout is its maintainer's own, so its load failure
 // keeps its stack. Any other engine that fails to load is a broken install.
-async function importModule<T = AnyDevelopModule>(
+async function importModule<T>(
   filePath: string,
   root: string,
   source: DevelopRootSource
 ): Promise<T> {
-  let mod: AnyDevelopModule
+  let mod: {default?: unknown} | null | undefined
 
   try {
     mod = await import(pathToFileURL(filePath).href)
