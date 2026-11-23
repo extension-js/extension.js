@@ -9,6 +9,7 @@
 import {createHash} from 'node:crypto'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {isChildBundleChunkName} from '../lib/child-bundle-chunk'
 import {debugLine, isDebug} from '../lib/messaging'
 import {parseAuthoredJson} from '../lib/parse-json-safe'
 import {hasPrivateFileName} from '../lib/public-private-files'
@@ -262,11 +263,6 @@ function ownersOfNamelessChunk(
   return owners
 }
 
-// A dev MAIN world script compiles in a child compilation, so its sources
-// are in that one's chunk graph and in none of the parent's chunks. A traced
-// copy a child emits under another folder keeps the name heuristics.
-const CHILD_BUNDLE_CHUNK = /^(?:scripts|content_scripts)\//
-
 function chunksByCompilation(
   compilation: import('@rspack/core').Compilation
 ): Map<IndexChunk, import('@rspack/core').Compilation> {
@@ -279,7 +275,7 @@ function chunksByCompilation(
     seen.add(each)
 
     for (const chunk of each.chunks || []) {
-      const isBundle = CHILD_BUNDLE_CHUNK.test(String(chunk?.name || ''))
+      const isBundle = isChildBundleChunkName(String(chunk?.name || ''))
       if (each === compilation || isBundle) out.set(chunk as IndexChunk, each)
     }
 
