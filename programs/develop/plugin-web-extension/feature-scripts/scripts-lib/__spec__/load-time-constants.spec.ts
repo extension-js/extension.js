@@ -24,6 +24,7 @@ describe('isConstantName', () => {
 
 describe('loadTimeConstants', () => {
   it('reports a bare read that runs as the script loads', () => {
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: fixture source text, the placeholder is literal
     expect(missing('console.log(VERSION)\nconst a = `${BUILD_ID}`')).toEqual([
       'BUILD_ID',
       'VERSION'

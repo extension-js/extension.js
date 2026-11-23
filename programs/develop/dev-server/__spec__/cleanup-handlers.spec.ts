@@ -11,9 +11,7 @@ import {
   SHUTDOWN_TIMEOUT_MS,
   setupCleanupHandlers
 } from '../cleanup'
-import type {BridgeBroker} from '../control-bridge/broker'
 import {startControlServer} from '../control-bridge/ws-control-server'
-import type {PortManager} from '../port-manager'
 
 const LISTENED = [
   'uncaughtException',

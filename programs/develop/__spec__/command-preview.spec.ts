@@ -10,7 +10,6 @@ import type {
   ProductionControlOptions,
   ProductionControlSession
 } from '../dev-server/production-control'
-import type {PreviewOptions} from '../types'
 import {bridgeBrokerFake} from './helpers/bridge-broker-fake'
 import {
   type ExtensionProject,

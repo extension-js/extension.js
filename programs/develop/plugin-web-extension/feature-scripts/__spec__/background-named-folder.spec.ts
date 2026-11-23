@@ -1,5 +1,4 @@
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import {Compilation, type Compiler, rspack, sources} from '@rspack/core'
 import {describe, expect, it} from 'vitest'

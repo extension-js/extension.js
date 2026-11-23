@@ -1,5 +1,4 @@
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import {type Compiler, rspack} from '@rspack/core'
 import {afterEach, describe, expect, it} from 'vitest'
@@ -15,8 +14,7 @@ const tempFolder = trackTempFolders()
 const watching: Compiler[] = []
 
 afterEach(async () => {
-  while (watching.length > 0) {
-    const compiler = watching.pop()!
+  for (const compiler of watching.splice(0).reverse()) {
     await new Promise<void>((resolve) => compiler.close(() => resolve()))
   }
 })

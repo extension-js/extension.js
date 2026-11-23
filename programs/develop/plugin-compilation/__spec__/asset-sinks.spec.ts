@@ -11,6 +11,7 @@ const HOSTILE = [
   'x"</style><script>window.pwned=1</script>',
   "y'</script><!-- <script>",
   'line1\nline2\r\nline3',
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: fixture source text, the placeholder is literal
   '`${boom}` $& $1 $',
   '*/ ); } // -- --> --!>',
   'https://example.com/a b?c=(d)&e=`f`',
@@ -188,6 +189,7 @@ describe('inline script sinks', () => {
             'out.double = "$EXTENSION_PUBLIC_V";',
             "out.single = '$EXTENSION_PUBLIC_V';",
             'out.template = `$EXTENSION_PUBLIC_V`;',
+            // biome-ignore lint/suspicious/noTemplateCurlyInString: fixture source text, the placeholder is literal
             'out.joined = `a${1}$EXTENSION_PUBLIC_V{b}`;'
           ].join('\n')
         ),

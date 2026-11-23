@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import type {Compilation, Compiler} from '@rspack/core'
 import {afterAll, afterEach, describe, expect, it, vi} from 'vitest'
+import {defined} from '../../__spec__/helpers/defined'
 import {isDevContentScriptStandInAsset} from '../../plugin-web-extension/feature-scripts/contracts'
 import {
   buildDevContentScriptMarkerPrelude,
@@ -19,6 +20,12 @@ import {
   planDevContentScripts
 } from '../reload-lib/dev-content-scripts'
 import {SetupDevContentScripts} from '../steps/setup-dev-content-scripts'
+
+// Every manifest planned through here declares content scripts, so a
+// missing plan is a failure and not a case to read around.
+function planFor(input: Parameters<typeof planDevContentScripts>[0]) {
+  return defined(planDevContentScripts(input), 'a dev content script plan')
+}
 
 // The scripts contracts skip these by pattern, so a name this plugin builds
 // must keep matching it.
@@ -54,7 +61,7 @@ describe('planDevContentScripts', () => {
     }) as Parameters<typeof planDevContentScripts>[0]
 
   it('replaces each compiled entry with a signalling stub and records the real files in the registry', () => {
-    const plan = planDevContentScripts(
+    const plan = planFor(
       manifest([
         {
           matches: ['https://a.test/*'],
@@ -70,7 +77,7 @@ describe('planDevContentScripts', () => {
     )
 
     expect(plan).toBeDefined()
-    expect(plan!.manifest.content_scripts).toEqual([
+    expect(plan.manifest.content_scripts).toEqual([
       {
         matches: ['https://a.test/*'],
         exclude_matches: ['https://a.test/skip*'],
@@ -81,7 +88,7 @@ describe('planDevContentScripts', () => {
       }
     ])
 
-    expect(plan!.registry).toEqual({
+    expect(plan.registry).toEqual({
       version: 1,
       entries: [
         {
@@ -104,22 +111,22 @@ describe('planDevContentScripts', () => {
       ]
     })
 
-    expect(Object.keys(plan!.stubs).sort()).toEqual([
+    expect(Object.keys(plan.stubs).sort()).toEqual([
       'content_scripts/dev-sheet-0.css',
       'content_scripts/dev-stub-0.js'
     ])
 
-    expect(plan!.stubs['content_scripts/dev-sheet-0.css']).toBe(
+    expect(plan.stubs['content_scripts/dev-sheet-0.css']).toBe(
       ':root{--extjs-dev-sheet-0:1}\n'
     )
 
-    expect(plan!.stubs['content_scripts/dev-stub-0.js']).toBe(
+    expect(plan.stubs['content_scripts/dev-stub-0.js']).toBe(
       buildDevContentScriptStubSource('content_scripts/content-0')
     )
   })
 
   it('reads the canonical index from the file, not the array position, and marks glob entries stub-only', () => {
-    const plan = planDevContentScripts(
+    const plan = planFor(
       manifest([
         {
           matches: ['<all_urls>'],
@@ -130,14 +137,14 @@ describe('planDevContentScripts', () => {
       ])
     )
 
-    expect(plan!.registry.entries).toHaveLength(1)
-    expect(plan!.registry.entries[0]).toMatchObject({
+    expect(plan.registry.entries).toHaveLength(1)
+    expect(plan.registry.entries[0]).toMatchObject({
       id: 'extjs-dev-cs-3',
       entry: 'content_scripts/content-3',
       stubOnly: true
     })
 
-    expect(plan!.manifest.content_scripts).toEqual([
+    expect(plan.manifest.content_scripts).toEqual([
       {
         matches: ['<all_urls>'],
         js: ['content_scripts/dev-stub-3.js'],
@@ -148,14 +155,14 @@ describe('planDevContentScripts', () => {
   })
 
   it('gives a CSS-only group a marker script that stands in for its bundle', () => {
-    const plan = planDevContentScripts(
+    const plan = planFor(
       manifest([
         {
           matches: ['https://a.test/*'],
           css: ['content_scripts/content-2.aaaaaaaa.css']
         }
       ])
-    )!
+    )
 
     expect(plan.manifest.content_scripts).toEqual([
       {matches: ['https://a.test/*'], js: ['content_scripts/dev-stub-2.js']}
@@ -188,7 +195,7 @@ describe('planDevContentScripts', () => {
   // Chromium never registers a globbed entry, and an entry with no sheet has
   // nothing to ask about, so neither is given a probe to register.
   it('gives a sheet probe only to an entry the browser registers with a stylesheet', () => {
-    const plan = planDevContentScripts(
+    const plan = planFor(
       manifest([
         {matches: ['https://a.test/*'], js: ['content_scripts/content-0.js']},
         {
@@ -203,7 +210,7 @@ describe('planDevContentScripts', () => {
           css: ['content_scripts/content-2.css']
         }
       ])
-    )!
+    )
 
     expect(plan.registry.entries.map((entry) => entry.sheetProbe)).toEqual([
       undefined,
@@ -235,7 +242,7 @@ describe('planDevContentScripts', () => {
       run_at: 'document_start',
       all_frames: true
     }
-    const plan = planDevContentScripts(manifest([group]))!
+    const plan = planFor(manifest([group]))
 
     expect(plan.manifest.content_scripts).toEqual([group])
     expect(plan.stubs).toEqual({})
@@ -257,7 +264,7 @@ describe('planDevContentScripts', () => {
   })
 
   it('still stubs a document_start MAIN group and a document_idle isolated group', () => {
-    const plan = planDevContentScripts(
+    const plan = planFor(
       manifest([
         {
           matches: ['<all_urls>'],
@@ -275,7 +282,7 @@ describe('planDevContentScripts', () => {
           js: ['content_scripts/content-2.abcdef12.js']
         }
       ])
-    )!
+    )
 
     expect(
       (plan.manifest.content_scripts as Array<{js: string[]}>).map((g) => g.js)
@@ -799,7 +806,7 @@ describe('dev content scripts runtime', () => {
     w.stub('content_scripts/content-0', 9)
     await w.settle()
     expect(w.calls.execute).toEqual([])
-    release!()
+    defined(release, 'the stalled registration callback')()
     await w.settle()
     expect(w.calls.execute).toHaveLength(1)
     expect(w.calls.execute[0].target).toEqual({
@@ -1137,7 +1144,7 @@ describe('dev content scripts runtime', () => {
   })
 
   it('a CSS-only entry lands its stylesheet once per frame per load and a heal in the same generation adds nothing', async () => {
-    const plan = planDevContentScripts({
+    const plan = planFor({
       manifest_version: 3,
       name: 'x',
       version: '1',
@@ -1147,7 +1154,7 @@ describe('dev content scripts runtime', () => {
           css: ['content_scripts/content-0.aaaaaaaa.css']
         }
       ]
-    })!
+    })
     const w = worker({
       registry: plan.registry,
       assets: plan.stubs,
@@ -1448,6 +1455,11 @@ describe('dev content scripts runtime', () => {
   })
 })
 
+// A missing asset fails by name where the spec reads it.
+function textOf(store: Map<string, string>, name: string): string {
+  return defined(store.get(name), `the asset ${name}`)
+}
+
 describe('SetupDevContentScripts step', () => {
   function compilation(assets: Record<string, string>) {
     const store = new Map(
@@ -1456,11 +1468,14 @@ describe('SetupDevContentScripts step', () => {
     const taps: Array<() => void> = []
     const asset = (name: string) =>
       store.has(name)
-        ? {name, source: {source: () => store.get(name)!}}
+        ? {name, source: {source: () => textOf(store, name)}}
         : undefined
     const comp = {
       errors: [],
-      getAssets: () => [...store.keys()].map((name) => asset(name)!),
+      getAssets: () =>
+        [...store.keys()].map((name) =>
+          defined(asset(name), `the asset ${name}`)
+        ),
       getAsset: (name: string) => asset(name),
       emitAsset: (name: string, source: {source(): string}) => {
         if (store.has(name)) throw new Error(`conflict: ${name}`)
@@ -1512,12 +1527,12 @@ describe('SetupDevContentScripts step', () => {
     new SetupDevContentScripts().apply(c.compiler)
     c.run()
 
-    const written = JSON.parse(c.store.get('manifest.json')!)
+    const written = JSON.parse(textOf(c.store, 'manifest.json'))
     expect(written.content_scripts).toEqual([
       {matches: ['<all_urls>'], js: ['content_scripts/dev-stub-0.js']}
     ])
 
-    const reg = JSON.parse(c.store.get(DEV_CONTENT_SCRIPT_REGISTRY_ASSET)!)
+    const reg = JSON.parse(textOf(c.store, DEV_CONTENT_SCRIPT_REGISTRY_ASSET))
     expect(reg.entries[0].js).toEqual(['content_scripts/content-0.abc12345.js'])
     expect(c.store.get('content_scripts/dev-stub-0.js')).toContain(
       '__extjsDevCsStub'
@@ -1528,37 +1543,35 @@ describe('SetupDevContentScripts step', () => {
     )
 
     expect(
-      JSON.parse(c.store.get('content_scripts/content-0.abc12345.js.map')!)
+      JSON.parse(textOf(c.store, 'content_scripts/content-0.abc12345.js.map'))
         .mappings
     ).toBe(';AAAA')
 
     expect(
-      c.store
-        .get('background/service_worker.js')!
-        .startsWith(DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE)
+      textOf(c.store, 'background/service_worker.js').startsWith(
+        DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE
+      )
     ).toBe(true)
 
-    expect(c.store.get('background/service_worker.js')!.endsWith('sw()')).toBe(
-      true
-    )
+    expect(
+      textOf(c.store, 'background/service_worker.js').endsWith('sw()')
+    ).toBe(true)
 
     // A second pass over the same assets changes nothing.
     c.run()
     expect(
-      c.store
-        .get('content_scripts/content-0.abc12345.js')!
-        .match(/__extjsDevContentScripts/g)
+      textOf(c.store, 'content_scripts/content-0.abc12345.js').match(
+        /__extjsDevContentScripts/g
+      )
     ).toHaveLength(1)
 
+    const installs = /__extjsDevContentScriptsInstalled/g
+    const expected = DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE.match(installs) ?? []
+
+    expect(expected.length).toBeGreaterThan(0)
     expect(
-      c.store
-        .get('background/service_worker.js')!
-        .match(/__extjsDevContentScriptsInstalled/g)!.length
-    ).toBe(
-      DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE.match(
-        /__extjsDevContentScriptsInstalled/g
-      )!.length
-    )
+      textOf(c.store, 'background/service_worker.js').match(installs)
+    ).toHaveLength(expected.length)
   })
 
   it('leaves everything static when the build has no background worker', () => {

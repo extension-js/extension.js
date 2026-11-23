@@ -7,8 +7,8 @@ import classicConcatLoader from '../steps/add-content-script-wrapper/classic-con
 const tempDirs: string[] = []
 
 afterEach(() => {
-  while (tempDirs.length > 0) {
-    fs.rmSync(tempDirs.pop()!, {recursive: true, force: true})
+  for (const tempFolder of tempDirs.splice(0)) {
+    fs.rmSync(tempFolder, {recursive: true, force: true})
   }
 })
 

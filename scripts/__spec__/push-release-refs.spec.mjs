@@ -18,6 +18,7 @@ const script = path.resolve(
 const FAKE_GIT = [
   '#!/usr/bin/env bash',
   'key=""',
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: shell expansion in the stand-in git script
   'if [[ "$GIT_SSH_COMMAND" =~ -i\\ ([^ ]+) ]]; then key="${BASH_REMATCH[1]}"; fi',
   '{',
   '  echo "args=$*"',
@@ -31,6 +32,7 @@ const FAKE_GIT = [
   '    echo "key_exists=no"',
   '  fi',
   '} > "$FAKE_GIT_LOG"',
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: shell expansion in the stand-in git script
   'exit "${FAKE_GIT_EXIT:-0}"',
   ''
 ].join('\n')

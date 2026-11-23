@@ -33,6 +33,7 @@ describe('src and href literals a script sets', () => {
           'if (img.src == "a.png") {}',
           'if (img.src === "a.png") {}',
           'img.src = base + "a.png"',
+          // biome-ignore lint/suspicious/noTemplateCurlyInString: fixture source text, the placeholder is literal
           'img.src = `${base}a.png`',
           '// img.src = "b.png"'
         ].join('\n')

@@ -274,6 +274,7 @@ export type SafariPackagerFn = (
   distPath: string,
   mode: 'full' | 'resync',
   overrides?: SafariPackagerOverrides
+  // biome-ignore lint/suspicious/noConfusingVoidType: a packager that returns nothing must still fit this published type
 ) => Promise<SafariPackageSummary | void>
 
 /** The command a run is recorded under in `ready.json` and `events.ndjson`. */

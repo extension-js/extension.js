@@ -58,8 +58,8 @@ describe('importExternalTemplate failure cleanup', () => {
 
     await catalog.close()
 
-    while (tempDirs.length > 0) {
-      await fsp.rm(tempDirs.pop()!, {recursive: true, force: true})
+    for (const tempFolder of tempDirs.splice(0)) {
+      await fsp.rm(tempFolder, {recursive: true, force: true})
     }
   })
 

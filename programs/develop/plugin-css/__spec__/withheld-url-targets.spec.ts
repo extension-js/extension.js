@@ -314,12 +314,10 @@ describe('a url() that names a file the build withholds, built', () => {
       'shared/.env': 'MARKER_SIBLING_ENV=seven\n'
     })
     const app = path.join(root, 'app')
-    let summary: {errors_count: number; warnings?: string[]}
-
-    summary = (await buildProject(app, {
+    const summary = (await buildProject(app, {
       mode: 'production',
       exitOnError: false
-    })) as typeof summary
+    })) as {errors_count: number; warnings?: string[]}
 
     const dist = path.join(app, 'dist', 'chrome')
     const shipped = (fs.readdirSync(dist, {recursive: true}) as string[])

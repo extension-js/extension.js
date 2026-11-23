@@ -68,7 +68,6 @@ describe('the build card and a name set through .env', () => {
 
     expect(shipped.name).toBe('Card filled value')
 
-    // biome-ignore lint/suspicious/noControlCharactersInRegex: strips terminal colors
     const text = printed.join('\n').replace(/\u001b\[[0-9;]*m/g, '')
     const row = text.split('\n').find((line) => /\bExtension\s{2,}/.test(line))
 

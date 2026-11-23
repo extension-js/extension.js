@@ -112,7 +112,7 @@ cd my-extension && pnpm dev
 - `pnpm test`, Run all tests across packages via `scripts/run-test.mjs`, which wraps Turbo filters
 - `pnpm test:cli` | `pnpm test:dev` | `pnpm test:build`, Focused test groups (`test:dev` and `test:build` are the same command, both run the `programs/develop` tests)
 - `pnpm test:e2e`, Playwright end-to-end tests
-- `pnpm lint`, Biome lint (config in `biome.json`), a Biome format check, then `eslint .`
+- `pnpm lint`, Biome lint (config in `biome.json`) that fails on a warning as well as an error, a Biome format check, then `eslint .`
 - `pnpm format`, Runs `scripts/format-wrapper.cjs`: Biome format write, then `eslint . --fix`, over the whole repo
 - `pnpm smoke:first-dev` | `pnpm smoke:browser-identity` | `pnpm smoke:content-reload` | `pnpm smoke:open-action`, Hand-run checks that launch a real browser against the compiled CLI. No CI job runs them, so run the one that matches a change to first run, browser detection, content script reload or the action button before you open a pull request
 

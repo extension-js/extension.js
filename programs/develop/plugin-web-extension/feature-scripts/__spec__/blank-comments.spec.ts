@@ -148,6 +148,7 @@ describe('blankComments', () => {
     const source = [
       'a() // fetch("gone.json")',
       'b("// kept") /* fetch("gone.json")',
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: fixture source text, the placeholder is literal
       'still gone */ c(`/* kept ${d("*/")} */`)',
       "e('it\\'s // kept')"
     ].join('\n')
@@ -156,6 +157,7 @@ describe('blankComments', () => {
     expect(blanked).toHaveLength(source.length)
     expect(blanked).not.toContain('gone.json')
     expect(blanked).toContain('b("// kept")')
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: fixture source text, the placeholder is literal
     expect(blanked).toContain('c(`/* kept ${d("*/")} */`)')
     expect(blanked).toContain("e('it\\'s // kept')")
     expect(blanked.split('\n')).toHaveLength(4)

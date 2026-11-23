@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {defined} from '../../__spec__/helpers/defined'
 import {BoringPlugin} from '../boring'
 
 type DoneTap = (stats: unknown) => void
@@ -21,7 +22,7 @@ function makeCompiler() {
     options: {context: '/project'}
   }
 
-  return {compiler, getDoneTap: () => doneTap!}
+  return {compiler, getDoneTap: () => defined(doneTap, 'the done tap')}
 }
 
 function makeStats({hasErrors = false} = {}) {

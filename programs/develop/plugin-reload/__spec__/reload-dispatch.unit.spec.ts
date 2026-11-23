@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import type {Compilation, Compiler} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {defined} from '../../__spec__/helpers/defined'
 import {quietBroker} from '../../__spec__/helpers/quiet-broker'
 import {takeCodedWarnings} from '../../lib/coded-warnings'
 import {
@@ -1176,9 +1177,10 @@ describe('createChangedSourcesTracker on a symlinked project dir', () => {
       chunks: chunks.map((chunk) => ({name: chunk.name})),
       chunkGraph: {
         getChunkModulesIterable: (chunk: {name: string}) =>
-          chunks
-            .find((each) => each.name === chunk.name)!
-            .modules.map((id) => ({identifier: () => id}))
+          defined(
+            chunks.find((each) => each.name === chunk.name),
+            `the chunk ${chunk.name}`
+          ).modules.map((id) => ({identifier: () => id}))
       }
     } as unknown as Compilation
 

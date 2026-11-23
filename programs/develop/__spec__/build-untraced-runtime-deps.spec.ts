@@ -189,6 +189,7 @@ function writeTemplateLiteralFixture() {
       '    const rows = [[1, 2, 3]]',
       '    const html = rows.map((row) => `',
       fillerLines,
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: fixture source text, the placeholder is literal
       '      <span>${row.join(",")}</span>',
       '    `)',
       '    console.log(html.join(""))',

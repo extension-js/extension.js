@@ -11,7 +11,6 @@ import {
   createReadyContractWriter,
   ReadyContractPlugin
 } from '../../plugin-ready-contract'
-import type {BridgeBroker} from '../control-bridge/broker'
 import {CONTROL_WS_PATH} from '../control-bridge/contracts'
 import type {ControlServer} from '../control-bridge/ws-control-server'
 import {controlCoordinatesOf, openControlBridge} from '../control-bridge-start'

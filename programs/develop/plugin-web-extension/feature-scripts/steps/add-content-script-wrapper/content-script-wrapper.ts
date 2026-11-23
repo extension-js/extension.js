@@ -262,7 +262,7 @@ export default function contentScriptWrapper(
   this: ContentScriptLoaderContext,
   source: string,
   inputSourceMap?: unknown
-): string | void {
+): string | undefined {
   const options = this.getOptions()
   validate(schema, options, {
     name: 'scripts:content-script-wrapper',

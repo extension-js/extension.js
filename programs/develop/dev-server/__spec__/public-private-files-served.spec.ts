@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import * as http from 'node:http'
 import * as path from 'node:path'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
+import {defined} from '../../__spec__/helpers/defined'
 import {
   bootLoopback,
   createFixture,
@@ -69,7 +70,10 @@ afterAll(async () => {
 
 describe('public/ served by the dev server', () => {
   it.each(PRIVATE_FILES)('answers 404 for %s', async (file) => {
-    const answer = await get(session!.port, `/${file}`)
+    const answer = await get(
+      defined(session, 'the booted dev session').port,
+      `/${file}`
+    )
 
     expect(answer.status).toBe(404)
     expect(answer.body).not.toContain(MARKER)
@@ -82,14 +86,20 @@ describe('public/ served by the dev server', () => {
     '/docs/../Thumbs.db',
     '/docs%2F..%2FThumbs.db'
   ])('answers 404 for the spelling %s', async (urlPath) => {
-    const answer = await get(session!.port, urlPath)
+    const answer = await get(
+      defined(session, 'the booted dev session').port,
+      urlPath
+    )
 
     expect(answer.status).toBe(404)
     expect(answer.body).not.toContain(MARKER)
   })
 
   it('still serves an ordinary public file', async () => {
-    const answer = await get(session!.port, '/data.txt')
+    const answer = await get(
+      defined(session, 'the booted dev session').port,
+      '/data.txt'
+    )
 
     expect(answer.status).toBe(200)
     expect(answer.body).toBe('one\n')

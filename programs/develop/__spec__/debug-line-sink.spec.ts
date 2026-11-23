@@ -109,6 +109,7 @@ describe('debug lines reach one sink', () => {
       'if (ready) {',
       "  console.log('b')",
       '}',
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: fixture source text, the placeholder is literal
       "console.log(`${prefix('debug')} c`)",
       'const logger = isAuthor',
       '  ? {onInfo: (m) => console.log(m)}',

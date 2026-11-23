@@ -20,8 +20,8 @@ afterEach(() => {
   vi.useRealTimers()
   unbindDevSessionRestart()
 
-  while (roots.length > 0) {
-    fs.rmSync(roots.pop()!, {recursive: true, force: true})
+  for (const folder of roots.splice(0)) {
+    fs.rmSync(folder, {recursive: true, force: true})
   }
 })
 

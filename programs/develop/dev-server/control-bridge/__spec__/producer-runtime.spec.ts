@@ -1,4 +1,5 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {defined} from '../../../__spec__/helpers/defined'
 // The producer a dev background runs: this bridge with the reload executor.
 import {buildDevProducerSource} from '../../../plugin-reload/reload-lib/producer-reload'
 import {buildBridgeRelaySource} from '../producer-runtime'
@@ -346,7 +347,7 @@ describe('bridge producer runtime', () => {
     expect(installedListener).toBeTypeOf('function')
     expect(fetched).toHaveLength(0)
 
-    installedListener!()
+    defined(installedListener, 'the installed listener')()
     await waitFor(
       () => fetched.length > 0,
       'the boot heal to read the manifest'
@@ -406,7 +407,7 @@ describe('bridge producer runtime', () => {
         fakeGlobal
       )
 
-      installedListener!()
+      defined(installedListener, 'the installed listener')()
       pendingRead?.({__extjsDevPendingReinject: Date.now()})
       await new Promise((resolve) => setTimeout(resolve, 600))
 
@@ -488,7 +489,7 @@ describe('bridge producer runtime', () => {
     })
     run(src, fakeGlobal)
     expect(installedListener).toBeTypeOf('function')
-    installedListener!()
+    defined(installedListener, 'the installed listener')()
     await waitFor(() => executed.length > 0, 'the boot reinject to run')
 
     expect(executed).toHaveLength(1)
@@ -4501,7 +4502,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     )
 
     expect(installedListener).toBeTypeOf('function')
-    installedListener!()
+    defined(installedListener, 'the installed listener')()
     await vi.advanceTimersByTimeAsync(250)
     await waitFor(() => executed.length > 0, 'the boot heal to inject')
     expect(executed).toHaveLength(1)
@@ -4558,11 +4559,11 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       }
     )
 
-    installedListener!({reason: 'install'})
+    defined(installedListener, 'the installed listener')({reason: 'install'})
     await vi.advanceTimersByTimeAsync(250)
     expect(executed).toHaveLength(0)
 
-    installedListener!({reason: 'update'})
+    defined(installedListener, 'the installed listener')({reason: 'update'})
     await waitFor(
       () => executed.length > 0,
       'the heal after an update to inject'
@@ -4851,7 +4852,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
   })
 
   it('inspect fits markup that grows under JSON escaping inside the transport cap', async () => {
-    const html = '<p title="q">' + '"'.repeat(262_144) + '</p>'
+    const html = `<p title="q">${'"'.repeat(262_144)}</p>`
     const ws = setup({
       scripting: {
         executeScript: () =>

@@ -324,7 +324,7 @@ export function companionScanDirInsideProject(
   // A scan of the project itself would meet its own source and output.
   if (placeInProject(projectRoot, folder) !== 'inside') {
     throw companionRefusal(
-      'extensions.dir must be inside the project.\n' + `Invalid dir: ${folder}`
+      `extensions.dir must be inside the project.\nInvalid dir: ${folder}`
     )
   }
 

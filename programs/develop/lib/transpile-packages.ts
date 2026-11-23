@@ -10,7 +10,6 @@ import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import {readPackageJson} from './package-json'
-import type {ParsedJson} from './parse-json-safe'
 import {canonicalizeDir, isResourceUnderDirs} from './resource-path'
 
 function normalizePath(filePath: string): string {

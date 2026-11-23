@@ -93,7 +93,7 @@ export async function generateExtensionTypes(
     // changes it is said out loud the way the first write is.
     humanLine(messages.updatingTypeDefinitions(extensionEnvFile))
     await fs.writeFile(extensionEnvFile, fileContent)
-  } catch (err) {
+  } catch {
     const manifest = readManifest(path.join(manifestDir, 'manifest.json'), {
       emptyAsObject: true
     })

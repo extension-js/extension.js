@@ -142,7 +142,7 @@ test('every pull request workflow cancels the run a new push supersedes', () => 
     if (!file.endsWith('.yml')) continue
 
     const workflow = readWorkflow(file)
-    const on = workflow.on ?? workflow['true']
+    const on = workflow.on ?? workflow.true
     if (!on || typeof on !== 'object' || !('pull_request' in on)) continue
 
     const group = workflow.concurrency?.group ?? ''
@@ -159,7 +159,7 @@ test('a run of main is never cancelled by a later one', () => {
     if (!file.endsWith('.yml')) continue
 
     const workflow = readWorkflow(file)
-    const on = workflow.on ?? workflow['true']
+    const on = workflow.on ?? workflow.true
     if (!on || typeof on !== 'object' || !workflow.concurrency) continue
 
     const onMain = 'push' in on || 'schedule' in on
@@ -194,7 +194,7 @@ test('every workflow path filter starts at a path the repo has', () => {
     if (!file.endsWith('.yml')) continue
 
     const workflow = readWorkflow(file)
-    const on = workflow.on ?? workflow['true']
+    const on = workflow.on ?? workflow.true
     if (!on || typeof on !== 'object') continue
 
     for (const [event, config] of Object.entries(on)) {

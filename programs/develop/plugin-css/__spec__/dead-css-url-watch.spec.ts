@@ -25,7 +25,7 @@ interface WatchSession {
 const sessions: WatchSession[] = []
 
 afterEach(async () => {
-  while (sessions.length > 0) await sessions.pop()!.close()
+  for (const session of sessions.splice(0).reverse()) await session.close()
 })
 
 // A real watch with CssPlugin applied. A plain css rule stands in for the

@@ -87,9 +87,9 @@ const TYPE_ANNOTATION = '(?:\\s*:[^=;\\n]{0,120})?'
 function identifierBoundToGetURL(code: string, name: string): boolean {
   const id = escapeId(name)
   const declared = new RegExp(
-    '\\b(?:const|let|var)\\s+' + id + TYPE_ANNOTATION + '\\s*=' + RHS
+    `\\b(?:const|let|var)\\s+${id}${TYPE_ANNOTATION}\\s*=${RHS}`
   )
-  const assigned = new RegExp('(?:^|[^\\w$.])' + id + '\\s*=(?!=)' + RHS)
+  const assigned = new RegExp(`(?:^|[^\\w$.])${id}\\s*=(?!=)${RHS}`)
 
   return declared.test(code) || assigned.test(code)
 }
@@ -109,7 +109,7 @@ function memberBoundToGetURL(code: string, path: string): boolean {
       '\\s*:[^,}]{0,200}?\\bruntime\\s*\\.\\s*getURL\\s*\\('
   )
   const assigned = new RegExp(
-    '(?:^|[^\\w$])' + escapeId(path.replace(/\s+/g, '')) + '\\s*=(?!=)' + RHS
+    `(?:^|[^\\w$])${escapeId(path.replace(/\s+/g, ''))}\\s*=(?!=)${RHS}`
   )
 
   return property.test(code) || assigned.test(code.replace(/\s*\.\s*/g, '.'))
