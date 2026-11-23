@@ -7,6 +7,7 @@ using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 
@@ -17,8 +18,15 @@ static class BrowserStandIn
 {
     const string ChildFlag = "--stand-in-child";
 
+    [DllImport("kernel32.dll")]
+    static extern bool SetConsoleCtrlHandler(IntPtr handler, bool add);
+
     static int Main(string[] args)
     {
+        // A browser has no console, so Ctrl+C in the terminal never ends one.
+        // The child started below inherits this.
+        SetConsoleCtrlHandler(IntPtr.Zero, true);
+
         if (args.Length == 1 && args[0] == ChildFlag)
         {
             Thread.Sleep(Timeout.Infinite);
