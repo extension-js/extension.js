@@ -587,6 +587,15 @@ test('a canary week that ran no tests cannot close a red lane', () => {
   )
 })
 
+test('a canary repro that lifts the release-age gate says to run it in a throwaway copy', () => {
+  const repro = canaryStep('Report a red lane').env.RED_LANE_REPRO
+  const lifted = repro.indexOf('minimum-release-age=0')
+
+  assert.ok(lifted > 0)
+  // Said before the install line, so nobody pastes it into a checkout first.
+  assert.match(repro.slice(0, lifted), /throwaway copy.*never in your checkout/)
+})
+
 test('a canary red is allowed only when it names a known upstream break', () => {
   const suite = canaryStep('Run the rspack suite')
 

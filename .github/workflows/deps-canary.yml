@@ -105,7 +105,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RED_LANE_TITLE: 'Dependency canary is red: ${{ matrix.leg }}'
+          # The install lifts the three-day release-age gate, as the lane's
+          # own install does, so the issue says where that is safe to run.
           RED_LANE_REPRO: |
+            # Run this in a throwaway copy of the repo, never in your checkout:
+            # the install lifts the workspace's three-day release-age gate.
             node scripts/deps-canary-overrides.mjs ${{ matrix.leg }}
             pnpm install --no-frozen-lockfile --config.minimum-release-age=0
             pnpm run ci:test:rspack
