@@ -728,6 +728,7 @@ describe('TraceRuntimeLoadedFiles importScripts choices', () => {
     const {emitted} = await runTrace(projectDir, {
       'background/service_worker.js':
         'const base = String(globalThis.BASE || "");\n' +
+        // biome-ignore lint/suspicious/noTemplateCurlyInString: fixture source text, the placeholder is literal
         'const projectionPath = base ? `${base}/src/shared/projection.js` : "shared/projection.js";\n' +
         'importScripts(base ? chrome.runtime.getURL(projectionPath) : projectionPath);'
     })

@@ -1,5 +1,4 @@
 import * as fs from 'node:fs'
-import os from 'node:os'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
@@ -96,9 +95,11 @@ describe('tsconfigCanIncludeFile', () => {
     ).toBe(false)
   })
 
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: the literal placeholder TypeScript reads in a tsconfig
   it('reads ${configDir} as the folder of the config being asked', () => {
     expect(
       includesRootTypes({
+        // biome-ignore lint/suspicious/noTemplateCurlyInString: the literal placeholder TypeScript reads in a tsconfig
         'base/tsconfig.base.json': {include: ['${configDir}/*.d.ts']},
         'app/tsconfig.json': {extends: '../base/tsconfig.base.json'}
       })
@@ -106,12 +107,14 @@ describe('tsconfigCanIncludeFile', () => {
 
     expect(
       includesRootTypes({
+        // biome-ignore lint/suspicious/noTemplateCurlyInString: the literal placeholder TypeScript reads in a tsconfig
         'base/tsconfig.base.json': {include: ['${configDir}/src']},
         'app/tsconfig.json': {extends: '../base/tsconfig.base.json'}
       })
     ).toBe(false)
 
     expect(
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: the literal placeholder TypeScript reads in a tsconfig
       includesRootTypes({'app/tsconfig.json': {include: ['${configDir}']}})
     ).toBe(true)
   })

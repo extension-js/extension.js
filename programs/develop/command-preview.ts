@@ -142,6 +142,7 @@ export interface PreviewBrowserSession {
 // without one, since develop never launches a browser by itself.
 export type PreviewLauncherFn = (
   opts: ResolvedPreviewOptions
+  // biome-ignore lint/suspicious/noConfusingVoidType: a launcher that returns nothing must still fit this published type
 ) => Promise<PreviewBrowserSession | undefined | void>
 
 function readReadyField(

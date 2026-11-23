@@ -14,6 +14,7 @@ const ANSI = /\u001b\[[0-9;]*m/g
 const BROKEN_CSS = [
   '.ok { color: red; }',
   '.\\[default\\:\\\\u202F\\$\\{N\\(\\`\\$\\{u\\}\\`\\)\\}\\] {',
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: fixture source text, the placeholder is literal
   '  default: \\u202F${N(`${u}`)};',
   '}',
   '.also-ok { display: none; }'

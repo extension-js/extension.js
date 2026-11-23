@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import type {Asset, Compilation} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {defined} from '../../../__spec__/helpers/defined'
 import {asCompilation} from '../../__spec__/helpers/rspack-fakes'
 import {generateManifestPatches} from '../web-resources-lib/generate-manifest'
 import {resolveUserDeclaredWAR} from '../web-resources-lib/resolve-war'
@@ -1093,12 +1094,16 @@ describe('generateManifestPatches', () => {
 
     expect(groups.length).toBe(2)
 
-    const merged = groups.find(
-      (g) => g.matches.join(',') === '*://*.foo.com/*,https://example.com/*'
-    )!
-    const untouched = groups.find(
-      (g) => g.matches.join(',') === 'https://example.com/*'
-    )!
+    const merged = defined(
+      groups.find(
+        (g) => g.matches.join(',') === '*://*.foo.com/*,https://example.com/*'
+      ),
+      'the merged group'
+    )
+    const untouched = defined(
+      groups.find((g) => g.matches.join(',') === 'https://example.com/*'),
+      'the untouched group'
+    )
 
     expect(merged.resources).toEqual(
       ['content_scripts/a.svg', 'content_scripts/b.svg', 'existing.svg'].sort()

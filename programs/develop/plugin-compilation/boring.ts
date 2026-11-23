@@ -92,7 +92,12 @@ export class BoringPlugin {
       const browserLaunchEnabled = this.browserLaunchEnabled
 
       stats.compilation.name = undefined
-      const duration = stats.compilation.endTime! - stats.compilation.startTime!
+      const {startTime, endTime} = stats.compilation
+      // Rspack stamps both before done fires. Without them the line says 0 ms.
+      const duration =
+        startTime !== undefined && endTime !== undefined
+          ? endTime - startTime
+          : 0
       // A throw here escapes hooks.done into Watching._done and kills the watch loop
       // (a mid-save manifest is routinely invalid JSON); never propagate.
       let manifestName: string | undefined

@@ -188,7 +188,7 @@ async function terminateChildProcess(child) {
   await waitForChildExit(child, 5000)
 }
 
-function buildSmokeEnv(pm) {
+function buildSmokeEnv() {
   return baseEnv
 }
 
@@ -201,26 +201,6 @@ function commandFor(tool) {
   if (tool === 'deno') return 'deno.exe'
 
   return tool
-}
-
-function resolveCommandPath(tool) {
-  const resolvedCommand = commandFor(tool)
-
-  if (process.platform === 'win32') {
-    return resolvedCommand
-  }
-
-  const result = spawnSync('which', [resolvedCommand], {
-    env: baseEnv,
-    encoding: 'utf8'
-  })
-
-  if (result.status === 0) {
-    const value = String(result.stdout || '').trim()
-    if (value) return value
-  }
-
-  return undefined
 }
 
 function run(command, args, cwd, env = baseEnv) {
@@ -1041,7 +1021,7 @@ function installAndBuild(workdir, pm) {
   }
 
   const smokeEnv = {
-    ...buildSmokeEnv(pm),
+    ...buildSmokeEnv(),
     EXTENSION_JS_CACHE_DIR: path.join(workdir, '.extensionjs-cache')
   }
 
@@ -1158,7 +1138,7 @@ function installAndBuild(workdir, pm) {
 
 function runReactContentDevSmoke(workdir) {
   const smokeEnv = {
-    ...buildSmokeEnv('npm'),
+    ...buildSmokeEnv(),
     EXTENSION_JS_CACHE_DIR: path.join(workdir, '.extensionjs-cache')
   }
   const failurePatterns = [
@@ -1366,7 +1346,7 @@ async function main() {
     // only emits artifacts, it does not launch a browser.
     if (cliBrowserTarget) {
       const forkEnv = {
-        ...buildSmokeEnv(packageManager),
+        ...buildSmokeEnv(),
         EXTENSION_JS_CACHE_DIR: path.join(workdir, '.extensionjs-cache')
       }
       runExtensionCli(
@@ -1418,7 +1398,7 @@ async function main() {
       // npm-style lockfile); the outer matrix's `packageManager` is independent.
       await rewriteConsumerPackageJson(reactDevDir, 'npm')
       runInstall('npm', ['install', '--no-audit', '--no-fund'], reactDevDir, {
-        ...buildSmokeEnv('npm'),
+        ...buildSmokeEnv(),
         EXTENSION_JS_CACHE_DIR: path.join(reactDevDir, '.extensionjs-cache')
       })
 

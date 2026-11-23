@@ -40,22 +40,18 @@ export function decodeSourceMap(json: string): DecodedMap {
   const lines: DecodedMap['lines'] = []
   let sourceIndex = 0
   let sourceLine = 0
-  let sourceColumn = 0
 
   for (const group of String(map.mappings || '').split(';')) {
     let first: {sourceIndex: number; sourceLine: number} | null = null
-    let generatedColumn = 0
 
     for (const segment of group.split(',')) {
       if (!segment) continue
 
       const fields = vlqDecode(segment)
-      generatedColumn += fields[0]
 
       if (fields.length >= 4) {
         sourceIndex += fields[1]
         sourceLine += fields[2]
-        sourceColumn += fields[3]
         if (!first) first = {sourceIndex, sourceLine}
       }
     }

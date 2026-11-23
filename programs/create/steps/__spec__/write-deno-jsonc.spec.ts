@@ -270,11 +270,11 @@ describe('writeDenoJsonc', () => {
     // unable to resolve their tooling.
     await fsp.writeFile(
       path.join(projectPath, 'deno.json'),
-      JSON.stringify({
+      `${JSON.stringify({
         nodeModulesDir: 'none',
         imports: {preact: 'npm:preact@10.0.0'},
         tasks: {fmt: 'deno fmt'}
-      }) + '\n'
+      })}\n`
     )
 
     await fsp.writeFile(
@@ -305,12 +305,12 @@ describe('writeDenoJsonc', () => {
     // so the first `deno task dev` is not an old package against a new CLI.
     await fsp.writeFile(
       path.join(projectPath, 'deno.json'),
-      JSON.stringify({
+      `${JSON.stringify({
         imports: {
           preact: 'npm:preact@10.0.0',
           extension: 'npm:extension@^2.1.0'
         }
-      }) + '\n'
+      })}\n`
     )
 
     await fsp.writeFile(

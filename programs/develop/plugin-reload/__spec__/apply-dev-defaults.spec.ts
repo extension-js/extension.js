@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {Compilation, type Compiler} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
+import {defined} from '../../__spec__/helpers/defined'
 import {setOriginalManifestContent} from '../../lib/manifest/manifest-content'
 import {ApplyDevDefaults} from '../steps/apply-dev-defaults'
 
@@ -103,7 +104,7 @@ describe('ApplyDevDefaults', () => {
     }).apply(compiler)
 
     expect(updatedManifestJson).toBeDefined()
-    const out = JSON.parse(updatedManifestJson!)
+    const out = JSON.parse(defined(updatedManifestJson, 'the updated manifest'))
     expect(out.side_panel?.default_path).toBe('sidebar/index.html')
     expect(out.background?.service_worker).toBe('background/service_worker.js')
   })
@@ -205,7 +206,7 @@ describe('ApplyDevDefaults', () => {
       browser
     }).apply(compiler)
 
-    return {out: JSON.parse(updated!), warnings}
+    return {out: JSON.parse(defined(updated, 'the updated manifest')), warnings}
   }
 
   const SANDBOX =
@@ -1276,7 +1277,7 @@ describe('ApplyDevDefaults', () => {
     }).apply(compiler)
 
     expect(updatedManifestJson).toBeDefined()
-    const out = JSON.parse(updatedManifestJson!)
+    const out = JSON.parse(defined(updatedManifestJson, 'the updated manifest'))
     expect(out.side_panel?.default_path).toBe('sidebar/index.html')
     expect(out.background?.service_worker).toBe('background/service_worker.js')
     expect(out.content_scripts?.[0]?.js).toEqual([

@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
+import {defined} from '../../__spec__/helpers/defined'
 import {PruneUnreachableChunks} from '../steps/prune-unreachable-chunks'
 
 describe('PruneUnreachableChunks', () => {
@@ -31,7 +32,9 @@ describe('PruneUnreachableChunks', () => {
     new PruneUnreachableChunks().apply(compiler as unknown as Compiler)
 
     const compileWith = (assetNames: string[], errors: unknown[] = []) => {
-      doneFn!({
+      const done = defined(doneFn, 'the done tap')
+
+      done({
         compilation: {
           errors,
           getAssets: () => assetNames.map((name) => ({name}))

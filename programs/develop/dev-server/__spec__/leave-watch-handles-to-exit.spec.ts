@@ -6,7 +6,6 @@ import {afterEach, describe, expect, it, vi} from 'vitest'
 import {portManagerFake} from '../../__spec__/helpers/port-manager-fake'
 import {setupCleanupHandlers} from '../cleanup'
 import {leaveWatchHandlesToExit} from '../leave-watch-handles-to-exit'
-import type {PortManager} from '../port-manager'
 
 interface NativeHandle {
   close: () => void

@@ -864,6 +864,7 @@ describe('EnvPlugin placeholders in emitted .json and .html', () => {
       'config.json':
         '{"cfg": $EXTENSION_PUBLIC_HOSTILE, "text": "$EXTENSION_PUBLIC_HOSTILE"}',
       'sandbox.html':
+        // biome-ignore lint/suspicious/noTemplateCurlyInString: fixture source text, the placeholder is literal
         '<script>/* it\'s */ window.CFG = $EXTENSION_PUBLIC_HOSTILE; window.S = `${"$EXTENSION_PUBLIC_HOSTILE"}`</script><p>after</p>'
     })
     const result = await build(root, {copy: ['config.json', 'sandbox.html']})

@@ -1,5 +1,6 @@
 import postcss from 'postcss'
 import {describe, expect, it, vi} from 'vitest'
+import {defined} from '../../__spec__/helpers/defined'
 import lateCssImportLoader, {
   blankLateImports,
   findLateImports
@@ -7,13 +8,13 @@ import lateCssImportLoader, {
 
 function runLoader(source: string, map?: unknown) {
   const warnings: Error[] = []
-  let result: {err: Error | null; content?: string; map?: unknown} | null = null
+  const results: {err: Error | null; content?: string; map?: unknown}[] = []
   lateCssImportLoader.call(
     {
       resourcePath: '/proj/popup/popup.css',
       rootContext: '/proj',
       callback: (err: Error | null, content?: string, m?: unknown) => {
-        result = {err, content, map: m}
+        results.push({err, content, map: m})
       },
       emitWarning: (w: Error) => warnings.push(w)
     },
@@ -21,7 +22,10 @@ function runLoader(source: string, map?: unknown) {
     map
   )
 
-  return {warnings, result: result!}
+  return {
+    warnings,
+    result: defined(results.at(-1), 'the loader callback result')
+  }
 }
 
 describe('late-css-import-loader: browsers skip the rule, rspack fails the module', () => {
@@ -58,7 +62,10 @@ describe('late-css-import-loader: browsers skip the rule, rspack fails the modul
     expect(result.content).not.toContain('@import')
     expect(result.content).toContain('body { margin: 0; }')
     expect(result.content).toContain('h1 { color: red; }')
-    expect(result.content!.split('\n')).toHaveLength(5)
+    expect(
+      defined(result.content, 'the loader output').split('\n')
+    ).toHaveLength(5)
+
     expect(result.map).toEqual({version: 3})
     expect(warnings).toHaveLength(1)
     expect(warnings[0].message).toContain('@import')

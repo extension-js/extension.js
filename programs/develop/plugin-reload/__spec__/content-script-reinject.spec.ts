@@ -21,8 +21,8 @@ const tempDirs: string[] = []
 afterEach(() => {
   vi.unstubAllEnvs()
 
-  while (tempDirs.length > 0) {
-    fs.rmSync(tempDirs.pop()!, {recursive: true, force: true})
+  for (const folder of tempDirs.splice(0)) {
+    fs.rmSync(folder, {recursive: true, force: true})
   }
 })
 

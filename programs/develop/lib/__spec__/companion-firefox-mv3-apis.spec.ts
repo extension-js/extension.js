@@ -59,7 +59,7 @@ function ensureCliBuilt(): boolean {
   return result.status === 0 && fs.existsSync(CLI_DIST)
 }
 
-function ensureFirefoxBuild(packageDir: string, name: string): boolean {
+function ensureFirefoxBuild(packageDir: string): boolean {
   const bundlePath = firefoxBundlePath(packageDir)
   if (fs.existsSync(bundlePath)) return true
 
@@ -88,7 +88,7 @@ describe('companion welcome page stylesheet', () => {
   if (!fs.existsSync(devtools.packageDir)) return
 
   it('carries the utilities the welcome page under pages/ uses', () => {
-    const built = ensureFirefoxBuild(devtools.packageDir, devtools.name)
+    const built = ensureFirefoxBuild(devtools.packageDir)
     expect(built, `${devtools.name}: firefox build did not run`).toBe(true)
 
     const cssPath = path.join(
@@ -115,7 +115,7 @@ describe('companion Firefox bundle: no MV3-only chrome.* APIs', () => {
     if (!fs.existsSync(companion.packageDir)) continue
 
     it(`${companion.name}: background bundle is free of MV3-only chrome APIs`, () => {
-      const built = ensureFirefoxBuild(companion.packageDir, companion.name)
+      const built = ensureFirefoxBuild(companion.packageDir)
       // A failed build used to return early and pass, so a broken bundler
       // reported green here. A build that does not run is now a failure.
       expect(built, `${companion.name}: firefox build did not run`).toBe(true)
@@ -160,7 +160,7 @@ describe('companion Firefox build: AMO store check', () => {
   if (!fs.existsSync(devtools.packageDir)) return
 
   it('passes addons-linter with no errors or warnings', async () => {
-    const built = ensureFirefoxBuild(devtools.packageDir, devtools.name)
+    const built = ensureFirefoxBuild(devtools.packageDir)
     expect(built, `${devtools.name}: firefox build did not run`).toBe(true)
 
     const result = await runAddonLint({

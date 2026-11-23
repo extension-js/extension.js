@@ -20,9 +20,6 @@ function idleBrowsersPlugin(): RunnerPlugin {
 
 const makeTempFolder = trackTempFolders()
 
-type ProjectStructure = Parameters<typeof webpackConfig>[0]
-type ConfigOptions = Parameters<typeof webpackConfig>[1]
-
 // A dependency the project names with the workspace protocol and that sits
 // in its node_modules, which is what makes the build transpile and watch it.
 function linkWorkspacePackage(

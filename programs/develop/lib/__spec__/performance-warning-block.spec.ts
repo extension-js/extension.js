@@ -1,7 +1,6 @@
 import {describe, expect, it} from 'vitest'
 import {buildWarningsDetails} from '../messages'
 
-// biome-ignore lint/suspicious/noControlCharactersInRegex: the escape byte is the thing matched
 const stripAnsi = (text: string) => text.replace(/\u001b\[[0-9;]*m/g, '')
 
 const sizeWarning = (limit: string) => ({

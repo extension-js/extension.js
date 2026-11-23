@@ -83,8 +83,8 @@ describe('a failed create leaves nothing half-personalized on disk', {
 
     await catalog.close()
 
-    while (tempRoots.length > 0) {
-      await fsp.rm(tempRoots.pop()!, {recursive: true, force: true})
+    for (const tempFolder of tempRoots.splice(0)) {
+      await fsp.rm(tempFolder, {recursive: true, force: true})
     }
   })
 

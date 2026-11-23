@@ -239,10 +239,10 @@ describe('installDependencies', () => {
   it('rewrites a dead extension pin in package.json and retries install', async () => {
     await fsp.writeFile(
       path.join(projectPath, 'package.json'),
-      JSON.stringify({
+      `${JSON.stringify({
         name: 'npm-project',
         devDependencies: {extension: '^2.1.0'}
-      }) + '\n'
+      })}\n`
     )
 
     runInstallMock

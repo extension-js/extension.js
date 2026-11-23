@@ -42,7 +42,6 @@ type Item = {loader: string; options?: Record<string, unknown>}
 // change to the rule builder shows up here as a one-line difference.
 function expectedRules(
   root: string,
-  mode: Mode,
   tools: {postcss?: Item; sass?: Item; less?: Item},
   browser: Browser = 'chrome'
 ) {
@@ -264,9 +263,7 @@ describe('the rules CssPlugin adds, per language and surface', () => {
   it.each(MODES)('%s, plain CSS: no preprocessor, no PostCSS', async (mode) => {
     const root = makeProject({})
 
-    expect(await configureCss(root, mode)).toEqual(
-      expectedRules(root, mode, {})
-    )
+    expect(await configureCss(root, mode)).toEqual(expectedRules(root, {}))
   })
 
   it.each(
@@ -294,7 +291,7 @@ describe('the rules CssPlugin adds, per language and surface', () => {
     }
 
     expect(await configureCss(root, mode)).toEqual(
-      expectedRules(root, mode, {postcss})
+      expectedRules(root, {postcss})
     )
   })
 
@@ -323,7 +320,7 @@ describe('the rules CssPlugin adds, per language and surface', () => {
     }
 
     expect(await configureCss(root, mode)).toEqual(
-      expectedRules(root, mode, {sass, less})
+      expectedRules(root, {sass, less})
     )
   })
 
@@ -331,7 +328,7 @@ describe('the rules CssPlugin adds, per language and surface', () => {
     const root = makeProject({})
 
     expect(await configureCss(root, 'production', 'firefox')).toEqual(
-      expectedRules(root, 'production', {}, 'firefox')
+      expectedRules(root, {}, 'firefox')
     )
   })
 
@@ -347,9 +344,7 @@ describe('the rules CssPlugin adds, per language and surface', () => {
       expect(compiler.options.module.rules).toEqual([])
 
       await compiler.hooks.beforeRun.promise(compiler)
-      expect(compiler.options.module.rules).toEqual(
-        expectedRules(root, 'production', {})
-      )
+      expect(compiler.options.module.rules).toEqual(expectedRules(root, {}))
     } finally {
       await closeCompiler(compiler)
     }

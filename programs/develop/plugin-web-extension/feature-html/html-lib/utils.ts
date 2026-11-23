@@ -251,7 +251,7 @@ export function isUrl(src: string) {
     new URL(src)
 
     return true
-  } catch (err) {
+  } catch {
     return false
   }
 }

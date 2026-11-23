@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import {type Compiler, rspack, type Stats} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {defined} from '../../__spec__/helpers/defined'
 import {WarnMainWorldRegistrationChanged} from '../../plugin-web-extension/feature-scripts/steps/warn-main-world-registration-changed'
 import {MAIN_WORLD_SETTLE_MS} from '../main-world-restart'
 import {
@@ -270,7 +271,9 @@ describe('a MAIN world restart that could not build its next bundle', () => {
     expect(session.frames).toHaveLength(1)
     expect(session.active()).toBe(next)
 
-    const saved = await save(next!)
+    const saved = await save(
+      defined(next, 'the compiler the session built next')
+    )
 
     expect(saved.held).toBe(false)
     expect(saved.warnings).toEqual([])

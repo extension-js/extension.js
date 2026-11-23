@@ -24,8 +24,7 @@ afterEach(async () => {
   if (before === undefined) delete process.env.EXTENSION_STRICT_REFS
   else process.env.EXTENSION_STRICT_REFS = before
 
-  while (watching.length > 0) {
-    const compiler = watching.pop()!
+  for (const compiler of watching.splice(0).reverse()) {
     await new Promise<void>((resolve) => compiler.close(() => resolve()))
   }
 })

@@ -535,10 +535,12 @@ export function classifyReloadFromSources(opts: {
       known = true
     }
 
-    if (index?.contentEntriesBySource.has(rel)) {
+    const entriesOfSource = index?.contentEntriesBySource.get(rel)
+
+    if (entriesOfSource) {
       contentChanged.push(rel)
 
-      for (const entry of index.contentEntriesBySource.get(rel)!) {
+      for (const entry of entriesOfSource) {
         contentEntries.add(entry)
       }
 

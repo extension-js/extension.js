@@ -18,11 +18,7 @@ import {
 } from '../../../lib/manifest-utils'
 import {debugLine, humanLine, isDebug} from '../../../lib/messaging'
 import type {DevOptions, Manifest, PluginInterface} from '../../../types'
-import {
-  getCanonicalContentScriptJsAssetName,
-  isHollowContentScript,
-  parseCanonicalContentScriptAsset
-} from '../../feature-scripts/contracts'
+import {isHollowContentScript} from '../../feature-scripts/contracts'
 import {reportToCompilation} from '../../shared/compilation-issues'
 import {
   pageActionDropReason,

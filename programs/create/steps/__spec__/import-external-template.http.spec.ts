@@ -60,8 +60,8 @@ describe('importExternalTemplate refuses plain HTTP template URLs', () => {
 
     for (const server of servers.splice(0)) await server.close()
 
-    while (tempDirs.length > 0) {
-      await fsp.rm(tempDirs.pop()!, {recursive: true, force: true})
+    for (const folder of tempDirs.splice(0)) {
+      await fsp.rm(folder, {recursive: true, force: true})
     }
   })
 

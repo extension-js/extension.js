@@ -91,6 +91,7 @@ describe('callArgumentsAt', () => {
   })
 
   it('reads past a comma or a parenthesis inside a string or a comment', () => {
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: fixture source text, the placeholder is literal
     expect(argsOf('f("a, b)", `c, ${d}`)')).toEqual(['"a, b)"', '`c, ${d}`'])
     expect(argsOf('f(a /* , b) */)')).toEqual(['a /* , b) */'])
     expect(argsOf('f(a // , b)\n)')).toEqual(['a // , b)'])
@@ -512,7 +513,7 @@ describe('findGeckoUnsupportedApiUses', () => {
   it('names the source file once per API when the chunk graph cannot say', () => {
     const sw = write(
       'background.js',
-      SIDE_PANEL + 'chrome.sidePanel.open({})\n' + ACTION
+      `${SIDE_PANEL}chrome.sidePanel.open({})\n${ACTION}`
     )
     const uses = findGeckoUnsupportedApiUses(
       compilationWith([{resource: sw}]),

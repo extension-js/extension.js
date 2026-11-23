@@ -54,6 +54,7 @@ describe('findTopLevelAwait', () => {
     ],
     [
       'the word in a string, a template and comments',
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: fixture source text, the placeholder is literal
       '// await one()\n/* await two() */\nconst s = "await three()" + `await ${"four"}`\n'
     ],
     ['await as a property name', 'const o = {await: 1}\no.await\n']

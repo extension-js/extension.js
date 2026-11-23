@@ -12,10 +12,13 @@ function coercionFor(
 ) {
   const program = new Command()
   register(program)
-  const cmd = program.commands.find((c) => c.name() === name)!
-  const option = cmd.options.find((o) => o.long === long)
+  const cmd = program.commands.find((c) => c.name() === name)
+  if (!cmd) throw new Error(`No ${name} command was registered`)
 
-  return option?.parseArg as ((v?: string) => unknown) | undefined
+  const option = cmd.options.find((o) => o.long === long)
+  if (!option?.parseArg) throw new Error(`${name} ${long} coerces nothing`)
+
+  return option.parseArg as (v?: string) => unknown
 }
 
 describe('parseOptionalBoolean', () => {
@@ -48,8 +51,8 @@ describe('optional [boolean] flags coerce their value, not the raw string', () =
       it(`${name} ${long} parses "false" as false (not a truthy string)`, () => {
         const coerce = coercionFor(register, name, long)
         expect(typeof coerce).toBe('function')
-        expect(coerce!('false')).toBe(false)
-        expect(coerce!(undefined)).toBe(true)
+        expect(coerce('false')).toBe(false)
+        expect(coerce(undefined)).toBe(true)
       })
     }
   }

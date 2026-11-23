@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {type Compiler, rspack} from '@rspack/core'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {defined} from '../../__spec__/helpers/defined'
 import {WarmAncestorWatchersPlugin} from '../warm-ancestor-watchers'
 
 type Tap = {name: string; stage: number; fn: (...args: unknown[]) => unknown}
@@ -172,12 +173,14 @@ describe('WarmAncestorWatchersPlugin', () => {
     await sleep(40)
     expect(order).toEqual([])
 
-    fake.directories.get('/work')!.initialScan = false
+    defined(fake.directories.get('/work'), 'the /work watcher').initialScan =
+      false
+
     await sleep(40)
     expect(order).toEqual([])
 
     order.push('scan-finished')
-    fake.directories.get('/')!.initialScan = false
+    defined(fake.directories.get('/'), 'the / watcher').initialScan = false
     await done
 
     expect(order).toEqual(['scan-finished', 'ready-stamp'])

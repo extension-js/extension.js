@@ -157,6 +157,7 @@ function matchesAny(file: string, list: FileList | undefined): boolean {
   )
 }
 
+// biome-ignore lint/suspicious/noTemplateCurlyInString: the literal placeholder TypeScript reads in a tsconfig
 const CONFIG_DIR = '${configDir}'
 
 // A shared base config writes ${configDir} for the folder of the config
