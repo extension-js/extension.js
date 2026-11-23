@@ -152,7 +152,9 @@ describe('install-runner runInstall (real spawn)', () => {
     })
   }, 20_000)
 
-  describe.skipIf(process.platform === 'win32')('on POSIX', () => {
+  describe('a manager that has to be ended', () => {
+    // taskkill takes longer to start than a signal takes to arrive.
+    const LATE_MS = process.platform === 'win32' ? 4000 : 1500
     const started: number[] = []
     const tmpRoots: string[] = []
 
@@ -166,8 +168,9 @@ describe('install-runner runInstall (real spawn)', () => {
         }
       }
 
+      // Windows frees a folder a moment after the last process in it is gone.
       for (const dir of tmpRoots.splice(0)) {
-        fs.rmSync(dir, {recursive: true, force: true})
+        fs.rmSync(dir, {recursive: true, force: true, maxRetries: 5})
       }
     })
 
@@ -185,8 +188,8 @@ describe('install-runner runInstall (real spawn)', () => {
       const {dir, script} = standIn(`
         const {spawn} = require('node:child_process')
         const late = spawn(process.execPath, ['-e', ${JSON.stringify(
-          "require('node:fs').writeFileSync(process.argv[2], '1'); setTimeout(() => require('node:fs').writeFileSync(process.argv[1], 'late'), 1500)"
-        )}, process.argv[2], process.argv[3]], {stdio: 'ignore'})
+          "require('node:fs').writeFileSync(process.argv[2], '1'); setTimeout(() => require('node:fs').writeFileSync(process.argv[1], 'late'), Number(process.argv[3]))"
+        )}, process.argv[2], process.argv[3], '${LATE_MS}'], {stdio: 'ignore'})
         require('node:fs').writeSync(1, late.pid + '\\n')
         setInterval(() => {}, 1000)
       `)
@@ -218,39 +221,45 @@ describe('install-runner runInstall (real spawn)', () => {
       expect(fs.existsSync(marker)).toBe(false)
     }, 20_000)
 
-    it('kills a manager that ignores SIGTERM once the grace runs out', async () => {
-      const {dir, script} = standIn(`
+    // Windows has no SIGTERM to ignore: taskkill /F ends the tree at once,
+    // and the grace before SIGKILL is never started there.
+    it.skipIf(process.platform === 'win32')(
+      'kills a manager that ignores SIGTERM once the grace runs out',
+      async () => {
+        const {dir, script} = standIn(`
         process.on('SIGTERM', () => {})
         require('node:fs').writeSync(1, process.pid + '\\n')
         require('node:fs').writeFileSync(process.argv[2], '1')
         setInterval(() => {}, 1000)
       `)
-      const ready = path.join(dir, 'manager-started')
+        const ready = path.join(dir, 'manager-started')
 
-      holdTimeouts()
-      const result = await settleOnceReady(
-        runInstall(process.execPath, [script, ready], {
-          cwd: dir,
-          stdio: 'pipe',
-          timeoutMs: 500
-        }),
-        () => fs.existsSync(ready)
-      )
-      // The grace before SIGKILL is held too, and runs out here.
-      vi.advanceTimersByTime(KILL_GRACE_MS)
-      vi.useRealTimers()
+        holdTimeouts()
+        const result = await settleOnceReady(
+          runInstall(process.execPath, [script, ready], {
+            cwd: dir,
+            stdio: 'pipe',
+            timeoutMs: 500
+          }),
+          () => fs.existsSync(ready)
+        )
+        // The grace before SIGKILL is held too, and runs out here.
+        vi.advanceTimersByTime(KILL_GRACE_MS)
+        vi.useRealTimers()
 
-      const pid = Number(result.stdout.trim())
-      expect(pid).toBeGreaterThan(0)
-      started.push(pid)
+        const pid = Number(result.stdout.trim())
+        expect(pid).toBeGreaterThan(0)
+        started.push(pid)
 
-      await vi.waitFor(() => expect(isRunning(pid)).toBe(false), {
-        timeout: 8000,
-        interval: 50
-      })
+        await vi.waitFor(() => expect(isRunning(pid)).toBe(false), {
+          timeout: 8000,
+          interval: 50
+        })
 
-      started.splice(started.indexOf(pid), 1)
-    }, 20_000)
+        started.splice(started.indexOf(pid), 1)
+      },
+      20_000
+    )
   })
 
   // The control variable is the point: a lane where no npm_config_* reaches the
