@@ -37,6 +37,24 @@
 
 ## Highlights
 
+- **Faster dev rebuilds**, the runtime trace scans only the scripts that changed and a compiled file is reused when nothing it read changed, which took those two steps from about 155 ms to under 30 ms per rebuild on a large project.
+- **A pinned browser binary is never ignored**, `--gecko-binary` alone runs a Gecko browser, and a failed launch names the path and the flag, config key or variable that pinned it. [Docs](https://extension.js.org/docs/browsers/running-other-browsers)
+- **A JSON file that fails to parse says where**, the error gives the line and column and never quotes the file's text. [Docs](https://extension.js.org/docs/contracts/error-codes)
+- **A file that comes back rebuilds**, a script or import that a page or worker names is watched for while it is missing, so creating or restoring it rebuilds without a second save.
+- **A Firefox session survives a browser self-update on Windows**, the session follows the restarted browser and reaches ready.
+
 ## Also
 
+- A binary set in the config file is named by its key and file, for example `browser.chrome.chromiumBinary in extension.config.js`, in errors, the start card, `doctor` and `ready.json`.
+- A version probe that times out on a binary pinned by a variable names the variable, and the `preview` and `start` card shows what pinned the binary.
+- The manifest is read 4 times on a first build and once per rebuild, down from 51 and 14.
+- `extension create` scaffolds the examples with every dependency pinned to an exact version.
+- The line-and-column message covers `package.json`, the manifest, `_locales`, declarative net request rulesets, the managed schema, `ready.json` and the `create` template readers.
+
 ## Upgrade notes
+
+- A binary flag beside a `--browser` of the other engine, such as `--browser firefox --chromium-binary <path>`, was ignored and is now refused with `E_INVALID_OPTION` and status `usage` before any work.
+- A binary flag with no `--browser` picks its engine: `--gecko-binary` alone runs `gecko-based`, and `--chromium-binary` alone keeps `chromium`.
+- Both binary flags with no `--browser` are refused the same way. To run both binaries, pass `--browser chromium-based,gecko-based`.
+- A script that matched the runtime's JSON wording, such as `Unexpected token`, reads `unexpected character at line 1 column 1` in its place.
+- `binaryPinnedBy` in `ready.json` can hold a config key and file, not only a flag or variable name.
