@@ -176,11 +176,11 @@ const FORWARDING: ForwardingRow[] = [
   },
   {
     argv: ['--gecko-binary', '/bin/gecko'],
-    options: {geckoBinary: '/bin/gecko'}
+    options: {browser: 'gecko-based', geckoBinary: '/bin/gecko'}
   },
   {
     argv: ['--firefox-binary', '/bin/firefox'],
-    options: {geckoBinary: '/bin/firefox'}
+    options: {browser: 'gecko-based', geckoBinary: '/bin/firefox'}
   },
   // --no-open still launches the browser. Only the tab is skipped, so
   // noBrowser stays false and noOpen carries the decision.

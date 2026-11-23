@@ -924,6 +924,67 @@ describe('stampReadyBrowserExited on a dev session', () => {
 
     expect(readReady().message).toMatch(/\(signal SIGKILL\) before/)
   })
+
+  it.each([
+    [
+      '--gecko-binary',
+      'Pass --gecko-binary <abs-path> with a working browser binary.'
+    ],
+    [
+      'FIREFOX_BINARY',
+      'Set FIREFOX_BINARY to a working browser binary, or unset it to run the managed or system browser.'
+    ]
+  ])('names a binary %s pinned when it left before the extension loaded', (pinnedBy, fix) => {
+    const binary = path.join(tmp, 'bin', 'whoami')
+
+    stampReadyBrowserLaunch(
+      outputPath,
+      {
+        browserPid: 4242,
+        binary,
+        binaryProvenance: 'pinned',
+        binaryPinnedBy: pinnedBy
+      },
+      'run-A'
+    )
+
+    stampReadyBrowserExited(outputPath, 1, null, 'run-A', {beforeReady: true})
+
+    expect(readReady().message).toBe(
+      `the chrome process exited (code 1) before the extension loaded, nothing is running. The binary at ${binary} was pinned by ${pinnedBy} and may not be a browser. ${fix}`
+    )
+  })
+
+  it('blames no binary the launcher found on its own, or one that ran first', () => {
+    const binary = path.join(tmp, 'bin', 'chrome')
+
+    stampReadyBrowserLaunch(
+      outputPath,
+      {browserPid: 4242, binary, binaryProvenance: 'system'},
+      'run-A'
+    )
+
+    stampReadyBrowserExited(outputPath, 1, null, 'run-A', {beforeReady: true})
+
+    expect(readReady().message).toBe(
+      'the chrome process exited (code 1) before the extension loaded, nothing is running'
+    )
+
+    stampReadyBrowserLaunch(
+      outputPath,
+      {
+        browserPid: 4243,
+        binary,
+        binaryProvenance: 'pinned',
+        binaryPinnedBy: '--chromium-binary'
+      },
+      'run-A'
+    )
+
+    stampReadyBrowserExited(outputPath, 1, null, 'run-A')
+
+    expect(readReady().message).not.toMatch(/may not be a browser/)
+  })
 })
 
 describe('a stamp from a superseded run', () => {

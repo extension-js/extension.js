@@ -240,6 +240,41 @@ describe('a Firefox launch that does not reach a running add-on', () => {
       expect(fake.project.readReady()).not.toHaveProperty('browserPid')
     })
 
+    it.each([
+      ['UNKNOWN', -4094],
+      ['ENOEXEC', -8]
+    ])('names the pinned binary and its flag when the system answers %s', async (errno, number) => {
+      const notAProgram = Object.assign(new Error(`spawn ${errno}`), {
+        code: errno,
+        errno: number,
+        syscall: 'spawn'
+      })
+      const {plugin, launch} = await start({script: {spawnError: notAProgram}})
+      const pin = fake.project.plantBinary()
+      const error = await failure(launch())
+      const message = stripAnsi(error.message)
+
+      expect(message).toContain('The pinned browser binary could not be run')
+      expect(message).toContain(`(spawn ${errno})`)
+      expect(message).toContain(`PINNED BY --gecko-binary ${pin}`)
+      expect(message).toContain(
+        'The file may not be a browser. Pass --gecko-binary <abs-path> with a working browser binary.'
+      )
+
+      expect(error.code).toBe(errno)
+      expect(plugin.spawnedBrowser).toBe(false)
+
+      const ready = fake.project.readReady()
+      expect(ready).toMatchObject({
+        status: 'error',
+        code: 'browser_launch_failed'
+      })
+
+      expect(ready).not.toHaveProperty('browserLaunchFailedCode')
+      expect(String(ready.message)).toContain(pin)
+      expect(String(ready.message)).toContain('--gecko-binary')
+    })
+
     it('gives back the debugging port claim it took before the spawn', async () => {
       const {launch} = await start({script: {spawnError: refused}})
       await failure(launch())
@@ -451,9 +486,12 @@ describe('a Firefox launch that does not reach a running add-on', () => {
 
       const error = await failure(onFakeClock(launch))
 
+      const pin = fake.project.plantBinary()
+      const pinNote = `The binary at ${pin} was pinned by --gecko-binary and may not be a browser. Pass --gecko-binary <abs-path> with a working browser binary.`
+
       expect(error.code).toBe('E_BROWSER_LAUNCH')
       expect(stripAnsi(error.message)).toContain(
-        "Firefox exited before its debugger answered, so the extension isn't running."
+        `Firefox exited before its debugger answered, so the extension isn't running.\n${pinNote}`
       )
 
       expect(logged).toEqual([
@@ -473,6 +511,8 @@ describe('a Firefox launch that does not reach a running add-on', () => {
         browserExitSignal: null,
         rdpPortError: `Firefox exited before it opened its remote debugging port ${fake.port}`
       })
+
+      expect(String(fake.project.readReady().message)).toContain(pinNote)
     })
   })
 

@@ -21,6 +21,7 @@ import {
   sessionArtifactsRootDirBesideBuild
 } from '../../../develop/lib/session-contract'
 import {cdpFaultWarningCode, stripChannelPrefix} from '../../helpers/messaging'
+import {pinnedBinaryExitNote} from './pinned-binary'
 import {pidStartedAtIso, pidStartId} from './resolve-live-pid'
 
 // A run-only session loading a source folder keeps its contract under the
@@ -755,6 +756,20 @@ export function stampReadyBrowserExited(
       ready.code = 'browser_exited'
       dateStatus(ready)
       ready.message = `the ${ready.browser || 'browser'} process exited (${how}) before the extension loaded, nothing is running`
+    }
+
+    // A pinned file that left at once is the first suspect, so the verdict
+    // names it and what pinned it. The launch stamped both before this.
+    const pinNote = details.beforeReady
+      ? pinnedBinaryExitNote({
+          path: typeof ready.binary === 'string' ? ready.binary : '',
+          pinnedBy:
+            typeof ready.binaryPinnedBy === 'string' ? ready.binaryPinnedBy : ''
+        })
+      : ''
+
+    if (pinNote && ready.code === 'browser_exited') {
+      ready.message = `${String(ready.message).replace(/; nothing/, ', nothing')}. ${pinNote}`
     }
   })
 }

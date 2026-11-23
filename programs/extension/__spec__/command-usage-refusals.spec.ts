@@ -231,6 +231,120 @@ describe('an unsupported browser', () => {
   })
 })
 
+describe.each([
+  'dev',
+  'start',
+  'preview'
+] as const)('a binary flag for the other engine on %s', (command) => {
+  const geckoOnChromium =
+    '--gecko-binary pins a Gecko binary, and --browser chromium runs no Gecko browser. Drop --browser to run the binary, or pass --browser gecko-based.'
+  const chromiumOnFirefox =
+    '--chromium-binary pins a Chromium binary, and --browser firefox runs no Chromium browser. Drop --browser to run the binary, or pass --browser chromium-based.'
+
+  it.each([
+    [['--browser', 'chromium', '--gecko-binary', '/opt/fox'], geckoOnChromium],
+    [
+      ['--browser', 'chromium', '--firefox-binary', '/opt/fox'],
+      geckoOnChromium
+    ],
+    [
+      ['--browser', 'firefox', '--chromium-binary', '/opt/cr'],
+      chromiumOnFirefox
+    ]
+  ])('refuses %j before any engine work, naming both flags', async (flags, message) => {
+    expect(await run([command, '.', ...flags])).toBe(1)
+    expect(stderrLines()).toEqual([`⏵⏵⏵ Error: ${message}`])
+    expect(logSpy).not.toHaveBeenCalled()
+    expect(engineCalls()).toBe(0)
+  })
+
+  it('is one usage frame and no prose under --output json', async () => {
+    expect(
+      await run([
+        command,
+        '.',
+        '--browser',
+        'firefox',
+        '--chromium-binary',
+        '/opt/cr',
+        '--output',
+        'json'
+      ])
+    ).toBe(1)
+
+    expect(frames()).toMatchObject([
+      {
+        ok: false,
+        command,
+        status: 'usage',
+        error: {code: 'E_INVALID_OPTION', message: chromiumOnFirefox}
+      }
+    ])
+
+    expect(stderrLines()).toEqual([])
+    expect(engineCalls()).toBe(0)
+  })
+
+  it('refuses both binary flags when nothing names a browser', async () => {
+    expect(
+      await run([
+        command,
+        '.',
+        '--chromium-binary',
+        '/opt/cr',
+        '--gecko-binary',
+        '/opt/fox'
+      ])
+    ).toBe(1)
+
+    expect(stderrLines()).toEqual([
+      '⏵⏵⏵ Error: --chromium-binary and --gecko-binary each pin a browser, and no --browser says which to run. Pass one of them, or name both with --browser chromium-based,gecko-based.'
+    ])
+
+    expect(
+      extensionBuild.mock.calls.length +
+        extensionDev.mock.calls.length +
+        extensionPreview.mock.calls.length
+    ).toBe(0)
+  })
+})
+
+describe('a binary flag with no --browser', () => {
+  const engineBrowsers = () =>
+    [extensionDev, extensionPreview, extensionBuild].flatMap((engine) =>
+      engine.mock.calls.map((call) => (call[1] as {browser?: string}).browser)
+    )
+
+  it.each([
+    'dev',
+    'start',
+    'preview'
+  ] as const)('runs the Gecko engine on %s for --gecko-binary alone', async (command) => {
+    await run([command, '.', '--gecko-binary', '/opt/fox'])
+
+    expect(stderrLines()).toEqual([])
+    expect(new Set(engineBrowsers())).toEqual(new Set(['gecko-based']))
+  })
+
+  it.each([
+    'dev',
+    'start',
+    'preview'
+  ] as const)('keeps the stock chromium on %s for --chromium-binary alone', async (command) => {
+    await run([command, '.', '--chromium-binary', '/opt/cr'])
+
+    expect(stderrLines()).toEqual([])
+    expect(new Set(engineBrowsers())).toEqual(new Set(['chromium']))
+  })
+
+  it('lets --gecko-binary outrank a Chromium browser the config names', async () => {
+    loadCommandConfig.mockResolvedValueOnce({browser: 'chrome'} as never)
+    await run(['dev', '.', '--gecko-binary', '/opt/fox'])
+
+    expect(engineBrowsers()).toEqual(['gecko-based'])
+  })
+})
+
 describe('missingProjectFolder', () => {
   const cwd = makeTempFolder('extjs-project-folder-')
 
