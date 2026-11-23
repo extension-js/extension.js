@@ -12,13 +12,11 @@ import {afterEach, describe, expect, it} from 'vitest'
 import {
   plantBrowserStandIn,
   plantUnspawnable,
-  UNSPAWNABLE_ERRNO
+  unspawnableErrno
 } from '../helpers/browser-stand-in'
 import {everyLineAsFrame, runCli as spawnCli} from '../helpers/run-cli'
 
 const STACK_FRAME = /^\s+at /m
-
-const REFUSED = `(spawn ${UNSPAWNABLE_ERRNO})`
 
 // A browser that starts and leaves at once, with nothing on screen.
 function plantExitingBinary(dir: string, name: string): string {
@@ -156,7 +154,7 @@ describe('a run-only command whose browser never spawns', () => {
       "Chrome couldn't start, so the extension isn't running."
     )
 
-    expect(result.stderr).toContain(REFUSED)
+    expect(result.stderr).toContain(`(spawn ${unspawnableErrno(binary)})`)
     expect(result.stderr).toContain(`PINNED BY --chromium-binary ${binary}`)
   }, 90_000)
 
@@ -189,7 +187,7 @@ describe('a run-only command whose browser never spawns', () => {
 
     expect(all[0].error?.code).toBe('E_BROWSER_LAUNCH')
     expect(all[0].error?.message).toContain("couldn't start")
-    expect(all[0].error?.message).toContain(UNSPAWNABLE_ERRNO)
+    expect(all[0].error?.message).toContain(unspawnableErrno(binary))
     expect(all[0].error?.message).not.toContain('⏵')
   }, 90_000)
 
@@ -218,7 +216,7 @@ describe('a run-only command whose browser never spawns', () => {
       "Firefox couldn't start, so the extension isn't running."
     )
 
-    expect(all[0].error?.message).toContain(UNSPAWNABLE_ERRNO)
+    expect(all[0].error?.message).toContain(unspawnableErrno(binary))
   }, 90_000)
 
   it('start prints the same frame after its build, with no stack', async () => {
@@ -242,7 +240,7 @@ describe('a run-only command whose browser never spawns', () => {
       "Chrome couldn't start, so the extension isn't running."
     )
 
-    expect(result.stderr).toContain(UNSPAWNABLE_ERRNO)
+    expect(result.stderr).toContain(unspawnableErrno(binary))
   }, 120_000)
 
   // A pin that names nothing is refused before any spawn, with its own
@@ -326,11 +324,11 @@ describe('a run-only command whose browser never spawns', () => {
   // The project has no build, so the browser loads the source folder and
   // the contract path cannot be derived from the loaded directory.
   it.each([
-    ['chrome', '--chromium-binary', UNSPAWNABLE_ERRNO],
-    ['firefox', '--gecko-binary', UNSPAWNABLE_ERRNO]
+    ['chrome', '--chromium-binary'],
+    ['firefox', '--gecko-binary']
   ])(
     'preview of a project with no dist stamps the failed %s launch on its contract',
-    async (browser, flag, reason) => {
+    async (browser, flag) => {
       const {work, projectDir} = makeWorkspace()
       const binary = plantUnspawnable(join(work, 'bin'), browser)
 
@@ -349,7 +347,7 @@ describe('a run-only command whose browser never spawns', () => {
       const contract = readContract(projectDir, browser)
       expect(contract.status).toBe('error')
       expect(contract.code).toBe('browser_launch_failed')
-      expect(contract.message).toContain(reason)
+      expect(contract.message).toContain(unspawnableErrno(binary))
       expect(contract.message).not.toContain('⏵')
     },
     90_000

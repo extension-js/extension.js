@@ -1,4 +1,4 @@
-import {execFileSync} from 'node:child_process'
+import {execFileSync, spawnSync} from 'node:child_process'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 
@@ -22,9 +22,6 @@ export interface BrowserStandIn {
   stay?: boolean
   exitCode?: number
 }
-
-// What Node reports when the system refuses the file from plantUnspawnable.
-export const UNSPAWNABLE_ERRNO = WINDOWS ? 'UNKNOWN' : 'ENOENT'
 
 // Windows runs a program by its extension, so a stand-in there ends in .exe.
 function programPath(dir: string, name: string): string {
@@ -186,4 +183,14 @@ export function plantUnspawnable(dir: string, name: string): string {
   fs.chmodSync(binary, 0o755)
 
   return binary
+}
+
+// The errno a spawn of that file carries. Windows has changed its answer
+// between Node releases, so it is asked there and not assumed.
+export function unspawnableErrno(binary: string): string {
+  if (!WINDOWS) return 'ENOENT'
+
+  const refusal = spawnSync(binary, [], {stdio: 'ignore', windowsHide: true})
+
+  return String((refusal.error as NodeJS.ErrnoException | undefined)?.code)
 }

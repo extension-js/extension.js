@@ -13,11 +13,9 @@ import {afterEach, describe, expect, it} from 'vitest'
 import {
   plantBrowserStandIn,
   plantUnspawnable,
-  UNSPAWNABLE_ERRNO
+  unspawnableErrno
 } from '../helpers/browser-stand-in'
 import {type CliSession, runCli, startCli} from '../helpers/run-cli'
-
-const REFUSAL = new RegExp(UNSPAWNABLE_ERRNO)
 
 function writeProject(dir: string) {
   writeFileSync(
@@ -163,7 +161,7 @@ describe('dev with a browser that never spawns', () => {
       /Chrome couldn't start, so the extension isn't running/
     )
 
-    expect(output, output).toMatch(REFUSAL)
+    expect(output, output).toContain(unspawnableErrno(binary))
     expect(output, output).toMatch(/The dev server keeps watching/)
     expect(output, output).not.toMatch(/ready for development/)
     expect(output, output).not.toMatch(/Uncaught exception/)
@@ -173,7 +171,7 @@ describe('dev with a browser that never spawns', () => {
     expect(ready?.status).toBe('error')
     expect(ready?.code).toBe('browser_launch_failed')
     expect(String(ready?.message)).toMatch(/could not start/)
-    expect(String(ready?.message)).toMatch(REFUSAL)
+    expect(String(ready?.message)).toContain(unspawnableErrno(binary))
     expect(String(ready?.message)).toMatch(/nothing is running/)
     expect(typeof ready?.browserLaunchFailedAt).toBe('string')
     expect(String(ready?.browserLaunchFailedReason)).toContain(binary)
@@ -182,7 +180,7 @@ describe('dev with a browser that never spawns', () => {
     const events = session.events()
     expect(events, events).toMatch(/"type":"browser_launch_failed"/)
     expect(events, events).toMatch(
-      new RegExp(`"reason":"[^"]*\\(spawn ${UNSPAWNABLE_ERRNO}\\)`)
+      new RegExp(`"reason":"[^"]*\\(spawn ${unspawnableErrno(binary)}\\)`)
     )
 
     // The second process a consumer runs: it must not be told the session
@@ -201,7 +199,7 @@ describe('dev with a browser that never spawns', () => {
 
     const error = frame.error as {code: string; message: string}
     expect(error.code).toBe('E_BROWSER_LAUNCH')
-    expect(error.message).toMatch(REFUSAL)
+    expect(error.message).toContain(unspawnableErrno(binary))
   }, 120_000)
 
   it('names a --chromium-binary path that does not exist', async () => {
@@ -323,7 +321,7 @@ describe('dev with a browser that never spawns', () => {
       /Firefox couldn't start, so the extension isn't running/
     )
 
-    expect(output, output).toMatch(REFUSAL)
+    expect(output, output).toContain(unspawnableErrno(binary))
     expect(output, output).not.toMatch(/ready for development/)
 
     const ready = session.ready()
