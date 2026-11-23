@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Compilation, Compiler} from '@rspack/core'
+import {sayPendingAfterCompile} from '../lib/pending-diagnostics'
 import * as messages from './compilation-lib/messages'
 import {nodeBuiltinName} from './node-builtins'
 
@@ -21,7 +22,8 @@ export class UnresolvedBareRequires {
   }
 
   apply(compiler: Compiler): void {
-    compiler.hooks.afterCompile.tap(
+    sayPendingAfterCompile(
+      compiler,
       UnresolvedBareRequires.name,
       (compilation: Compilation) => {
         if (this.issuers.size === 0) return
