@@ -38,6 +38,7 @@ export interface ChromiumLaunchOptions
     | 'preferences'
     | 'startingUrl'
     | 'chromiumBinary'
+    | 'chromiumBinarySource'
     | 'instanceId'
     | 'port'
     | 'dryRun'

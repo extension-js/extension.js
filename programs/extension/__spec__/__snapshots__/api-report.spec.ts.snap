@@ -355,6 +355,8 @@ interface PluginOptions {
     devtools?: boolean;
     chromiumBinary?: string;
     geckoBinary?: string;
+    chromiumBinarySource?: string;
+    geckoBinarySource?: string;
 }
 
 ## extension/browsers/index#BrowserController
@@ -393,6 +395,8 @@ interface BrowserLaunchOptions {
     startingUrl?: string;
     chromiumBinary?: string;
     geckoBinary?: string;
+    chromiumBinarySource?: string;
+    geckoBinarySource?: string;
     instanceId?: string;
     port?: number | string;
     dryRun?: boolean;
@@ -435,6 +439,8 @@ type PreviewRunOptions = {
     startingUrl?: string;
     chromiumBinary?: string;
     geckoBinary?: string;
+    chromiumBinarySource?: string;
+    geckoBinarySource?: string;
     instanceId?: string;
     port?: number | string;
     dryRun?: boolean;

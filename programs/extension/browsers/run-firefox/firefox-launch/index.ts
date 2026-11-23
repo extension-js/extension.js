@@ -136,13 +136,14 @@ interface FirefoxLaunchDoneStats {
 // the same on either engine.
 function invalidBinaryPinError(
   requestedPath: string,
+  pinnedBy: string,
   problem: PinnedBinaryProblem = 'missing'
 ): Error {
   return Object.assign(
     new Error(
       problem === 'not-executable'
-        ? messages.binaryNotExecutable(requestedPath, '--gecko-binary')
-        : messages.invalidGeckoBinaryPath(requestedPath)
+        ? messages.binaryNotExecutable(requestedPath, pinnedBy)
+        : messages.invalidGeckoBinaryPath(requestedPath, pinnedBy)
     ),
     {
       code: CODES.E_BROWSER_BINARY_INVALID
@@ -478,11 +479,14 @@ export class FirefoxLaunchPlugin {
       }
     }
 
+    // The flag, unless the config file named the binary and said which key.
+    const pinLabel = this.host.geckoBinarySource || '--gecko-binary'
+
     // A pin that names nothing is thrown, so the command that owns stdout can
     // frame it. Exiting here left a json consumer with exit 1 and no envelope.
     const failGeckoBinaryRequirement = (): never => {
       if (this.host.geckoBinary) {
-        throw invalidBinaryPinError(String(this.host.geckoBinary))
+        throw invalidBinaryPinError(String(this.host.geckoBinary), pinLabel)
       }
 
       throw Object.assign(
@@ -563,7 +567,11 @@ export class FirefoxLaunchPlugin {
       const pinned = normalizePath(this.host.geckoBinary)
 
       if (pinned && pinnedBinaryProblem(pinned) === 'not-executable') {
-        throw invalidBinaryPinError(this.host.geckoBinary, 'not-executable')
+        throw invalidBinaryPinError(
+          this.host.geckoBinary,
+          pinLabel,
+          'not-executable'
+        )
       }
     }
 
@@ -679,7 +687,7 @@ export class FirefoxLaunchPlugin {
     // resolved identity rides the host runtime to it.
     this.host.launchBinaryPath = binaryPath
     this.host.launchBinaryPinnedBy = this.host.geckoBinary
-      ? '--gecko-binary'
+      ? pinLabel
       : fromEnv?.name ||
         binaryOverrideNaming(String(this.host.browser), binaryPath) ||
         undefined
@@ -695,7 +703,10 @@ export class FirefoxLaunchPlugin {
     if (!isFlatpak) {
       try {
         this.host.browserVersionLine =
-          (await this.deps.probeVersion(binaryPath)) || ''
+          (await this.deps.probeVersion(
+            binaryPath,
+            this.host.launchBinaryPinnedBy
+          )) || ''
       } catch (error) {
         // A binary that never answers would hang the launch the same way.
         if (isVersionProbeTimeout(error)) throw error
