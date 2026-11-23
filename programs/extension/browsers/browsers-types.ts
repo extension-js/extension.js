@@ -116,6 +116,12 @@ export interface PluginOptions {
   chromiumBinary?: string
 
   geckoBinary?: string
+
+  // The config key that named each binary, as "<key> in <config file>".
+  // Unset when the flag did, so a message never blames the wrong place.
+  chromiumBinarySource?: string
+
+  geckoBinarySource?: string
 }
 
 export interface PluginInterface extends PluginOptions {

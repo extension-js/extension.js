@@ -107,6 +107,9 @@ export interface BrowserLaunchOptions {
   startingUrl?: string
   chromiumBinary?: string
   geckoBinary?: string
+  // The config key that named each binary. Unset when the flag did.
+  chromiumBinarySource?: string
+  geckoBinarySource?: string
   instanceId?: string
   port?: number | string
   dryRun?: boolean

@@ -52,7 +52,7 @@ export type GeckoLocatorName =
 export interface FirefoxLaunchDependencies {
   locate: Record<GeckoLocatorName, SystemLocator>
   librewolfRemoteDebugging: () => {enabled: boolean; expectedPath: string}
-  probeVersion: (binary: string) => Promise<string>
+  probeVersion: (binary: string, pinnedBy?: string) => Promise<string>
   claimPort: (startPort: number) => Promise<DebugPortClaim>
   spawn: typeof spawnFirefoxProcess
   watchSignals: typeof setupFirefoxProcessHandlers
@@ -81,7 +81,8 @@ export const firefoxLaunchDefaults: FirefoxLaunchDependencies = {
   },
   librewolfRemoteDebugging: () =>
     librewolfRemoteDebuggingEnabled(fs, process.env, process.platform),
-  probeVersion: (binary) => probeGeckoBinaryVersion(binary),
+  probeVersion: (binary, pinnedBy) =>
+    probeGeckoBinaryVersion(binary, undefined, pinnedBy),
   claimPort: (startPort) => claimDebugPortNear(startPort),
   spawn: spawnFirefoxProcess,
   watchSignals: setupFirefoxProcessHandlers,

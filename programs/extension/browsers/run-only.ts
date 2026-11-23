@@ -76,6 +76,8 @@ type PreviewRunOptions = {
   startingUrl?: string
   chromiumBinary?: string
   geckoBinary?: string
+  chromiumBinarySource?: string
+  geckoBinarySource?: string
   instanceId?: string
   port?: number | string
   dryRun?: boolean
@@ -186,6 +188,7 @@ function buildPreviewChromiumOptions(
     excludeBrowserFlags: pluginOptions.excludeBrowserFlags,
     startingUrl: pluginOptions.startingUrl,
     chromiumBinary: pluginOptions.chromiumBinary,
+    chromiumBinarySource: opts.chromiumBinarySource,
     instanceId: pluginOptions.instanceId,
     port: pluginOptions.port,
     dryRun: pluginOptions.dryRun,
@@ -218,6 +221,7 @@ function buildPreviewFirefoxOptions(
     startingUrl: pluginOptions.startingUrl,
     noOpen: pluginOptions.noOpen,
     geckoBinary: pluginOptions.geckoBinary,
+    geckoBinarySource: opts.geckoBinarySource,
     instanceId: pluginOptions.instanceId,
     port: pluginOptions.port,
     dryRun: pluginOptions.dryRun,
@@ -242,6 +246,13 @@ function pinnedBinaryPath(opts: PreviewRunOptions): string | undefined {
     : undefined
 }
 
+// The config key that pinned the binary this browser runs, when one did.
+function pinnedBinarySource(opts: PreviewRunOptions): string | undefined {
+  return isFirefoxBrowser(opts.browser)
+    ? opts.geckoBinarySource
+    : opts.chromiumBinarySource
+}
+
 // The card renders before the launch now, so it cannot lean on the version the
 // launcher resolves. A pinned binary is the one case the card's own probe gets
 // wrong: it would name the system browser instead of the one being run.
@@ -255,8 +266,17 @@ async function resolvePinnedBinaryVersionLine(
     // Ask the binary the way the launcher does. Metadata alone misses a
     // binary outside an app bundle and the card fell back to another install.
     const line = isFirefoxBrowser(opts.browser)
-      ? await probeGeckoBinaryVersion(pinned)
-      : await probeChromiumBinaryVersion(pinned, String(opts.browser))
+      ? await probeGeckoBinaryVersion(
+          pinned,
+          undefined,
+          pinnedBinarySource(opts)
+        )
+      : await probeChromiumBinaryVersion(
+          pinned,
+          String(opts.browser),
+          undefined,
+          pinnedBinarySource(opts)
+        )
 
     return line || undefined
   } catch (error) {
@@ -280,7 +300,8 @@ async function buildPreviewBannerOptions(opts: PreviewRunOptions) {
     ...(pinned
       ? {
           binaryPath: pinned,
-          binaryProvenance: 'pinned' as const
+          binaryProvenance: 'pinned' as const,
+          binaryPinnedBy: pinnedBinarySource(opts)
         }
       : {})
   }

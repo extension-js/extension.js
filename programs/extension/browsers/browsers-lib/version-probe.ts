@@ -17,8 +17,6 @@ import {killProcessTree} from './process-teardown'
 
 export const VERSION_PROBE_TIMEOUT_MS = 10_000
 
-type BinaryFlag = '--chromium-binary' | '--gecko-binary'
-
 function normalizeVersion(text: string): string {
   return /(\d+(?:\.\d+){1,3})/.exec(text)?.[1] ?? ''
 }
@@ -83,7 +81,7 @@ export function isVersionProbeTimeout(error: unknown): boolean {
 async function execVersionProbe(
   bin: string,
   argSets: string[][],
-  flag: BinaryFlag,
+  source: string,
   timeoutMs: number
 ): Promise<string> {
   for (const args of argSets) {
@@ -94,7 +92,7 @@ async function execVersionProbe(
         new Error(
           messages.browserBinaryVersionTimedOut(
             bin,
-            flag,
+            source,
             Math.round(timeoutMs / 1000)
           )
         ),
@@ -114,7 +112,9 @@ async function execVersionProbe(
 export async function probeChromiumBinaryVersion(
   bin: string,
   browser?: string,
-  timeoutMs = VERSION_PROBE_TIMEOUT_MS
+  timeoutMs = VERSION_PROBE_TIMEOUT_MS,
+  // What pinned the binary, for a timeout to name. The flag when unset.
+  pinnedBy = '--chromium-binary'
 ): Promise<string> {
   const target = String(browser || '')
   const readers: Array<(file: string) => string | null | undefined> = []
@@ -141,12 +141,13 @@ export async function probeChromiumBinaryVersion(
       ? [['--product-version'], ['--version']]
       : [['--version']]
 
-  return execVersionProbe(bin, argSets, '--chromium-binary', timeoutMs)
+  return execVersionProbe(bin, argSets, pinnedBy, timeoutMs)
 }
 
 export async function probeGeckoBinaryVersion(
   bin: string,
-  timeoutMs = VERSION_PROBE_TIMEOUT_MS
+  timeoutMs = VERSION_PROBE_TIMEOUT_MS,
+  pinnedBy = '--gecko-binary'
 ): Promise<string> {
   try {
     const line = getFirefoxVersion(bin)
@@ -155,5 +156,5 @@ export async function probeGeckoBinaryVersion(
     // Fall through to asking the binary itself
   }
 
-  return execVersionProbe(bin, [['--version']], '--gecko-binary', timeoutMs)
+  return execVersionProbe(bin, [['--version']], pinnedBy, timeoutMs)
 }

@@ -282,6 +282,8 @@ interface ResolvedPreviewOptions {
     startingUrl?: string;
     chromiumBinary?: string;
     geckoBinary?: string;
+    chromiumBinarySource?: string;
+    geckoBinarySource?: string;
     instanceId?: string;
     port?: number | string;
     dryRun?: boolean;
@@ -912,6 +914,8 @@ interface BrowserLaunchOptions {
     startingUrl?: string;
     chromiumBinary?: string;
     geckoBinary?: string;
+    chromiumBinarySource?: string;
+    geckoBinarySource?: string;
     instanceId?: string;
     port?: number | string;
     dryRun?: boolean;
@@ -2542,6 +2546,8 @@ interface ResolvedPreviewOptions {
     startingUrl?: string;
     chromiumBinary?: string;
     geckoBinary?: string;
+    chromiumBinarySource?: string;
+    geckoBinarySource?: string;
     instanceId?: string;
     port?: number | string;
     dryRun?: boolean;

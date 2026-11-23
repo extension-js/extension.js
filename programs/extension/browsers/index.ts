@@ -64,6 +64,8 @@ export interface BrowserLaunchOptions {
   startingUrl?: string
   chromiumBinary?: string
   geckoBinary?: string
+  chromiumBinarySource?: string
+  geckoBinarySource?: string
   instanceId?: string
   port?: number | string
   dryRun?: boolean
@@ -162,6 +164,7 @@ async function launchChromium(
     excludeBrowserFlags: opts.excludeBrowserFlags,
     startingUrl: opts.startingUrl,
     chromiumBinary: opts.chromiumBinary,
+    chromiumBinarySource: opts.chromiumBinarySource,
     instanceId: opts.instanceId,
     port: opts.port,
     dryRun: opts.dryRun,
@@ -241,6 +244,7 @@ async function launchFirefox(
     startingUrl: opts.startingUrl,
     noOpen: opts.noOpen,
     geckoBinary: opts.geckoBinary,
+    geckoBinarySource: opts.geckoBinarySource,
     instanceId: opts.instanceId,
     port: opts.port,
     dryRun: opts.dryRun,
