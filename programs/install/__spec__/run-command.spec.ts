@@ -131,24 +131,22 @@ describe('runCommand with a real child', () => {
     expect(fs.existsSync(path.join(scratch, 'redirected.txt'))).toBe(false)
   })
 
-  it.skipIf(process.platform === 'win32')(
-    'finds a launcher script on the given PATH and passes its arguments whole',
-    async () => {
-      const args = ['--path', '/Users/me & co/the browsers', 'a & b', '$HOME']
+  // By bare name Windows finds the .cmd twin, as it finds a real launcher.
+  it('finds a launcher script on the given PATH and passes its arguments whole', async () => {
+    const args = ['--path', '/Users/me & co/the browsers', 'a & b', '$HOME']
 
-      const result = await runCommand(SHIM, args, {
-        cwd: scratch,
-        env: envWithShimsFirst()
-      })
+    const result = await runCommand(SHIM, args, {
+      cwd: scratch,
+      env: envWithShimsFirst()
+    })
 
-      expect(result).toEqual({
-        code: 0,
-        signal: null,
-        stdout: JSON.stringify(args),
-        stderr: ''
-      })
-    }
-  )
+    expect(result).toEqual({
+      code: 0,
+      signal: null,
+      stdout: JSON.stringify(args),
+      stderr: ''
+    })
+  })
 
   // A .cmd file is run by cmd.exe, the one place a shell sits between the
   // runner and its arguments, so each has to arrive escaped and still whole.
