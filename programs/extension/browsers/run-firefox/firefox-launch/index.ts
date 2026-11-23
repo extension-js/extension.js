@@ -53,7 +53,11 @@ import {
   stampReadyRdpPort,
   stampReadyRdpPortError
 } from '../../browsers-lib/ready-stamp'
-import {findLiveBrowserPid} from '../../browsers-lib/resolve-live-pid'
+import {
+  findLiveBrowserPid,
+  SUCCESSOR_GRACE_MS,
+  SUCCESSOR_POLL_MS
+} from '../../browsers-lib/resolve-live-pid'
 import {
   normalizeProfileOption,
   systemProfileEnvName
@@ -90,7 +94,7 @@ import {
   firefoxLaunchDefaults
 } from './launch-dependencies'
 import {ensureManagedGeckoUpdatePolicy} from './managed-update-policy'
-import type {FirefoxBrowserKind} from './process-handlers'
+import type {AdoptedPid, FirefoxBrowserKind} from './process-handlers'
 import {removeSessionPreferences} from './session-preferences'
 import type {setupRdpAfterLaunch} from './setup-rdp-after-launch'
 import {
@@ -194,6 +198,14 @@ export class FirefoxLaunchPlugin {
   private livePidAdoptedAt = 0
   private livePidStartId: string | undefined
   private liveExitWatcher?: NodeJS.Timeout
+  // Set while a browser that left cleanly before the session was ready may
+  // still come back as another process on the same profile.
+  private successorWait?: {
+    code: number | null
+    signal: string | null
+    deadline: number
+    timer?: NodeJS.Timeout
+  }
   private browserGone = false
   private didReportReady = false
   private disposeProcessHandlers?: () => void
@@ -951,6 +963,7 @@ export class FirefoxLaunchPlugin {
       // Firefox can hand the session to a fresh process and let this one
       // exit. That process owns the profile now, so the session goes on.
       if (!expected && this.adoptHandedOffBrowser()) return
+      if (!expected && this.awaitSuccessor(code, signal)) return
 
       this.onBrowserGone(code, expected, signal)
     })
@@ -963,14 +976,7 @@ export class FirefoxLaunchPlugin {
       this.host.browser as FirefoxBrowserKind,
       () => this.child,
       () => this.cleanupInstance(),
-      () =>
-        this.livePid
-          ? {
-              pid: this.livePid,
-              adoptedAt: this.livePidAdoptedAt,
-              startId: this.livePidStartId
-            }
-          : null,
+      () => this.adoptedPid(),
       // A session that exits on a signal is gone before the browser's close
       // event runs, so the fresh profile is reclaimed as the process ends.
       () => removeManagedEphemeralProfile(this.host.launchProfilePath)
@@ -1001,6 +1007,7 @@ export class FirefoxLaunchPlugin {
     if (this.browserGone) return
 
     this.browserGone = true
+    this.endSuccessorWait()
 
     if (this.watchTimeout) {
       clearTimeout(this.watchTimeout)
@@ -1064,12 +1071,114 @@ export class FirefoxLaunchPlugin {
         attempts
       })
 
-      if (pid && pid !== child.pid && this.child === child) {
-        this.adoptLivePid(pid)
+      if (!pid || pid === child.pid || this.child !== child) return
+
+      if (this.browserGone) {
+        this.endLateSuccessor(pid)
+
+        return
       }
+
+      this.adoptLivePid(pid)
     } catch {
       // The spawned pid stands.
     }
+  }
+
+  // A browser found on the profile after the session was declared gone has
+  // nothing to serve. It is ended, and the exit backstop holds its pid.
+  private endLateSuccessor(pid: number) {
+    if (pid === this.livePid || !this.deps.isPidAlive(pid)) return
+
+    this.livePid = pid
+    this.livePidAdoptedAt = Date.now()
+    this.livePidStartId = this.deps.pidStartId(pid)
+
+    const release = this.deps.watchSignals(
+      this.host.browser as FirefoxBrowserKind,
+      () => null,
+      () => this.cleanupInstance(),
+      () => this.adoptedPid()
+    )
+
+    if (isDebug()) {
+      this.ctx.logger?.info?.(
+        `[browser] ${this.host.browser} came back as pid ${pid} after the session gave up on it, so it is being closed.`
+      )
+    }
+
+    this.deps.terminatePid(pid, this.host.browser as BrowserType)
+
+    const watcher = setInterval(() => {
+      if (this.deps.isPidAlive(pid)) return
+
+      clearInterval(watcher)
+      release()
+    }, 1000)
+    watcher.unref?.()
+  }
+
+  private adoptedPid(): AdoptedPid | null {
+    return this.livePid
+      ? {
+          pid: this.livePid,
+          adoptedAt: this.livePidAdoptedAt,
+          startId: this.livePidStartId
+        }
+      : null
+  }
+
+  // An update applied at launch ends the browser cleanly and the updater starts
+  // it again. False when the exit is final: a failure or a ready session.
+  private awaitSuccessor(code: number | null, signal?: string | null): boolean {
+    const clean = code === 0 || (code === null && !signal)
+
+    if (!clean || this.didReportReady || this.browserGone) {
+      this.endSuccessorWait()
+
+      return false
+    }
+
+    if (this.successorWait) {
+      // The launcher's own exit code says more than a probed pid could.
+      if (code !== null) this.successorWait.code = code
+
+      return true
+    }
+
+    this.successorWait = {
+      code,
+      signal: signal ?? null,
+      deadline: Date.now() + SUCCESSOR_GRACE_MS
+    }
+
+    this.pollForSuccessor()
+
+    return true
+  }
+
+  private pollForSuccessor() {
+    const wait = this.successorWait
+    if (!wait) return
+
+    wait.timer = setTimeout(() => {
+      if (this.successorWait !== wait || this.adoptHandedOffBrowser()) return
+
+      if (Date.now() < wait.deadline) {
+        this.pollForSuccessor()
+
+        return
+      }
+
+      this.successorWait = undefined
+      this.onBrowserGone(wait.code, false, wait.signal)
+    }, SUCCESSOR_POLL_MS)
+  }
+
+  private endSuccessorWait() {
+    if (this.successorWait?.timer) clearTimeout(this.successorWait.timer)
+
+    this.successorWait = undefined
   }
 
   // Called when the spawned child closed on its own: if another process now
@@ -1080,14 +1189,25 @@ export class FirefoxLaunchPlugin {
     if (!profilePath || !child || this.browserGone) return false
 
     try {
-      const pid =
-        this.livePid ||
-        findLiveBrowserPid({
-          profilePath,
-          binary: child.spawnfile,
-          launcherPid: child.pid,
-          rows: this.deps.listProcesses()
-        })
+      const adopted = this.livePid
+
+      if (adopted) {
+        if (this.deps.isPidAlive(adopted)) {
+          this.endSuccessorWait()
+
+          return true
+        }
+
+        // A ready session whose browser left is over: no table is read.
+        if (this.didReportReady) return false
+      }
+
+      const pid = findLiveBrowserPid({
+        profilePath,
+        binary: child.spawnfile,
+        launcherPid: child.pid,
+        rows: this.deps.listProcesses().filter((row) => row.pid !== adopted)
+      })
 
       if (!pid || pid === this.child?.pid || !this.deps.isPidAlive(pid)) {
         return false
@@ -1104,6 +1224,7 @@ export class FirefoxLaunchPlugin {
   private adoptLivePid(pid: number) {
     if (this.livePid === pid) return
 
+    this.endSuccessorWait()
     this.livePid = pid
     this.livePidAdoptedAt = Date.now()
     this.livePidStartId = this.deps.pidStartId(pid)
@@ -1136,7 +1257,11 @@ export class FirefoxLaunchPlugin {
 
       clearInterval(this.liveExitWatcher)
       this.liveExitWatcher = undefined
-      this.onBrowserGone(null, this.deps.pidTerminatedByUs(pid))
+
+      const expected = this.deps.pidTerminatedByUs(pid)
+      if (!expected && this.awaitSuccessor(null)) return
+
+      this.onBrowserGone(null, expected)
     }, 1000)
   }
 
@@ -1220,6 +1345,12 @@ export class FirefoxLaunchPlugin {
     // The RDP socket belongs to the session: closed here so no client is left
     // reconnecting to a browser that is gone.
     this.host.rdpController?.disconnect()
+
+    // A shutdown inside the wait takes one last look, so a browser that just
+    // came back ends with the session instead of outliving it.
+    if (this.successorWait) this.adoptHandedOffBrowser()
+
+    this.endSuccessorWait()
 
     // The shared teardown owns the kill decision and is idempotent, so a shutdown
     // that already terminated the child here is a no-op.
