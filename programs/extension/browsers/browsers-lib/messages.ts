@@ -764,10 +764,10 @@ export function browserNeverStarted(browser: Browser, reason: string) {
 
 // A process did exist, and left before its debugger answered. There is
 // nothing to wait for, so this replaces minutes of dialing a dead port.
-export function browserExitedBeforeDebugger(browser: Browser) {
+export function browserExitedBeforeDebugger(browser: Browser, pinNote = '') {
   return (
     `${getLoggingPrefix('error')} ${capitalizedBrowserName(browser)} exited before its debugger answered, so the extension isn't running.\n` +
-    `${colors.red('The browser crashed at startup or was closed. Run the command again.')}`
+    `${colors.red(pinNote || 'The browser crashed at startup or was closed. Run the command again.')}`
   )
 }
 
@@ -1005,9 +1005,10 @@ export function browserStderrTail(browser: Browser, lines: string[]) {
 
 // Printed where the ready line would have gone when the browser left before
 // the extension ever loaded: the session is watching, but nothing is running.
-export function browserGoneBeforeReady(browser: Browser) {
+export function browserGoneBeforeReady(browser: Browser, pinNote = '') {
   return (
     `${getLoggingPrefix('error')} ${capitalizedBrowserName(browser)} exited before the extension loaded, so nothing is running.\n` +
+    (pinNote ? `${colors.red(pinNote)}\n` : '') +
     `The dev server keeps watching, but nothing will load until the browser is relaunched. Restart "extension dev".`
   )
 }
@@ -2309,6 +2310,29 @@ export function binaryNotExecutable(p: string, source: string) {
     correctBinarySourceLine(source, 'binary')
 
   return browserRunnerError(body)
+}
+
+// The reason under a "couldn't start" block, so it carries no prefix. It
+// names the pinned file and what chose it, with the errno in parentheses.
+export function pinnedBinaryCouldNotRun(
+  p: string,
+  source: string,
+  refusal: string
+) {
+  return (
+    `The pinned browser binary could not be run, ${refusal}.\n` +
+    `${colors.gray(`PINNED BY ${source}`)} ${colors.underline(p)}\n` +
+    `The file may not be a browser. ${correctBinarySourceLine(source, 'browser binary')}`
+  )
+}
+
+// Plain text, for the contract and for the line under a human block.
+export function pinnedBinaryMayNotBeBrowser(p: string, source: string) {
+  const fix = source.startsWith('--')
+    ? `Pass ${source} <abs-path> with a working browser binary.`
+    : `Set ${source} to a working browser binary, or unset it to run the managed or system browser.`
+
+  return `The binary at ${p} was pinned by ${source} and may not be a browser. ${fix}`
 }
 
 export function binaryOverrideNotFound(name: string, p: string) {

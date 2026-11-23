@@ -21,6 +21,7 @@ import {
 } from '../../../browsers-lib/constants'
 import {resolvePortForInstance} from '../../../browsers-lib/instance-registry'
 import * as messages from '../../../browsers-lib/messages'
+import {pinnedBinaryExitNote} from '../../../browsers-lib/pinned-binary'
 import {launchFailureCode} from '../../../browsers-lib/ready-stamp'
 import {toExtensionLoadList} from '../../../browsers-lib/runtime-options'
 import {deriveDebugPortWithInstance} from '../../../browsers-lib/shared-utils'
@@ -161,7 +162,15 @@ export class RemoteFirefox {
       // dial would otherwise keep trying for minutes.
       if (this.options.isBrowserGone?.()) {
         throw Object.assign(
-          new Error(messages.browserExitedBeforeDebugger(this.options.browser)),
+          new Error(
+            messages.browserExitedBeforeDebugger(
+              this.options.browser,
+              pinnedBinaryExitNote({
+                path: this.options.launchBinaryPath,
+                pinnedBy: this.options.launchBinaryPinnedBy
+              })
+            )
+          ),
           {code: CODES.E_BROWSER_LAUNCH}
         )
       }

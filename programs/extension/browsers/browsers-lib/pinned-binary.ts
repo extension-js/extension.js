@@ -70,3 +70,69 @@ export function envPinnedBinary(
 
   return {name: override.name, path: normalized}
 }
+
+// The binary a launch runs and the flag or variable that chose it.
+export interface LaunchPin {
+  path?: string | null
+  pinnedBy?: string
+}
+
+function spawnErrno(error: unknown): string | null {
+  const {code, syscall} = (error ?? {}) as {code?: unknown; syscall?: unknown}
+
+  if (typeof syscall !== 'string' || !/^spawn\b/.test(syscall)) return null
+
+  return typeof code === 'string' && code ? code : 'UNKNOWN'
+}
+
+// Plain words for the errno a spawn refusal carries. Windows answers UNKNOWN
+// for a file that is not a program, where POSIX says ENOEXEC or EFTYPE.
+export function spawnRefusalWords(
+  error: unknown,
+  platform: NodeJS.Platform = process.platform
+): string | null {
+  const errno = spawnErrno(error)
+  if (!errno) return null
+
+  const words =
+    errno === 'ENOENT'
+      ? 'the file, or the interpreter its first line names, was not found'
+      : errno === 'EACCES' || errno === 'EPERM'
+        ? 'the system denied permission to run this file'
+        : errno === 'ENOEXEC' || errno === 'EFTYPE'
+          ? 'this file is not in a format the system can run'
+          : / -86$/.test(errno)
+            ? 'this file is built for another processor'
+            : platform === 'win32'
+              ? 'Windows could not start this file as a program'
+              : 'the system could not start this file'
+
+  return `${words} (spawn ${errno})`
+}
+
+// A pinned file the system refused to run is the person's value to change,
+// so the refusal names the file and what pinned it. Anything else passes.
+export function pinnedBinarySpawnError(error: unknown, pin: LaunchPin) {
+  const refusal = pin.path && pin.pinnedBy ? spawnRefusalWords(error) : null
+  if (!refusal) return error
+
+  const {code, syscall} = error as {code?: unknown; syscall?: unknown}
+
+  return Object.assign(
+    new Error(
+      messages.pinnedBinaryCouldNotRun(
+        String(pin.path),
+        String(pin.pinnedBy),
+        refusal
+      )
+    ),
+    {code, syscall, cause: error}
+  )
+}
+
+// The sentence a browser that left at once adds when its binary was pinned.
+export function pinnedBinaryExitNote(pin: LaunchPin): string {
+  return pin.path && pin.pinnedBy
+    ? messages.pinnedBinaryMayNotBeBrowser(pin.path, pin.pinnedBy)
+    : ''
+}

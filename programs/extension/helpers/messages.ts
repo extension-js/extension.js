@@ -544,6 +544,7 @@ ${'Browser-specific options'}
 - ${code('--chromium-binary')} ${arg('<path>')}        Custom Chromium binary path
 - ${code('--gecko-binary')}/${code('--firefox-binary')} ${arg('<path>')}           Custom Firefox/Gecko binary path
   Use ${code('flatpak:org.mozilla.firefox')} as the path to launch a Flatpak-installed Firefox
+- A binary flag with no ${code('--browser')} runs its own engine (${code('--gecko-binary')} alone runs ${code('gecko-based')}). Beside a ${code('--browser')} of the other engine it fails with ${code('E_INVALID_OPTION')}
 - Binary order on every browser: the flag, then ${code('CHROME_FOR_TESTING_PATH')}, ${code('CHROMIUM_BINARY')}, ${code('CHROME_BINARY')}, ${code('EDGE_BINARY')} or ${code('FIREFOX_BINARY')}, then the managed install, then the system install
   A flag or variable that names a missing path fails with ${code('E_BROWSER_BINARY_INVALID')}
 
@@ -743,6 +744,21 @@ export function invalidOutputValue(
 
 export function safariOnlyOptionPlain(flags: string[]): string {
   return `${flags.join(', ')} appl${flags.length === 1 ? 'ies' : 'y'} to safari targets only.`
+}
+
+// A binary flag names one engine, so beside a --browser of the other engine
+// it would run nothing. Plain text, for the envelope and the terminal alike.
+export function binaryFlagOtherEngine(
+  flag: string,
+  engine: string,
+  browser: string,
+  target: string
+): string {
+  return `${flag} pins a ${engine} binary, and --browser ${browser} runs no ${engine} browser. Drop --browser to run the binary, or pass --browser ${target}.`
+}
+
+export function binaryFlagsNeedBrowser(): string {
+  return '--chromium-binary and --gecko-binary each pin a browser, and no --browser says which to run. Pass one of them, or name both with --browser chromium-based,gecko-based.'
 }
 
 export const SAFARI_UI_ACTIONS = [

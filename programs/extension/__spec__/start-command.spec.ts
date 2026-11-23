@@ -249,10 +249,16 @@ const FORWARDING: ForwardingRow[] = [
     argv: ['--chromium-binary', '/bin/chromium'],
     launch: {chromiumBinary: '/bin/chromium'}
   },
-  {argv: ['--gecko-binary', '/bin/gecko'], launch: {geckoBinary: '/bin/gecko'}},
+  // A Gecko binary with no --browser runs its own engine, build included.
+  {
+    argv: ['--gecko-binary', '/bin/gecko'],
+    build: {browser: 'gecko-based'},
+    launch: {browser: 'gecko-based', geckoBinary: '/bin/gecko'}
+  },
   {
     argv: ['--firefox-binary', '/bin/firefox'],
-    launch: {geckoBinary: '/bin/firefox'}
+    build: {browser: 'gecko-based'},
+    launch: {browser: 'gecko-based', geckoBinary: '/bin/firefox'}
   },
   {
     argv: ['--starting-url', 'https://example.com'],
