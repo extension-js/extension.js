@@ -1,4 +1,4 @@
-import {execFileSync, spawnSync} from 'node:child_process'
+import {spawnSync} from 'node:child_process'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 
@@ -122,11 +122,29 @@ function compileOrCopy(target: string) {
     )
   }
 
-  execFileSync(
-    compiler,
-    ['/nologo', '/nowarn:1607', '/optimize+', `/out:${target}`, SOURCE],
-    {stdio: 'pipe', windowsHide: true}
-  )
+  const args = [
+    '/nologo',
+    '/nowarn:1607',
+    '/optimize+',
+    `/out:${target}`,
+    SOURCE
+  ]
+  const built = spawnSync(compiler, args, {encoding: 'utf8', windowsHide: true})
+
+  if (built.error || built.status !== 0 || !fs.existsSync(target)) {
+    // Printed as well as thrown: a job cut short prints no failure summary.
+    const report = [
+      'The browser stand-in did not compile.',
+      `COMMAND ${compiler} ${args.join(' ')}`,
+      `EXIT ${built.status} ${built.error?.message ?? ''}`.trim(),
+      `STDOUT ${built.stdout}`,
+      `STDERR ${built.stderr}`
+    ].join('\n')
+
+    console.error(report)
+
+    throw new Error(report)
+  }
 
   compiled = target
 }

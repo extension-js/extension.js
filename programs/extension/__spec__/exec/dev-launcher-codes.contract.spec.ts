@@ -267,7 +267,9 @@ describe('a launcher refusal names its code on the stream, the contract and --wa
     expect(waiter.frame.error?.message).toContain(reason)
   }, 120_000)
 
-  it.each([
+  // On Windows each version read of a pinned binary starts PowerShell, which
+  // takes about 17 seconds on the hosted runner, so these rows wait there.
+  it.skipIf(process.platform === 'win32').each([
     ['close', 'E_BROWSER_CONNECTION_CLOSED', /closed unexpectedly/],
     ['garbage', 'E_RDP_PROTOCOL', /Invalid RDP frame length/],
     ['silent', 'E_BROWSER_START_TIMEOUT', /sent no RDP greeting/]
