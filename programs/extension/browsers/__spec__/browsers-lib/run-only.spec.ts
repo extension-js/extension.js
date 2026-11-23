@@ -426,6 +426,28 @@ describe('runOnlyPreviewBrowser', () => {
     })
   }
 
+  it('marks a --gecko-binary pin that names no file as pinned, so the card reads no other install', async () => {
+    const missing = path.join(os.tmpdir(), 'extjs-run-only-nowhere', 'firefox')
+
+    await runOnlyPreviewBrowser({
+      browser: 'firefox',
+      outPath: EXT_FIREFOX,
+      contextDir: scratch,
+      extensionsToLoad: [EXT_FIREFOX],
+      geckoBinary: missing
+    })
+
+    const calls = printProdBannerOnce.mock.calls as unknown[][]
+    const card = calls.at(-1)?.[0]
+
+    expect(card).toMatchObject({
+      binaryProvenance: 'pinned',
+      browserVersionLine: undefined
+    })
+
+    expect(card).not.toHaveProperty('binaryPath')
+  })
+
   it('keeps a silent --gecko-binary pin marked pinned so no other install is named', async () => {
     const dir = fs.mkdtempSync(
       path.join(os.tmpdir(), 'extjs-run-only-gecko-quiet-')

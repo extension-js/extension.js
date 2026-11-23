@@ -108,437 +108,432 @@ function readContract(
   )
 }
 
-// On Windows each version read of a pinned binary starts PowerShell, which
-// takes about 17 seconds on the hosted runner, so these rows wait there.
-describe.skipIf(process.platform === 'win32')(
-  'a run-only command whose browser never spawns',
-  () => {
-    const leftovers: string[] = []
+describe('a run-only command whose browser never spawns', () => {
+  const leftovers: string[] = []
 
-    afterEach(() => {
-      for (const dir of leftovers.splice(0)) {
-        rmSync(dir, {recursive: true, force: true})
-      }
+  afterEach(() => {
+    for (const dir of leftovers.splice(0)) {
+      rmSync(dir, {recursive: true, force: true})
+    }
+  })
+
+  function makeWorkspace() {
+    const work = mkdtempSync(join(tmpdir(), 'extjs-preview-launch-'))
+    leftovers.push(work)
+    const projectDir = join(work, 'project')
+    mkdirSync(projectDir, {recursive: true})
+    writeFileSync(
+      join(projectDir, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        name: 'Launch Probe',
+        version: '1.0.0'
+      })
+    )
+
+    return {work, projectDir}
+  }
+
+  it('preview prints one frame for a chromium spawn refusal, with no stack', async () => {
+    const {work, projectDir} = makeWorkspace()
+    const binary = plantUnspawnable(join(work, 'bin'), 'chrome')
+
+    const result = await runCli([
+      'preview',
+      projectDir,
+      '--browser',
+      'chrome',
+      '--chromium-binary',
+      binary
+    ])
+
+    expect(result.status, result.stderr).toBe(1)
+    expect(result.stderr).not.toMatch(STACK_FRAME)
+    expect(result.stderr.match(/⏵⏵⏵/g), result.stderr).toHaveLength(1)
+    expect(result.stderr).toContain(
+      "Chrome couldn't start, so the extension isn't running."
+    )
+
+    expect(result.stderr).toContain(`(spawn ${unspawnableErrno(binary)})`)
+    expect(result.stderr).toContain(`PINNED BY --chromium-binary ${binary}`)
+  }, 90_000)
+
+  it('preview codes it E_BROWSER_LAUNCH under --output json', async () => {
+    const {work, projectDir} = makeWorkspace()
+    const binary = plantUnspawnable(join(work, 'bin'), 'chrome')
+
+    const result = await runCli([
+      'preview',
+      projectDir,
+      '--browser',
+      'chrome',
+      '--chromium-binary',
+      binary,
+      '--output',
+      'json'
+    ])
+
+    expect(result.status, result.stderr).toBe(1)
+    expect(result.stderr).not.toMatch(STACK_FRAME)
+
+    const all = frames(result.stdout)
+    expect(all, result.stdout).toHaveLength(1)
+    expect(all[0]).toMatchObject({
+      schema: 1,
+      ok: false,
+      command: 'preview',
+      status: 'failed'
     })
 
-    function makeWorkspace() {
-      const work = mkdtempSync(join(tmpdir(), 'extjs-preview-launch-'))
-      leftovers.push(work)
-      const projectDir = join(work, 'project')
-      mkdirSync(projectDir, {recursive: true})
-      writeFileSync(
-        join(projectDir, 'manifest.json'),
-        JSON.stringify({
-          manifest_version: 3,
-          name: 'Launch Probe',
-          version: '1.0.0'
-        })
-      )
+    expect(all[0].error?.code).toBe('E_BROWSER_LAUNCH')
+    expect(all[0].error?.message).toContain("couldn't start")
+    expect(all[0].error?.message).toContain(unspawnableErrno(binary))
+    expect(all[0].error?.message).not.toContain('⏵')
+  }, 90_000)
 
-      return {work, projectDir}
-    }
+  it('preview reports a firefox spawn refusal the same way', async () => {
+    const {work, projectDir} = makeWorkspace()
+    const binary = plantUnspawnable(join(work, 'bin'), 'firefox')
 
-    it('preview prints one frame for a chromium spawn refusal, with no stack', async () => {
+    const result = await runCli([
+      'preview',
+      projectDir,
+      '--browser',
+      'firefox',
+      '--gecko-binary',
+      binary,
+      '--output',
+      'json'
+    ])
+
+    expect(result.status, result.stderr).toBe(1)
+    expect(result.stderr).not.toMatch(STACK_FRAME)
+
+    const all = frames(result.stdout)
+    expect(all, result.stdout).toHaveLength(1)
+    expect(all[0].error?.code).toBe('E_BROWSER_LAUNCH')
+    expect(all[0].error?.message).toContain(
+      "Firefox couldn't start, so the extension isn't running."
+    )
+
+    expect(all[0].error?.message).toContain(unspawnableErrno(binary))
+  }, 90_000)
+
+  it('start prints the same frame after its build, with no stack', async () => {
+    const {work, projectDir} = makeWorkspace()
+    const binary = plantUnspawnable(join(work, 'bin'), 'chrome')
+
+    const result = await runCli([
+      'start',
+      projectDir,
+      '--browser',
+      'chrome',
+      '--chromium-binary',
+      binary
+    ])
+
+    expect(result.status, result.stderr).toBe(1)
+    expect(result.stdout).toMatch(/built for production/)
+    expect(result.stderr).not.toMatch(STACK_FRAME)
+    expect(result.stderr.match(/⏵⏵⏵/g), result.stderr).toHaveLength(1)
+    expect(result.stderr).toContain(
+      "Chrome couldn't start, so the extension isn't running."
+    )
+
+    expect(result.stderr).toContain(unspawnableErrno(binary))
+  }, 120_000)
+
+  // A pin that names nothing is refused before any spawn, with its own
+  // frame and code. The launch frame must not swallow that verdict.
+  it('preview keeps the pin refusal for a path that does not exist', async () => {
+    const {work, projectDir} = makeWorkspace()
+    const missing = join(work, 'nowhere', 'chrome')
+
+    const result = await runCli([
+      'preview',
+      projectDir,
+      '--browser',
+      'chrome',
+      '--chromium-binary',
+      missing,
+      '--output',
+      'json'
+    ])
+
+    expect(result.status, result.stderr).toBe(1)
+    expect(result.stderr).not.toMatch(STACK_FRAME)
+
+    const all = frames(result.stdout)
+    expect(all, result.stdout).toHaveLength(1)
+    expect(all[0].error?.code).toBe('E_BROWSER_BINARY_INVALID')
+    expect(all[0].error?.message).toContain(missing)
+    expect(all[0].error?.message).not.toContain("couldn't start")
+  }, 90_000)
+
+  // The Chromium launcher throws this refusal. The Gecko one ended the
+  // process instead, which left a json consumer with exit 1 and no frame.
+  it('preview frames a gecko pin that names nothing, as chromium does', async () => {
+    const {work, projectDir} = makeWorkspace()
+    const missing = join(work, 'nowhere', 'firefox')
+
+    const result = await runCli([
+      'preview',
+      projectDir,
+      '--browser',
+      'firefox',
+      '--gecko-binary',
+      missing,
+      '--output',
+      'json'
+    ])
+
+    expect(result.status, result.stderr).toBe(1)
+    expect(result.stderr).not.toMatch(STACK_FRAME)
+
+    const all = frames(result.stdout)
+    expect(all, result.stdout).toHaveLength(1)
+    expect(all[0]).toMatchObject({ok: false, command: 'preview'})
+    expect(all[0].error?.code).toBe('E_BROWSER_BINARY_INVALID')
+    expect(all[0].error?.message).toContain(missing)
+    expect(all[0].error?.message).not.toContain('⏵')
+  }, 90_000)
+
+  it('preview prints that gecko pin refusal once in text, with no stack', async () => {
+    const {work, projectDir} = makeWorkspace()
+    const missing = join(work, 'nowhere', 'firefox')
+
+    const result = await runCli([
+      'preview',
+      projectDir,
+      '--browser',
+      'firefox',
+      '--gecko-binary',
+      missing
+    ])
+
+    expect(result.status, result.stderr).toBe(1)
+    expect(result.stderr).not.toMatch(STACK_FRAME)
+    expect(result.stderr.match(/⏵⏵⏵/g), result.stderr).toHaveLength(1)
+    expect(result.stderr).toContain(
+      "Can't find a Firefox or Gecko binary at the given path."
+    )
+
+    expect(result.stderr).toContain(missing)
+  }, 90_000)
+
+  // The project has no build, so the browser loads the source folder and
+  // the contract path cannot be derived from the loaded directory.
+  it.each([
+    ['chrome', '--chromium-binary'],
+    ['firefox', '--gecko-binary']
+  ])(
+    'preview of a project with no dist stamps the failed %s launch on its contract',
+    async (browser, flag) => {
       const {work, projectDir} = makeWorkspace()
-      const binary = plantUnspawnable(join(work, 'bin'), 'chrome')
+      const binary = plantUnspawnable(join(work, 'bin'), browser)
 
       const result = await runCli([
         'preview',
         projectDir,
         '--browser',
-        'chrome',
-        '--chromium-binary',
+        browser,
+        flag,
         binary
       ])
 
       expect(result.status, result.stderr).toBe(1)
-      expect(result.stderr).not.toMatch(STACK_FRAME)
-      expect(result.stderr.match(/⏵⏵⏵/g), result.stderr).toHaveLength(1)
-      expect(result.stderr).toContain(
-        "Chrome couldn't start, so the extension isn't running."
-      )
+      expect(existsSync(join(projectDir, 'dist', browser))).toBe(false)
 
-      expect(result.stderr).toContain(`(spawn ${unspawnableErrno(binary)})`)
-      expect(result.stderr).toContain(`PINNED BY --chromium-binary ${binary}`)
-    }, 90_000)
+      const contract = readContract(projectDir, browser)
+      expect(contract.status).toBe('error')
+      expect(contract.code).toBe('browser_launch_failed')
+      expect(contract.message).toContain(unspawnableErrno(binary))
+      expect(contract.message).not.toContain('⏵')
+    },
+    90_000
+  )
 
-    it('preview codes it E_BROWSER_LAUNCH under --output json', async () => {
+  it('preview of a project with no dist stamps a pin that names nothing', async () => {
+    const {work, projectDir} = makeWorkspace()
+    const missing = join(work, 'nowhere', 'firefox')
+
+    const result = await runCli([
+      'preview',
+      projectDir,
+      '--browser',
+      'firefox',
+      '--gecko-binary',
+      missing
+    ])
+
+    expect(result.status, result.stderr).toBe(1)
+
+    const contract = readContract(projectDir, 'firefox')
+    expect(contract.status).toBe('error')
+    expect(contract.code).toBe('browser_launch_failed')
+    expect(contract.message).toContain(missing)
+  }, 90_000)
+
+  // start used to print an ok "started" frame before it built or launched
+  // anything, so a failed run read as a success followed by a failure.
+  it.each([
+    ['chrome', '--chromium-binary', 'E_BROWSER_LAUNCH', true],
+    ['chrome', '--chromium-binary', 'E_BROWSER_BINARY_INVALID', false],
+    ['firefox', '--gecko-binary', 'E_BROWSER_BINARY_INVALID', false]
+  ])(
+    'start prints one failure frame for a %s launch refused by %s as %s',
+    async (browser, flag, code, planted) => {
       const {work, projectDir} = makeWorkspace()
-      const binary = plantUnspawnable(join(work, 'bin'), 'chrome')
+      const binary = planted
+        ? plantUnspawnable(join(work, 'bin'), browser)
+        : join(work, 'nowhere', browser)
 
-      const result = await runCli([
-        'preview',
-        projectDir,
-        '--browser',
-        'chrome',
-        '--chromium-binary',
-        binary,
-        '--output',
-        'json'
-      ])
-
-      expect(result.status, result.stderr).toBe(1)
-      expect(result.stderr).not.toMatch(STACK_FRAME)
-
-      const all = frames(result.stdout)
-      expect(all, result.stdout).toHaveLength(1)
-      expect(all[0]).toMatchObject({
-        schema: 1,
-        ok: false,
-        command: 'preview',
-        status: 'failed'
-      })
-
-      expect(all[0].error?.code).toBe('E_BROWSER_LAUNCH')
-      expect(all[0].error?.message).toContain("couldn't start")
-      expect(all[0].error?.message).toContain(unspawnableErrno(binary))
-      expect(all[0].error?.message).not.toContain('⏵')
-    }, 90_000)
-
-    it('preview reports a firefox spawn refusal the same way', async () => {
-      const {work, projectDir} = makeWorkspace()
-      const binary = plantUnspawnable(join(work, 'bin'), 'firefox')
-
-      const result = await runCli([
-        'preview',
-        projectDir,
-        '--browser',
-        'firefox',
-        '--gecko-binary',
-        binary,
-        '--output',
-        'json'
-      ])
-
-      expect(result.status, result.stderr).toBe(1)
-      expect(result.stderr).not.toMatch(STACK_FRAME)
-
-      const all = frames(result.stdout)
-      expect(all, result.stdout).toHaveLength(1)
-      expect(all[0].error?.code).toBe('E_BROWSER_LAUNCH')
-      expect(all[0].error?.message).toContain(
-        "Firefox couldn't start, so the extension isn't running."
-      )
-
-      expect(all[0].error?.message).toContain(unspawnableErrno(binary))
-    }, 90_000)
-
-    it('start prints the same frame after its build, with no stack', async () => {
-      const {work, projectDir} = makeWorkspace()
-      const binary = plantUnspawnable(join(work, 'bin'), 'chrome')
-
-      const result = await runCli([
-        'start',
-        projectDir,
-        '--browser',
-        'chrome',
-        '--chromium-binary',
-        binary
-      ])
-
-      expect(result.status, result.stderr).toBe(1)
-      expect(result.stdout).toMatch(/built for production/)
-      expect(result.stderr).not.toMatch(STACK_FRAME)
-      expect(result.stderr.match(/⏵⏵⏵/g), result.stderr).toHaveLength(1)
-      expect(result.stderr).toContain(
-        "Chrome couldn't start, so the extension isn't running."
-      )
-
-      expect(result.stderr).toContain(unspawnableErrno(binary))
-    }, 120_000)
-
-    // A pin that names nothing is refused before any spawn, with its own
-    // frame and code. The launch frame must not swallow that verdict.
-    it('preview keeps the pin refusal for a path that does not exist', async () => {
-      const {work, projectDir} = makeWorkspace()
-      const missing = join(work, 'nowhere', 'chrome')
-
-      const result = await runCli([
-        'preview',
-        projectDir,
-        '--browser',
-        'chrome',
-        '--chromium-binary',
-        missing,
-        '--output',
-        'json'
-      ])
-
-      expect(result.status, result.stderr).toBe(1)
-      expect(result.stderr).not.toMatch(STACK_FRAME)
-
-      const all = frames(result.stdout)
-      expect(all, result.stdout).toHaveLength(1)
-      expect(all[0].error?.code).toBe('E_BROWSER_BINARY_INVALID')
-      expect(all[0].error?.message).toContain(missing)
-      expect(all[0].error?.message).not.toContain("couldn't start")
-    }, 90_000)
-
-    // The Chromium launcher throws this refusal. The Gecko one ended the
-    // process instead, which left a json consumer with exit 1 and no frame.
-    it('preview frames a gecko pin that names nothing, as chromium does', async () => {
-      const {work, projectDir} = makeWorkspace()
-      const missing = join(work, 'nowhere', 'firefox')
-
-      const result = await runCli([
-        'preview',
-        projectDir,
-        '--browser',
-        'firefox',
-        '--gecko-binary',
-        missing,
-        '--output',
-        'json'
-      ])
-
-      expect(result.status, result.stderr).toBe(1)
-      expect(result.stderr).not.toMatch(STACK_FRAME)
-
-      const all = frames(result.stdout)
-      expect(all, result.stdout).toHaveLength(1)
-      expect(all[0]).toMatchObject({ok: false, command: 'preview'})
-      expect(all[0].error?.code).toBe('E_BROWSER_BINARY_INVALID')
-      expect(all[0].error?.message).toContain(missing)
-      expect(all[0].error?.message).not.toContain('⏵')
-    }, 90_000)
-
-    it('preview prints that gecko pin refusal once in text, with no stack', async () => {
-      const {work, projectDir} = makeWorkspace()
-      const missing = join(work, 'nowhere', 'firefox')
-
-      const result = await runCli([
-        'preview',
-        projectDir,
-        '--browser',
-        'firefox',
-        '--gecko-binary',
-        missing
-      ])
-
-      expect(result.status, result.stderr).toBe(1)
-      expect(result.stderr).not.toMatch(STACK_FRAME)
-      expect(result.stderr.match(/⏵⏵⏵/g), result.stderr).toHaveLength(1)
-      expect(result.stderr).toContain(
-        "Can't find a Firefox or Gecko binary at the given path."
-      )
-
-      expect(result.stderr).toContain(missing)
-    }, 90_000)
-
-    // The project has no build, so the browser loads the source folder and
-    // the contract path cannot be derived from the loaded directory.
-    it.each([
-      ['chrome', '--chromium-binary'],
-      ['firefox', '--gecko-binary']
-    ])(
-      'preview of a project with no dist stamps the failed %s launch on its contract',
-      async (browser, flag) => {
-        const {work, projectDir} = makeWorkspace()
-        const binary = plantUnspawnable(join(work, 'bin'), browser)
-
-        const result = await runCli([
-          'preview',
+      const result = await runCli(
+        [
+          'start',
           projectDir,
           '--browser',
           browser,
           flag,
-          binary
-        ])
-
-        expect(result.status, result.stderr).toBe(1)
-        expect(existsSync(join(projectDir, 'dist', browser))).toBe(false)
-
-        const contract = readContract(projectDir, browser)
-        expect(contract.status).toBe('error')
-        expect(contract.code).toBe('browser_launch_failed')
-        expect(contract.message).toContain(unspawnableErrno(binary))
-        expect(contract.message).not.toContain('⏵')
-      },
-      90_000
-    )
-
-    it('preview of a project with no dist stamps a pin that names nothing', async () => {
-      const {work, projectDir} = makeWorkspace()
-      const missing = join(work, 'nowhere', 'firefox')
-
-      const result = await runCli([
-        'preview',
-        projectDir,
-        '--browser',
-        'firefox',
-        '--gecko-binary',
-        missing
-      ])
-
-      expect(result.status, result.stderr).toBe(1)
-
-      const contract = readContract(projectDir, 'firefox')
-      expect(contract.status).toBe('error')
-      expect(contract.code).toBe('browser_launch_failed')
-      expect(contract.message).toContain(missing)
-    }, 90_000)
-
-    // start used to print an ok "started" frame before it built or launched
-    // anything, so a failed run read as a success followed by a failure.
-    it.each([
-      ['chrome', '--chromium-binary', 'E_BROWSER_LAUNCH', true],
-      ['chrome', '--chromium-binary', 'E_BROWSER_BINARY_INVALID', false],
-      ['firefox', '--gecko-binary', 'E_BROWSER_BINARY_INVALID', false]
-    ])(
-      'start prints one failure frame for a %s launch refused by %s as %s',
-      async (browser, flag, code, planted) => {
-        const {work, projectDir} = makeWorkspace()
-        const binary = planted
-          ? plantUnspawnable(join(work, 'bin'), browser)
-          : join(work, 'nowhere', browser)
-
-        const result = await runCli(
-          [
-            'start',
-            projectDir,
-            '--browser',
-            browser,
-            flag,
-            binary,
-            '--output',
-            'json'
-          ],
-          120_000
-        )
-
-        expect(result.status, result.stderr).toBe(1)
-        expect(result.stderr).not.toMatch(STACK_FRAME)
-
-        const all = frames(result.stdout)
-        expect(all, result.stdout).toHaveLength(1)
-        expect(all[0]).toMatchObject({ok: false, command: 'start'})
-        expect(all[0].error?.code).toBe(code)
-        expect(all[0].error?.message).toContain(binary)
-        expect(all[0].error?.message).not.toContain('⏵')
-      },
-      150_000
-    )
-
-    // Every stamp follows the contract the session owns, not only the launch
-    // failure: a browser that came up and left has to show on it too.
-    it('preview of a project with no dist records a chromium browser that launched and left', async () => {
-      const {work, projectDir} = makeWorkspace()
-      const binary = plantExitingBinary(join(work, 'bin'), 'chrome')
-
-      const result = await runCli([
-        'preview',
-        projectDir,
-        '--browser',
-        'chrome',
-        '--chromium-binary',
-        binary
-      ])
-
-      expect(result.stderr).not.toMatch(STACK_FRAME)
-      expect(existsSync(join(projectDir, 'dist', 'chrome'))).toBe(false)
-
-      const contract = readContract(projectDir, 'chrome')
-      expect(typeof contract.browserPid).toBe('number')
-      expect(typeof contract.browserExitedAt).toBe('string')
-      // One named outcome: "not starting and not ready" also passed on error.
-      expect(result.status, result.stderr).toBe(0)
-      expect({
-        status: contract.status,
-        code: contract.code,
-        message: contract.message,
-        browserExitCode: contract.browserExitCode,
-        browserExitSignal: contract.browserExitSignal
-      }).toEqual({
-        status: 'stopped',
-        code: 'shutdown',
-        message: 'the preview session ended',
-        browserExitCode: 0,
-        browserExitSignal: null
-      })
-
-      expect(result.stderr).toContain(
-        '[browser] chrome closed cleanly (exit code 0) without this preview asking for it'
+          binary,
+          '--output',
+          'json'
+        ],
+        120_000
       )
-    }, 90_000)
-
-    // The debugger dial used to go on for minutes after the process had
-    // left, then fail as an internal error with a stack.
-    it('preview stops waiting on a firefox that left before its debugger answered', async () => {
-      const {work, projectDir} = makeWorkspace()
-      const binary = plantExitingBinary(join(work, 'bin'), 'firefox')
-
-      const result = await runCli([
-        'preview',
-        projectDir,
-        '--browser',
-        'firefox',
-        '--gecko-binary',
-        binary,
-        '--output',
-        'json'
-      ])
 
       expect(result.status, result.stderr).toBe(1)
       expect(result.stderr).not.toMatch(STACK_FRAME)
 
       const all = frames(result.stdout)
       expect(all, result.stdout).toHaveLength(1)
-      expect(all[0]).toMatchObject({ok: false, status: 'failed'})
-      expect(all[0].error?.code).toBe('E_BROWSER_LAUNCH')
-      expect(all[0].error?.message).toContain(
-        'Firefox exited before its debugger answered'
+      expect(all[0]).toMatchObject({ok: false, command: 'start'})
+      expect(all[0].error?.code).toBe(code)
+      expect(all[0].error?.message).toContain(binary)
+      expect(all[0].error?.message).not.toContain('⏵')
+    },
+    150_000
+  )
+
+  // Every stamp follows the contract the session owns, not only the launch
+  // failure: a browser that came up and left has to show on it too.
+  it('preview of a project with no dist records a chromium browser that launched and left', async () => {
+    const {work, projectDir} = makeWorkspace()
+    const binary = plantExitingBinary(join(work, 'bin'), 'chrome')
+
+    const result = await runCli([
+      'preview',
+      projectDir,
+      '--browser',
+      'chrome',
+      '--chromium-binary',
+      binary
+    ])
+
+    expect(result.stderr).not.toMatch(STACK_FRAME)
+    expect(existsSync(join(projectDir, 'dist', 'chrome'))).toBe(false)
+
+    const contract = readContract(projectDir, 'chrome')
+    expect(typeof contract.browserPid).toBe('number')
+    expect(typeof contract.browserExitedAt).toBe('string')
+    // One named outcome: "not starting and not ready" also passed on error.
+    expect(result.status, result.stderr).toBe(0)
+    expect({
+      status: contract.status,
+      code: contract.code,
+      message: contract.message,
+      browserExitCode: contract.browserExitCode,
+      browserExitSignal: contract.browserExitSignal
+    }).toEqual({
+      status: 'stopped',
+      code: 'shutdown',
+      message: 'the preview session ended',
+      browserExitCode: 0,
+      browserExitSignal: null
+    })
+
+    expect(result.stderr).toContain(
+      '[browser] chrome closed cleanly (exit code 0) without this preview asking for it'
+    )
+  }, 90_000)
+
+  // The debugger dial used to go on for minutes after the process had
+  // left, then fail as an internal error with a stack.
+  it('preview stops waiting on a firefox that left before its debugger answered', async () => {
+    const {work, projectDir} = makeWorkspace()
+    const binary = plantExitingBinary(join(work, 'bin'), 'firefox')
+
+    const result = await runCli([
+      'preview',
+      projectDir,
+      '--browser',
+      'firefox',
+      '--gecko-binary',
+      binary,
+      '--output',
+      'json'
+    ])
+
+    expect(result.status, result.stderr).toBe(1)
+    expect(result.stderr).not.toMatch(STACK_FRAME)
+
+    const all = frames(result.stdout)
+    expect(all, result.stdout).toHaveLength(1)
+    expect(all[0]).toMatchObject({ok: false, status: 'failed'})
+    expect(all[0].error?.code).toBe('E_BROWSER_LAUNCH')
+    expect(all[0].error?.message).toContain(
+      'Firefox exited before its debugger answered'
+    )
+
+    const contract = readContract(projectDir, 'firefox')
+    expect(contract.status).toBe('error')
+    expect(contract.code).toBe('browser_exited')
+    expect(typeof contract.browserPid).toBe('number')
+  }, 90_000)
+
+  it('preview frames a firefox whose debugger never answers, once, and reaps it', async () => {
+    const {work, projectDir} = makeWorkspace()
+    const pidFile = join(work, 'browser.pid')
+    const binary = plantSilentBinary(join(work, 'bin'), 'firefox', pidFile)
+    let pid = 0
+
+    try {
+      const result = await runCli(
+        [
+          'preview',
+          projectDir,
+          '--browser',
+          'firefox',
+          '--gecko-binary',
+          binary,
+          '--output',
+          'json'
+        ],
+        60_000,
+        {
+          EXTENSION_RDP_MAX_RETRIES: '1',
+          EXTENSION_RDP_RETRY_INTERVAL_MS: '50'
+        }
       )
+
+      pid = Number(readFileSync(pidFile, 'utf8').trim())
+
+      expect(result.status, result.stderr).toBe(1)
+      expect(result.stderr).not.toMatch(STACK_FRAME)
+      expect(result.stderr).not.toContain("Can't connect to Firefox")
+
+      const all = frames(result.stdout)
+      expect(all, result.stdout).toHaveLength(1)
+      expect(all[0]).toMatchObject({ok: false, status: 'failed'})
+      expect(all[0].error?.code).toBe('E_BROWSER_CONNECT')
+      expect(all[0].error?.message).toContain("Can't connect to Firefox")
 
       const contract = readContract(projectDir, 'firefox')
       expect(contract.status).toBe('error')
-      expect(contract.code).toBe('browser_exited')
-      expect(typeof contract.browserPid).toBe('number')
-    }, 90_000)
-
-    it('preview frames a firefox whose debugger never answers, once, and reaps it', async () => {
-      const {work, projectDir} = makeWorkspace()
-      const pidFile = join(work, 'browser.pid')
-      const binary = plantSilentBinary(join(work, 'bin'), 'firefox', pidFile)
-      let pid = 0
-
-      try {
-        const result = await runCli(
-          [
-            'preview',
-            projectDir,
-            '--browser',
-            'firefox',
-            '--gecko-binary',
-            binary,
-            '--output',
-            'json'
-          ],
-          60_000,
-          {
-            EXTENSION_RDP_MAX_RETRIES: '1',
-            EXTENSION_RDP_RETRY_INTERVAL_MS: '50'
-          }
-        )
-
-        pid = Number(readFileSync(pidFile, 'utf8').trim())
-
-        expect(result.status, result.stderr).toBe(1)
-        expect(result.stderr).not.toMatch(STACK_FRAME)
-        expect(result.stderr).not.toContain("Can't connect to Firefox")
-
-        const all = frames(result.stdout)
-        expect(all, result.stdout).toHaveLength(1)
-        expect(all[0]).toMatchObject({ok: false, status: 'failed'})
-        expect(all[0].error?.code).toBe('E_BROWSER_CONNECT')
-        expect(all[0].error?.message).toContain("Can't connect to Firefox")
-
-        const contract = readContract(projectDir, 'firefox')
-        expect(contract.status).toBe('error')
-        expect(contract.code).toBe('browser_launch_failed')
-        expect(await exitedWithin(pid, 5000)).toBe(true)
-      } finally {
-        if (pid && isAlive(pid)) process.kill(pid, 'SIGKILL')
-      }
-    }, 90_000)
-  }
-)
+      expect(contract.code).toBe('browser_launch_failed')
+      expect(await exitedWithin(pid, 5000)).toBe(true)
+    } finally {
+      if (pid && isAlive(pid)) process.kill(pid, 'SIGKILL')
+    }
+  }, 90_000)
+})

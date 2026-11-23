@@ -7,6 +7,11 @@ vi.mock('chrome-location2', () => ({
   getChromeVersion: () => '141.0.7390.54'
 }))
 
+// Windows reads the version off the file itself, which no path here has.
+vi.mock('../../browsers-lib/binary-version-metadata', () => ({
+  readChromeVersion: () => '141.0.7390.54'
+}))
+
 vi.mock('../../browsers-lib/output-binaries-resolver', () => ({
   resolveFromBinaries: () => null,
   sharedManagedCacheEnv: () => ({})

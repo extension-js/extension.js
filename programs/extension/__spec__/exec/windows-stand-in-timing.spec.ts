@@ -1,26 +1,25 @@
 import {spawnSync} from 'node:child_process'
+import {homedir} from 'node:os'
 import {join} from 'node:path'
 import {expect, it} from 'vitest'
+import {readWindowsProductVersion} from '../../browsers/browsers-lib/binary-version-metadata'
+import {listProcesses} from '../../browsers/browsers-lib/resolve-live-pid'
 import {plantBrowserStandIn} from '../helpers/browser-stand-in'
 import {cliEnv} from '../helpers/run-cli'
 import {trackTempFolders} from '../helpers/temp-folders'
 
 const makeTemp = trackTempFolders()
 
-// Temporary: times what a version read costs on the Windows runner, in the
-// worker's environment and in the one a CLI child gets. Removed before merge.
+// Temporary: times the old and new Windows reads on the hosted runner, with
+// and without LOCALAPPDATA. Removed before merge.
 it.runIf(process.platform === 'win32')(
   'times the version read',
   () => {
     const dir = makeTemp('extjs-stand-in-timing-')
-    const plantStarted = Date.now()
     const binary = plantBrowserStandIn(join(dir, 'a'), 'canary', {
       version: 'Canary 999.0.1234.5'
     })
-    const lines = [`plant (compile) ${Date.now() - plantStarted}ms`]
-    const copyStarted = Date.now()
-    plantBrowserStandIn(join(dir, 'b'), 'canary', {version: 'Canary 1.2.3.4'})
-    lines.push(`plant (copy) ${Date.now() - copyStarted}ms`)
+    const lines: string[] = []
 
     const time = (label: string, bin: string, args: string[], env: object) => {
       const started = Date.now()
@@ -33,7 +32,7 @@ it.runIf(process.platform === 'win32')(
       })
 
       lines.push(
-        `${label} ${Date.now() - started}ms status=${run.status} out=${JSON.stringify(String(run.stdout).trim().slice(0, 80))} err=${JSON.stringify(String(run.stderr).trim().slice(0, 200))}`
+        `${label} ${Date.now() - started}ms status=${run.status} out=${JSON.stringify(String(run.stdout).trim().slice(0, 60))} err=${JSON.stringify(String(run.stderr).trim().slice(0, 160))}`
       )
     }
 
@@ -42,66 +41,74 @@ it.runIf(process.platform === 'win32')(
       '-Command',
       `(Get-Item -LiteralPath '${file}').VersionInfo.ProductVersion`
     ]
-    const worker = {...process.env}
-    const realTemp = process.env.EXTJS_SPEC_REAL_TMPDIR
-    const workerRealTemp = {...worker, TEMP: realTemp, TMP: realTemp}
-    const child = cliEnv()
+    const dotnet = [
+      '-NoProfile',
+      '-NonInteractive',
+      '-Command',
+      '[System.Diagnostics.FileVersionInfo]::GetVersionInfo($env:EXTENSION_VERSION_READ_PATH).ProductVersion'
+    ]
+    const count = (script: string) => [
+      '-NoProfile',
+      '-NonInteractive',
+      '-Command',
+      `(${script} | Measure-Object).Count`
+    ]
+    const cim = count('Get-CimInstance Win32_Process')
+    const wmi = count(
+      "([wmisearcher]'SELECT ProcessId, ParentProcessId, CommandLine FROM Win32_Process').Get()"
+    )
     const whoami = 'C:\\Windows\\System32\\whoami.exe'
+    const localAppData = join(homedir(), 'AppData', 'Local')
+    const bare = {...process.env, EXTENSION_VERSION_READ_PATH: whoami}
+    Reflect.deleteProperty(bare, 'LOCALAPPDATA')
+    const withCache = {...bare, LOCALAPPDATA: localAppData}
+    const child = {...cliEnv(), EXTENSION_VERSION_READ_PATH: whoami}
+    const ps = 'powershell.exe'
 
-    time('stand-in --version, worker env', binary, ['--version'], worker)
-    time('stand-in --version, again', binary, ['--version'], worker)
-    time('stand-in --version, child env', binary, ['--version'], child)
+    time('stand-in --version', binary, ['--version'], bare)
+    time('OLD Get-Item read, no LOCALAPPDATA', ps, read(whoami), bare)
     time(
-      'powershell 1, worker env',
-      'powershell.exe',
-      ['-NoProfile', '-Command', '1'],
-      worker
+      'OLD Get-Item read, LOCALAPPDATA set, 1st',
+      ps,
+      read(whoami),
+      withCache
     )
 
     time(
-      'powershell 1, again',
-      'powershell.exe',
-      ['-NoProfile', '-Command', '1'],
-      worker
+      'OLD Get-Item read, LOCALAPPDATA set, 2nd',
+      ps,
+      read(whoami),
+      withCache
     )
 
-    time(
-      'powershell 1, worker env real temp',
-      'powershell.exe',
-      ['-NoProfile', '-Command', '1'],
-      workerRealTemp
-    )
+    time('OLD Get-Item read, CLI child env', ps, read(whoami), child)
+    time('NEW .NET read, no LOCALAPPDATA', ps, dotnet, bare)
+    time('NEW .NET read, LOCALAPPDATA set', ps, dotnet, withCache)
+    time('NEW .NET read, CLI child env', ps, dotnet, child)
+    time('NEW .NET read of the stand-in', ps, dotnet, {
+      ...bare,
+      EXTENSION_VERSION_READ_PATH: binary
+    })
 
-    time(
-      'powershell 1, child env',
-      'powershell.exe',
-      ['-NoProfile', '-Command', '1'],
-      child
-    )
+    time('NEW .NET read of a missing file', ps, dotnet, {
+      ...bare,
+      EXTENSION_VERSION_READ_PATH: join(dir, 'nope.exe')
+    })
 
-    time('read stand-in, worker env', 'powershell.exe', read(binary), worker)
-    time('read stand-in, again', 'powershell.exe', read(binary), worker)
-    time(
-      'read stand-in, real temp',
-      'powershell.exe',
-      read(binary),
-      workerRealTemp
-    )
+    time('OLD process table, no LOCALAPPDATA', ps, cim, bare)
+    time('OLD process table, LOCALAPPDATA set', ps, cim, withCache)
+    time('NEW process table, no LOCALAPPDATA', ps, wmi, bare)
+    time('NEW process table, CLI child env', ps, wmi, child)
 
-    time('read stand-in, child env', 'powershell.exe', read(binary), child)
-    time('read whoami, worker env', 'powershell.exe', read(whoami), worker)
-    time('read whoami, child env', 'powershell.exe', read(whoami), child)
-    time(
-      'read missing, worker env',
-      'powershell.exe',
-      read(join(dir, 'nope.exe')),
-      worker
-    )
-
-    time('where powershell', 'where.exe', ['powershell.exe'], worker)
-
+    const started = Date.now()
+    const product = readWindowsProductVersion(whoami)
     lines.push(
-      `TEMP=${process.env.TEMP} REAL=${realTemp} LOCALAPPDATA=${process.env.LOCALAPPDATA} PSModulePath=${process.env.PSModulePath}`
+      `product read of whoami ${Date.now() - started}ms out=${product}`
+    )
+
+    lines.push(`product process rows ${listProcesses().length}`)
+    lines.push(
+      `LOCALAPPDATA=${process.env.LOCALAPPDATA} tried=${localAppData} PSModulePath=${process.env.PSModulePath}`
     )
 
     console.log(`STAND-IN TIMING\n${lines.join('\n')}`)

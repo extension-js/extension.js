@@ -40,81 +40,76 @@ function writeFakeCanary(dir: string) {
   })
 }
 
-// On Windows each version read of a pinned binary starts PowerShell, which
-// takes about 17 seconds on the hosted runner, so these rows wait there.
-describe.skipIf(process.platform === 'win32')(
-  'chromium-binary pin contract',
-  () => {
-    const leftovers: string[] = []
+describe('chromium-binary pin contract', () => {
+  const leftovers: string[] = []
 
-    afterEach(() => {
-      for (const dir of leftovers.splice(0)) {
-        try {
-          rmSync(dir, {recursive: true, force: true})
-        } catch {
-          // Ignore
-        }
+  afterEach(() => {
+    for (const dir of leftovers.splice(0)) {
+      try {
+        rmSync(dir, {recursive: true, force: true})
+      } catch {
+        // Ignore
       }
-    })
+    }
+  })
 
-    it('refuses a missing pin on chrome instead of claiming Chrome for Testing is missing', async () => {
-      const projectDir = mkdtempSync(join(tmpdir(), 'extjs-pin-missing-'))
-      leftovers.push(projectDir)
-      writeUnpackedExtension(projectDir)
-      const missing = join(projectDir, 'no-such-canary')
+  it('refuses a missing pin on chrome instead of claiming Chrome for Testing is missing', async () => {
+    const projectDir = mkdtempSync(join(tmpdir(), 'extjs-pin-missing-'))
+    leftovers.push(projectDir)
+    writeUnpackedExtension(projectDir)
+    const missing = join(projectDir, 'no-such-canary')
 
-      const result = await runCli([
-        'preview',
-        projectDir,
-        '--browser',
-        'chrome',
-        '--chromium-binary',
-        missing
-      ])
+    const result = await runCli([
+      'preview',
+      projectDir,
+      '--browser',
+      'chrome',
+      '--chromium-binary',
+      missing
+    ])
 
-      // The whole of stderr, so no install advice can ride along.
-      expect(result.status).toBe(1)
-      expect(result.stderr).toBe(
-        "⏵⏵⏵ Error: Can't find a Chromium binary at the given path.\n" +
-          `NOT FOUND ${missing}\n` +
-          'Pass --chromium-binary <abs-path> with a working path.\n'
-      )
+    // The whole of stderr, so no install advice can ride along.
+    expect(result.status).toBe(1)
+    expect(result.stderr).toBe(
+      "⏵⏵⏵ Error: Can't find a Chromium binary at the given path.\n" +
+        `NOT FOUND ${missing}\n` +
+        'Pass --chromium-binary <abs-path> with a working path.\n'
+    )
 
-      expect(result.stdout).not.toMatch(/Chrome for Testing/)
-    })
+    expect(result.stdout).not.toMatch(/Chrome for Testing/)
+  })
 
-    it.each(
-      CHROMIUM_FAMILY
-    )('launches the named pin on --browser %s and says so on the card', async (browser) => {
-      const projectDir = mkdtempSync(join(tmpdir(), `extjs-pin-${browser}-`))
-      leftovers.push(projectDir)
-      writeUnpackedExtension(projectDir)
-      const pin = writeFakeCanary(projectDir)
+  it.each(
+    CHROMIUM_FAMILY
+  )('launches the named pin on --browser %s and says so on the card', async (browser) => {
+    const projectDir = mkdtempSync(join(tmpdir(), `extjs-pin-${browser}-`))
+    leftovers.push(projectDir)
+    writeUnpackedExtension(projectDir)
+    const pin = writeFakeCanary(projectDir)
 
-      const result = await runCli([
-        'preview',
-        projectDir,
-        '--browser',
-        browser,
-        '--chromium-binary',
-        pin
-      ])
+    const result = await runCli([
+      'preview',
+      projectDir,
+      '--browser',
+      browser,
+      '--chromium-binary',
+      pin
+    ])
 
-      const combined = result.output
-      expect(combined).not.toMatch(/Chrome for Testing isn't available/)
-      expect(combined).not.toMatch(/Install Chrome for Testing/)
-      expect(combined).not.toMatch(
-        /Can't find a Chromium binary at the given path/
-      )
+    const combined = result.output
+    expect(combined).not.toMatch(/Chrome for Testing isn't available/)
+    expect(combined).not.toMatch(/Install Chrome for Testing/)
+    expect(combined).not.toMatch(
+      /Can't find a Chromium binary at the given path/
+    )
 
-      // The pin is honoured, and the card SAYS it was pinned rather than
-      // echoing the path back: the user typed that path, so repeating it costs
-      // the card's last row to tell them what they already know. The version
-      // read off the pinned binary is the evidence it actually ran, and the
-      // resolved path itself is published in ready.json for tooling.
-      expect(combined).toMatch(/999\.0\.1234\.5/)
-      expect(combined).toMatch(/pinned with --chromium-binary/)
-      expect(combined).not.toContain(`Binary         ${pin}`)
-    })
-  }
-)
+    // The pin is honoured, and the card SAYS it was pinned rather than
+    // echoing the path back: the user typed that path, so repeating it costs
+    // the card's last row to tell them what they already know. The version
+    // read off the pinned binary is the evidence it actually ran, and the
+    // resolved path itself is published in ready.json for tooling.
+    expect(combined).toMatch(/999\.0\.1234\.5/)
+    expect(combined).toMatch(/pinned with --chromium-binary/)
+    expect(combined).not.toContain(`Binary         ${pin}`)
+  })
+})
