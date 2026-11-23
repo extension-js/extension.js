@@ -22,8 +22,8 @@ describe('listProcesses on this machine', () => {
     }
   })
 
-  it('names a live process with its parent and the profile on its command line', () => {
-    const profile = mkdtempSync(join(tmpdir(), 'extjs-live-pid-'))
+  function idleBrowserOn(prefix: string) {
+    const profile = mkdtempSync(join(tmpdir(), prefix))
     dirs.push(profile)
 
     const child = spawn(
@@ -32,6 +32,26 @@ describe('listProcesses on this machine', () => {
       {stdio: 'ignore', windowsHide: true}
     )
     children.push(child)
+
+    return {profile, child}
+  }
+
+  // A home folder is named after its user, in whatever script they write.
+  it('finds a browser whose profile path has an accent and a CJK character', () => {
+    const {profile, child} = idleBrowserOn('extjs-live-pid-\u00e9\u6f22-')
+
+    expect(
+      findLiveBrowserPid({
+        profilePath: profile,
+        binary: process.execPath,
+        launcherPid: child.pid,
+        rows: listProcesses()
+      })
+    ).toBe(child.pid)
+  })
+
+  it('names a live process with its parent and the profile on its command line', () => {
+    const {profile, child} = idleBrowserOn('extjs-live-pid-')
 
     const started = Date.now()
     const rows = listProcesses()

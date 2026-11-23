@@ -98,17 +98,9 @@ setInterval(() => {}, 1000)
 `
 }
 
-let compiled: string | undefined
-
 // The compiler ships with Windows, so no binary is committed or downloaded.
 // It writes only the target it is given, inside the folder the spec made.
-function compileOrCopy(target: string) {
-  if (compiled && fs.existsSync(compiled)) {
-    fs.copyFileSync(compiled, target)
-
-    return
-  }
-
+export function compileWindowsProgram(source: string, target: string) {
   const windows = process.env.SystemRoot || process.env.windir || 'C:\\Windows'
   const compiler = ['Framework64', 'Framework']
     .map((folder) =>
@@ -118,7 +110,7 @@ function compileOrCopy(target: string) {
 
   if (!compiler) {
     throw new Error(
-      `No csc.exe under ${windows}\\Microsoft.NET, so the browser stand-in cannot be built.`
+      `No csc.exe under ${windows}\\Microsoft.NET, so ${path.basename(source)} cannot be built.`
     )
   }
 
@@ -127,14 +119,14 @@ function compileOrCopy(target: string) {
     '/nowarn:1607',
     '/optimize+',
     `/out:${target}`,
-    SOURCE
+    source
   ]
   const built = spawnSync(compiler, args, {encoding: 'utf8', windowsHide: true})
 
   if (built.error || built.status !== 0 || !fs.existsSync(target)) {
     // Printed as well as thrown: a job cut short prints no failure summary.
     const report = [
-      'The browser stand-in did not compile.',
+      `${path.basename(source)} did not compile.`,
       `COMMAND ${compiler} ${args.join(' ')}`,
       `EXIT ${built.status} ${built.error?.message ?? ''}`.trim(),
       `STDOUT ${built.stdout}`,
@@ -145,7 +137,18 @@ function compileOrCopy(target: string) {
 
     throw new Error(report)
   }
+}
 
+let compiled: string | undefined
+
+function compileOrCopy(target: string) {
+  if (compiled && fs.existsSync(compiled)) {
+    fs.copyFileSync(compiled, target)
+
+    return
+  }
+
+  compileWindowsProgram(SOURCE, target)
   compiled = target
 }
 

@@ -59,7 +59,9 @@ describe.skipIf(!HAS_DIST)('the published extension package', () => {
 
     expect(files).toContain('dist/cli.cjs')
     expect(leaks).toEqual([])
-  }, 60000)
+    // This row pays for the one pack: 2 to 11 s on a hosted Windows
+    // runner, and 79 s once on a stalled one, where it still succeeded.
+  }, 180000)
 
   it('packs no copy of the engine, which ships as its own package', () => {
     expect(
