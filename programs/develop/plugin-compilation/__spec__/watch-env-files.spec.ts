@@ -265,8 +265,13 @@ describe('an env file edited under a real watch', () => {
       fs.writeFileSync(envPath, 'EXTENSION_PUBLIC_GREETING=second\n')
       await until(() => requests.length > 0 && builds > seen)
 
-      expect(requests.map((request) => request.reason)).toEqual(['env'])
-      expect(requests[0].pathChanged).toBe(envPath)
+      // One save can reach a real watcher as two events, and the session
+      // scheduler folds repeats into one restart, so only what was asked counts.
+      const reasons = new Set(requests.map((request) => request.reason))
+      const paths = new Set(requests.map((request) => request.pathChanged))
+
+      expect([...reasons]).toEqual(['env'])
+      expect([...paths]).toEqual([envPath])
       // The running compiler read the file once, so its rebuild is stale.
       expect(runScript(output)).toEqual(['first first first'])
     } finally {
