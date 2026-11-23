@@ -7,11 +7,13 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {spawn} from 'node:child_process'
-import {getChromeVersion} from 'chrome-location2'
-import {getChromiumVersion} from 'chromium-location'
-import {getEdgeVersion} from 'edge-location'
-import {getFirefoxVersion} from 'firefox-location2'
 import {CODES} from '../../helpers/messaging'
+import {
+  readChromeVersion,
+  readChromiumVersion,
+  readEdgeVersion,
+  readFirefoxVersion
+} from './binary-version-metadata'
 import * as messages from './messages'
 import {killProcessTree} from './process-teardown'
 
@@ -119,13 +121,16 @@ export async function probeChromiumBinaryVersion(
   const target = String(browser || '')
   const readers: Array<(file: string) => string | null | undefined> = []
 
-  if (target === 'edge') readers.push(getEdgeVersion)
+  if (target === 'edge') readers.push(readEdgeVersion)
 
   if (target === 'chromium' || target === 'chromium-based') {
-    readers.push(getChromiumVersion)
+    readers.push(readChromiumVersion)
   }
 
-  readers.push(getChromeVersion, getChromiumVersion, getEdgeVersion)
+  readers.push(readChromeVersion, readChromiumVersion, readEdgeVersion)
+
+  // Every reader asks Windows the same question, so one answer is enough.
+  if (process.platform === 'win32') readers.splice(1)
 
   for (const read of readers) {
     try {
@@ -150,7 +155,7 @@ export async function probeGeckoBinaryVersion(
   pinnedBy = '--gecko-binary'
 ): Promise<string> {
   try {
-    const line = getFirefoxVersion(bin)
+    const line = readFirefoxVersion(bin)
     if (line && String(line).trim()) return String(line).trim()
   } catch {
     // Fall through to asking the binary itself

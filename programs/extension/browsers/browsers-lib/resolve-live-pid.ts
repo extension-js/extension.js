@@ -109,8 +109,10 @@ export function listProcesses(
   io: ProcessTableIo = processTableIo
 ): ProcessRow[] {
   if (platform === 'win32') {
+    // A type accelerator loads no module, where Get-CimInstance made
+    // PowerShell discover its modules first on every start.
     const script =
-      'Get-CimInstance Win32_Process | ForEach-Object { ' +
+      "([wmisearcher]'SELECT ProcessId, ParentProcessId, CommandLine FROM Win32_Process').Get() | ForEach-Object { " +
       '"$($_.ProcessId) $($_.ParentProcessId) $($_.CommandLine)" }'
     const output = io.run('powershell.exe', [
       '-NoProfile',

@@ -1,5 +1,4 @@
 import {
-  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -8,8 +7,9 @@ import {
   writeFileSync
 } from 'node:fs'
 import {tmpdir} from 'node:os'
-import {dirname, join} from 'node:path'
+import {join} from 'node:path'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
+import {plantBrowserStandIn} from '../helpers/browser-stand-in'
 import {framesIn, runCli as spawnCli} from '../helpers/run-cli'
 
 interface Frame {
@@ -47,23 +47,18 @@ function geckoSystemProfileSpecs(command: Command) {
 
   const project = (source: Source) => join(work, `project-${source}`)
   // One stand-in per case, so a spawn in one case never fails another.
-  const standIn = (key: string) => join(work, 'bin', key, 'firefox')
+  const standIns: Record<string, string> = {}
+  const standIn = (key: string) => standIns[key]
   const spawnedLog = (key: string) => join(work, `spawned-${key}.log`)
 
   beforeAll(() => {
     work = mkdtempSync(join(tmpdir(), `extjs-gecko-system-${command}-`))
 
     for (const key of ['flag', 'config', 'env', 'text']) {
-      mkdirSync(dirname(standIn(key)), {recursive: true})
-      writeFileSync(
-        standIn(key),
-        '#!/bin/sh\n' +
-          'if [ "$1" = "--version" ]; then echo "Mozilla Firefox 140.0"; exit 0; fi\n' +
-          `echo "$$ $*" >> '${spawnedLog(key)}'\n` +
-          'exit 0\n'
-      )
-
-      chmodSync(standIn(key), 0o755)
+      standIns[key] = plantBrowserStandIn(join(work, 'bin', key), 'firefox', {
+        version: 'Mozilla Firefox 140.0',
+        argvFile: spawnedLog(key)
+      })
     }
 
     const manifest = JSON.stringify({
@@ -169,11 +164,10 @@ function geckoSystemProfileSpecs(command: Command) {
   }, 120_000)
 }
 
-// The home is a temp folder, so system profile mode names no real profile,
-// and the browser is a shell script, which Windows does not run.
-describe
-  .skipIf(process.platform === 'win32')
-  .each(['dev', 'start', 'preview'] as Command[])(
-  '%s on a Gecko browser in system profile mode',
-  (command) => geckoSystemProfileSpecs(command)
-)
+// The home is a temp folder, so system profile mode names no real profile.
+describe.each([
+  'dev',
+  'start',
+  'preview'
+] as Command[])('%s on a Gecko browser in system profile mode', (command) =>
+  geckoSystemProfileSpecs(command))

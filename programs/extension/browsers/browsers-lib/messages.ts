@@ -10,10 +10,9 @@ import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {getChromeVersion} from 'chrome-location2'
-import locateChromium, {getChromiumVersion} from 'chromium-location'
-import locateEdge, {getEdgeVersion} from 'edge-location'
-import locateFirefox, {getFirefoxVersion} from 'firefox-location2'
+import locateChromium from 'chromium-location'
+import locateEdge from 'edge-location'
+import locateFirefox from 'firefox-location2'
 import colors from 'pintor'
 import {
   browserDisplayName,
@@ -26,6 +25,12 @@ import {
 import type {BrowserType} from '../browsers-types'
 import {LIBREWOLF_REMOTE_DEBUGGING_LINES} from '../run-firefox/firefox-launch/librewolf-overrides'
 import {locateChromeIn} from './binary-env-override'
+import {
+  readChromeVersion,
+  readChromiumVersion,
+  readEdgeVersion,
+  readFirefoxVersion
+} from './binary-version-metadata'
 import {isFirefoxBrowser} from './browser-family'
 import {isRefusedOfficialChrome} from './official-chrome'
 import {
@@ -201,18 +206,18 @@ export function resolveBrowserVersionLine(
 
       if (managed && fs.existsSync(managed)) {
         if (managedKey === 'chromium') {
-          return getChromiumVersion(managed) || 'Chromium'
+          return readChromiumVersion(managed) || 'Chromium'
         }
 
         if (managedKey === 'chrome') {
-          return getChromeVersion(managed) || 'Chrome'
+          return readChromeVersion(managed) || 'Chrome'
         }
 
         if (managedKey === 'edge') {
-          return getEdgeVersion(managed) || 'Microsoft Edge'
+          return readEdgeVersion(managed) || 'Microsoft Edge'
         }
 
-        return getFirefoxVersion(managed) || 'Firefox'
+        return readFirefoxVersion(managed) || 'Firefox'
       }
     } catch {
       // Ignore
@@ -224,7 +229,7 @@ export function resolveBrowserVersionLine(
       const p = locateChromium(true, {env: sharedManagedCacheEnv('chromium')})
 
       if (p && typeof p === 'string' && fs.existsSync(p)) {
-        return getChromiumVersion(p) || 'Chromium'
+        return readChromiumVersion(p) || 'Chromium'
       }
     } else if (browser === 'chrome') {
       const p = locateChromeIn(sharedManagedCacheEnv('chrome'))
@@ -232,19 +237,19 @@ export function resolveBrowserVersionLine(
       if (p && typeof p === 'string' && isRefusedOfficialChrome(p)) return ''
 
       if (p && typeof p === 'string' && fs.existsSync(p)) {
-        return getChromeVersion(p) || 'Chrome'
+        return readChromeVersion(p) || 'Chrome'
       }
     } else if (browser === 'edge') {
       const p = locateEdge(true, {env: sharedManagedCacheEnv('edge')})
 
       if (p && typeof p === 'string' && fs.existsSync(p)) {
-        return getEdgeVersion(p) || 'Microsoft Edge'
+        return readEdgeVersion(p) || 'Microsoft Edge'
       }
     } else if (browser === 'firefox') {
       const p = locateFirefox(true, {env: sharedManagedCacheEnv('firefox')})
 
       if (p && typeof p === 'string' && fs.existsSync(p)) {
-        return getFirefoxVersion(p) || 'Firefox'
+        return readFirefoxVersion(p) || 'Firefox'
       }
     }
   } catch {

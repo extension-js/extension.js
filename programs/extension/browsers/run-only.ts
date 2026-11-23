@@ -236,14 +236,18 @@ function buildPreviewFirefoxOptions(
   }
 }
 
-function pinnedBinaryPath(opts: PreviewRunOptions): string | undefined {
+function requestedBinaryPin(opts: PreviewRunOptions): string | undefined {
   const pinned = isFirefoxBrowser(opts.browser)
     ? opts.geckoBinary
     : opts.chromiumBinary
 
-  return typeof pinned === 'string' && fs.existsSync(pinned)
-    ? pinned
-    : undefined
+  return typeof pinned === 'string' && pinned ? pinned : undefined
+}
+
+function pinnedBinaryPath(opts: PreviewRunOptions): string | undefined {
+  const pinned = requestedBinaryPin(opts)
+
+  return pinned && fs.existsSync(pinned) ? pinned : undefined
 }
 
 // The config key that pinned the binary this browser runs, when one did.
@@ -297,9 +301,11 @@ async function buildPreviewBannerOptions(opts: PreviewRunOptions) {
     includeRunId: false,
     readyPath: opts.readyPath,
     browserVersionLine: await resolvePinnedBinaryVersionLine(opts),
-    ...(pinned
+    // A pin that names no file is still the only binary this run may use,
+    // so the card reads no other install's version before the refusal.
+    ...(requestedBinaryPin(opts)
       ? {
-          binaryPath: pinned,
+          ...(pinned ? {binaryPath: pinned} : {}),
           binaryProvenance: 'pinned' as const,
           binaryPinnedBy: pinnedBinarySource(opts)
         }

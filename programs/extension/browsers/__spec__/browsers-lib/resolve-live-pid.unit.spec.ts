@@ -413,7 +413,7 @@ describe('listProcesses', () => {
       '-Command'
     ])
 
-    expect(table.asked[0].args[3]).toContain('Get-CimInstance Win32_Process')
+    expect(table.asked[0].args[3]).toContain('FROM Win32_Process')
     expect(table.read).toEqual([])
     expect(
       findLiveBrowserPid({
