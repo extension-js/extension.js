@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {defined} from '../../__spec__/helpers/defined'
 import {
   fakeCompilation,
   fakeCompiler
@@ -37,7 +38,10 @@ function makeDeferredPackager() {
       calls.push({distPath, mode, resolve: () => resolve(), reject})
     })
   const callFor = (distPath: string) =>
-    calls.find((c) => c.distPath === distPath)!
+    defined(
+      calls.find((c) => c.distPath === distPath),
+      `a packager call for ${distPath}`
+    )
   const modes = () => calls.map((c) => `${c.mode}:${c.distPath}`)
 
   return {fn, calls, callFor, modes}

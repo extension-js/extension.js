@@ -16,8 +16,8 @@ import {WarnUnknownRegistrationWorld} from '../steps/warn-unknown-registration-w
 const roots: string[] = []
 
 afterEach(() => {
-  while (roots.length > 0) {
-    fs.rmSync(roots.pop()!, {recursive: true, force: true})
+  for (const folder of roots.splice(0)) {
+    fs.rmSync(folder, {recursive: true, force: true})
   }
 })
 

@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
+import {defined} from '../../__spec__/helpers/defined'
 import {PruneStaleHotUpdates} from '../steps/prune-stale-hot-updates'
 
 describe('PruneStaleHotUpdates (bug 34)', () => {
@@ -34,7 +35,9 @@ describe('PruneStaleHotUpdates (bug 34)', () => {
     new PruneStaleHotUpdates().apply(compiler as unknown as Compiler)
 
     const compileWith = (assetNames: string[]) => {
-      doneFn!({
+      const done = defined(doneFn, 'the done tap')
+
+      done({
         compilation: {
           getAssets: () => assetNames.map((name) => ({name}))
         }

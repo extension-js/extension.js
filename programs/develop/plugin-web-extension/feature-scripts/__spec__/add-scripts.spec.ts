@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import {defined} from '../../../__spec__/helpers/defined'
 import type {BrowserType} from '../../../types'
 import {asCompiler} from '../../__spec__/helpers/rspack-fakes'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../contracts'
@@ -10,8 +11,8 @@ import {AddScripts} from '../steps/add-scripts'
 const tempDirs: string[] = []
 
 afterEach(() => {
-  while (tempDirs.length > 0) {
-    fs.rmSync(tempDirs.pop()!, {recursive: true, force: true})
+  for (const tempFolder of tempDirs.splice(0)) {
+    fs.rmSync(tempFolder, {recursive: true, force: true})
   }
 })
 
@@ -263,7 +264,9 @@ describe('AddScripts', () => {
 
     const match = entryPath.match(/[?&]__extensionjs_classic_concat__=([^&]+)/)
     expect(match).toBeTruthy()
-    const data = JSON.parse(decodeURIComponent(match![1]))
+    const data = JSON.parse(
+      decodeURIComponent(defined(match, 'the classic concat query')[1])
+    )
     expect(data.js).toEqual([basePath, childPath])
     expect(data.feature).toBe('content_scripts/content-0')
   })
@@ -350,7 +353,9 @@ describe('AddScripts', () => {
     expect(entryPath).toContain('__extensionjs_classic_concat__')
 
     const match = entryPath.match(/[?&]__extensionjs_classic_concat__=([^&]+)/)
-    const data = JSON.parse(decodeURIComponent(match![1]))
+    const data = JSON.parse(
+      decodeURIComponent(defined(match, 'the classic concat query')[1])
+    )
     expect(data.js).toEqual([basePath, childPath])
     expect(data.css).toEqual([])
 

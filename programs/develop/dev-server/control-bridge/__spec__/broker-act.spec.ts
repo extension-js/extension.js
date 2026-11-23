@@ -1,4 +1,5 @@
 import {describe, expect, it} from 'vitest'
+import {defined} from '../../../__spec__/helpers/defined'
 import type {ActionRecord, ActionsSink} from '../actions-file'
 import {
   BridgeBroker,
@@ -521,7 +522,7 @@ describe('BridgeBroker (Slice 2: act)', () => {
     })
 
     expect(exec.sent.find((f) => f.type === 'command')).toBeUndefined()
-    const rec = actions.records.at(-1)!
+    const rec = defined(actions.records.at(-1), 'the last action record')
     expect(rec).toMatchObject({
       op: 'eval',
       ok: false,

@@ -172,9 +172,9 @@ describe.each([
     ).not.toBe(null)
 
     expect(
-      emitted!.includes(FIXTURE_PROCESSED_MARKER),
+      String(emitted),
       'emitted CSS missing PostCSS-injected marker, `?url` import bypassed the CSS pipeline'
-    ).toBe(true)
+    ).toContain(FIXTURE_PROCESSED_MARKER)
 
     expect(
       String(emitted),

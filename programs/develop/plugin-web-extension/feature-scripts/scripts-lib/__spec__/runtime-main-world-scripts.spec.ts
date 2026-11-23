@@ -13,8 +13,8 @@ import {
 const roots: string[] = []
 
 afterEach(() => {
-  while (roots.length > 0) {
-    fs.rmSync(roots.pop()!, {recursive: true, force: true})
+  for (const tempFolder of roots.splice(0)) {
+    fs.rmSync(tempFolder, {recursive: true, force: true})
   }
 })
 
