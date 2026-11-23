@@ -184,10 +184,29 @@ function categorize(commits) {
   return buckets
 }
 
+// Removing one comment can join the text around it into a new marker
+// (`<!-<!-- x -->-`), so scan again from the start until none is left.
+export function stripHtmlComments(text) {
+  const opener = '<!--'
+  const closer = '-->'
+  let rest = text
+
+  for (;;) {
+    const open = rest.indexOf(opener)
+    if (open === -1) return rest
+
+    const close = rest.indexOf(closer, open + opener.length)
+    // An opener that never closes loses only its marker, the text stays.
+    const end = close === -1 ? open + opener.length : close + closer.length
+
+    rest = rest.slice(0, open) + rest.slice(end)
+  }
+}
+
 function readSection(file, title) {
   if (!file || !existsSync(file)) return []
 
-  const raw = readFileSync(file, 'utf8').replace(/<!--[\s\S]*?-->/g, '')
+  const raw = stripHtmlComments(readFileSync(file, 'utf8'))
   const lines = raw.split('\n')
   const heading = new RegExp(`^##\\s+${title}\\s*$`, 'i')
   const start = lines.findIndex((line) => heading.test(line))
