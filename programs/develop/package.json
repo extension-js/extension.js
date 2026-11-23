@@ -137,7 +137,7 @@
     "addons-linter": "10.15.0",
     "fast-check": "^4.10.0",
     "preact": "11.0.0",
-    "svelte": "5.55.9",
+    "svelte": "5.59.1",
     "typescript": "7.0.2",
     "vitest": "^5.0.5",
     "webpack": "^5.104.1"
