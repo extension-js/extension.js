@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import {fileURLToPath} from 'node:url'
-import yaml from 'js-yaml'
+import {load as loadYaml} from 'js-yaml'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 
@@ -12,7 +12,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
  * @returns {any}
  */
 export function readYaml(...segments) {
-  return yaml.load(fs.readFileSync(path.join(root, ...segments), 'utf8'))
+  return loadYaml(fs.readFileSync(path.join(root, ...segments), 'utf8'))
 }
 
 /** @param {string} file */

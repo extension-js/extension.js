@@ -2,7 +2,7 @@ import {execFileSync} from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import {fileURLToPath, pathToFileURL} from 'node:url'
-import yaml from 'js-yaml'
+import {load as loadYaml} from 'js-yaml'
 
 export const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -255,7 +255,7 @@ export function workflowPathEntries(root = repoRoot) {
     if (!name.endsWith('.yml') && !name.endsWith('.yaml')) continue
 
     /** @type {any} */
-    const workflow = yaml.load(fs.readFileSync(path.join(dir, name), 'utf8'))
+    const workflow = loadYaml(fs.readFileSync(path.join(dir, name), 'utf8'))
     const triggers = workflow?.on
 
     if (!triggers || typeof triggers !== 'object') continue
@@ -419,7 +419,7 @@ export async function specsNoRunnerReaches(files, tracked, root = repoRoot) {
  */
 export function workspaceEntries(root = repoRoot) {
   /** @type {any} */
-  const workspace = yaml.load(
+  const workspace = loadYaml(
     fs.readFileSync(path.join(root, 'pnpm-workspace.yaml'), 'utf8')
   )
 
