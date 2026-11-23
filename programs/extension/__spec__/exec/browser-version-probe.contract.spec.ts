@@ -43,7 +43,7 @@ interface ProbeRun {
   // From the stand-in writing its pid to the exit of the CLI.
   probeWindowMs: number
   // The stand-in and the child it started, and whether each one ended.
-  tree: Array<{pid: number; ended: boolean}>
+  tree: Array<{name: string; pid: number; ended: boolean}>
   ready: Record<string, unknown> | null
   // start only: the contract once compiled, and the two waiters.
   compiled?: Record<string, unknown> | null
@@ -217,13 +217,16 @@ async function probeRun(
 
     // The probe gives the stand-in a group of its own, which the kill above
     // does not reach, so a pid still alive here is ended by number.
-    for (const file of [stand.pidFile, stand.childPidFile]) {
+    for (const [name, file] of [
+      ['the stand-in', stand.pidFile],
+      ['its child', stand.childPidFile]
+    ]) {
       if (!existsSync(file)) continue
 
       const pid = Number(readFileSync(file, 'utf8').trim())
       const ended = await endedWithin(pid, 2_000)
 
-      run.tree.push({pid, ended})
+      run.tree.push({name, pid, ended})
 
       if (!ended) {
         try {
@@ -360,17 +363,18 @@ describe('a pinned browser binary that never answers its version probe', () => {
     )
   })
 
-  // Both the probed process and the child it started are gone. On Windows
-  // one of the two was still alive 10 seconds after the CLI ended, so it waits.
-  it
-    .skipIf(process.platform === 'win32')
-    .each(everyCase as Array<[Command, Browser]>)(
-    '%s on %s leaves nothing of the probed binary running',
-    async (command, browser) => {
-      const run = await runOf(command, browser)
+  // Both the probed process and the child it started are gone, and a
+  // failure names the one that is not.
+  it.each(
+    everyCase as Array<[Command, Browser]>
+  )('%s on %s leaves nothing of the probed binary running', async (command, browser) => {
+    const run = await runOf(command, browser)
 
-      expect(run.tree).toHaveLength(2)
-      expect(run.tree.filter((entry) => !entry.ended)).toEqual([])
-    }
-  )
+    expect(run.tree.map((entry) => entry.name)).toEqual([
+      'the stand-in',
+      'its child'
+    ])
+
+    expect(run.tree.filter((entry) => !entry.ended)).toEqual([])
+  })
 })
