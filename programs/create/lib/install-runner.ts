@@ -449,9 +449,12 @@ export async function runInstall(
   }
 
   return new Promise<InstallResult>((resolve, reject) => {
+    let timedOut = false
+
     // Resolved here and not on close: a surviving grandchild can hold the
     // pipes open, and close would then never arrive.
     const timer = setTimeout(() => {
+      timedOut = true
       release()
       endProcessTree(child, spawnProcess, platform, signalGroup, () => {
         resolve({
@@ -470,6 +473,9 @@ export async function runInstall(
     }, timeoutMs)
 
     child.on('close', (code, signal) => {
+      // The exit of a child the timeout ended is the timeout's to report.
+      if (timedOut) return
+
       clearTimeout(timer)
       release()
       resolve({
@@ -481,6 +487,8 @@ export async function runInstall(
     })
 
     child.on('error', (error) => {
+      if (timedOut) return
+
       clearTimeout(timer)
       release()
       reject(error)
