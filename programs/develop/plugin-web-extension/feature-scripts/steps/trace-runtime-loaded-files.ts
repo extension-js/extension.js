@@ -6,6 +6,7 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import {createHash} from 'node:crypto'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {
@@ -207,6 +208,8 @@ const STANDARD_BACKGROUND_KEYS = new Set([
 // importScripts chains resolve against the worker URL, so depth only grows
 // through files importing further files, 8 hops is far beyond real usage.
 const MAX_TRACE_DEPTH = 8
+// The copies the getURL trace reads on: scripts, pages and sheets.
+const SCANNED_COPY = /\.(?:js|mjs|html?|css)$/i
 const FONT_FILE = /\.(?:woff2?|ttf|otf|eot)$/i
 // The names a font license ships under, with any ending.
 const LICENSE_FILE = /^(?:licen[sc]e|copying|notice)|^ofl\.txt$/i
@@ -301,13 +304,18 @@ export class TraceRuntimeLoadedFiles {
   public readonly manifestPath: string
   public readonly browser: DevOptions['browser']
   private readonly namingSources = new Map<string, string>()
+  private readonly keptScans = new KeptScans()
+  private readonly onScan?: ScanListener
 
   constructor(options: {
     manifestPath: string
     browser?: DevOptions['browser']
+    // Told of every scan that reads a script, for a spec to count.
+    onScan?: ScanListener
   }) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
+    this.onScan = options.onScan
   }
 
   apply(compiler: Compiler) {
@@ -322,10 +330,15 @@ export class TraceRuntimeLoadedFiles {
             stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE
           },
           async () => {
+            // Only a watching compiler builds again, so a single build
+            // keeps no answer and digests no text.
+            const kept = compiler.watchMode ? this.keptScans : undefined
             const run = new TraceRun(
               compilation,
               compiler,
-              path.dirname(this.manifestPath)
+              path.dirname(this.manifestPath),
+              kept,
+              this.onScan
             )
             // Sources that need the bundler are compiled once per round, then
             // their output is scanned like any other bundle, since a compiled
@@ -351,11 +364,18 @@ export class TraceRuntimeLoadedFiles {
               }
             } finally {
               forgetBlankedSources()
+              kept?.sweep()
             }
           }
         )
       }
     )
+  }
+
+  // The manifest and the page maps are read from disk, so a run reads each
+  // once and every phase and round of it sees the same answer.
+  private manifestOf(run: TraceRun): TracedManifest | undefined {
+    return run.once('manifest', () => this.readManifest())
   }
 
   private readManifest(): TracedManifest | undefined {
@@ -376,7 +396,7 @@ export class TraceRuntimeLoadedFiles {
   // A worker that calls importScripts.apply(null, getManifest().background.X)
   // names its files under a custom manifest key, so those files ship too.
   private traceManifestNamedFiles(run: TraceRun) {
-    const manifest = this.readManifest() as Record<string, unknown> | undefined
+    const manifest = this.manifestOf(run) as Record<string, unknown> | undefined
     if (!manifest) return
 
     const seen = run.seen.getURL
@@ -412,7 +432,7 @@ export class TraceRuntimeLoadedFiles {
   }
 
   private traceWorkerImportScripts(run: TraceRun, only?: Set<string>) {
-    const manifest = this.readManifest()
+    const manifest = this.manifestOf(run)
     const workerRef = manifest?.background?.service_worker
     // Module workers cannot legally call importScripts.
     if (!workerRef || manifest?.background?.type === 'module') return
@@ -536,9 +556,11 @@ export class TraceRuntimeLoadedFiles {
       )
 
     for (const asset of jsAssets) {
-      const content = run.textOf(asset)
-
-      for (const literal of extractFetchedFileLiterals(content)) {
+      for (const literal of run.scan(
+        asset,
+        'fetched',
+        extractFetchedFileLiterals
+      )) {
         // Runtime resolution base is the asset's own URL directory: page
         // scripts sit beside their page in dist, workers fetch off the worker URL.
         const distRel = resolveExtensionPath(literal, ownAddressOf(asset.name))
@@ -588,7 +610,7 @@ export class TraceRuntimeLoadedFiles {
           : undefined
 
         if (abs) {
-          run.emitCopy(
+          run.shipCopy(
             abs,
             distRel,
             missing ?? run.sayNotShipped(asset.name, literal, distRel)
@@ -653,6 +675,12 @@ export class TraceRuntimeLoadedFiles {
 
   // Every page the build compiles away from the path its author wrote, with
   // each compiled page that source feeds. The background page is not one.
+  private relocatedPagesOf(run: TraceRun): Map<string, string[]> {
+    return run.once('relocatedPages', () =>
+      this.relocatedPageOutputs(run.manifestDir)
+    )
+  }
+
   private relocatedPageOutputs(manifestDir: string): Map<string, string[]> {
     const relocated = new Map<string, string[]>()
 
@@ -711,7 +739,7 @@ export class TraceRuntimeLoadedFiles {
   // A script that holds the path a page was written at compares it with
   // sender.url or location, so the page has to open at that same path.
   private keepAuthoredPagePaths(run: TraceRun, only?: Set<string>) {
-    const relocated = this.relocatedPageOutputs(run.manifestDir)
+    const relocated = this.relocatedPagesOf(run)
     if (relocated.size === 0) return
 
     for (const asset of run.jsAssets(only)) {
@@ -721,7 +749,7 @@ export class TraceRuntimeLoadedFiles {
       )
       if (mentioned.length === 0) continue
 
-      const literals = extractPathLiterals(blankComments(text))
+      const literals = run.scan(asset, 'paths', pathLiteralsOf)
 
       for (const authored of mentioned) {
         const literal = literals.find((value) => namesPagePath(value, authored))
@@ -761,7 +789,11 @@ export class TraceRuntimeLoadedFiles {
       )
       if (bases.length === 0) continue
 
-      for (const literal of extractFetchedFileLiterals(run.textOf(asset))) {
+      for (const literal of run.scan(
+        asset,
+        'fetched',
+        extractFetchedFileLiterals
+      )) {
         for (const base of bases) {
           const distRel = resolveExtensionPath(literal, base)
           if (!distRel || seen.has(distRel)) continue
@@ -774,7 +806,7 @@ export class TraceRuntimeLoadedFiles {
           const abs = path.join(run.manifestDir, distRel)
 
           if (isFile(abs)) {
-            run.emitCopy(
+            run.shipCopy(
               abs,
               distRel,
               run.sayNotShipped(asset.name, literal, distRel)
@@ -789,7 +821,7 @@ export class TraceRuntimeLoadedFiles {
   // file the WAR step emits later in the compilation is not missing.
   private webAccessibleOutputs(run: TraceRun): Set<string> {
     const outputs = new Set<string>()
-    const declared = this.readManifest()?.web_accessible_resources
+    const declared = this.manifestOf(run)?.web_accessible_resources
     if (!Array.isArray(declared)) return outputs
 
     const projectPath = run.compilation.options?.context as string | undefined
@@ -818,7 +850,7 @@ export class TraceRuntimeLoadedFiles {
   }
 
   private traceGetURLFiles(run: TraceRun, only?: Set<string>) {
-    const manifest = this.readManifest()
+    const manifest = this.manifestOf(run)
     const declaredSurfaces = manifestDeclaredSourcePaths(manifest)
     // A WebKit build emits no page for a key its filter drops, so a literal
     // that still opens one names a file Safari cannot find.
@@ -829,9 +861,13 @@ export class TraceRuntimeLoadedFiles {
           ).map((page) => [page.path, page] as const)
         : []
     )
-    const surfacePages = this.surfacePageOutputs(run.manifestDir)
-    const relocatedPages = this.relocatedPageOutputs(run.manifestDir)
-    const folderPages = this.folderPageOutputs(run)
+    const surfacePages = run.once('surfacePages', () =>
+      this.surfacePageOutputs(run.manifestDir)
+    )
+    const relocatedPages = this.relocatedPagesOf(run)
+    const folderPages = run.once('folderPages', () =>
+      this.folderPageOutputs(run)
+    )
     let shippedByWar: Set<string> | undefined
     const seen = run.seen.getURL
     const pageSources = new Map(
@@ -916,7 +952,13 @@ export class TraceRuntimeLoadedFiles {
     // getURL literals resolve against the extension ROOT regardless of context,
     // so, unlike relative fetch(), content scripts are traceable here.
     type PendingScan =
-      | {kind: 'js'; content: string; assetName: string; copied?: boolean}
+      | {
+          kind: 'js'
+          content: string
+          assetName: string
+          copied?: boolean
+          asset?: ScannedAsset
+        }
       | {kind: 'html'; content: string; baseRel: string}
       | {kind: 'css'; content: string; baseRel: string; injected?: string}
 
@@ -925,7 +967,8 @@ export class TraceRuntimeLoadedFiles {
       ...run.jsAssets(only).map((asset) => ({
         kind: 'js' as const,
         content: run.textOf(asset),
-        assetName: asset.name
+        assetName: asset.name,
+        asset
       })),
       // A sheet an injection call ships names fonts and images too. Firefox
       // reads them from where the sheet sits, so they are followed from there.
@@ -946,15 +989,23 @@ export class TraceRuntimeLoadedFiles {
         const refs: Ref[] =
           item.kind === 'js'
             ? [
-                ...extractGetURLLiterals(item.content).map((literal) => ({
+                ...(item.asset
+                  ? run.scan(item.asset, 'getURL', extractGetURLLiterals)
+                  : extractGetURLLiterals(item.content)
+                ).map((literal) => ({
                   literal,
                   baseRel: ''
                 })),
                 // Runtime-set surfaces (setPopup, setIcon) are not manifest
                 // refs, and each browser reads their path from its own place.
-                ...extractRuntimeSurfaceReferences(item.content).flatMap(
-                  (ref) => surfaceRefs(ref, item)
-                ),
+                ...(item.asset
+                  ? run.scan(
+                      item.asset,
+                      'surfaces',
+                      extractRuntimeSurfaceReferences
+                    )
+                  : extractRuntimeSurfaceReferences(item.content)
+                ).flatMap((ref) => surfaceRefs(ref, item)),
                 // Only files WE copied verbatim: emitted bundles had their
                 // imports resolved by the bundler already.
                 ...(item.copied
@@ -1225,14 +1276,26 @@ export class TraceRuntimeLoadedFiles {
         asset.name.startsWith('scripts/')
       const loaders = pages.get(asset.name)
       const bases = inWebPage ? [] : (loaders ?? [ownAddressOf(asset.name)])
-      const literals = extractPathLiterals(blankComments(run.textOf(asset)))
-      const forms = provenReferenceForms(
-        run.textOf(asset),
-        literals,
-        extractRuntimeSurfaceReferences(run.textOf(asset)).map((ref) => ({
-          literal: ref.literal,
-          form: surfaceAddress(ref.reads, String(this.browser))
-        }))
+      // The build hash is a string of every dev entry, so the whole list is
+      // new on each build. The paths in it and what they prove are not.
+      const literals = run.scan(asset, 'namedPaths', () =>
+        run
+          .scan(asset, 'paths', pathLiteralsOf)
+          .filter((literal) =>
+            toRuntimePathReference(literal)?.file?.includes('/')
+          )
+      )
+      const forms = run.scan(asset, 'forms', (text) =>
+        provenReferenceForms(
+          text,
+          run.scan(asset, 'paths', pathLiteralsOf),
+          run
+            .scan(asset, 'surfaces', extractRuntimeSurfaceReferences)
+            .map((ref) => ({
+              literal: ref.literal,
+              form: surfaceAddress(ref.reads, String(this.browser))
+            }))
+        )
       )
       // Where a script reads from is known for the background and for a
       // script its pages name, unless a base element moves what a path means.
@@ -1243,7 +1306,7 @@ export class TraceRuntimeLoadedFiles {
 
       for (const literal of literals) {
         const file = toRuntimePathReference(literal)?.file
-        if (!file?.includes('/')) continue
+        if (!file) continue
 
         const form = inWebPage ? undefined : forms.get(literal)
         const targets =
@@ -1286,7 +1349,7 @@ export class TraceRuntimeLoadedFiles {
           if (!abs) continue
 
           seen.add(distRel)
-          run.emitCopy(
+          run.shipCopy(
             abs,
             distRel,
             run.sayNotShipped(asset.name, literal, distRel)
@@ -1302,8 +1365,9 @@ export class TraceRuntimeLoadedFiles {
     const {manifestDir, entrySourceDirs} = run
 
     for (const asset of run.jsAssets(only)) {
-      const content = run.textOf(asset)
-      if (!hasWebpackChunkLoadingRuntime(content)) continue
+      if (!run.scan(asset, 'chunkRuntime', hasWebpackChunkLoadingRuntime)) {
+        continue
+      }
 
       // Prebuilt webpack bundles address lazy chunks by NUMERIC id via
       // publicPath concat, so literal tracing is blind; copy numeric siblings.
@@ -1346,9 +1410,9 @@ export class TraceRuntimeLoadedFiles {
     const seen = run.seen.injected
 
     for (const asset of run.jsAssets(only)) {
-      const content = run.textOf(asset)
-
-      for (const literal of extractInjectedFileLiterals(content)) {
+      for (const literal of run.scan(asset, 'injected', (text) =>
+        extractInjectedFileLiterals(text)
+      )) {
         const distRel = resolveExtensionPath(literal, '')
         if (!distRel || seen.has(distRel)) continue
 
@@ -1426,6 +1490,101 @@ export class TraceRuntimeLoadedFiles {
   }
 }
 
+type ScannedAsset = {name: string; source: {source(): string | Buffer}}
+type ScanListener = (assetName: string, scan: string) => void
+
+const pathLiteralsOf = (text: string) =>
+  extractPathLiterals(blankComments(text))
+
+// A scan hands back strings cut out of the text it read, and a cut string
+// holds that whole text alive, so a kept answer is written out afresh.
+function detached<T>(answer: T, hash: string): {answer: T} | undefined {
+  const written = JSON.stringify(answer instanceof Map ? [...answer] : answer)
+
+  // An answer that holds the hash is true for this build only.
+  if (written === undefined || (hash && written.includes(hash))) {
+    return undefined
+  }
+
+  const copy = JSON.parse(written)
+
+  return {answer: (answer instanceof Map ? new Map(copy) : copy) as T}
+}
+
+// What each scan read in each emitted script, by name and by text, held
+// while builds still read that text under that name, and no emitted text.
+class KeptScans {
+  private readonly kept = new Map<string, Map<string, Map<string, unknown>>>()
+  private readonly live = new Map<string, Set<string>>()
+
+  read<T>(
+    name: string,
+    digest: string,
+    what: string,
+    hash: string,
+    scan: () => T
+  ): T {
+    const texts = this.kept.get(name) ?? new Map<string, Map<string, unknown>>()
+    const answers = texts.get(digest) ?? new Map<string, unknown>()
+
+    texts.set(digest, answers)
+    this.kept.set(name, texts)
+    this.live.set(name, (this.live.get(name) ?? new Set()).add(digest))
+
+    if (answers.has(what)) return answers.get(what) as T
+
+    const answer = scan()
+    const keep = detached(answer, hash)
+
+    if (keep) answers.set(what, keep.answer)
+
+    return answer
+  }
+
+  // What the build that just ended did not read is forgotten, so a name
+  // that carries a content hash leaves with the chunk it named.
+  sweep() {
+    for (const [name, texts] of this.kept) {
+      const read = this.live.get(name)
+
+      if (!read) {
+        this.kept.delete(name)
+        continue
+      }
+
+      for (const digest of texts.keys()) {
+        if (!read.has(digest)) texts.delete(digest)
+      }
+    }
+
+    this.live.clear()
+  }
+}
+
+// What makes two builds of a script the same text: every character but the
+// build hash, and the places the hash sits at.
+function stableDigest(text: string, hash: string): string {
+  const digest = createHash('sha1')
+
+  if (!hash || !text.includes(hash)) {
+    return `${text.length}:${digest.update(text).digest('base64')}`
+  }
+
+  const at: number[] = []
+
+  for (
+    let index = text.indexOf(hash);
+    index !== -1;
+    index = text.indexOf(hash, index + hash.length)
+  ) {
+    at.push(index)
+  }
+
+  digest.update(text.replaceAll(hash, ''))
+
+  return `${text.length}:${digest.digest('base64')}:${at.join()}`
+}
+
 // One tracing pass over a compilation: the dedupe sets every step shares, the
 // files queued for the bundler, and the emit helpers.
 // The bundler keeps only the fields it knows on a warning, so what a run
@@ -1470,6 +1629,12 @@ class TraceRun {
   readonly servedPages = new Map<string, string>()
   private readonly queue = new Map<string, CompileRequest>()
   private readonly texts = new Map<string, string>()
+  private readonly digests = new Map<string, string>()
+  private readonly answers = new Map<string, Map<string, unknown>>()
+  private readonly read = new Map<string, unknown>()
+  private scripts?: ScannedAsset[]
+  // The build hash, when it is a run of hex digits no scan reads a word in.
+  private readonly hash: string
   // Files the `exclude` config leaves out of this build. A literal that names
   // one is dead code on this browser, so the trace ships nothing for it.
   private readonly excluded: ReadonlySet<string>
@@ -1485,8 +1650,13 @@ class TraceRun {
   constructor(
     readonly compilation: Compilation,
     readonly compiler: Compiler,
-    readonly manifestDir: string
+    readonly manifestDir: string,
+    private readonly kept?: KeptScans,
+    private readonly onScan?: ScanListener
   ) {
+    const hash = kept ? String(compilation.hash || '') : ''
+
+    this.hash = /^[\da-f]{8,}$/i.test(hash) ? hash : ''
     this.entrySourceDirs = collectEntrySourceDirs(compiler)
     this.hasAsset = (name) => Boolean(compilation.getAsset(name))
     this.excluded = excludedFiles(
@@ -1542,7 +1712,7 @@ class TraceRun {
   copySibling(abs: string, distRel: string) {
     if (this.hasAsset(distRel) || !isFile(abs) || !this.mayShip(abs)) return
 
-    this.compilation.emitAsset(
+    this.emit(
       distRel,
       new sources.RawSource(
         templateCopiedAsset(this.compilation, distRel, fs.readFileSync(abs))
@@ -1807,14 +1977,74 @@ class TraceRun {
   // An asset this run rewrote is read again the next time it is scanned.
   forgetText(assetName: string) {
     this.texts.delete(assetName)
+    this.digests.delete(assetName)
+    this.answers.delete(assetName)
+    this.scripts = undefined
   }
 
-  jsAssets(only?: Set<string>) {
-    return this.compilation
+  // What a scan read in an emitted script. Each scan reads nothing but the
+  // text, so a run asks once and a rebuild asks only for a changed text.
+  scan<T>(asset: ScannedAsset, what: string, read: (text: string) => T): T {
+    let answers = this.answers.get(asset.name)
+
+    if (!answers) {
+      answers = new Map()
+      this.answers.set(asset.name, answers)
+    }
+
+    if (answers.has(what)) return answers.get(what) as T
+
+    const text = this.textOf(asset)
+
+    const scan = () => {
+      this.onScan?.(asset.name, what)
+
+      return read(text)
+    }
+
+    let answer: T
+
+    if (this.kept) {
+      let digest = this.digests.get(asset.name)
+
+      if (digest === undefined) {
+        digest = stableDigest(text, this.hash)
+        this.digests.set(asset.name, digest)
+      }
+
+      answer = this.kept.read(asset.name, digest, what, this.hash, scan)
+    } else {
+      answer = scan()
+    }
+
+    answers.set(what, answer)
+
+    return answer
+  }
+
+  // Read from disk once per run, whatever phase or round asks.
+  once<T>(what: string, read: () => T): T {
+    if (!this.read.has(what)) this.read.set(what, read())
+
+    return this.read.get(what) as T
+  }
+
+  // Listing the assets copies each one out of the bundler, so the scripts
+  // are listed again only after this run added or rewrote one.
+  jsAssets(only?: Set<string>): ScannedAsset[] {
+    this.scripts ??= this.compilation
       .getAssets()
-      .filter(
-        (asset) => /\.js$/i.test(asset.name) && (!only || only.has(asset.name))
-      )
+      .filter((asset) => /\.js$/i.test(asset.name))
+
+    return only
+      ? this.scripts.filter((asset) => only.has(asset.name))
+      : this.scripts
+  }
+
+  emit(name: string, source: sources.Source) {
+    this.compilation.emitAsset(name, source)
+
+    if (/\.js$/i.test(name)) this.scripts = undefined
   }
 
   // Copies return their text so the caller can keep scanning it. Compiles are
@@ -1848,7 +2078,14 @@ class TraceRun {
 
         return null
       case 'copy':
-        return this.emitCopy(plan.sourcePath, plan.emitPath, () => {})
+        return this.emitCopy(
+          plan.sourcePath,
+          plan.emitPath,
+          () => {},
+          ctx.context === 'importScripts' ||
+            ctx.context === 'injected' ||
+            SCANNED_COPY.test(plan.emitPath)
+        )
 
       case 'compile': {
         if (plan.spelledAs) ctx.onSourceSpelling(plan.emitPath, plan.spelledAs)
@@ -1873,7 +2110,18 @@ class TraceRun {
     }
   }
 
-  emitCopy(abs: string, distRel: string, onWithheld: () => void): string {
+  // A copy no scan reads on stays bytes: decoding an image as text is the
+  // slowest thing a copy does.
+  shipCopy(abs: string, distRel: string, onWithheld: () => void) {
+    this.emitCopy(abs, distRel, onWithheld, false)
+  }
+
+  emitCopy(
+    abs: string,
+    distRel: string,
+    onWithheld: () => void,
+    read = true
+  ): string {
     if (isExcludedEntry(abs, this.excluded)) return ''
 
     if (!this.mayShip(abs)) {
@@ -1883,7 +2131,7 @@ class TraceRun {
     }
 
     const buffer = fs.readFileSync(abs)
-    this.compilation.emitAsset(
+    this.emit(
       distRel,
       new sources.RawSource(
         templateCopiedAsset(this.compilation, distRel, buffer)
@@ -1894,7 +2142,7 @@ class TraceRun {
 
     if (FONT_FILE.test(distRel)) this.emitLicensesBeside(abs, distRel)
 
-    return buffer.toString()
+    return read ? buffer.toString() : ''
   }
 
   // A font's license ties redistribution to its notice, and no code names
@@ -1935,7 +2183,7 @@ class TraceRun {
         continue
       }
 
-      this.compilation.emitAsset(
+      this.emit(
         distRel,
         new sources.RawSource(
           templateCopiedAsset(this.compilation, distRel, fs.readFileSync(abs))
@@ -1983,6 +2231,8 @@ class TraceRun {
       this.compiler,
       requests
     )
+
+    this.scripts = undefined
 
     // The visited page fetches the assets a compiled injected sheet names,
     // as it does for a copied one, so the manifest step hears of them too.
@@ -2528,7 +2778,7 @@ function servePageAtAuthoredPath(
   const page = run.compilation.getAsset(output)
   if (!page) return undefined
 
-  run.compilation.emitAsset(authored, page.source)
+  run.emit(authored, page.source)
   run.servedPages.set(authored, output)
 
   return output
