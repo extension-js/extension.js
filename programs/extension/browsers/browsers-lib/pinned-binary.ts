@@ -71,7 +71,7 @@ export function envPinnedBinary(
   return {name: override.name, path: normalized}
 }
 
-// The binary a launch runs and the flag or variable that chose it.
+// The binary a launch runs and the flag, config key or variable that chose it.
 export interface LaunchPin {
   path?: string | null
   pinnedBy?: string

@@ -1175,6 +1175,48 @@ export async function loadCommandConfig(
   return {}
 }
 
+// The browser.<name> block a browser reads. A named product keeps to its own
+// block, and a '*-based' or webkit fork name may adopt the product's block.
+export function browserConfigBlockName(
+  browsers: Record<string, unknown>,
+  browser: DevOptions['browser']
+): string | undefined {
+  const browserName = String(browser)
+  const present = (names: string[]) => names.find((name) => browsers[name])
+
+  if (browser === 'chromium-based') {
+    return present(['chromium-based', 'chromium'])
+  }
+
+  if (browser === 'gecko-based') return present(['gecko-based', 'firefox'])
+
+  // Exact name first, then the engine block, then the safari product block.
+  // Named product 'safari' stops at its own block.
+  if (isWebkitBasedBrowser(browserName) && browserName !== 'safari') {
+    return present([browserName, 'webkit-based', 'safari'])
+  }
+
+  return present([browserName])
+}
+
+// The name of the block loadBrowserConfig answers with, for a message that
+// has to say which key of the config file a value came from.
+export async function loadBrowserConfigBlockName(
+  projectPath: string,
+  browser: DevOptions['browser'],
+  envTarget: ConfigEnvTarget
+): Promise<string | undefined> {
+  const configPath = findConfigFile(projectPath)
+  if (!configPath) return undefined
+
+  const userConfig = await loadConfigFile(configPath, namedEnvOrder(envTarget))
+  const browsers = userConfig?.browser
+
+  return browsers && typeof browsers === 'object'
+    ? browserConfigBlockName(browsers as Record<string, unknown>, browser)
+    : undefined
+}
+
 export async function loadBrowserConfig(
   projectPath: string,
   browser: DevOptions['browser'] = 'chrome',
@@ -1193,32 +1235,8 @@ export async function loadBrowserConfig(
         if (userConfig?.browser) {
           const browsers = userConfig.browser as Record<string, BrowserConfig>
 
-          const browserName = String(browser)
-
-          // 'chromium'/'firefox'/'safari' = managed or named product; must not adopt
-          // engine-based configs that expect an explicit binary. '*-based' and any
-          // webkit-flavored fork name may fall back to the product/engine block.
-          if (browser === 'chromium-based') {
-            if (browsers['chromium-based']) return browsers['chromium-based']
-            if (browsers.chromium) return browsers.chromium
-          } else if (browser === 'gecko-based') {
-            if (browsers['gecko-based']) return browsers['gecko-based']
-            if (browsers.firefox) return browsers.firefox
-          } else if (isWebkitBasedBrowser(browserName)) {
-            // Exact name first (safari, webkit-based, or a fork like acme-webkit),
-            // then the engine block, then the safari product block. Named product
-            // 'safari' stops at its own block and does not adopt webkit-based.
-            const direct = browsers[browserName]
-            if (direct) return direct
-
-            if (browserName !== 'safari') {
-              if (browsers['webkit-based']) return browsers['webkit-based']
-              if (browsers.safari) return browsers.safari
-            }
-          } else {
-            const direct = browsers[browserName]
-            if (direct) return direct
-          }
+          const block = browserConfigBlockName(browsers, browser)
+          if (block) return browsers[block]
         }
       } catch (err: unknown) {
         const error = err as Error

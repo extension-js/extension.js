@@ -13,6 +13,7 @@ import {
   refuseManagedDependencyConflicts,
   resolveCommandBrowser
 } from './command-steps/project-setup'
+import {binaryPinSources} from './lib/binary-pin-source'
 import {announceLeftoverOutputFolder} from './lib/build-output-guard'
 import {
   findConfigFile,
@@ -188,6 +189,18 @@ export async function extensionDev(
 
       emitter = browsersPlugin.emitter
     } else if (devOptions.launcher && !devOptions.noBrowser) {
+      const pinSources = await binaryPinSources({
+        projectDir: packageJsonDir,
+        command: 'dev',
+        browser: String(browser),
+        envTarget,
+        layers: {
+          flags: devOptions,
+          command: commandConfig,
+          browser: browserConfig
+        }
+      })
+
       browsersPlugin = new BrowsersPlugin({
         launcher: devOptions.launcher,
         browserOptions: {
@@ -206,6 +219,7 @@ export async function extensionDev(
           startingUrl: merged.startingUrl,
           chromiumBinary: merged.chromiumBinary,
           geckoBinary: merged.geckoBinary || merged.firefoxBinary,
+          ...pinSources,
           port: merged.port,
           ...logOptionsOf(merged)
         }
