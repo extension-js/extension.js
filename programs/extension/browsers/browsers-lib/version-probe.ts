@@ -19,6 +19,9 @@ import {killProcessTree} from './process-teardown'
 
 export const VERSION_PROBE_TIMEOUT_MS = 10_000
 
+// How long a probe that gave up waits for Windows to end the binary's tree.
+export const VERSION_PROBE_TREE_KILL_WAIT_MS = 5000
+
 function normalizeVersion(text: string): string {
   return /(\d+(?:\.\d+){1,3})/.exec(text)?.[1] ?? ''
 }
@@ -58,7 +61,13 @@ function readVersionOutput(
     }
 
     timer = setTimeout(() => {
-      killProcessTree(child.pid)
+      // Waited for: Windows ends an unfinished taskkill with the CLI, and
+      // the child of a hung wrapper was then left running.
+      killProcessTree(child.pid, {
+        sync: true,
+        waitMs: VERSION_PROBE_TREE_KILL_WAIT_MS
+      })
+
       child.stdout?.destroy()
       settle(null)
     }, timeoutMs)

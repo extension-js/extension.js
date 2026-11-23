@@ -78,7 +78,12 @@ export function windowsTaskkillPath(
 
 function runTaskkill(
   pid: number | undefined,
-  options: {sync: boolean; force: boolean; platform?: NodeJS.Platform}
+  options: {
+    sync: boolean
+    force: boolean
+    platform?: NodeJS.Platform
+    waitMs?: number
+  }
 ): void {
   if ((options.platform ?? process.platform) !== 'win32' || !pid) return
 
@@ -87,7 +92,11 @@ function runTaskkill(
 
   try {
     if (options.sync) {
-      spawnSync(bin, args, {stdio: 'ignore', windowsHide: true})
+      spawnSync(bin, args, {
+        stdio: 'ignore',
+        windowsHide: true,
+        ...(options.waitMs ? {timeout: options.waitMs} : {})
+      })
     } else {
       spawn(bin, args, {stdio: 'ignore', windowsHide: true}).on(
         'error',
@@ -105,16 +114,22 @@ function killWindowsTree(pid: number | undefined, sync: boolean): void {
 
 // Ends a process and what it started: the system taskkill on Windows, the
 // process group elsewhere, so there the pid must lead a group of its own.
+// waitMs bounds a taskkill that is waited for, which has no limit without it.
 export function killProcessTree(
   pid: number | undefined,
-  options: {sync?: boolean; platform?: NodeJS.Platform} = {}
+  options: {sync?: boolean; platform?: NodeJS.Platform; waitMs?: number} = {}
 ): void {
   const platform = options.platform ?? process.platform
 
   if (!pid) return
 
   if (platform === 'win32') {
-    runTaskkill(pid, {sync: options.sync === true, force: true, platform})
+    runTaskkill(pid, {
+      sync: options.sync === true,
+      force: true,
+      platform,
+      waitMs: options.waitMs
+    })
 
     return
   }

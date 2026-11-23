@@ -56,6 +56,20 @@ describe('killProcessTree', () => {
     expect(calls[kind === 'sync' ? 'async' : 'sync']).toEqual([])
   })
 
+  it('on Windows bounds the wait for taskkill when given one', () => {
+    killProcessTree(PID, {sync: true, platform: 'win32', waitMs: 5000})
+
+    expect(calls.sync).toEqual([
+      [
+        windowsTaskkillPath(),
+        ['/PID', String(PID), '/T', '/F'],
+        {stdio: 'ignore', windowsHide: true, timeout: 5000}
+      ]
+    ])
+
+    expect(calls.async).toEqual([])
+  })
+
   it('ends the process group elsewhere, with no taskkill', () => {
     const kill = vi.spyOn(process, 'kill').mockImplementation(() => true)
 

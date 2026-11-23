@@ -8,6 +8,10 @@ import {
   parseProcessRows,
   resolveLiveBrowserPid
 } from '../../browsers-lib/resolve-live-pid'
+import {
+  WINDOWS_PROCESS_TABLE_SCRIPT,
+  WINDOWS_PROCESS_TABLE_SOURCE
+} from '../../browsers-lib/windows-process-table'
 
 const BIN =
   '/Users/dev/Library/Caches/extension.js/browsers/firefox/Firefox Nightly.app/Contents/MacOS/firefox'
@@ -307,16 +311,21 @@ describe('parseProcessRows', () => {
 // stood in for and the question it was asked is what the row reads.
 describe('listProcesses', () => {
   const tableOf = (answer: {
-    output: string | null
+    // A list answers one call each, in order, and then nothing.
+    output: string | null | Array<string | null>
     files?: Record<string, string>
   }) => {
     const asked: Array<{bin: string; args: string[]}> = []
+    const options: Array<Parameters<ProcessTableIo['run']>[2]> = []
     const read: string[] = []
     const io: ProcessTableIo = {
-      run: (bin, args) => {
+      run: (bin, args, given) => {
         asked.push({bin, args})
+        options.push(given)
 
-        return answer.output
+        return Array.isArray(answer.output)
+          ? (answer.output[asked.length - 1] ?? null)
+          : answer.output
       },
       readFile: (file) => {
         read.push(file)
@@ -328,7 +337,7 @@ describe('listProcesses', () => {
       }
     }
 
-    return {io, asked, read}
+    return {io, asked, options, read}
   }
 
   it('asks ps for the environment on macOS, where a relaunched browser has a blank argv', () => {
@@ -397,32 +406,54 @@ describe('listProcesses', () => {
     ).toBe(31279)
   })
 
-  it('asks PowerShell on Windows, with no profile script and no prompt', () => {
-    const table = tableOf({
-      output:
-        '5120 4000 "C:\\Mozilla Firefox\\firefox.exe" -profile C:\\p\\keen-newt\r\n' +
-        '5200 5120 "C:\\Mozilla Firefox\\firefox.exe" -contentproc -profile C:\\p\\keen-newt\r\n'
+  const WINDOWS_TABLE =
+    '5120 4000 "C:\\Mozilla Firefox\\firefox.exe" -profile C:\\p\\keen-newt\r\n' +
+    '5200 5120 "C:\\Mozilla Firefox\\firefox.exe" -contentproc -profile C:\\p\\keen-newt\r\n'
+  const SHELL = ['-NoProfile', '-NonInteractive', '-Command']
+  const windowsBrowserIn = (rows: ProcessRow[]) =>
+    findLiveBrowserPid({
+      profilePath: 'C:\\p\\keen-newt',
+      binary: 'C:\\Mozilla Firefox\\firefox.exe',
+      launcherPid: 5120,
+      rows
     })
+
+  it('asks PowerShell on Windows once, under a bound, with no WMI and no cmdlet', () => {
+    const table = tableOf({output: WINDOWS_TABLE})
     const rows = listProcesses('win32', table.io)
 
-    expect(table.asked).toHaveLength(1)
-    expect(table.asked[0].bin).toBe('powershell.exe')
-    expect(table.asked[0].args.slice(0, 3)).toEqual([
-      '-NoProfile',
-      '-NonInteractive',
-      '-Command'
+    expect(table.asked).toEqual([
+      {bin: 'powershell.exe', args: [...SHELL, WINDOWS_PROCESS_TABLE_SCRIPT]}
     ])
 
-    expect(table.asked[0].args[3]).toContain('FROM Win32_Process')
+    expect(table.options).toEqual([
+      {
+        timeoutMs: 5000,
+        env: {EXTENSION_PROCESS_TABLE_SOURCE: WINDOWS_PROCESS_TABLE_SOURCE}
+      }
+    ])
+
+    // Either one costs seconds a read: a query of WMI, or a command that
+    // PowerShell has to look up in its modules.
+    expect(WINDOWS_PROCESS_TABLE_SCRIPT).not.toMatch(
+      /wmi|cim|Win32_|\b[A-Z][a-z]+-[A-Z][A-Za-z]+\b/
+    )
+
+    // The source is data in a variable, so the script quotes none of it.
+    expect(WINDOWS_PROCESS_TABLE_SCRIPT).not.toContain('"')
     expect(table.read).toEqual([])
-    expect(
-      findLiveBrowserPid({
-        profilePath: 'C:\\p\\keen-newt',
-        binary: 'C:\\Mozilla Firefox\\firefox.exe',
-        launcherPid: 5120,
-        rows
-      })
-    ).toBe(5120)
+    expect(windowsBrowserIn(rows)).toBe(5120)
+  })
+
+  it('asks WMI on Windows when the first read gives nothing', () => {
+    const table = tableOf({output: [null, WINDOWS_TABLE]})
+    const rows = listProcesses('win32', table.io)
+
+    expect(table.asked).toHaveLength(2)
+    expect(table.asked[1].bin).toBe('powershell.exe')
+    expect(table.asked[1].args.slice(0, 3)).toEqual(SHELL)
+    expect(table.asked[1].args[3]).toContain('FROM Win32_Process')
+    expect(windowsBrowserIn(rows)).toBe(5120)
   })
 
   it.each([
