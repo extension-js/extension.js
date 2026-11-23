@@ -9,7 +9,6 @@
 import type {HeldRefusalPredictions} from '../browsers-lib/manifest-refusal'
 import type {
   BootRegistrationsWait,
-  BrowserLogger,
   BrowserLogSink,
   Controller,
   PluginInterface

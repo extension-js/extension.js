@@ -903,6 +903,63 @@ describe('the signal listeners of a run-only session', () => {
       expect(exit).toHaveBeenCalledExactlyOnceWith(0)
     })
 
+    // The stop kills a browser that is still starting, and its launcher
+    // then reads the dead process as a launch that failed.
+    it.each([
+      ['chromium', 'throws', chromiumRunOnce],
+      ['firefox', 'throws', firefoxRunOnce],
+      ['chromium', 'returns', chromiumRunOnce],
+      ['firefox', 'returns', firefoxRunOnce]
+    ] as const)('reports nothing when the %s launch %s after the stop was asked, and exits 0', async (browser, ending, runOnce) => {
+      let endLaunch = (_error?: Error) => {}
+
+      let launching = () => {}
+
+      const isLaunching = new Promise<void>((resolve) => {
+        launching = resolve
+      })
+
+      runOnce.mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve, reject) => {
+            endLaunch = (error) => (error ? reject(error) : resolve())
+            launching()
+          })
+      )
+
+      let outcome = 'pending'
+
+      void session(browser).then(
+        () => {
+          outcome = 'returned'
+        },
+        (error: Error) => {
+          outcome = `threw ${error.message}`
+        }
+      )
+
+      await isLaunching
+      vi.useFakeTimers({toFake: ['setTimeout', 'clearTimeout', 'Date']})
+
+      signal('SIGINT')
+      launched.closed = true
+      endLaunch(
+        ending === 'throws'
+          ? new Error('the browser exited before its debugger answered')
+          : undefined
+      )
+
+      // Every turn the launch result needs to reach the caller, and more.
+      for (let turn = 0; turn < 20; turn += 1) await Promise.resolve()
+
+      expect(outcome).toBe('pending')
+      expect(exit).not.toHaveBeenCalled()
+
+      vi.advanceTimersByTime(100)
+      expect(exit).toHaveBeenCalledExactlyOnceWith(0)
+      expect(outcome).toBe('pending')
+    })
+
     it('exits at once when no browser was started', async () => {
       launched.spawned = false
       await session('chromium')

@@ -2,6 +2,7 @@ import {type ChildProcess, spawn} from 'node:child_process'
 import {once} from 'node:events'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {isPidAlive} from '../browsers/browsers-lib/resolve-live-pid'
+import {defined} from './helpers/defined'
 import {killCliTree} from './helpers/run-cli'
 
 // Above every platform's pid ceiling, so a kill that slips through names no
@@ -93,7 +94,10 @@ describe('the spec helper stop on a real process tree', () => {
     )
     started.push(child)
 
-    const [chunk] = (await once(child.stdout!, 'data')) as [Buffer]
+    const [chunk] = (await once(
+      defined(child.stdout, 'the stdout pipe of the child'),
+      'data'
+    )) as [Buffer]
     const grandchild = Number(String(chunk).trim())
     grandchildren.push(grandchild)
 

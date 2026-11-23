@@ -422,10 +422,16 @@ export async function runOnlyPreviewBrowser(
       session.launcher = launched
     })
 
+    if (stopAsked) return untilTheStopExits()
+
     session.settled = true
 
     return started
   } catch (error) {
+    // The stop ended a browser that was still starting, which its launcher
+    // reads as a failed launch. The run ends as stopped, so this says nothing.
+    if (stopAsked) return untilTheStopExits()
+
     // No session came of this call, so it no longer holds the listeners.
     // After a launch it does: they are what ends the session on Ctrl+C.
     releaseSessionSignals(session)
@@ -444,6 +450,14 @@ interface SessionOnSignal {
 // that runs preview again in the same process adds none.
 const sessionsOnSignal = new Set<SessionOnSignal>()
 let signalHandler: (() => void) | undefined
+// True from the first signal on: the handler below then owns the exit.
+let stopAsked = false
+
+// Never settles. The signal handler exits the process within its deadline,
+// and a result handed back before that would be reported as a second ending.
+function untilTheStopExits(): Promise<never> {
+  return new Promise<never>(() => {})
+}
 
 function isRunning(session: SessionOnSignal) {
   return Boolean(
@@ -456,6 +470,8 @@ function isRunning(session: SessionOnSignal) {
 function createSignalHandler() {
   let exitScheduled = false
 
+  stopAsked = false
+
   return () => {
     if (exitScheduled) {
       process.exit(0)
@@ -464,6 +480,7 @@ function createSignalHandler() {
     }
 
     exitScheduled = true
+    stopAsked = true
     const deadline = Date.now() + EXIT_DEADLINE_MS
 
     const exitOnceClosed = () => {

@@ -24,7 +24,7 @@ export function parseRdpFrame<T = unknown>(
   const lenStr = dataString.substring(0, separatorIndex)
   const messageLength = parseInt(lenStr, 10)
 
-  if (isNaN(messageLength)) {
+  if (Number.isNaN(messageLength)) {
     return {
       remainingData: data,
       error: new Error('Invalid RDP frame length'),

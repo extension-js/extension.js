@@ -32,8 +32,10 @@ describe('discoverWebSocketDebuggerUrl', () => {
   let server: http.Server | undefined
 
   afterEach(async () => {
-    if (server) {
-      await new Promise<void>((r) => server!.close(() => r()))
+    const open = server
+
+    if (open) {
+      await new Promise<void>((r) => open.close(() => r()))
       server = undefined
     }
   })

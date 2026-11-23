@@ -7,10 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {humanWarn, isDebug} from '../../../helpers/messaging'
-import {
-  type BackgroundSession,
-  holdFirstPage
-} from '../../browsers-lib/built-boot-registrations'
+import {holdFirstPage} from '../../browsers-lib/built-boot-registrations'
 import {manifestDeclaresNewtabOverride} from '../../browsers-lib/newtab-override'
 import {resolveStartingUrl} from '../../browsers-lib/runtime-options'
 import type {CompilationLike} from '../../browsers-types'

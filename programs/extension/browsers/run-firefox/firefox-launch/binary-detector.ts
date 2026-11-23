@@ -27,10 +27,10 @@ export function isFirefoxHeadlessRequested(
   )
 }
 
-export class FirefoxBinaryDetector {
+export const FirefoxBinaryDetector = {
   // The argv a launch hands the binary, with or without a managed profile.
   // The dry run prints this; the spawn runs it.
-  static launchPlan(input: {
+  launchPlan(input: {
     binaryPath: string
     profilePath: string
     debugPort: number
@@ -58,9 +58,9 @@ export class FirefoxBinaryDetector {
     ]
 
     return {binary: input.binaryPath, args}
-  }
+  },
 
-  static generateFirefoxArgs(
+  generateFirefoxArgs(
     binaryPath: string,
     profilePath: string,
     debugPort: number,
