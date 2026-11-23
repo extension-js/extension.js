@@ -101,7 +101,7 @@ export type BrowserLaunchRequest = Pick<
   mode: 'development' | 'production' | 'none'
 }
 
-export function buildBrowserLaunchRequest<T extends object = {}>(
+export function buildBrowserLaunchRequest<T extends object = object>(
   options: BrowserLaunchRequestSource,
   mode: 'development' | 'production' | 'none',
   extras?: T

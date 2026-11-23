@@ -1,6 +1,7 @@
 import * as http from 'node:http'
 import type {AddressInfo} from 'node:net'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {defined} from '../../../__spec__/helpers/defined'
 import {CDP_HTTP_TIMEOUT_MS} from '../../browsers-lib/constants'
 import {discoverWebSocketDebuggerUrl} from '../../run-chromium/cdp/discovery'
 
@@ -8,9 +9,11 @@ describe('discoverWebSocketDebuggerUrl', () => {
   let server: http.Server | null = null
 
   afterEach(async () => {
-    if (!server) return
+    const open = server
 
-    await new Promise<void>((resolve) => server!.close(() => resolve()))
+    if (!open) return
+
+    await new Promise<void>((resolve) => open.close(() => resolve()))
     server = null
   })
 
@@ -38,8 +41,10 @@ describe('discoverWebSocketDebuggerUrl', () => {
       res.end()
     })
 
+    const listening = server
+
     await new Promise<void>((resolve) =>
-      server!.listen(0, '127.0.0.1', () => resolve())
+      listening.listen(0, '127.0.0.1', () => resolve())
     )
 
     const address = server.address()
@@ -51,7 +56,7 @@ describe('discoverWebSocketDebuggerUrl', () => {
     const startedAt = Date.now()
     const wsUrl = await discoverWebSocketDebuggerUrl(
       '127.0.0.1',
-      port!,
+      defined(port, 'the port the server listens on'),
       false,
       100
     )
@@ -93,8 +98,10 @@ describe('discoverWebSocketDebuggerUrl', () => {
   it('codes an endpoint that never answers as E_CDP_TIMEOUT', async () => {
     server = http.createServer(() => {})
 
+    const listening = server
+
     await new Promise<void>((resolve) =>
-      server!.listen(0, '127.0.0.1', () => resolve())
+      listening.listen(0, '127.0.0.1', () => resolve())
     )
 
     const address = server.address()
@@ -105,7 +112,7 @@ describe('discoverWebSocketDebuggerUrl', () => {
 
     const error = await discoverWebSocketDebuggerUrl(
       '127.0.0.1',
-      port!,
+      defined(port, 'the port the server listens on'),
       false,
       100
     ).then(

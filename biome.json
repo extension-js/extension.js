@@ -60,29 +60,6 @@
           "tailwindDirectives": true
         }
       }
-    },
-    {
-      "includes": [
-        "programs/extension/browsers/**",
-        "programs/extension/__spec__/**"
-      ],
-      "linter": {
-        "rules": {
-          "style": {
-            "noNonNullAssertion": "info"
-          },
-          "correctness": {
-            "noUnusedImports": "info"
-          },
-          "complexity": {
-            "noBannedTypes": "info",
-            "noStaticOnlyClass": "info"
-          },
-          "suspicious": {
-            "noGlobalIsNan": "info"
-          }
-        }
-      }
     }
   ],
   "linter": {

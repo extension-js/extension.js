@@ -1272,7 +1272,7 @@ export class ChromiumLaunchPlugin {
       cdpPort: selectedPort
     })
 
-    const enableCdp = opts?.enableCdpPostLaunch === false ? false : true
+    const enableCdp = opts?.enableCdpPostLaunch !== false
     // Run-only skips the reload wiring but still asks the browser about the
     // guest. Every launch carries the debugging pipe, so it always can.
     const verifyLoadOnly = !enableCdp

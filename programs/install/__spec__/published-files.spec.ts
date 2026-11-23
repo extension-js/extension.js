@@ -52,7 +52,9 @@ describe.skipIf(!HAS_DIST)('the published extension-install package', () => {
 
     expect(files).toContain('dist/module.cjs')
     expect(leaks).toEqual([])
-  }, 60000)
+    // This row pays for the one pack: 2 to 27 s on a hosted Windows
+    // runner, and the CLI's own took 79 s once on a stalled one.
+  }, 180000)
 
   it('ships every file its exports, main and types name', () => {
     const manifest = JSON.parse(

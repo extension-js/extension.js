@@ -39,14 +39,13 @@ export class CDPClient {
   private pipeBuffer: Buffer = Buffer.alloc(0)
   // Our own pipe listeners, so disconnect can take exactly these off again.
   private detachPipeListeners: (() => void) | undefined
-  private targetWebSocketUrl: string | null = null
   private eventCallbacks = new Set<(message: CdpProtocolMessage) => void>()
   private messageId = 0
   private pendingRequests = new Map<
     number,
     {
-      resolve: Function
-      reject: Function
+      resolve: (result: unknown) => void
+      reject: (reason: unknown) => void
       timeout?: ReturnType<typeof setTimeout>
       method?: string
     }
@@ -65,7 +64,7 @@ export class CDPClient {
 
   async connect(): Promise<void> {
     try {
-      this.targetWebSocketUrl = await discoverWebSocketDebuggerUrl(
+      const targetUrl = await discoverWebSocketDebuggerUrl(
         this.host,
         this.port,
         this.isDev()
@@ -73,7 +72,7 @@ export class CDPClient {
 
       let pendingRejected = false
       this.ws = await establishBrowserConnection(
-        this.targetWebSocketUrl!,
+        targetUrl,
         this.isDev(),
         (data) => this.handleMessage(data),
         (reason) => {

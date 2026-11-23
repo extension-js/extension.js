@@ -8,6 +8,7 @@ import {
   stubCommandEnv,
   stubProcessExit
 } from './command-harness'
+import {defined} from './helpers/defined'
 import {developStandIn} from './helpers/engine-stand-ins'
 import {trackTempFolders} from './helpers/temp-folders'
 
@@ -1367,7 +1368,7 @@ describe('extension dev tells telemetry where an unclassified failure came from'
     const counting = async () => {
       loads += 1
 
-      return deps.loadDevelop!()
+      return defined(deps.loadDevelop, 'the engine loader')()
     }
 
     expect(await runWith({loadDevelop: counting}, ['dev', PROJECT])).toBe(0)
@@ -1383,7 +1384,7 @@ describe('extension dev tells telemetry where an unclassified failure came from'
       loads += 1
       if (loads === loadsBeforeTheEngine) throw thrown
 
-      return deps.loadDevelop!()
+      return defined(deps.loadDevelop, 'the engine loader')()
     }
 
     await expect(
