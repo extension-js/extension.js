@@ -213,7 +213,10 @@ describe('a failed create leaves nothing half-personalized on disk', {
         `PATH ${path.join(projectPath, 'package.json')}`
       ])
 
-      expect(lines[2]).toMatch(/^REASON .*JSON/)
+      expect(lines[2]).toBe(
+        'REASON unexpected end of the file at line 1 column 56'
+      )
+
       expect(lines[3]).toBe('Fix that file in the template, then create again.')
       expect(lines).toHaveLength(4)
       expect(error.cause).toBeInstanceOf(SyntaxError)

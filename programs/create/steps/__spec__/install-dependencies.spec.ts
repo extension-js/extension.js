@@ -157,7 +157,7 @@ describe('installDependencies', () => {
       `PATH ${packageJsonPath}`
     ])
 
-    expect(frame[2]).toMatch(/^REASON .*JSON/)
+    expect(frame[2]).toBe('REASON unexpected character at line 1 column 3')
     expect(frame[3]).toBe('Fix that file in the template, then create again.')
     expect(frame).toHaveLength(4)
     expect(error.cause).toBeInstanceOf(SyntaxError)
