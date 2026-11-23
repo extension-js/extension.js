@@ -414,6 +414,11 @@ describe('listProcesses', () => {
     ])
 
     expect(table.asked[0].args[3]).toContain('FROM Win32_Process')
+    // Set before the first row is written, so every row is UTF-8.
+    expect(table.asked[0].args[3]).toMatch(
+      /^try \{ \[Console\]::OutputEncoding = \[System\.Text\.Encoding\]::UTF8 \} catch \{ \}; /
+    )
+
     expect(table.read).toEqual([])
     expect(
       findLiveBrowserPid({

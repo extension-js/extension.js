@@ -2,12 +2,54 @@ import {spawnSync} from 'node:child_process'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import {trackTempFolders} from './helpers/temp-folders'
 
 const PACKAGE_ROOT = path.resolve(__dirname, '..')
 const HAS_DIST = fs.existsSync(path.join(PACKAGE_ROOT, 'dist', 'cli.cjs'))
 
+const makeTemp = trackTempFolders()
+
+// What npm always packs from the package root, whatever "files" says.
+const ALWAYS_PACKED = /^(package\.json|readme(\..*)?|licen[cs]e(\..*)?)$/i
+
+// The package without node_modules: packing in place made npm read the
+// installed dependency tree too, 2 to 3 s on Windows against 0.9 s here.
+function packageCopy(): string {
+  const manifest = JSON.parse(
+    fs.readFileSync(path.join(PACKAGE_ROOT, 'package.json'), 'utf8')
+  ) as {
+    files: string[]
+    bundleDependencies?: unknown
+    bundledDependencies?: unknown
+  }
+  const named = manifest.files.filter((entry) => !entry.startsWith('!'))
+
+  // The copy would hide either one: a pattern is not a path to copy, and
+  // bundled dependencies are packed from node_modules.
+  expect(named.filter((entry) => /[*?[\]{}]/.test(entry))).toEqual([])
+  expect(manifest.bundleDependencies ?? manifest.bundledDependencies).toBe(
+    undefined
+  )
+
+  const copy = makeTemp('extjs-published-files-')
+  const rootFiles = fs
+    .readdirSync(PACKAGE_ROOT, {withFileTypes: true})
+    .filter((entry) => entry.isFile() && ALWAYS_PACKED.test(entry.name))
+    .map((entry) => entry.name)
+
+  for (const entry of [...rootFiles, '.npmignore', ...named]) {
+    const from = path.join(PACKAGE_ROOT, entry)
+
+    if (fs.existsSync(from)) {
+      fs.cpSync(from, path.join(copy, entry), {recursive: true})
+    }
+  }
+
+  return copy
+}
+
 // The file list npm would publish, read from a dry run that packs nothing and
-// asks no registry. One run serves both tests. npm prints an array before
+// asks no registry. One run serves every test. npm prints an array before
 // version 11 and a map after.
 let listed: string[] | undefined
 
@@ -18,7 +60,7 @@ function packedFiles(): string[] {
     'npm',
     ['pack', '--dry-run', '--json', '--ignore-scripts', '--offline'],
     {
-      cwd: PACKAGE_ROOT,
+      cwd: packageCopy(),
       encoding: 'utf8',
       env: {...process.env, npm_config_update_notifier: 'false'},
       // npm is npm.cmd on Windows, which Node only starts through a shell.

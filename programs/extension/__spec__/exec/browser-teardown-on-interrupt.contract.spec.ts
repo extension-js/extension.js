@@ -172,10 +172,8 @@ describe('a session interrupted with Ctrl+C while its browser runs', () => {
     ) as Promise<InterruptRun>)
     const context = `${run.interrupt} status=${run.status} quitMs=${run.quitMs}\n${run.stdout}\n${run.stderr}`
 
-    console.log(
-      `TEARDOWN ${command} ${browser} ${run.interrupt} status=${run.status} quitMs=${run.quitMs} ` +
-        `tree=${JSON.stringify(run.tree)} last=${run.stdout.trim().split('\n').at(-1)?.slice(0, 300)}`
-    )
+    // Sent, so the exit below is the CLI's own answer to it.
+    expect(run.interrupt, context).toMatch(/^(SIGINT|exit 0 sent to)/)
 
     expect(
       run.tree.map((entry) => entry.name),
@@ -189,5 +187,10 @@ describe('a session interrupted with Ctrl+C while its browser runs', () => {
 
     // The CLI left by itself, before the ceiling ended it.
     expect(run.quitMs, context).toBeLessThan(QUIT_CEILING_MS)
+    expect(run.status, context).toBe(0)
+    expect(
+      JSON.parse(run.stdout.trim().split('\n').at(-1) ?? 'null'),
+      context
+    ).toMatchObject({ok: false, command, status: 'stopped'})
   })
 })

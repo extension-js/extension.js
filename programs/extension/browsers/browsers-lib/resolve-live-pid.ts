@@ -109,9 +109,14 @@ export function listProcesses(
   io: ProcessTableIo = processTableIo
 ): ProcessRow[] {
   if (platform === 'win32') {
+    // PowerShell writes a pipe in the console code page, which turned a
+    // profile path outside it into question marks that matched nothing.
+    const asUtf8 =
+      'try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }; '
     // A type accelerator loads no module, where Get-CimInstance made
     // PowerShell discover its modules first on every start.
     const script =
+      asUtf8 +
       "([wmisearcher]'SELECT ProcessId, ParentProcessId, CommandLine FROM Win32_Process').Get() | ForEach-Object { " +
       '"$($_.ProcessId) $($_.ParentProcessId) $($_.CommandLine)" }'
     const output = io.run('powershell.exe', [
