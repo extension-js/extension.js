@@ -174,7 +174,8 @@ test('a run of main is never cancelled by a later one', () => {
 
     // The README sync writes to npm, so its runs stay in one ordered group.
     if ('push' in on && file !== 'sync-npm-readme.yml') {
-      assert.match(workflow.concurrency.group, /github\.sha/, file)
+      // A third run of one commit would cancel the pending second in a sha group.
+      assert.match(workflow.concurrency.group, /\|\| github\.run_id/, file)
     }
   }
 })
