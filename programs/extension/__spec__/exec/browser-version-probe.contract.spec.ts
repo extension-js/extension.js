@@ -53,6 +53,9 @@ interface ProbeRun {
 }
 
 const PROBE_SECONDS = 10
+// Windows ends the tree through taskkill, which the CLI starts and does not
+// wait on, so the pids outlive the CLI by a few seconds there.
+const TREE_END_MS = process.platform === 'win32' ? 10_000 : 2_000
 const EXIT_CEILING_MS = 100_000
 
 // Every surface reads one run per command and engine, so the 10 second
@@ -221,7 +224,7 @@ async function probeRun(
       if (!existsSync(file)) continue
 
       const pid = Number(readFileSync(file, 'utf8').trim())
-      const ended = await endedWithin(pid, 2_000)
+      const ended = await endedWithin(pid, TREE_END_MS)
 
       run.tree.push({pid, ended})
 
