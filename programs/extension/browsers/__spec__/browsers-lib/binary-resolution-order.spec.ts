@@ -434,26 +434,27 @@ describe('the order a launch resolves its binary in', () => {
     expect(planLine('PATH')).toBe('')
   })
 
-  it.skipIf(process.platform === 'win32')(
-    'chrome: the branded Chrome named in CHROME_BINARY is still never run',
-    async () => {
-      const branded = plant('opt', 'bin', 'google-chrome')
-      process.env.CHROME_BINARY = branded
-      system.chrome = branded
+  it('chrome: the branded Chrome named in CHROME_BINARY is still never run', async () => {
+    // The branded install is known by where it lives on each system.
+    const branded =
+      process.platform === 'win32'
+        ? plant('opt', 'Google', 'Chrome', 'Application', 'chrome.exe')
+        : plant('opt', 'bin', 'google-chrome')
+    process.env.CHROME_BINARY = branded
+    system.chrome = branded
 
-      const alone = await refusal(() => planChromium('chrome'))
+    const alone = await refusal(() => planChromium('chrome'))
 
-      expect(alone.code).toBe('E_BROWSER_NOT_FOUND')
-      expect(planLine('PATH')).toBe('')
+    expect(alone.code).toBe('E_BROWSER_NOT_FOUND')
+    expect(planLine('PATH')).toBe('')
 
-      const managed = plantManaged('chrome', 'mac_arm-151.0.7100.2', 'chrome')
+    const managed = plantManaged('chrome', 'mac_arm-151.0.7100.2', 'chrome')
 
-      await planChromium('chrome')
+    await planChromium('chrome')
 
-      expect(planLine('PATH')).toContain(managed)
-      expect(planLine('SOURCE')).toMatch(/SOURCE managed$/)
-    }
-  )
+    expect(planLine('PATH')).toContain(managed)
+    expect(planLine('SOURCE')).toMatch(/SOURCE managed$/)
+  })
 
   it('chromium: CHROMIUM_BINARY wins over a managed copy and the system', async () => {
     const fromEnv = plant('from-env', 'chromium')

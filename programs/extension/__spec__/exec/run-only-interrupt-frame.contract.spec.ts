@@ -1,5 +1,4 @@
 import {
-  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -9,6 +8,7 @@ import {
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import {plantBrowserStandIn} from '../helpers/browser-stand-in'
 import {everyLineAsFrame, startCli} from '../helpers/run-cli'
 
 interface Frame {
@@ -23,33 +23,14 @@ interface Frame {
 // a debugging port, so the session is live and no real browser is named. It
 // writes one file, at the path given here, to say the session launched it.
 function writeStandInBrowser(dir: string, launched: string): string {
-  const binary = join(dir, 'stand-in-browser')
-
-  writeFileSync(
-    binary,
-    [
-      '#!/bin/sh',
-      'for arg in "$@"; do',
-      '  case "$arg" in',
-      '    --version|--product-version)',
-      '      echo "Stand-in 999.0.1234.5"',
-      '      exit 0',
-      '      ;;',
-      '  esac',
-      'done',
-      `: > '${launched}'`,
-      'exec sleep 600',
-      ''
-    ].join('\n')
-  )
-
-  chmodSync(binary, 0o755)
-
-  return binary
+  return plantBrowserStandIn(dir, 'stand-in-browser', {
+    version: 'Stand-in 999.0.1234.5',
+    argvFile: launched,
+    stay: true
+  })
 }
 
-// Posix only: the stand-in is a shell script, and on Windows a kill ends the
-// child before any handler runs.
+// Posix only: on Windows a kill ends the child before any handler runs.
 describe.skipIf(process.platform === 'win32')(
   'a run-only session told to stop ends its json stream with one coded frame',
   () => {

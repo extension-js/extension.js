@@ -1,7 +1,8 @@
-import {chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
+import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
+import {plantUnspawnable} from '../helpers/browser-stand-in'
 import {framesIn, runCli as spawnCli} from '../helpers/run-cli'
 
 const GLYPH = '⏵'
@@ -27,123 +28,117 @@ function frames(stdout: string): Frame[] {
 }
 
 // One failing run per place a failure frame is built: the top-level sink and
-// each command's own catch. The stand-in binary needs posix permission bits.
-describe.skipIf(process.platform === 'win32')(
-  'the error.message of a json failure frame',
-  () => {
-    let work = ''
-    let projectDir = ''
-    let emptyDir = ''
-    let unexecutable = ''
-    let missing = ''
+// each command's own catch.
+describe('the error.message of a json failure frame', () => {
+  let work = ''
+  let projectDir = ''
+  let emptyDir = ''
+  let unexecutable = ''
+  let missing = ''
 
-    beforeAll(() => {
-      work = mkdtempSync(join(tmpdir(), 'extjs-plain-message-'))
-      projectDir = join(work, 'project')
-      emptyDir = join(work, 'empty')
-      mkdirSync(projectDir, {recursive: true})
-      mkdirSync(emptyDir, {recursive: true})
-      mkdirSync(join(work, 'bin'), {recursive: true})
-      writeFileSync(
-        join(projectDir, 'manifest.json'),
-        JSON.stringify({
-          manifest_version: 3,
-          name: 'Plain Message Probe',
-          version: '1.0.0'
-        })
-      )
-
-      unexecutable = join(work, 'bin', 'chrome')
-      // Passes the pin check, then spawn refuses it: no browser starts.
-      writeFileSync(unexecutable, '#!/nonexistent/interpreter\n')
-      chmodSync(unexecutable, 0o755)
-      missing = join(work, 'nowhere', 'chrome')
-    })
-
-    afterAll(() => {
-      rmSync(work, {recursive: true, force: true})
-    })
-
-    const runs: Array<[string, () => string[], string]> = [
-      [
-        'start, a browser that cannot spawn',
-        () => [
-          'start',
-          projectDir,
-          '--browser',
-          'chrome',
-          '--chromium-binary',
-          unexecutable
-        ],
-        'E_BROWSER_LAUNCH'
-      ],
-      [
-        'start, a pin that names nothing',
-        () => [
-          'start',
-          projectDir,
-          '--browser',
-          'chrome',
-          '--chromium-binary',
-          missing
-        ],
-        'E_BROWSER_BINARY_INVALID'
-      ],
-      [
-        'preview, a pin that names nothing',
-        () => [
-          'preview',
-          projectDir,
-          '--browser',
-          'chrome',
-          '--chromium-binary',
-          missing
-        ],
-        'E_BROWSER_BINARY_INVALID'
-      ],
-      ['start, no manifest', () => ['start', emptyDir], 'E_MANIFEST_NOT_FOUND'],
-      ['build, no manifest', () => ['build', emptyDir], 'E_MANIFEST_NOT_FOUND'],
-      [
-        'preview, no manifest',
-        () => ['preview', emptyDir],
-        'E_MANIFEST_NOT_FOUND'
-      ],
-      [
-        'dev, no manifest',
-        () => ['dev', emptyDir, '--no-browser'],
-        'E_MANIFEST_NOT_FOUND'
-      ],
-      [
-        'build, a remote archive nothing serves',
-        () => ['build', 'http://127.0.0.1:1/extension.zip'],
-        'E_REMOTE_DOWNLOAD'
-      ],
-      [
-        'create, a destination that holds files',
-        () => ['create', projectDir],
-        'E_DESTINATION_NOT_EMPTY'
-      ]
-    ]
-
-    it.each(runs)(
-      'carries no glyph and no escape code with color forced on: %s',
-      async (_label, args, code) => {
-        const result = await runCli([...args(), '--output', 'json'], work)
-        const failures = frames(result.stdout).filter((frame) => !frame.ok)
-
-        expect(result.status, result.stdout).toBe(1)
-        // A run that framed nothing would pass the scan below without a look.
-        expect(failures.map((frame) => frame.error?.code)).toEqual([code])
-
-        for (const frame of failures) {
-          const message = String(frame.error?.message)
-
-          expect(message, JSON.stringify(frame)).not.toContain(GLYPH)
-          expect(message, JSON.stringify(frame)).not.toContain(ANSI_ESCAPE)
-          expect(message.trim()).not.toBe('')
-        }
-      },
-      150_000
+  beforeAll(() => {
+    work = mkdtempSync(join(tmpdir(), 'extjs-plain-message-'))
+    projectDir = join(work, 'project')
+    emptyDir = join(work, 'empty')
+    mkdirSync(projectDir, {recursive: true})
+    mkdirSync(emptyDir, {recursive: true})
+    writeFileSync(
+      join(projectDir, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        name: 'Plain Message Probe',
+        version: '1.0.0'
+      })
     )
-  }
-)
+
+    // Passes the pin check, then spawn refuses it: no browser starts.
+    unexecutable = plantUnspawnable(join(work, 'bin'), 'chrome')
+    missing = join(work, 'nowhere', 'chrome')
+  })
+
+  afterAll(() => {
+    rmSync(work, {recursive: true, force: true})
+  })
+
+  const runs: Array<[string, () => string[], string]> = [
+    [
+      'start, a browser that cannot spawn',
+      () => [
+        'start',
+        projectDir,
+        '--browser',
+        'chrome',
+        '--chromium-binary',
+        unexecutable
+      ],
+      'E_BROWSER_LAUNCH'
+    ],
+    [
+      'start, a pin that names nothing',
+      () => [
+        'start',
+        projectDir,
+        '--browser',
+        'chrome',
+        '--chromium-binary',
+        missing
+      ],
+      'E_BROWSER_BINARY_INVALID'
+    ],
+    [
+      'preview, a pin that names nothing',
+      () => [
+        'preview',
+        projectDir,
+        '--browser',
+        'chrome',
+        '--chromium-binary',
+        missing
+      ],
+      'E_BROWSER_BINARY_INVALID'
+    ],
+    ['start, no manifest', () => ['start', emptyDir], 'E_MANIFEST_NOT_FOUND'],
+    ['build, no manifest', () => ['build', emptyDir], 'E_MANIFEST_NOT_FOUND'],
+    [
+      'preview, no manifest',
+      () => ['preview', emptyDir],
+      'E_MANIFEST_NOT_FOUND'
+    ],
+    [
+      'dev, no manifest',
+      () => ['dev', emptyDir, '--no-browser'],
+      'E_MANIFEST_NOT_FOUND'
+    ],
+    [
+      'build, a remote archive nothing serves',
+      () => ['build', 'http://127.0.0.1:1/extension.zip'],
+      'E_REMOTE_DOWNLOAD'
+    ],
+    [
+      'create, a destination that holds files',
+      () => ['create', projectDir],
+      'E_DESTINATION_NOT_EMPTY'
+    ]
+  ]
+
+  it.each(runs)(
+    'carries no glyph and no escape code with color forced on: %s',
+    async (_label, args, code) => {
+      const result = await runCli([...args(), '--output', 'json'], work)
+      const failures = frames(result.stdout).filter((frame) => !frame.ok)
+
+      expect(result.status, result.stdout).toBe(1)
+      // A run that framed nothing would pass the scan below without a look.
+      expect(failures.map((frame) => frame.error?.code)).toEqual([code])
+
+      for (const frame of failures) {
+        const message = String(frame.error?.message)
+
+        expect(message, JSON.stringify(frame)).not.toContain(GLYPH)
+        expect(message, JSON.stringify(frame)).not.toContain(ANSI_ESCAPE)
+        expect(message.trim()).not.toBe('')
+      }
+    },
+    150_000
+  )
+})

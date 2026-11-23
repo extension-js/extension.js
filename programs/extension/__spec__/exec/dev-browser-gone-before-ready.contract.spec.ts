@@ -1,5 +1,4 @@
 import {
-  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -10,35 +9,31 @@ import {
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import {plantBrowserStandIn} from '../helpers/browser-stand-in'
 import {startCli} from '../helpers/run-cli'
 
-// A managed Chrome whose binary is a script that exits at once: the shape of
-// a browser that dies at launch, with nothing on screen and no download.
+// A managed Chrome whose binary exits at once: the shape of a browser that
+// dies at launch, with nothing on screen and no download.
 function plantExitingChrome(cacheRoot: string) {
-  const build = join(cacheRoot, 'chrome', 'chrome', 'mac_arm-151.0.7922.71')
+  const builds = join(cacheRoot, 'chrome', 'chrome')
   const dir =
     process.platform === 'darwin'
       ? join(
-          build,
+          builds,
+          'mac_arm-151.0.7922.71',
           'chrome-mac-arm64',
           'Google Chrome for Testing.app',
           'Contents',
           'MacOS'
         )
-      : join(
-          cacheRoot,
-          'chrome',
-          'chrome',
-          'linux-151.0.7922.71',
-          'chrome-linux64'
-        )
-  const binary = join(
+      : process.platform === 'win32'
+        ? join(builds, 'win64-151.0.7922.71', 'chrome-win64')
+        : join(builds, 'linux-151.0.7922.71', 'chrome-linux64')
+
+  plantBrowserStandIn(
     dir,
     process.platform === 'darwin' ? 'Google Chrome for Testing' : 'chrome'
   )
-  mkdirSync(dir, {recursive: true})
-  writeFileSync(binary, '#!/bin/sh\nexit 0\n')
-  chmodSync(binary, 0o755)
 }
 
 function writeProject(dir: string) {
@@ -99,50 +94,45 @@ async function runDevUntilBrowserGone(projectDir: string, cacheRoot: string) {
   return {output: session.read().output, ready, events: timeline}
 }
 
-// The stand-in binary is a shell script, which Windows cannot exec, so the
-// contract runs on posix only. The launcher's gone handling is platform-neutral.
-describe.skipIf(process.platform === 'win32')(
-  'dev with a managed browser that exits at launch',
-  () => {
-    const leftovers: string[] = []
+describe('dev with a managed browser that exits at launch', () => {
+  const leftovers: string[] = []
 
-    afterEach(() => {
-      for (const dir of leftovers.splice(0)) {
-        rmSync(dir, {recursive: true, force: true})
-      }
-    })
+  afterEach(() => {
+    for (const dir of leftovers.splice(0)) {
+      rmSync(dir, {recursive: true, force: true})
+    }
+  })
 
-    it('reports the browser gone, never ready, and writes the contract to match', async () => {
-      const work = mkdtempSync(join(tmpdir(), 'extjs-gone-before-ready-'))
-      leftovers.push(work)
-      const projectDir = join(work, 'project')
-      const cacheRoot = join(work, 'cache')
-      mkdirSync(projectDir, {recursive: true})
-      writeProject(projectDir)
-      plantExitingChrome(cacheRoot)
+  it('reports the browser gone, never ready, and writes the contract to match', async () => {
+    const work = mkdtempSync(join(tmpdir(), 'extjs-gone-before-ready-'))
+    leftovers.push(work)
+    const projectDir = join(work, 'project')
+    const cacheRoot = join(work, 'cache')
+    mkdirSync(projectDir, {recursive: true})
+    writeProject(projectDir)
+    plantExitingChrome(cacheRoot)
 
-      const {output, ready, events} = await runDevUntilBrowserGone(
-        projectDir,
-        cacheRoot
-      )
+    const {output, ready, events} = await runDevUntilBrowserGone(
+      projectDir,
+      cacheRoot
+    )
 
-      expect(output, output).toMatch(/Gone Probe compiled in \d+ ms/)
-      expect(output, output).toMatch(/closed cleanly \(exit code 0\)/)
-      expect(output, output).not.toMatch(/Uncaught exception/)
-      expect(output, output).not.toMatch(/ready for development/)
-      expect(output, output).toMatch(
-        /Chrome exited before the extension loaded, so nothing is running/
-      )
+    expect(output, output).toMatch(/Gone Probe compiled in \d+ ms/)
+    expect(output, output).toMatch(/closed cleanly \(exit code 0\)/)
+    expect(output, output).not.toMatch(/Uncaught exception/)
+    expect(output, output).not.toMatch(/ready for development/)
+    expect(output, output).toMatch(
+      /Chrome exited before the extension loaded, so nothing is running/
+    )
 
-      expect(output, output).toMatch(/The dev server keeps watching/)
+    expect(output, output).toMatch(/The dev server keeps watching/)
 
-      expect(ready, output).not.toBeNull()
-      expect(ready?.status).toBe('error')
-      expect(ready?.code).toBe('browser_exited')
-      expect(typeof ready?.browserExitedAt).toBe('string')
-      expect(ready?.browserExitCode).toBe(0)
-      expect(String(ready?.message)).toMatch(/before the extension loaded/)
-      expect(events, events).toMatch(/"type":"browser_exited"/)
-    }, 90_000)
-  }
-)
+    expect(ready, output).not.toBeNull()
+    expect(ready?.status).toBe('error')
+    expect(ready?.code).toBe('browser_exited')
+    expect(typeof ready?.browserExitedAt).toBe('string')
+    expect(ready?.browserExitCode).toBe(0)
+    expect(String(ready?.message)).toMatch(/before the extension loaded/)
+    expect(events, events).toMatch(/"type":"browser_exited"/)
+  }, 90_000)
+})

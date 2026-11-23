@@ -62,53 +62,52 @@ describe('a stub left by an interrupted download is not a browser', () => {
 
   // The point of the entry: a stub sorts first by build id, so without this
   // it shadowed a working install instead of being skipped.
-  it.skipIf(process.platform === 'win32')(
-    'skips a newer stub and resolves the working older install',
-    () => {
-      const base = tempRoot()
-      const chromiumRoot = path.join(base, 'chromium', 'chromium')
+  it('skips a newer stub and resolves the working older install', () => {
+    const base = tempRoot()
+    const chromiumRoot = path.join(base, 'chromium', 'chromium')
+    // The resolver looks for the name a build has on the running system.
+    const binaryName = process.platform === 'win32' ? 'chrome.exe' : 'Chromium'
 
-      writeBinary(
-        path.join(
-          chromiumRoot,
-          'mac_arm-999.0.0.0',
-          'chrome-mac-arm64',
-          'Chromium.app',
-          'Contents',
-          'MacOS',
-          'Chromium'
-        ),
-        0,
-        0o644
-      )
+    writeBinary(
+      path.join(
+        chromiumRoot,
+        'mac_arm-999.0.0.0',
+        'chrome-mac-arm64',
+        'Chromium.app',
+        'Contents',
+        'MacOS',
+        binaryName
+      ),
+      0,
+      0o644
+    )
 
-      const working = writeBinary(
-        path.join(
-          chromiumRoot,
-          'mac_arm-120.0.0.0',
-          'chrome-mac-arm64',
-          'Chromium.app',
-          'Contents',
-          'MacOS',
-          'Chromium'
-        ),
-        4096,
-        0o755
-      )
+    const working = writeBinary(
+      path.join(
+        chromiumRoot,
+        'mac_arm-120.0.0.0',
+        'chrome-mac-arm64',
+        'Chromium.app',
+        'Contents',
+        'MacOS',
+        binaryName
+      ),
+      4096,
+      0o755
+    )
 
-      const compilation = {
-        options: {output: {path: path.join(base, 'dist', 'chromium')}}
-      } as unknown as Parameters<typeof resolveFromBinaries>[0]
+    const compilation = {
+      options: {output: {path: path.join(base, 'dist', 'chromium')}}
+    } as unknown as Parameters<typeof resolveFromBinaries>[0]
 
-      const previous = process.env.EXT_BROWSERS_CACHE_DIR
-      process.env.EXT_BROWSERS_CACHE_DIR = base
+    const previous = process.env.EXT_BROWSERS_CACHE_DIR
+    process.env.EXT_BROWSERS_CACHE_DIR = base
 
-      try {
-        expect(resolveFromBinaries(compilation, 'chromium')).toBe(working)
-      } finally {
-        if (previous === undefined) delete process.env.EXT_BROWSERS_CACHE_DIR
-        else process.env.EXT_BROWSERS_CACHE_DIR = previous
-      }
+    try {
+      expect(resolveFromBinaries(compilation, 'chromium')).toBe(working)
+    } finally {
+      if (previous === undefined) delete process.env.EXT_BROWSERS_CACHE_DIR
+      else process.env.EXT_BROWSERS_CACHE_DIR = previous
     }
-  )
+  })
 })

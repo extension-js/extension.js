@@ -24,73 +24,78 @@ async function runCli(args: string[], untilFailure: boolean) {
   return framesIn<Frame>(run.stdout)
 }
 
-// The stand-ins lean on posix permission bits and shell scripts.
-describe.skipIf(process.platform === 'win32')(
-  'a bad pinned browser binary reports one status on every command',
-  () => {
-    let work = ''
-    let projectDir = ''
-    const pins: Record<string, string> = {}
+describe('a bad pinned browser binary reports one status on every command', () => {
+  let work = ''
+  let projectDir = ''
+  const pins: Record<string, string> = {}
 
-    beforeAll(() => {
-      work = mkdtempSync(join(tmpdir(), 'extjs-bad-pin-'))
-      projectDir = join(work, 'project')
-      mkdirSync(projectDir, {recursive: true})
-      writeFileSync(
-        join(projectDir, 'manifest.json'),
-        JSON.stringify({manifest_version: 3, name: 'Bad Pin', version: '1.0.0'})
-      )
+  beforeAll(() => {
+    work = mkdtempSync(join(tmpdir(), 'extjs-bad-pin-'))
+    projectDir = join(work, 'project')
+    mkdirSync(projectDir, {recursive: true})
+    writeFileSync(
+      join(projectDir, 'manifest.json'),
+      JSON.stringify({manifest_version: 3, name: 'Bad Pin', version: '1.0.0'})
+    )
 
-      const bin = join(work, 'bin')
-      mkdirSync(bin, {recursive: true})
-      pins.missing = join(work, 'nowhere', 'browser')
+    const bin = join(work, 'bin')
+    mkdirSync(bin, {recursive: true})
+    pins.missing = join(work, 'nowhere', 'browser')
 
-      pins['not executable'] = join(bin, 'unrunnable')
-      writeFileSync(pins['not executable'], 'not a browser\n')
-      chmodSync(pins['not executable'], 0o644)
-    })
+    pins['not executable'] = join(bin, 'unrunnable')
+    writeFileSync(pins['not executable'], 'not a browser\n')
+    chmodSync(pins['not executable'], 0o644)
+  })
 
-    afterAll(() => {
-      rmSync(work, {recursive: true, force: true})
-    })
+  afterAll(() => {
+    rmSync(work, {recursive: true, force: true})
+  })
 
-    const cases: Array<[string, string, string, string]> = []
+  type Case = [string, string, string, string]
+  const missing: Case[] = []
+  const notExecutable: Case[] = []
 
-    for (const command of ['start', 'dev', 'preview']) {
-      // A pin that runs and never answers costs the probe's 10 seconds, so
-      // browser-version-probe.contract.spec.ts reads it from one run each.
-      for (const cause of ['missing', 'not executable']) {
-        cases.push([command, cause, 'chrome', '--chromium-binary'])
-      }
-
-      cases.push([command, 'not executable', 'firefox', '--gecko-binary'])
-    }
-
-    it.each(cases)(
-      '%s answers a %s %s pin with usage and E_BROWSER_BINARY_INVALID',
-      async (command, cause, browser, flag) => {
-        const frames = await runCli(
-          [
-            command,
-            projectDir,
-            '--browser',
-            browser,
-            flag,
-            pins[cause],
-            '--no-open',
-            '--output',
-            'json'
-          ],
-          command === 'dev'
-        )
-
-        const failures = frames.filter((frame) => !frame.ok)
-        expect(failures, JSON.stringify(frames)).toHaveLength(1)
-        expect(failures[0]).toMatchObject({command, status: 'usage'})
-        expect(failures[0].error?.code).toBe('E_BROWSER_BINARY_INVALID')
-        expect(failures[0].error?.message).toContain(pins[cause])
-      },
-      120_000
+  for (const command of ['start', 'dev', 'preview']) {
+    // A pin that runs and never answers costs the probe's 10 seconds, so
+    // browser-version-probe.contract.spec.ts reads it from one run each.
+    missing.push([command, 'missing', 'chrome', '--chromium-binary'])
+    notExecutable.push(
+      [command, 'not executable', 'chrome', '--chromium-binary'],
+      [command, 'not executable', 'firefox', '--gecko-binary']
     )
   }
-)
+
+  const title = '%s answers a %s %s pin with usage and E_BROWSER_BINARY_INVALID'
+
+  const answersUsage = async (...[command, cause, browser, flag]: Case) => {
+    const frames = await runCli(
+      [
+        command,
+        projectDir,
+        '--browser',
+        browser,
+        flag,
+        pins[cause],
+        '--no-open',
+        '--output',
+        'json'
+      ],
+      command === 'dev'
+    )
+
+    const failures = frames.filter((frame) => !frame.ok)
+    expect(failures, JSON.stringify(frames)).toHaveLength(1)
+    expect(failures[0]).toMatchObject({command, status: 'usage'})
+    expect(failures[0].error?.code).toBe('E_BROWSER_BINARY_INVALID')
+    expect(failures[0].error?.message).toContain(pins[cause])
+  }
+
+  it.each(missing)(title, answersUsage, 120_000)
+
+  // Windows has no executable bit, so only the missing pin is read there.
+  it.skipIf(process.platform === 'win32').each(notExecutable)(
+    title,
+    answersUsage,
+    120_000
+  )
+})
