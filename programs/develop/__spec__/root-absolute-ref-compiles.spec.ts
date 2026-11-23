@@ -215,33 +215,36 @@ describe('a file a root-absolute ref compiles, across rebuilds', () => {
     expect(rebuild.errors.join('\n')).toContain('./dep.js')
   })
 
-  it('compiles the file again once the import is back', async () => {
-    // Nothing watches for an import the last compile could not resolve.
-    const rebuild = await project.after(() => {
+  it('rebuilds and compiles the file again once the import is back', async () => {
+    // The only write: the build watches for what the last compile missed.
+    const rebuild = await project.after(() =>
       write('lib/dep.js', depSource('dep-three'))
-      write('content.js', 'console.log("content 3b")\n')
-    })
+    )
 
     expect(rebuild.childCompiles).toBe(1)
     expect(rebuild.errors).toEqual([])
     expect(rebuild.output['lib/mod.js']).toContain('dep-three')
   })
 
-  it('compiles the file again when a file it looked for and missed appears', async () => {
+  it('rebuilds and compiles the file again when a file it looked for and missed appears', async () => {
     const kept = await project.after(() =>
       write('content.js', 'console.log("content 4")\n')
     )
     expect(kept.childCompiles).toBe(0)
 
-    // The resolver takes dep.ts over dep.js, and nothing watches for it.
-    write('lib/dep.ts', depSource('dep-from-ts'))
-
+    // The resolver takes dep.ts over dep.js, and a kept compile watches for it.
     const rebuild = await project.after(() =>
-      write('content.js', 'console.log("content 5")\n')
+      write('lib/dep.ts', depSource('dep-from-ts'))
     )
 
     expect(rebuild.childCompiles).toBe(1)
-    fs.rmSync(path.join(project.root, 'lib/dep.ts'))
+    expect(rebuild.output['lib/mod.js']).toContain('dep-from-ts')
+
+    const without = await project.after(() =>
+      fs.rmSync(path.join(project.root, 'lib/dep.ts'))
+    )
+
+    expect(without.output['lib/mod.js']).toContain('dep-three')
   })
 
   it('stops shipping a deleted file and compiles it when it returns', async () => {
