@@ -37,8 +37,8 @@ interface Watched {
   close: () => Promise<void>
 }
 
-const workerSource = (note: string) =>
-  `chrome.action.onClicked.addListener((tab) => {\n  chrome.scripting.executeScript({target: {tabId: tab.id}, files: ['inject/tool.js']})\n})\nconsole.log('${note}')\n`
+const workerSource = (note: string, file = 'inject/tool.js') =>
+  `chrome.action.onClicked.addListener((tab) => {\n  chrome.scripting.executeScript({target: {tabId: tab.id}, files: ['inject/tool.js']})\n  chrome.scripting.executeScript({target: {tabId: tab.id}, files: ['${file}']})\n})\nconsole.log('${note}')\n`
 
 // A classic file that ends on a value, which executeScript resolves with.
 const toolSource = (note: string) =>
@@ -229,5 +229,34 @@ describe('a file the runtime trace compiles, across rebuilds', () => {
 
     expect(rebuild.childCompiles).toBe(1)
     expect(rebuild.output['inject/tool.js']).toContain('dep-from-js')
+  })
+
+  it('rebuilds and ships a file the worker names once its source is there', async () => {
+    const named = await project.after(() =>
+      write('background.js', workerSource('worker 2', 'inject/late.js'))
+    )
+
+    expect(named.output['inject/late.js']).toBeUndefined()
+    expect(named.watchedFor).toEqual(
+      expect.arrayContaining(['inject/late.js', 'inject/late.ts'])
+    )
+
+    // A rebuild for another file keeps watching for the one still missing.
+    const still = await project.after(() =>
+      write('content.js', 'console.log("content 5")\n')
+    )
+
+    expect(still.output['inject/late.js']).toBeUndefined()
+    expect(still.watchedFor).toEqual(
+      expect.arrayContaining(['inject/late.js', 'inject/late.ts'])
+    )
+
+    // The only write: the source of the file the worker names.
+    const rebuild = await project.after(() =>
+      write('inject/late.ts', "const late: string = 'late-one'\nlate\n")
+    )
+
+    expect(rebuild.errors).toEqual([])
+    expect(rebuild.output['inject/late.js']).toContain('late-one')
   })
 })

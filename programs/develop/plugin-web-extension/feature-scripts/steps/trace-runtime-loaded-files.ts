@@ -1702,12 +1702,18 @@ class TraceRun {
     distRel: string
     loadsAs: TracedLoad
   }): TracedFilePlan {
-    return planTracedFile({
+    const plan = planTracedFile({
       ...opts,
       manifestDir: this.manifestDir,
       hasAsset: this.hasAsset,
       mayRead: this.mayShip
     })
+
+    if (plan.kind === 'missing') {
+      watchForMissingFile(this.compilation, this.manifestDir, opts.sourceRel)
+    }
+
+    return plan
   }
 
   // A file that rides along with a traced one, which no code names.
@@ -2443,6 +2449,37 @@ export function planTracedFile(opts: {
   }
 
   return {kind: 'missing', emitPath: distRel}
+}
+
+// A file planned as missing is watched for at each path that would have
+// answered for it, so the build runs again once one of them is there.
+export function watchForMissingFile(
+  compilation: Compilation,
+  manifestDir: string,
+  sourceRel: string
+): void {
+  const abs = path.join(manifestDir, sourceRel)
+
+  if (path.relative(manifestDir, abs).startsWith('..')) return
+
+  const ext = path.extname(abs).toLowerCase()
+  const base = abs.slice(0, abs.length - ext.length)
+  const siblings =
+    ext === '.js'
+      ? SOURCE_SIBLING_EXTENSIONS
+      : ext === '.css'
+        ? STYLESHEET_SIBLING_EXTENSIONS
+        : []
+
+  try {
+    compilation.missingDependencies.add(abs)
+
+    for (const sibling of siblings) {
+      compilation.missingDependencies.add(base + sibling)
+    }
+  } catch {
+    // Ignore, watch registration is best-effort
+  }
 }
 
 function formatFor(sourcePath: string, loadsAs: TracedLoad): TracedFormat {

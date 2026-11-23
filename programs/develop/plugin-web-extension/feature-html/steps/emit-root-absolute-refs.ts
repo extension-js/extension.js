@@ -24,7 +24,8 @@ import {
   compileRuntimeLoadedFiles,
   planTracedFile,
   saidNotShipped,
-  type TracedFilePlan
+  type TracedFilePlan,
+  watchForMissingFile
 } from '../../feature-scripts/steps/trace-runtime-loaded-files'
 import {collectRootAbsoluteRefs} from '../../shared/paths'
 import * as htmlMessages from '../html-lib/messages'
@@ -259,9 +260,13 @@ export async function emitRootAbsoluteRefs(
           break
         }
 
+        case 'missing':
+          // Reported by the existing missing-file checks, and watched for.
+          watchForMissingFile(compilation, context, plan.emitPath)
+          break
+
         default:
-          // Skipped refs are owned by public/ or by the main compilation, and
-          // a missing ref is reported by the existing missing-file checks.
+          // Skipped refs are owned by public/ or by the main compilation.
           break
       }
     }

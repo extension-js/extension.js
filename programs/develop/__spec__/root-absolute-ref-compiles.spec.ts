@@ -255,11 +255,10 @@ describe('a file a root-absolute ref compiles, across rebuilds', () => {
     expect(gone.childCompiles).toBe(0)
     expect(gone.output).toEqual({})
 
-    // Nothing watches for a file a page names and the build did not find.
-    const back = await project.after(() => {
+    // The only write: the build watches for a file a page names and misses.
+    const back = await project.after(() =>
       write('lib/mod.js', moduleSource(''))
-      write('content.js', 'console.log("content 6")\n')
-    })
+    )
 
     expect(back.childCompiles).toBe(1)
     expect(back.output['lib/mod.js']).toContain('dep-three')
