@@ -156,8 +156,8 @@ function expectNoSecret(text: string) {
   for (const slice of SECRET_SLICES) expect(text).not.toContain(slice)
 }
 
-// Windows needs a privilege to make a file link, so the linked row runs where
-// the platform lets an ordinary user make one.
+// Windows needs a privilege to make a file link, which a CI runner has and an
+// ordinary user may not, so the linked row runs wherever a link can be made.
 function canLink(dir: string): boolean {
   try {
     writeFileSync(join(dir, 'link-target'), '')
@@ -202,7 +202,9 @@ describe('a package.json whose text is not JSON is described by position only', 
   })
 
   it('runs the linked row where the platform allows links', () => {
-    expect(layouts.length).toBe(process.platform === 'win32' ? 1 : 2)
+    const fewest = process.platform === 'win32' ? 1 : 2
+
+    expect(layouts.length).toBeGreaterThanOrEqual(fewest)
   })
 
   for (const index of [0, 1]) {
