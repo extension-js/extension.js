@@ -8,9 +8,14 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {describeJsonParseFailure} from './json-parse-position'
 
-// Removes JSONC extensions (comments, trailing commas) so the result parses
-// with JSON.parse. String contents are preserved verbatim.
+// Blanks JSONC extensions (comments, trailing commas) to spaces so the result
+// parses with JSON.parse at the offsets the author wrote. Strings stay verbatim.
+function blank(text: string): string {
+  return text.replace(/[^\r\n]/g, ' ')
+}
+
 function stripJsoncExtensions(text: string): string {
   let out = ''
   let i = 0
@@ -42,14 +47,20 @@ function stripJsoncExtensions(text: string): string {
     }
 
     if (char === '/' && text[i + 1] === '/') {
+      const start = i
+
       while (i < text.length && text[i] !== '\n') i++
+      out += blank(text.slice(start, i))
       continue
     }
 
     if (char === '/' && text[i + 1] === '*') {
+      const start = i
+
       i += 2
       while (i < text.length && !(text[i] === '*' && text[i + 1] === '/')) i++
       i += 2
+      out += blank(text.slice(start, i))
       continue
     }
 
@@ -67,11 +78,16 @@ function stripJsoncExtensions(text: string): string {
         }
 
         if (c === '/' && text[j + 1] === '/') {
+          const start = j
+
           while (j < text.length && text[j] !== '\n') j++
+          buffered += blank(text.slice(start, j))
           continue
         }
 
         if (c === '/' && text[j + 1] === '*') {
+          const start = j
+
           j += 2
 
           while (j < text.length && !(text[j] === '*' && text[j + 1] === '/')) {
@@ -79,6 +95,7 @@ function stripJsoncExtensions(text: string): string {
           }
 
           j += 2
+          buffered += blank(text.slice(start, j))
           continue
         }
 
@@ -86,7 +103,11 @@ function stripJsoncExtensions(text: string): string {
       }
 
       const nextChar = text[j] ?? ''
-      out += nextChar === '}' || nextChar === ']' ? buffered.slice(1) : buffered
+      out +=
+        nextChar === '}' || nextChar === ']'
+          ? ` ${buffered.slice(1)}`
+          : buffered
+
       i = j
       continue
     }
@@ -113,8 +134,14 @@ export interface DenoConfig {
 export function parseJsoncSafe<T = ParsedJsonc>(text: string): T {
   const withoutBom = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text
   const stripped = stripJsoncExtensions(withoutBom)
+  const json = stripped.trim() ? stripped : '{}'
 
-  return JSON.parse(stripped.trim() || '{}')
+  // Node's message quotes the file, and the scaffold relays this one.
+  try {
+    return JSON.parse(json)
+  } catch {
+    throw new SyntaxError(describeJsonParseFailure(json))
+  }
 }
 
 export function parseNpmSpecifier(

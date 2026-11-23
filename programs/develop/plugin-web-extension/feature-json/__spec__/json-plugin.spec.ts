@@ -276,6 +276,26 @@ describe('JsonPlugin', () => {
     expect(compilation.errors[0]?.name).toBe('JSONInvalidSyntax')
   })
 
+  it('names where a DNR ruleset stops parsing and quotes none of it', () => {
+    const p = '/abs/path/rules.json'
+    const secret = 'root:x:0:0:secret-hunter2'
+    mockedFs.existsSync.mockImplementation((x: unknown) => x === p)
+    mockedFs.readFileSync.mockImplementation(() => Buffer.from(secret))
+
+    const plugin = new JsonPlugin({
+      manifestPath: 'manifest.json',
+      includeList: {'declarative_net_request.ruleset': p}
+    })
+    const {compilation} = createCompilerHarness().applyAndRun(plugin)
+    const message = String(compilation.errors[0]?.message)
+
+    expect(message).toContain('unexpected character at line 1 column 1')
+
+    for (let i = 0; i + 4 <= secret.length; i++) {
+      expect(message).not.toContain(secret.slice(i, i + 4))
+    }
+  })
+
   it('errors when DNR ruleset is not an array', () => {
     const p = '/abs/path/rules.json'
     mockedFs.existsSync.mockImplementation((x: unknown) => x === p)

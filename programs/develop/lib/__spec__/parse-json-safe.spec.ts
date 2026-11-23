@@ -148,7 +148,7 @@ describe('parseAuthoredJson', () => {
       '{\n  // a comment first\n  "manifest_version": 3, /* and a block */\n  "name": "x"\n  "version": "1.0.0"\n}\n'
 
     expect(() => parseAuthoredJson(text, {browser: 'chrome'})).toThrow(
-      /position 82 \(line 5 column 3\)/
+      'unexpected character at line 5 column 3'
     )
 
     expect(text.slice(82, 91)).toBe('"version"')
@@ -200,5 +200,37 @@ describe('parseAuthoredJson', () => {
           .permissions
       ).toEqual(['tabs', 'notifications', 'favicon', 'storage'])
     }
+  })
+})
+
+// Node's message quotes the start of the file, and every caller relays the
+// error, so the thrown message holds the place and none of the text.
+describe('parseAuthoredJson on text that is not JSON', () => {
+  const secret = 'root:x:0:0:secret-hunter2'
+
+  it.each([
+    ['parseAuthoredJson', () => parseAuthoredJson(secret)],
+    ['parseJsonSafe', () => parseJsonSafe(secret)]
+  ])('%s throws the line and column and quotes none of the text', (_n, read) => {
+    let message = ''
+
+    try {
+      read()
+    } catch (error) {
+      expect(error).toBeInstanceOf(SyntaxError)
+      message = (error as Error).message
+    }
+
+    expect(message).toBe('unexpected character at line 1 column 1')
+
+    for (let i = 0; i + 4 <= secret.length; i++) {
+      expect(message).not.toContain(secret.slice(i, i + 4))
+    }
+  })
+
+  it('counts a comment before the fault in the place it names', () => {
+    expect(() =>
+      parseAuthoredJson('{\n  // note\n  "a": 1\n  "b": 2\n}')
+    ).toThrow('unexpected character at line 4 column 3')
   })
 })

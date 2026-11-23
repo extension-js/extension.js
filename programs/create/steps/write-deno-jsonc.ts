@@ -10,6 +10,7 @@ import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import {type DenoConfig, parseJsoncSafe} from '../lib/deno-manifest'
 import {readTemplatePackageJson} from '../lib/find-manifest-json'
+import {describeJsonReadFailure} from '../lib/json-parse-position'
 import * as messages from '../lib/messages'
 import {CODES, isDebug} from '../lib/messaging'
 import {isDenoRuntime} from '../lib/package-manager'
@@ -127,23 +128,35 @@ interface WriteDenoJsoncOptions {
 }
 
 async function readTemplateDenoConfig(configPath: string): Promise<DenoConfig> {
-  try {
-    const parsed: unknown = parseJsoncSafe(
-      await fs.readFile(configPath, 'utf8')
-    )
-
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      throw new TypeError('The file does not hold a JSON object')
-    }
-
-    return parsed as DenoConfig
-  } catch (error) {
-    throw new CreateError(
-      messages.templateFileNotReadable(configPath, error),
+  const refuse = (reason: string, cause: unknown) =>
+    new CreateError(
+      messages.templateFileNotReadable(configPath, reason),
       CODES.E_TEMPLATE_NOT_FOUND,
-      error
+      cause
     )
+  let text: string
+  let parsed: unknown
+
+  try {
+    text = await fs.readFile(configPath, 'utf8')
+  } catch (error) {
+    throw refuse(describeJsonReadFailure(error), error)
   }
+
+  // parseJsoncSafe says where the text stops parsing and quotes none of it.
+  try {
+    parsed = parseJsoncSafe(text)
+  } catch (error) {
+    throw refuse((error as Error).message, error)
+  }
+
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    const reason = 'it does not hold a JSON object'
+
+    throw refuse(reason, new TypeError(reason))
+  }
+
+  return parsed as DenoConfig
 }
 
 export async function writeDenoJsonc(

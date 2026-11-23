@@ -102,7 +102,9 @@ describe('manifest.json with comments (real build)', () => {
 
       expect(code).toBe('E_MANIFEST_INVALID')
       expect(refusalMessage).toContain("Couldn't parse manifest.json as JSON.")
-      expect(refusalMessage).toContain('(line 9 column 1)')
+      expect(refusalMessage).toContain(
+        'unexpected character at line 9 column 1'
+      )
     })
 
     it(`says nothing about comments for ${browser} when the manifest has none`, async () => {
@@ -142,7 +144,24 @@ describe('manifest.json with comments (real build)', () => {
 
     expect(code).toBe('E_MANIFEST_INVALID')
     expect(refusalMessage).toContain("Couldn't parse manifest.json as JSON.")
-    expect(refusalMessage).toContain('(line 5 column 3)')
+    expect(refusalMessage).toContain('unexpected character at line 5 column 3')
+  })
+
+  // Node's parse message quotes the start of the file, which a manifest
+  // linked to another file would relay.
+  it('names the place a manifest stops parsing and quotes none of it', async () => {
+    const secret = 'root:x:0:0:secret-hunter2'
+    const {code, refusalMessage, rendered} = await build(
+      project(secret),
+      'chrome'
+    )
+
+    expect(code).toBe('E_MANIFEST_INVALID')
+    expect(refusalMessage).toContain('unexpected character at line 1 column 1')
+
+    for (let i = 0; i + 4 <= secret.length; i++) {
+      expect(refusalMessage + rendered).not.toContain(secret.slice(i, i + 4))
+    }
   })
 
   it('ships a commented locale catalog as plain JSON', async () => {

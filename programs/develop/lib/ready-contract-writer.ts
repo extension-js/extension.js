@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
+import {describeJsonParseFailure} from './json-parse-position'
 import {ownProcessStartedAt, ownProcessStartId} from './process-started-at'
 import {type RenameRetryOptions, renameSyncWithRetry} from './rename-with-retry'
 
@@ -23,16 +24,24 @@ interface ReadyRead {
 // One read of ready.json for a poller that reports why a read gave nothing.
 // A missing file and a file that holds no object answer neither field.
 export function tryReadReadyRecord(readyPath: string): ReadyRead {
+  let text: string | undefined
+
   try {
     if (!fs.existsSync(readyPath)) return {}
 
-    const value = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    text = fs.readFileSync(readyPath, 'utf-8')
+    const value = JSON.parse(text)
 
     return value && typeof value === 'object'
       ? {record: value as ReadyRecord}
       : {}
   } catch (error) {
-    return {error: error instanceof Error ? error : new Error(String(error))}
+    if (text === undefined) {
+      return {error: error instanceof Error ? error : new Error(String(error))}
+    }
+
+    // A wait relays this, and Node's parse message quotes the file.
+    return {error: new SyntaxError(describeJsonParseFailure(text))}
   }
 }
 

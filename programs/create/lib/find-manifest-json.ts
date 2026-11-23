@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {describeJsonReadFailure} from './json-parse-position'
 import * as messages from './messages'
 import {CODES} from './messaging'
 import {CreateError, failStep} from './utils'
@@ -84,18 +85,31 @@ export async function readManifestJson(projectPath: string): Promise<{
   manifestJson: Record<string, unknown>
 }> {
   const manifestJsonPath = await findManifestJsonPath(projectPath)
+  let raw: string | undefined
 
   try {
-    const raw = await fs.promises.readFile(manifestJsonPath, 'utf-8')
+    raw = await fs.promises.readFile(manifestJsonPath, 'utf-8')
 
     return {manifestJsonPath, manifestJson: JSON.parse(raw)}
   } catch (error) {
+    const reason = describeJsonReadFailure(error, raw)
+
     throw failStep(
-      messages.manifestNotParseable(manifestJsonPath, error),
-      error,
+      messages.manifestNotParseable(manifestJsonPath, reason),
+      contentFreeCause(error, raw, reason),
       CODES.E_TEMPLATE_NOT_FOUND
     )
   }
+}
+
+// Node's parse message quotes the file, so a parse failure travels as the
+// position alone and a read failure keeps its own error.
+function contentFreeCause(
+  error: unknown,
+  text: string | undefined,
+  reason: string
+): unknown {
+  return text === undefined ? error : new SyntaxError(reason)
 }
 
 // Every step that reads the scaffold's package.json reads it here, so a broken
@@ -104,22 +118,33 @@ export function readTemplatePackageJson(
   projectPath: string
 ): Record<string, unknown> | undefined {
   const packageJsonPath = path.join(projectPath, 'package.json')
+  let raw: string | undefined
+  let parsed: unknown
 
   try {
-    const parsed: unknown = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))
-
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      throw new TypeError('The file does not hold a JSON object')
-    }
-
-    return parsed as Record<string, unknown>
+    raw = fs.readFileSync(packageJsonPath, 'utf8')
+    parsed = JSON.parse(raw)
   } catch (error) {
     if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') return undefined
 
+    const reason = describeJsonReadFailure(error, raw)
+
     throw failStep(
-      messages.templatePackageJsonNotParseable(packageJsonPath, error),
-      error,
+      messages.templatePackageJsonNotParseable(packageJsonPath, reason),
+      contentFreeCause(error, raw, reason),
       CODES.E_TEMPLATE_NOT_FOUND
     )
   }
+
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    const reason = 'it does not hold a JSON object'
+
+    throw failStep(
+      messages.templatePackageJsonNotParseable(packageJsonPath, reason),
+      new TypeError(reason),
+      CODES.E_TEMPLATE_NOT_FOUND
+    )
+  }
+
+  return parsed as Record<string, unknown>
 }

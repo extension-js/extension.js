@@ -11,6 +11,7 @@ import * as os from 'node:os'
 import path from 'node:path'
 import type {Command} from 'commander'
 import colors from 'pintor'
+import {describeJsonReadFailure} from '../../develop/lib/json-parse-position'
 import {readReadyRecord} from '../../develop/lib/ready-contract-writer'
 import {
   readyContractPath,
@@ -368,12 +369,15 @@ export function resolveDoctorBrowser(
 }
 
 // The reason a package.json on disk cannot be opened or parsed, or nothing
-// when it reads, or when no file is there.
+// when it reads, or when no file is there. Node's parse message quotes the file.
 function packageJsonParseFailure(file: string): string | undefined {
+  let text: string | undefined
+
   try {
     if (fs.statSync(file).isDirectory()) return 'it is a folder, not a file'
 
-    JSON.parse(fs.readFileSync(file, 'utf8'))
+    text = fs.readFileSync(file, 'utf8')
+    JSON.parse(text)
 
     return undefined
   } catch (error) {
@@ -381,7 +385,7 @@ function packageJsonParseFailure(file: string): string | undefined {
       return undefined
     }
 
-    return error instanceof Error ? error.message : String(error)
+    return describeJsonReadFailure(error, text)
   }
 }
 

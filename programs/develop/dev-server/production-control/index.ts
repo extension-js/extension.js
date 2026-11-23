@@ -13,6 +13,7 @@ import * as path from 'node:path'
 import parse from 'content-security-policy-parser'
 import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../../lib/constants'
 import {prependBehindTakeBlock} from '../../lib/extension-base-from-stack'
+import {describeJsonParseFailure} from '../../lib/json-parse-position'
 import {isSameOrInsidePath} from '../../lib/real-path'
 import {
   actionsPath,
@@ -252,6 +253,19 @@ export function declaredBackgroundFiles(
   }
 }
 
+// A start failure carries this message, and Node's parse message quotes the file.
+function readBuiltManifest(manifestPath: string): Record<string, unknown> {
+  const text = fs.readFileSync(manifestPath, 'utf-8')
+
+  try {
+    return JSON.parse(text)
+  } catch {
+    throw new SyntaxError(
+      `manifest.json is not valid JSON: ${describeJsonParseFailure(text)}`
+    )
+  }
+}
+
 function prepareControlledBuild(input: {
   parts: ControlledBuildParts
   distPath: string
@@ -281,7 +295,7 @@ function prepareControlledBuild(input: {
   }
 
   if (fs.existsSync(manifestPath)) {
-    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
+    const manifest = readBuiltManifest(manifestPath)
     const controlSource = `ws://${input.host || '127.0.0.1'}:${input.controlPort}`
 
     declared = declaredBackgroundFiles(manifest, input.browser)

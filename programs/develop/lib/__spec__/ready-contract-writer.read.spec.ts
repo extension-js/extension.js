@@ -51,6 +51,20 @@ describe('the one reader of ready.json', () => {
     expect(fs.readFileSync(file, 'utf-8')).toBe(text)
   })
 
+  // dev --wait relays this error, and Node's message quotes the file.
+  it('says where a ready.json stops parsing and quotes none of it', () => {
+    const secret = 'root:x:0:0:secret-hunter2'
+    fs.writeFileSync(file, secret)
+
+    const message = String(tryReadReadyRecord(file).error?.message)
+
+    expect(message).toBe('unexpected character at line 1 column 1')
+
+    for (let i = 0; i + 4 <= secret.length; i++) {
+      expect(message).not.toContain(secret.slice(i, i + 4))
+    }
+  })
+
   it.each([
     ['null', 'null'],
     ['a number', '7'],

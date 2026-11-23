@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {isGeckoBasedBrowser} from './constants'
+import {describeJsonParseFailure} from './json-parse-position'
 
 export function stripBom(text: string | Buffer): string {
   const raw = typeof text === 'string' ? text : String(text || '')
@@ -109,7 +110,14 @@ export function parseAuthoredJson<T = ParsedJson>(
     )
   }
 
-  return JSON.parse(options.emptyAsObject && !scan.text ? '{}' : scan.text)
+  const text = options.emptyAsObject && !scan.text ? '{}' : scan.text
+
+  // Node's message quotes the file, and every caller relays this one.
+  try {
+    return JSON.parse(text)
+  } catch {
+    throw new SyntaxError(describeJsonParseFailure(text))
+  }
 }
 
 // parseAuthoredJson where empty input parses as {}; invalid JSON still
