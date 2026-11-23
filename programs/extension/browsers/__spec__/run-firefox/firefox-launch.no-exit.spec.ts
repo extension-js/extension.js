@@ -34,6 +34,7 @@ interface LaunchInternals {
   adoptLivePid(pid: number): void
   liveExitWatcher?: NodeJS.Timeout
   livePid: number | null
+  didReportReady: boolean
 }
 
 function internals(plugin: FirefoxLaunchPlugin): LaunchInternals {
@@ -256,9 +257,10 @@ describe('a Firefox that hands the session to a relaunched process', () => {
     }
   })
 
-  it('reports the adopted process gone once its pid stops answering', async () => {
+  it('reports the adopted process of a ready session gone once its pid stops answering', async () => {
     const plugin = makePlugin()
     internals(plugin).ctx.logger = logger()
+    internals(plugin).didReportReady = true
     const gone = vi.fn()
     internals(plugin).onBrowserGone = gone
 

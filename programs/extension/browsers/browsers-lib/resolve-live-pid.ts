@@ -381,6 +381,11 @@ export function pidStartedAtIso(
   return started == null ? undefined : new Date(started).toISOString()
 }
 
+// How long a browser that left cleanly may take to come back. One updated at
+// launch returned 0.35 s after it left, and a Windows table read costs 1 s.
+export const SUCCESSOR_GRACE_MS = 5000
+export const SUCCESSOR_POLL_MS = 500
+
 // The handoff happens shortly after spawn, so poll for a few seconds and
 // answer early the moment a process other than the launcher owns the profile.
 // With no handoff in that window the launcher pid stands.

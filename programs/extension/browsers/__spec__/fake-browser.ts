@@ -80,6 +80,20 @@ export type FakeBrowserScript = {
   diesOnSignal?: boolean
   // A spawn that never produced a process.
   spawnError?: Error
+  // Rows the process table shows over time, each cut from the spawn's argv.
+  table?: FakeProcessRow[]
+}
+
+export type FakeProcessRow = {
+  pid: number
+  ppid: number
+  // When the row shows up and when it leaves, counted from the spawn.
+  fromMs?: number
+  untilMs?: number
+  // Arguments of the spawn this process no longer carries.
+  drops?: string[]
+  // Whether this process is the one listening on the debugging port.
+  bindsPort?: boolean
 }
 
 export class FakeChild extends EventEmitter {
@@ -553,6 +567,13 @@ export type FakeFirefox = Shared & {
     ? R
     : never
   alivePids: Set<number>
+  // What each signal registration handed over: the shutdown it runs and the
+  // adopted pid its exit backstop would reach.
+  watchers: Array<{
+    shutdown: () => Promise<void>
+    adopted: () => {pid: number} | null
+    disposed: boolean
+  }>
   // Replaces the answer to one packet type.
   answer: (type: string, reply: (packet: RdpPacket) => unknown) => void
 }
@@ -582,6 +603,7 @@ export async function fakeFirefox(
   const exits: number[] = []
   const processes: FakeFirefox['processes'] = []
   const alivePids = new Set<number>()
+  const watchers: FakeFirefox['watchers'] = []
   const signalWatchers = {registered: 0, disposed: 0}
   const timers = new Set<ReturnType<typeof setTimeout>>()
   const sockets = new Set<net.Socket>()
@@ -722,6 +744,32 @@ export async function fakeFirefox(
 
       const at = args.indexOf('-start-debugger-server')
 
+      for (const entry of script.table ?? []) {
+        const kept = args.filter((arg) => !entry.drops?.includes(arg))
+        const row = {
+          pid: entry.pid,
+          ppid: entry.ppid,
+          command: `"${binary}" ${kept.join(' ')}`
+        }
+
+        const show = () => {
+          processes.push(row)
+          alivePids.add(row.pid)
+
+          if (entry.bindsPort) void listen(Number(args[at + 1]))
+        }
+
+        if (entry.fromMs) later(entry.fromMs, show)
+        else show()
+
+        if (entry.untilMs !== undefined) {
+          later(entry.untilMs, () => {
+            processes.splice(processes.indexOf(row), 1)
+            alivePids.delete(row.pid)
+          })
+        }
+      }
+
       if (at !== -1 && script.bindsPort !== false) {
         await listen(Number(args[at + 1]))
       }
@@ -734,10 +782,17 @@ export async function fakeFirefox(
 
       return spawned.asChild()
     },
-    watchSignals: () => {
+    watchSignals: (_browser, _child, shutdown, adopted) => {
+      const watcher = {
+        shutdown,
+        adopted: adopted ?? (() => null),
+        disposed: false
+      }
+      watchers.push(watcher)
       signalWatchers.registered += 1
 
       return () => {
+        watcher.disposed = true
         signalWatchers.disposed += 1
       }
     },
@@ -783,6 +838,7 @@ export async function fakeFirefox(
     exits,
     processes,
     alivePids,
+    watchers,
     signalWatchers,
     answer: (type, reply) => void answers.set(type, reply),
     async close() {
