@@ -234,7 +234,11 @@ describe('source shapes an installed dependency and TS NodeNext produce', () => 
 
     expect(errors).toEqual([])
     expect(emitted).toContain('fancyVueLibButton')
-    expect(emitted).not.toContain('defineProps<')
+    // The component's own types, never a bare macro name: the Vue runtime
+    // carries `defineProps<` in a doc comment from 3.6 on.
+    expect(emitted).not.toContain('defineProps<{label: string}>')
+    expect(emitted).not.toContain('kind: string')
+    expect(emitted).toMatch(/props:\s*\{\s*label:\s*\{\s*type:\s*String/)
   }, 180_000)
 
   const FLAG_PROBE =
