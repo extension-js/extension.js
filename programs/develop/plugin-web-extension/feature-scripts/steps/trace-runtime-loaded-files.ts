@@ -38,7 +38,7 @@ import {
   type CompileMode,
   getSpecialFoldersDataForProjectRoot
 } from '../../../lib/special-folders/get-data'
-import type {DevOptions, Manifest} from '../../../types'
+import type {DevOptions} from '../../../types'
 import {webkitDroppedSurfacePages} from '../../feature-manifest/manifest-lib/webkit-unsupported-keys'
 import {declaredResourceSource} from '../../feature-web-resources/web-resources-lib/resolve-war'
 import {isClassicScript} from '../../shared/classic-concat'
@@ -62,6 +62,10 @@ import {
   noteNamedInjectedSheet,
   notePublicInjectedSheet
 } from '../scripts-lib/injected-sheet-urls'
+import {
+  keptChildCompilesFor,
+  watchWhatChildRead
+} from '../scripts-lib/kept-child-compiles'
 import {keepCompletionValueOf} from './keep-completion-value'
 import {
   blankComments,
@@ -1698,12 +1702,18 @@ class TraceRun {
     distRel: string
     loadsAs: TracedLoad
   }): TracedFilePlan {
-    return planTracedFile({
+    const plan = planTracedFile({
       ...opts,
       manifestDir: this.manifestDir,
       hasAsset: this.hasAsset,
       mayRead: this.mayShip
     })
+
+    if (plan.kind === 'missing') {
+      watchForMissingFile(this.compilation, this.manifestDir, opts.sourceRel)
+    }
+
+    return plan
   }
 
   // A file that rides along with a traced one, which no code names.
@@ -2266,16 +2276,63 @@ export async function compileRuntimeLoadedFiles(
 ): Promise<string[]> {
   if (requests.length === 0) return []
 
-  const before = new Set(compilation.getAssets().map((asset) => asset.name))
+  const before = assetNamesOf(compilation)
+  // A watch session reuses a compile from here, so the two sites that
+  // compile through this function follow one rule for it.
+  const kept = keptChildCompilesFor(compilation)
 
+  // One at a time and in order, the way the child compiles run.
   for (const request of requests) {
-    await compileTracedFile({compilation, compiler}, request)
+    if (keepsCompletionValue(request)) {
+      keepCompletionValueOf(compilation, request.emitPath)
+    }
+
+    if (!kept) {
+      await compileTracedFile({compilation, compiler}, request)
+      continue
+    }
+
+    if (kept.replay(request)) continue
+
+    const present = assetNamesOf(compilation)
+    const errorsBefore = compilation.errors.length
+    const warningsBefore = compilation.warnings.length
+    const child = await compileTracedFile({compilation, compiler}, request)
+
+    // A compile that said something says it again on every rebuild.
+    if (
+      child &&
+      compilation.errors.length === errorsBefore &&
+      compilation.warnings.length === warningsBefore
+    ) {
+      kept.keep(
+        request,
+        child,
+        compilation
+          .getAssets()
+          .map((asset) => asset.name)
+          .filter((name) => !present.has(name))
+      )
+    }
   }
 
   return compilation
     .getAssets()
     .map((asset) => asset.name)
     .filter((name) => !before.has(name))
+}
+
+function assetNamesOf(compilation: Compilation): Set<string> {
+  return new Set(compilation.getAssets().map((asset) => asset.name))
+}
+
+// executeScript resolves with the value a classic file ends on.
+function keepsCompletionValue(request: CompileRequest): boolean {
+  return (
+    request.format !== 'module' &&
+    request.context === 'injected' &&
+    /\.js$/i.test(request.emitPath)
+  )
 }
 
 // Decide how a traced file ships. The browser runs a classic .js file as
@@ -2394,6 +2451,37 @@ export function planTracedFile(opts: {
   return {kind: 'missing', emitPath: distRel}
 }
 
+// A file planned as missing is watched for at each path that would have
+// answered for it, so the build runs again once one of them is there.
+export function watchForMissingFile(
+  compilation: Compilation,
+  manifestDir: string,
+  sourceRel: string
+): void {
+  const abs = path.join(manifestDir, sourceRel)
+
+  if (path.relative(manifestDir, abs).startsWith('..')) return
+
+  const ext = path.extname(abs).toLowerCase()
+  const base = abs.slice(0, abs.length - ext.length)
+  const siblings =
+    ext === '.js'
+      ? SOURCE_SIBLING_EXTENSIONS
+      : ext === '.css'
+        ? STYLESHEET_SIBLING_EXTENSIONS
+        : []
+
+  try {
+    compilation.missingDependencies.add(abs)
+
+    for (const sibling of siblings) {
+      compilation.missingDependencies.add(base + sibling)
+    }
+  } catch {
+    // Ignore, watch registration is best-effort
+  }
+}
+
 function formatFor(sourcePath: string, loadsAs: TracedLoad): TracedFormat {
   if (loadsAs === 'classic') return 'classic'
 
@@ -2414,15 +2502,10 @@ function isFile(candidate: string): boolean {
 async function compileTracedFile(
   host: CompileHost,
   request: CompileRequest
-): Promise<void> {
+): Promise<Compilation | undefined> {
   const {compilation, compiler} = host
   const isModule = request.format === 'module'
-  // executeScript resolves with the value a classic file ends on.
-  const keepsValue =
-    !isModule &&
-    request.context === 'injected' &&
-    /\.js$/i.test(request.emitPath)
-  if (keepsValue) keepCompletionValueOf(compilation, request.emitPath)
+  const keepsValue = keepsCompletionValue(request)
 
   const chunkLoading = isModule
     ? 'import'
@@ -2500,7 +2583,8 @@ async function compileTracedFile(
     ] as typeof child.options.module.rules
   }
 
-  await new Promise<void>((resolve) => {
+  // Resolves with the child's compilation, which a watch session may keep.
+  return new Promise<Compilation | undefined>((resolve) => {
     child.runAsChild((error, _entries, childCompilation) => {
       if (error) {
         const failure = new WebpackError(
@@ -2525,23 +2609,21 @@ async function compileTracedFile(
         }
 
         try {
-          for (const dep of childCompilation.fileDependencies) {
-            compilation.fileDependencies.add(dep)
-          }
-
           for (const dep of childCompilation.contextDependencies) {
             compilation.contextDependencies.add(dep)
           }
         } catch {
           // Ignore, watch registration is best-effort
         }
+
+        watchWhatChildRead(compilation, childCompilation)
       }
 
       if (stylesheetScript && compilation.getAsset(stylesheetScript)) {
         compilation.deleteAsset(stylesheetScript)
       }
 
-      resolve()
+      resolve(error ? undefined : childCompilation)
     })
   })
 }
