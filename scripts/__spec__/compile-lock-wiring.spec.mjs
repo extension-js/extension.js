@@ -77,6 +77,35 @@ test('the four programs are the packages that write declarations', () => {
   assert.equal(fs.existsSync(path.join(root, 'packages')), false)
 })
 
+// The gate that decides whether declarations are written, from its first
+// comment to the statement that reads it.
+function declarationGate(name) {
+  const config = fs.readFileSync(
+    path.join(root, 'programs', name, 'rslib.config.ts'),
+    'utf8'
+  )
+  const start = config.indexOf('// The parsers the declaration plugin')
+  const end = config.indexOf('const shouldGenerateDts')
+
+  assert.ok(start >= 0 && end > start, `${name} has no declaration gate`)
+
+  return config.slice(start, config.indexOf('\n)\n', end))
+}
+
+test('the four programs gate declarations with the same code and the same rows', () => {
+  const [first, ...others] = declarationPackages()
+  const spec = (name) =>
+    fs.readFileSync(
+      path.join(root, 'programs', name, '__spec__', 'rslib-dts-gate.spec.ts'),
+      'utf8'
+    )
+
+  for (const name of others) {
+    assert.equal(declarationGate(name), declarationGate(first), name)
+    assert.equal(spec(name), spec(first), `${name} gate spec`)
+  }
+})
+
 test('every script that builds a declaration package holds a lock, compile and watch each their own', () => {
   for (const name of declarationPackages()) {
     const scripts = readJson('programs', name, 'package.json').scripts
