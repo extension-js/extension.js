@@ -5,9 +5,7 @@ import {join} from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
 import {
   findLiveBrowserPid,
-  listProcesses,
-  type ProcessTableIo,
-  systemProcessTableIo
+  listProcesses
 } from '../../browsers-lib/resolve-live-pid'
 
 // The table is read from this machine, with a Node process that idles
@@ -35,21 +33,10 @@ describe('listProcesses on this machine', () => {
     )
     children.push(child)
 
-    const asked: string[] = []
-    const io: ProcessTableIo = {
-      ...systemProcessTableIo,
-      run: (bin, args, options) => {
-        asked.push(bin)
-
-        return systemProcessTableIo.run(bin, args, options)
-      }
-    }
     const started = Date.now()
-    const rows = listProcesses(process.platform, io)
+    const rows = listProcesses()
     const elapsedMs = Date.now() - started
 
-    // One question: on Windows a second one is the slow read through WMI.
-    expect(asked).toHaveLength(1)
     expect(rows.find((row) => row.pid === child.pid)?.ppid).toBe(process.pid)
     expect(
       findLiveBrowserPid({
@@ -60,7 +47,8 @@ describe('listProcesses on this machine', () => {
       })
     ).toBe(child.pid)
 
-    // The handoff polls twice a second for five seconds.
+    // The handoff polls twice a second for five seconds. A Windows read
+    // through Get-CimInstance took 23 seconds, the one in use 0.3.
     expect(elapsedMs).toBeLessThan(5000)
   })
 })

@@ -8,12 +8,6 @@
 
 import {spawnSync} from 'node:child_process'
 import * as fs from 'node:fs'
-import {
-  WINDOWS_PROCESS_TABLE_SCRIPT,
-  WINDOWS_PROCESS_TABLE_SOURCE,
-  WINDOWS_PROCESS_TABLE_SOURCE_VARIABLE,
-  WINDOWS_PROCESS_TABLE_TIMEOUT_MS
-} from './windows-process-table'
 
 export interface ProcessRow {
   pid: number
@@ -79,22 +73,12 @@ export function parseProcessRows(output: string): ProcessRow[] {
 // What reading the process table asks of the machine, so a caller can stand
 // in for a platform it does not run on.
 export interface ProcessTableIo {
-  run: (
-    bin: string,
-    args: string[],
-    options?: {timeoutMs?: number; env?: Record<string, string>}
-  ) => string | null
+  run: (bin: string, args: string[]) => string | null
   readFile: (file: string) => string
 }
 
-export const systemProcessTableIo: ProcessTableIo = {
-  run: (bin, args, options) =>
-    runQuiet(
-      bin,
-      args,
-      options?.timeoutMs,
-      options?.env ? {...process.env, ...options.env} : undefined
-    ),
+const processTableIo: ProcessTableIo = {
+  run: (bin, args) => runQuiet(bin, args),
   readFile: (file) => fs.readFileSync(file, 'utf-8')
 }
 
@@ -122,28 +106,20 @@ function appendLinuxProfileEnv(
 // interpreted. PowerShell prints the same three-column shape ps does.
 export function listProcesses(
   platform = process.platform,
-  io: ProcessTableIo = systemProcessTableIo
+  io: ProcessTableIo = processTableIo
 ): ProcessRow[] {
   if (platform === 'win32') {
-    const shell = ['-NoProfile', '-NonInteractive', '-Command']
-    const fromKernel = io.run(
-      'powershell.exe',
-      [...shell, WINDOWS_PROCESS_TABLE_SCRIPT],
-      {
-        timeoutMs: WINDOWS_PROCESS_TABLE_TIMEOUT_MS,
-        env: {
-          [WINDOWS_PROCESS_TABLE_SOURCE_VARIABLE]: WINDOWS_PROCESS_TABLE_SOURCE
-        }
-      }
-    )
-
-    if (fromKernel) return parseProcessRows(fromKernel)
-
-    // The slow way, for a machine whose policy refuses the compile above.
+    // A type accelerator loads no module, where Get-CimInstance made
+    // PowerShell discover its modules first on every start.
     const script =
       "([wmisearcher]'SELECT ProcessId, ParentProcessId, CommandLine FROM Win32_Process').Get() | ForEach-Object { " +
       '"$($_.ProcessId) $($_.ParentProcessId) $($_.CommandLine)" }'
-    const output = io.run('powershell.exe', [...shell, script])
+    const output = io.run('powershell.exe', [
+      '-NoProfile',
+      '-NonInteractive',
+      '-Command',
+      script
+    ])
 
     return output ? parseProcessRows(output) : []
   }
