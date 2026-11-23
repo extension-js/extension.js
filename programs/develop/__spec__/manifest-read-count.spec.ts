@@ -96,13 +96,9 @@ function countManifestReads(manifestPath: string) {
 }
 
 const SHARED_READER = 'lib/manifest/source-manifest.ts'
-// The fields package and the trace step read the file themselves, and the
-// loader runs from dist with a copy of the reader that this spec cannot share.
-const OTHER_READERS = [
-  /^browser-extension-manifest-fields\//,
-  /^plugin-web-extension\/feature-scripts\/steps\/trace-runtime-loaded-files\.ts$/,
-  /^dist\//
-]
+// The fields package reads the file itself, and the loader runs from dist
+// with a copy of the reader that this spec cannot share.
+const OTHER_READERS = [/^browser-extension-manifest-fields\//, /^dist\//]
 
 const outside = (readers: string[]) =>
   readers.filter(
@@ -131,7 +127,7 @@ describe('reads of the source manifest in a dev session', () => {
       // once for the first compilation.
       expect(outside(firstBuild)).toEqual([])
       expect(shared(firstBuild)).toHaveLength(2)
-      expect(firstBuild.length).toBeLessThanOrEqual(7)
+      expect(firstBuild.length).toBeLessThanOrEqual(4)
 
       fs.writeFileSync(
         path.join(root, 'content.js'),
@@ -144,7 +140,7 @@ describe('reads of the source manifest in a dev session', () => {
 
       expect(outside(rebuild)).toEqual([])
       expect(shared(rebuild)).toHaveLength(1)
-      expect(rebuild.length).toBeLessThanOrEqual(4)
+      expect(rebuild.length).toBeLessThanOrEqual(1)
 
       const authored = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
       fs.writeFileSync(

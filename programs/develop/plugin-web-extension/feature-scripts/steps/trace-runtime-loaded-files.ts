@@ -27,8 +27,8 @@ import {
 import {templateCopiedAsset} from '../../../lib/copied-asset-env'
 import {resolveDevelopDistFile} from '../../../lib/develop-context'
 import {importMetaUrlForEmitPath} from '../../../lib/import-meta-url'
+import {readManifest as readSourceManifest} from '../../../lib/manifest/source-manifest'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
-import {parseAuthoredJson} from '../../../lib/parse-json-safe'
 import {sourceFileMayShip} from '../../../lib/public-private-files'
 import {
   excludedFiles,
@@ -383,9 +383,7 @@ export class TraceRuntimeLoadedFiles {
       // A popup or worker declared under a browser prefix is invisible to a
       // raw read: the popup then ships twice and the worker's imports go untraced.
       return filterKeysForThisBrowser(
-        parseAuthoredJson(
-          fs.readFileSync(this.manifestPath, 'utf-8')
-        ) as Manifest,
+        readSourceManifest(this.manifestPath),
         this.browser
       ) as TracedManifest
     } catch {
