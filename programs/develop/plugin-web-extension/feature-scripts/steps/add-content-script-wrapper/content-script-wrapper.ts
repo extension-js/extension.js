@@ -25,8 +25,8 @@ import {
   inputOrIdentityMap,
   returnWithMap
 } from '../../../../lib/loader-source-maps'
+import {readManifest} from '../../../../lib/manifest/source-manifest'
 import {filterKeysForThisBrowser} from '../../../../lib/manifest-utils'
-import {parseAuthoredJson} from '../../../../lib/parse-json-safe'
 import {findNearestProjectManifestSync} from '../../../../lib/project-manifest'
 import {
   canonicalizeDir,
@@ -226,9 +226,9 @@ function loadersOfTheProject(
     })
 }
 
-const __EXTENSIONJS_manifestParseCache = new Map<
-  string,
-  {key: string; manifest: Record<string, unknown>}
+const __EXTENSIONJS_manifestParseCache = new WeakMap<
+  object,
+  Map<string, Record<string, unknown>>
 >()
 
 function readManifestCached(
@@ -243,26 +243,19 @@ function readManifestCached(
       string,
       unknown
     >
-  const cacheKey = `${manifestPath}::${browser}`
+  const parsed: unknown = readManifest(manifestPath)
 
-  try {
-    const stat = fs.statSync(manifestPath)
-    const key = `${stat.mtimeMs}:${stat.size}`
-    const cached = __EXTENSIONJS_manifestParseCache.get(cacheKey)
+  if (!parsed || typeof parsed !== 'object') return resolve(parsed)
 
-    if (cached && cached.key === key) return cached.manifest
+  // The parsed manifest is one object for each version of the file, so it
+  // keys the filtered form and a manifest edit starts from an empty map.
+  const filtered = __EXTENSIONJS_manifestParseCache.get(parsed) ?? new Map()
+  __EXTENSIONJS_manifestParseCache.set(parsed, filtered)
 
-    const manifest = resolve(
-      parseAuthoredJson(fs.readFileSync(manifestPath, 'utf-8'))
-    )
-    __EXTENSIONJS_manifestParseCache.set(cacheKey, {key, manifest})
+  const key = String(browser)
+  if (!filtered.has(key)) filtered.set(key, resolve(parsed))
 
-    return manifest
-  } catch {
-    // stat/read/parse failures fall back to a direct read so callers keep
-    // their existing error behavior.
-    return resolve(parseAuthoredJson(fs.readFileSync(manifestPath, 'utf-8')))
-  }
+  return filtered.get(key) as Record<string, unknown>
 }
 
 export default function contentScriptWrapper(

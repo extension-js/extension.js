@@ -8,13 +8,13 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {readManifest} from '../../lib/manifest/source-manifest'
 import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
-import {parseAuthoredJson} from '../../lib/parse-json-safe'
 import {
   findPublicFile,
   publicRelativePath
 } from '../../lib/special-folders/resolve-public-folder'
-import type {DevOptions, FilepathList, Manifest} from '../../types'
+import type {DevOptions, FilepathList} from '../../types'
 
 // Beside the manifest first; a file only public/ has (project root first,
 // then next to the manifest) resolves there, where the emitter reads it.
@@ -59,7 +59,7 @@ export function extractActionThemeIcons(
     // An action written under a browser prefix is invisible to a raw read,
     // and the built manifest then names theme icons nothing emits.
     manifest = filterKeysForThisBrowser(
-      parseAuthoredJson(fs.readFileSync(manifestPath, 'utf8')) as Manifest,
+      readManifest(manifestPath),
       browser
     ) as typeof manifest
   } catch {

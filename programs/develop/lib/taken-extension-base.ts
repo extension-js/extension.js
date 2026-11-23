@@ -6,8 +6,7 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import * as fs from 'node:fs'
-import type {DevOptions, Manifest} from '../types'
+import type {DevOptions} from '../types'
 import {
   EXTENSION_BASE_ATTRIBUTE,
   EXTENSION_BASE_GLOBAL,
@@ -16,8 +15,8 @@ import {
   readTakeBlock,
   takeBlockOpen
 } from './extension-base-from-stack'
+import {readManifest} from './manifest/source-manifest'
 import {filterKeysForThisBrowser} from './manifest-utils'
-import {parseAuthoredJson} from './parse-json-safe'
 
 const TAKE_BLOCK_CLOSE = '\n}'
 
@@ -42,7 +41,7 @@ export function extensionBaseGlobalFor(
 
   try {
     const manifest = filterKeysForThisBrowser(
-      parseAuthoredJson(fs.readFileSync(manifestPath, 'utf8')) as Manifest,
+      readManifest(manifestPath),
       browser
     ) as {
       name?: unknown

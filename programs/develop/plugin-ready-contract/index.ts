@@ -28,9 +28,9 @@ import {
   managedExtensionRecords
 } from '../lib/extension-id'
 import {isSessionPidLive, type SessionPidProbes} from '../lib/live-dev-session'
+import {readManifest} from '../lib/manifest/source-manifest'
 import * as messages from '../lib/messages'
 import {humanWarn} from '../lib/messaging'
-import {parseJsonSafe} from '../lib/parse-json-safe'
 import {type AbsolutePath, asAbsolute} from '../lib/paths'
 import {
   carryStampedFields,
@@ -504,10 +504,10 @@ function readManifestProvenance(...manifestPaths: Array<string | undefined>): {
     if (!manifestPath) continue
 
     try {
-      const manifest = parseJsonSafe<{
+      const manifest = readManifest<{
         name?: unknown
         version?: unknown
-      } | null>(fs.readFileSync(manifestPath, 'utf-8'))
+      } | null>(manifestPath, {emptyAsObject: true})
       const extensionName =
         typeof manifest?.name === 'string' ? manifest.name : undefined
       const extensionVersion =

@@ -10,10 +10,11 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compilation, Compiler} from '@rspack/core'
 import {resolveLocalesFolder} from '../../lib/get-locales'
+import {readManifest} from '../../lib/manifest/source-manifest'
 import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
 import {debugLine, isDebug} from '../../lib/messaging'
 import {parseAuthoredJson} from '../../lib/parse-json-safe'
-import type {DevOptions, Manifest} from '../../types'
+import type {DevOptions} from '../../types'
 import {pushCompilationError} from './compilation-error'
 import * as messages from './messages'
 import {findUndefinedMsgReferences} from './msg-placeholders'
@@ -24,7 +25,7 @@ function readDefaultLocale(
 ): string | undefined {
   try {
     const manifest = filterKeysForThisBrowser(
-      parseAuthoredJson(fs.readFileSync(manifestPath, 'utf8')) as Manifest,
+      readManifest(manifestPath),
       browser || 'chrome'
     ) as Record<string, unknown>
     const defaultLocale = manifest?.default_locale
@@ -80,9 +81,8 @@ export function validateLocales(
     (compiler.options.context as string | undefined) || undefined
 
   try {
-    const manifestRaw = fs.readFileSync(manifestPath, 'utf8')
     const manifest = filterKeysForThisBrowser(
-      parseAuthoredJson(manifestRaw) as Manifest,
+      readManifest(manifestPath),
       browser || 'chrome'
     ) as Record<string, unknown>
     const defaultLocale = manifest?.default_locale

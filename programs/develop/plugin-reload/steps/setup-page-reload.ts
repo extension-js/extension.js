@@ -6,14 +6,13 @@
 // ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import {resolveDevelopDistFile} from '../../lib/develop-context'
 import {usesReact, usesSvelte, usesVue} from '../../lib/framework-detect'
+import {readManifest} from '../../lib/manifest/source-manifest'
 import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
 import {debugLine} from '../../lib/messaging'
-import {parseJsonSafe} from '../../lib/parse-json-safe'
 import {toResourceKey} from '../../lib/resource-path'
 import {NOT_RAW_RESOURCE_QUERY} from '../../lib/resource-query'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../../plugin-web-extension/feature-scripts/contracts'
@@ -104,7 +103,7 @@ export class SetupPageReload {
       // A browser-prefixed key is the only spelling this target sees, so the
       // page HMR loader has to skip content scripts declared under one too.
       const manifest = filterKeysForThisBrowser(
-        parseJsonSafe(fs.readFileSync(this.manifestPath, 'utf-8')),
+        readManifest(this.manifestPath, {emptyAsObject: true}),
         this.browser
       )
       const manifestDir = path.dirname(this.manifestPath)

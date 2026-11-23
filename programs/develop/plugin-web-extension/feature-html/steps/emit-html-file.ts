@@ -9,11 +9,11 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {Compilation, type Compiler, sources} from '@rspack/core'
+import {readManifest} from '../../../lib/manifest/source-manifest'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
-import {parseAuthoredJson} from '../../../lib/parse-json-safe'
 import {sourceFileMayShip} from '../../../lib/public-private-files'
 import {findPublicFile} from '../../../lib/special-folders/resolve-public-folder'
-import type {FilepathList, Manifest, PluginInterface} from '../../../types'
+import type {FilepathList, PluginInterface} from '../../../types'
 import {withheldEntryKind} from '../../feature-scripts/scripts-lib/utils'
 import {reportToCompilation} from '../../shared/compilation-issues'
 import {markPageReportedMissing} from '../../shared/reported-missing-pages'
@@ -222,7 +222,7 @@ export function manifestFieldForHtmlFeature(
 
   try {
     manifest = filterKeysForThisBrowser(
-      parseAuthoredJson(fs.readFileSync(manifestPath, 'utf-8')) as Manifest,
+      readManifest(manifestPath),
       browser || 'chrome'
     ) as Record<string, unknown>
   } catch {

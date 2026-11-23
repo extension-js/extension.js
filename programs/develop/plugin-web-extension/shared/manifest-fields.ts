@@ -9,8 +9,8 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {getManifestFieldsData} from 'browser-extension-manifest-fields'
+import {readManifest} from '../../lib/manifest/source-manifest'
 import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
-import {parseJsonSafe} from '../../lib/parse-json-safe'
 import type {DevOptions, Manifest} from '../../types'
 import {
   dropWebkitUnsupportedKeys,
@@ -27,12 +27,50 @@ function readManifestForBrowser(options: {
 }): Manifest | undefined {
   try {
     return filterKeysForThisBrowser(
-      parseJsonSafe(fs.readFileSync(options.manifestPath, 'utf-8')) as Manifest,
+      readManifest(options.manifestPath, {emptyAsObject: true}),
       options.browser || 'chrome'
     ) as Manifest
   } catch {
     return undefined
   }
+}
+
+const packageViews = new WeakMap<object, Map<string, ManifestFieldsView>>()
+
+// The fields package reads the manifest file itself on every call. Its view
+// follows the manifest, the browser and the names under _locales only.
+function readPackageFieldsView(options: {
+  manifestPath: string
+  browser?: DevOptions['browser']
+}): ManifestFieldsView {
+  const fromPackage = () =>
+    getManifestFieldsData({
+      manifestPath: options.manifestPath,
+      browser: options.browser
+    })
+  let source: unknown
+  let locales: string
+
+  try {
+    source = readManifest(options.manifestPath, {emptyAsObject: true})
+    locales = fs
+      .readdirSync(path.join(path.dirname(options.manifestPath), '_locales'), {
+        recursive: true
+      })
+      .join('\n')
+  } catch {
+    locales = ''
+  }
+
+  if (!source || typeof source !== 'object') return fromPackage()
+
+  const views = packageViews.get(source) ?? new Map()
+  packageViews.set(source, views)
+
+  const key = `${options.browser || 'chrome'}\n${locales}`
+  if (!views.has(key)) views.set(key, fromPackage())
+
+  return structuredClone(views.get(key) as ManifestFieldsView)
 }
 
 // A mistyped list field would throw a TypeError inside the fields package
@@ -61,10 +99,7 @@ export function getResolvedManifestFieldsData(options: {
   const data =
     manifest && findMistypedManifestFields(manifest).length > 0
       ? emptyManifestFieldsView()
-      : getManifestFieldsData({
-          manifestPath: options.manifestPath,
-          browser: options.browser
-        })
+      : readPackageFieldsView(options)
 
   // An unreadable manifest keeps the fields package view.
   if (!manifest) return data
