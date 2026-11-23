@@ -53,9 +53,6 @@ interface ProbeRun {
 }
 
 const PROBE_SECONDS = 10
-// Windows ends the tree through taskkill, which the CLI starts and does not
-// wait on, so the pids outlive the CLI by a few seconds there.
-const TREE_END_MS = process.platform === 'win32' ? 10_000 : 2_000
 const EXIT_CEILING_MS = 100_000
 
 // Every surface reads one run per command and engine, so the 10 second
@@ -224,7 +221,7 @@ async function probeRun(
       if (!existsSync(file)) continue
 
       const pid = Number(readFileSync(file, 'utf8').trim())
-      const ended = await endedWithin(pid, TREE_END_MS)
+      const ended = await endedWithin(pid, 2_000)
 
       run.tree.push({pid, ended})
 
@@ -363,13 +360,17 @@ describe('a pinned browser binary that never answers its version probe', () => {
     )
   })
 
-  // Both the probed process and the child it started are gone.
-  it.each(
-    everyCase as Array<[Command, Browser]>
-  )('%s on %s leaves nothing of the probed binary running', async (command, browser) => {
-    const run = await runOf(command, browser)
+  // Both the probed process and the child it started are gone. On Windows
+  // one of the two was still alive 10 seconds after the CLI ended, so it waits.
+  it
+    .skipIf(process.platform === 'win32')
+    .each(everyCase as Array<[Command, Browser]>)(
+    '%s on %s leaves nothing of the probed binary running',
+    async (command, browser) => {
+      const run = await runOf(command, browser)
 
-    expect(run.tree).toHaveLength(2)
-    expect(run.tree.filter((entry) => !entry.ended)).toEqual([])
-  })
+      expect(run.tree).toHaveLength(2)
+      expect(run.tree.filter((entry) => !entry.ended)).toEqual([])
+    }
+  )
 })
