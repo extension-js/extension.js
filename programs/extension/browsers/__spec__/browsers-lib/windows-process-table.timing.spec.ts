@@ -1,8 +1,16 @@
 import {type ChildProcess, spawn, spawnSync} from 'node:child_process'
-import {mkdtempSync, rmSync} from 'node:fs'
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {plantBrowserStandIn} from '../../../__spec__/helpers/browser-stand-in'
+import {windowsTaskkillPath} from '../../browsers-lib/process-teardown'
 import {
   findLiveBrowserPid,
   listProcesses,
@@ -88,6 +96,29 @@ describe.skipIf(process.platform !== 'win32')('TIMING process table', () => {
     )
 
     ps('baseline-1', '1')
+
+    // First this time: the last run read WMI only after everything else.
+    for (const turn of [1, 2, 3]) {
+      ps(
+        `wmi-as-shipped-first-${turn}`,
+        `([wmisearcher]'${WQL}').Get() | ForEach-Object { ` +
+          '"$($_.ProcessId) $($_.ParentProcessId) $($_.CommandLine)" }'
+      )
+    }
+
+    ps(
+      'wmi-statement-first',
+      `foreach ($p in ([wmisearcher]'${WQL}').Get()) { ${say(ROW)} }`
+    )
+
+    for (const turn of [1, 2]) {
+      ps(
+        `get-ciminstance-${turn}`,
+        'Get-CimInstance Win32_Process | ForEach-Object { ' +
+          '"$($_.ProcessId) $($_.ParentProcessId) $($_.CommandLine)" }'
+      )
+    }
+
     ps('baseline-2', '1')
 
     for (const turn of [1, 2, 3]) {
@@ -106,27 +137,6 @@ describe.skipIf(process.platform !== 'win32')('TIMING process table', () => {
         ),
         `foreach ($e in $b.Errors) { ${say('$e.ToString()')} }`,
         "$t = $b.CompiledAssembly.GetType('ExtensionProcessTable').GetMethod('List').Invoke($null, $null)",
-        say("'listed ' + $w.ElapsedMilliseconds + ' chars ' + $t.Length")
-      ].join('; '),
-      SRC,
-      true
-    )
-
-    for (const turn of [1, 2]) {
-      ps(
-        `add-type-${turn}`,
-        'Add-Type -TypeDefinition $env:EXTENSION_PROCESS_TABLE_SOURCE; [Console]::Out.Write([ExtensionProcessTable]::List())',
-        SRC
-      )
-    }
-
-    ps(
-      'add-type-split',
-      [
-        WATCH,
-        'Add-Type -TypeDefinition $env:EXTENSION_PROCESS_TABLE_SOURCE',
-        say("'compiled ' + $w.ElapsedMilliseconds"),
-        '$t = [ExtensionProcessTable]::List()',
         say("'listed ' + $w.ElapsedMilliseconds + ' chars ' + $t.Length")
       ].join('; '),
       SRC,
@@ -228,4 +238,68 @@ describe.skipIf(process.platform !== 'win32')('TIMING process table', () => {
 
     expect(child.pid).toBeGreaterThan(0)
   }, 900_000)
+
+  // What the CLI did before: start taskkill on the tree and leave at once.
+  it('prints which pid outlives a parent that does not wait for taskkill', async () => {
+    const script = join(profile, 'leaver.cjs')
+
+    writeFileSync(
+      script,
+      [
+        "const {spawn, spawnSync} = require('node:child_process')",
+        "const fs = require('node:fs')",
+        'const [bin, childPidFile, taskkill, mode] = process.argv.slice(2)',
+        "const tree = spawn(bin, [], {stdio: 'ignore', windowsHide: true})",
+        'const timer = setInterval(() => {',
+        "  if (!fs.existsSync(childPidFile) || !fs.readFileSync(childPidFile, 'utf8').trim()) return",
+        '  clearInterval(timer)',
+        "  const args = ['/PID', String(tree.pid), '/T', '/F']",
+        "  if (mode === 'wait') spawnSync(taskkill, args, {stdio: 'ignore', windowsHide: true})",
+        "  else spawn(taskkill, args, {stdio: 'ignore', windowsHide: true}).on('error', () => {})",
+        '  process.exit(1)',
+        '}, 20)'
+      ].join('\n')
+    )
+
+    const alive = (pid: number) => {
+      try {
+        process.kill(pid, 0)
+
+        return true
+      } catch {
+        return false
+      }
+    }
+
+    for (const mode of ['leave', 'leave', 'leave', 'wait', 'wait']) {
+      const dir = mkdtempSync(join(profile, 'tree-'))
+      const pidFile = join(dir, 'self.pid')
+      const childPidFile = join(dir, 'child.pid')
+      const bin = plantBrowserStandIn(dir, 'browser', {pidFile, childPidFile})
+      const run = spawnSync(
+        process.execPath,
+        [script, bin, childPidFile, windowsTaskkillPath(), mode],
+        {stdio: 'ignore', windowsHide: true, timeout: 30_000}
+      )
+
+      await new Promise((done) => setTimeout(done, 2000))
+
+      const report = [pidFile, childPidFile].map((file) => {
+        const pid = existsSync(file)
+          ? Number(readFileSync(file, 'utf8').trim())
+          : 0
+        const lives = pid > 0 && alive(pid)
+
+        if (lives) process.kill(pid, 'SIGKILL')
+
+        return `${file.endsWith('self.pid') ? 'stand-in' : 'child'}=${pid}:${lives ? 'ALIVE' : 'gone'}`
+      })
+
+      console.log(
+        `TIMING survivor mode=${mode} exit=${run.status} ${report.join(' ')}`
+      )
+    }
+
+    expect(script).toContain('leaver')
+  }, 120_000)
 })
