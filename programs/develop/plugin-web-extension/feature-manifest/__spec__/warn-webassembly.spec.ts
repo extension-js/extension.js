@@ -257,6 +257,7 @@ describe('findRemoteWebAssemblyAddresses', () => {
 
     expect(
       findRemoteWebAssemblyAddresses(
+        // biome-ignore lint/suspicious/noTemplateCurlyInString: fixture source text, the placeholder is literal
         'init({locateFile:e=>`https://cdn.example/dist/${e}`})'
       )
     ).toEqual(['https://cdn.example/dist/'])

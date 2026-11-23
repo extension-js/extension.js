@@ -15,6 +15,7 @@ describe('native-geturl-import-loader', () => {
 
   it('annotates browser.runtime.getURL and computed wrappers around it', () => {
     const out = annotateGetURLDynamicImports(
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: fixture source text, the placeholder is literal
       'import(browser.runtime.getURL(`js/${name}.js`)).catch(noop)\n' +
         "import(new URL(chrome.runtime.getURL('a.js')).href)\n"
     )
@@ -78,6 +79,7 @@ describe('native-geturl-import-loader', () => {
   it('annotates a real call that follows a division and a template literal', () => {
     const source = [
       'const half = total / 2',
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: fixture source text, the placeholder is literal
       'const label = `count: ${items.length / 2}`',
       "import(chrome.runtime.getURL('mod.js'))",
       ''

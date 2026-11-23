@@ -32,11 +32,11 @@ function project(manifestVersion: 2 | 3) {
   // background injects it the way a real extension does.
   fs.writeFileSync(
     path.join(root, 'background.js'),
-    [
+    `${[
       'chrome.action?.onClicked?.addListener((tab) => {',
       '  chrome.scripting.executeScript({target: {tabId: tab.id}, files: ["scripts/inject.js"]})',
       '})'
-    ].join('\n') + '\n'
+    ].join('\n')}\n`
   )
 
   fs.writeFileSync(

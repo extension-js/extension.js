@@ -172,6 +172,7 @@ describe('the extension-develop/bridge entry', () => {
       .replace(/\s+/g, ' ')
 
     expect(helper).toContain('sessionArtifactsRootDirBesideBuild(')
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: source text the spec looks for
     expect(helper).toContain("'profiles', `${browser}-profile`")
 
     expect(

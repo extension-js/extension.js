@@ -136,9 +136,10 @@ describe('a production build with the same bytes under two names', () => {
     fs.writeFileSync(path.join(root, 'public', 'model.bin'), bytes)
     fs.writeFileSync(path.join(root, 'public', 'nested', 'model.bin'), bytes)
 
-    let summary: BuildSummary
-
-    summary = await buildProject(root, {mode: 'production', exitOnError: false})
+    const summary: BuildSummary = await buildProject(root, {
+      mode: 'production',
+      exitOnError: false
+    })
 
     const warning = (summary.warnings || []).find((line) =>
       /byte for byte/.test(line)

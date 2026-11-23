@@ -1,5 +1,4 @@
 import {execFile} from 'node:child_process'
-import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {beforeEach, describe, expect, it} from 'vitest'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'

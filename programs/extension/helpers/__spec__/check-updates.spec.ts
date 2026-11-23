@@ -242,6 +242,7 @@ describe('the registry the check asks', () => {
 
     fs.writeFileSync(
       path.join(String(env.HOME), '.npmrc'),
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: the placeholder npm expands in an npmrc
       '; a comment\nsave-exact=true\nregistry = "http://${MIRROR_HOST}/npm"\n'
     )
 

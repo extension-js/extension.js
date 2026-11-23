@@ -308,6 +308,7 @@ describe('referencesBrowserGlobal', () => {
       ['class A extends browser.B {}', true],
       ['label: for (;;) { browser.x; break label }', true],
       ['var o = {[browser]: 1}', true],
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: fixture source text, the placeholder is literal
       ['`${browser.runtime.id}`', true],
       ['function f(){ if (x) { var browser = 1 } return browser }', false],
       ['function f(browser){ return browser.x }', false],

@@ -50,9 +50,9 @@ function project() {
   write(
     root,
     'popup/popup.css',
-    UNRESOLVED.map((ref, i) => `.r${i} { background: url(${ref}) }`).join(
+    `${UNRESOLVED.map((ref, i) => `.r${i} { background: url(${ref}) }`).join(
       '\n'
-    ) + '\n'
+    )}\n`
   )
 
   write(root, 'public/in-public.png', 'x')

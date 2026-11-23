@@ -53,7 +53,7 @@ function writeVersions(dir, version) {
     fs.mkdirSync(path.join(dir, pkg), {recursive: true})
     fs.writeFileSync(
       path.join(dir, pkg, 'package.json'),
-      JSON.stringify({name: path.basename(pkg), version}, null, 2) + '\n'
+      `${JSON.stringify({name: path.basename(pkg), version}, null, 2)}\n`
     )
   }
 }

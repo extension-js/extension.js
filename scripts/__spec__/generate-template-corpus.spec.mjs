@@ -16,7 +16,7 @@ test('accepts a full sha or the corpus branch name, nothing else', () => {
   assert.throws(() => parseRequestedRef('develop'))
 })
 
-const PINNED = "export const DEFAULT_TEMPLATES_REF = '" + 'a'.repeat(40) + "'"
+const PINNED = `export const DEFAULT_TEMPLATES_REF = '${'a'.repeat(40)}'`
 
 test('reads the pin the scaffolder declares', () => {
   const source = ['// preamble', PINNED, 'const other = 1'].join('\n')

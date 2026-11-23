@@ -41,7 +41,7 @@ import {extensionBuild} from '../command-build'
 import {getBuildToolchain} from '../lib/build-toolchain'
 import * as ensureArtifactsMod from '../lib/ensure-develop-artifacts'
 import {buildSummaryPath, readyContractPath} from '../lib/session-paths'
-import type {BuildOptions, SafariPackagerFn} from '../types'
+import type {SafariPackagerFn} from '../types'
 import {buildProject} from './helpers/build-project'
 
 const tempFolder = trackTempFolders()

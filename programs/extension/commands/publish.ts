@@ -245,7 +245,7 @@ export function buildPublishPlan(opts: PublishInput): {
 
   if (!token) {
     throw new PublishPlanError(
-      'No token. Publishing needs a platform access token.\n' + NO_TOKEN_REMEDY,
+      `No token. Publishing needs a platform access token.\n${NO_TOKEN_REMEDY}`,
       CODES.E_AUTH_REQUIRED,
       NO_TOKEN_REMEDY
     )
