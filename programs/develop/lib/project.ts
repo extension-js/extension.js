@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {codedError} from './coded-error'
+import {readManifest} from './manifest/source-manifest'
 import * as messages from './messages'
 import {CODES, humanLine, isDebug} from './messaging'
 import {
@@ -826,8 +827,9 @@ export function resolveProjectStructureSync(
     candidatePath: string
   ): Record<string, unknown> | undefined => {
     try {
-      const parsed = parseJsonSafe<Record<string, unknown> | null>(
-        fs.readFileSync(candidatePath)
+      const parsed = readManifest<Record<string, unknown> | null>(
+        candidatePath,
+        {emptyAsObject: true}
       )
 
       if (

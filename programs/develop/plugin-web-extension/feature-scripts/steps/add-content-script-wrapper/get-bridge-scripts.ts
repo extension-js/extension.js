@@ -8,8 +8,8 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
+import {readManifest} from '../../../../lib/manifest/source-manifest'
 import {filterKeysForThisBrowser} from '../../../../lib/manifest-utils'
-import {parseAuthoredJson} from '../../../../lib/parse-json-safe'
 import {PROJECT_MANIFEST_FILENAMES} from '../../../../lib/project-manifest'
 import type {DevOptions, FilepathList, Manifest} from '../../../../types'
 import {
@@ -88,9 +88,7 @@ export function getMainWorldBridgePairs(
   browser: DevOptions['browser'] = 'chrome'
 ): Array<{mainIndex: number; bridgeIndex: number}> {
   try {
-    const raw = parseAuthoredJson<Manifest>(
-      fs.readFileSync(manifestPath, 'utf-8')
-    )
+    const raw = readManifest<Manifest>(manifestPath)
     // Resolve browser-prefixed keys before scanning: entries compiled here
     // must key off the same FILTERED shape the emitted manifest uses.
     const resolved = filterKeysForThisBrowser(raw, browser)

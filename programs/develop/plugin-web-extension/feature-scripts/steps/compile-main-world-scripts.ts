@@ -10,8 +10,8 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {Compilation, type Compiler, EntryPlugin} from '@rspack/core'
 import {resolveDevelopDistFile} from '../../../lib/develop-context'
+import {readManifest} from '../../../lib/manifest/source-manifest'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
-import {parseAuthoredJson} from '../../../lib/parse-json-safe'
 import type {
   DevOptions,
   FilepathList,
@@ -56,10 +56,7 @@ function findMainWorldGroups(
   let manifest: Manifest
 
   try {
-    manifest = filterKeysForThisBrowser(
-      parseAuthoredJson(fs.readFileSync(manifestPath, 'utf8')) as Manifest,
-      browser
-    )
+    manifest = filterKeysForThisBrowser(readManifest(manifestPath), browser)
   } catch {
     return []
   }
