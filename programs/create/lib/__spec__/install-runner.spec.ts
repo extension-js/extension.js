@@ -16,6 +16,7 @@ import {
   invokingNpmrcReleaseAge,
   KILL_GRACE_MS,
   runInstall,
+  TREE_END_WAIT_MS,
   windowsTaskkillPath,
   withoutInheritedReleaseAge
 } from '../install-runner'
@@ -245,8 +246,17 @@ describe('install-runner runInstall', () => {
         platform: 'win32',
         timeoutMs: 5000
       })
+      let answered = false
 
-      await vi.advanceTimersByTimeAsync(5000)
+      void run.then(() => {
+        answered = true
+      })
+
+      // This taskkill never finishes. The answer waits for it, with a bound,
+      // since a caller removes the folder the tree runs in right after.
+      await vi.advanceTimersByTimeAsync(5000 + TREE_END_WAIT_MS - 1)
+      expect(answered).toBe(false)
+      await vi.advanceTimersByTimeAsync(1)
 
       await expect(run).resolves.toMatchObject({
         code: null,

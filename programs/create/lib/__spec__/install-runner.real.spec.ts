@@ -197,8 +197,8 @@ describe('install-runner runInstall (real spawn)', () => {
       const ready = path.join(dir, 'postinstall-started')
 
       holdTimeouts()
-      // The runner answers once the tree is asked to end, not once it is gone,
-      // and Windows keeps a folder a leaving process ran in. None runs in dir.
+      // Windows keeps a folder a moment after a process that ran in it has
+      // ended, longer than the removal below retries. None runs in dir.
       const result = await settleOnceReady(
         runInstall(process.execPath, [script, marker, ready], {
           cwd: process.cwd(),
