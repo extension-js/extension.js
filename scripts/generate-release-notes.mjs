@@ -184,17 +184,23 @@ function categorize(commits) {
   return buckets
 }
 
-// One pass can leave a new marker behind (`<!-<!-- x -->-`), so strip until
-// nothing changes, and drop an opener that never closes.
+// Removing one comment can join the text around it into a new marker
+// (`<!-<!-- x -->-`), so scan again from the start until none is left.
 export function stripHtmlComments(text) {
-  let previous
+  const opener = '<!--'
+  const closer = '-->'
+  let rest = text
 
-  do {
-    previous = text
-    text = text.replace(/<!--[\s\S]*?-->/g, '')
-  } while (text !== previous)
+  for (;;) {
+    const open = rest.indexOf(opener)
+    if (open === -1) return rest
 
-  return text.replace(/<!--/g, '')
+    const close = rest.indexOf(closer, open + opener.length)
+    // An opener that never closes loses only its marker, the text stays.
+    const end = close === -1 ? open + opener.length : close + closer.length
+
+    rest = rest.slice(0, open) + rest.slice(end)
+  }
 }
 
 function readSection(file, title) {
