@@ -58,7 +58,11 @@ function session(projectDir: string, watching = true) {
 
   return {
     compiler,
-    async build(hash: string, assets: Record<string, string>) {
+    async build(
+      hash: string,
+      assets: Record<string, string>,
+      onEmit: (name: string) => void = () => {}
+    ) {
       const emitted = new Map<string, EmittedAsset>(
         Object.entries(assets).map(([name, text]) => [
           name,
@@ -76,6 +80,7 @@ function session(projectDir: string, watching = true) {
         getAssets: () => Array.from(emitted.values()),
         emitAsset: (name: string, source: EmittedAsset['source']) => {
           emitted.set(name, {name, source})
+          onEmit(name)
         },
         updateAsset: (name: string, source: EmittedAsset['source']) => {
           emitted.set(name, {name, source})
@@ -327,6 +332,35 @@ describe('the scripts of one build', () => {
     })
 
     expect(shipped).toEqual(['images/on.png', 'lib/helper.js'])
+  })
+
+  it('holds one manifest and one page map from its first phase to its last', async () => {
+    const popup = {action: {default_popup: 'ui/popup.html'}}
+    const dir = createTempProject(
+      {'ui/popup.html': '', 'data/a.json': '{}'},
+      popup
+    )
+    const {build} = session(dir)
+
+    // The copy lands halfway through, and the manifest loses its popup then.
+    const {shipped} = await build(
+      HASH_1,
+      {
+        'action/index.html': '<script src="/action/index.js"></script>',
+        [PAGE]:
+          'chrome.runtime.getURL("data/a.json");location.href.endsWith("ui/popup.html")'
+      },
+      (name) => {
+        if (name !== 'data/a.json') return
+
+        fs.writeFileSync(
+          path.join(dir, 'manifest.json'),
+          JSON.stringify({manifest_version: 3, name: 'fixture'})
+        )
+      }
+    )
+
+    expect(shipped).toEqual(['data/a.json', 'ui/popup.html'])
   })
 
   it('reads a script once however many phases ask', async () => {
