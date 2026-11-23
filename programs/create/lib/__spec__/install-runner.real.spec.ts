@@ -190,16 +190,18 @@ describe('install-runner runInstall (real spawn)', () => {
         const late = spawn(process.execPath, ['-e', ${JSON.stringify(
           "require('node:fs').writeFileSync(process.argv[2], '1'); setTimeout(() => require('node:fs').writeFileSync(process.argv[1], 'late'), Number(process.argv[3]))"
         )}, process.argv[2], process.argv[3], '${LATE_MS}'], {stdio: 'ignore'})
-        require('node:fs').writeSync(1, late.pid + '\\n')
+        require('node:fs').writeSync(1, late.pid + ' ' + process.pid + '\\n')
         setInterval(() => {}, 1000)
       `)
       const marker = path.join(dir, 'postinstall-ran')
       const ready = path.join(dir, 'postinstall-started')
 
       holdTimeouts()
+      // The runner answers once the tree is asked to end, not once it is gone,
+      // and Windows keeps a folder a leaving process ran in. None runs in dir.
       const result = await settleOnceReady(
         runInstall(process.execPath, [script, marker, ready], {
-          cwd: dir,
+          cwd: process.cwd(),
           stdio: 'pipe',
           timeoutMs: 500
         }),
@@ -207,16 +209,20 @@ describe('install-runner runInstall (real spawn)', () => {
       )
       vi.useRealTimers()
 
-      const grandchild = Number(result.stdout.trim())
+      const [grandchild, manager] = result.stdout.trim().split(' ').map(Number)
       expect(grandchild).toBeGreaterThan(0)
-      started.push(grandchild)
+      expect(manager).toBeGreaterThan(0)
+      started.push(grandchild, manager)
 
-      await vi.waitFor(() => expect(isRunning(grandchild)).toBe(false), {
-        timeout: 5000,
-        interval: 50
-      })
+      await vi.waitFor(
+        () => {
+          expect(isRunning(grandchild)).toBe(false)
+          expect(isRunning(manager)).toBe(false)
+        },
+        {timeout: 5000, interval: 50}
+      )
 
-      started.splice(started.indexOf(grandchild), 1)
+      started.splice(0)
       // Ended before its own timer ran out, so it can never write now.
       expect(fs.existsSync(marker)).toBe(false)
     }, 20_000)

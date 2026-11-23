@@ -50,6 +50,8 @@ describe('a Firefox launch that does not reach a running add-on', () => {
       librewolfRemoteDebugging?: boolean
       port?: number
       realClaim?: {maxAttempts: number}
+      // Changes what the launcher is handed, before it copies it.
+      prepare?: (made: FakeFirefox) => void
     } = {}
   ) => {
     const mode = input.mode ?? 'production'
@@ -58,6 +60,8 @@ describe('a Firefox launch that does not reach a running add-on', () => {
       browser: input.browser,
       librewolfRemoteDebugging: input.librewolfRemoteDebugging
     })
+
+    input.prepare?.(fake)
 
     if (input.realClaim) {
       const {claimDir} = fake
@@ -484,7 +488,12 @@ describe('a Firefox launch that does not reach a running add-on', () => {
         }
       })
 
-      const error = await failure(onFakeClock(launch))
+      const error: Error & {code?: string; printed?: boolean} = await failure(
+        onFakeClock(launch)
+      )
+
+      // Its caller still owes the failure block: nobody asked for this exit.
+      expect(error.printed).toBeUndefined()
 
       const pin = fake.project.plantBinary()
       const pinNote = `The binary at ${pin} was pinned by --gecko-binary and may not be a browser. Pass --gecko-binary <abs-path> with a working browser binary.`
@@ -513,6 +522,87 @@ describe('a Firefox launch that does not reach a running add-on', () => {
       })
 
       expect(String(fake.project.readReady().message)).toContain(pinNote)
+    })
+  })
+
+  describe('a stop asked while Firefox is still starting', () => {
+    // The signal handler's own stop, asked once the browser has spawned.
+    const stopOnceSpawned = () => {
+      const stop = () => {
+        const watcher = fake.watchers[0]
+
+        if (watcher) void watcher.shutdown()
+        else setTimeout(stop, 50)
+      }
+
+      setTimeout(stop, 300)
+    }
+
+    it.each([
+      ['preview', 'production'],
+      ['dev', 'development']
+    ] as const)('records and says nothing when a %s launch loses its browser to the stop', async (command, mode) => {
+      const {plugin, launch} = await start({mode, script: {bindsPort: false}})
+
+      const error: Error & {code?: string; printed?: boolean} = await failure(
+        onFakeClock(() => {
+          stopOnceSpawned()
+
+          return launch()
+        })
+      )
+
+      expect(error.code).toBe('E_BROWSER_LAUNCH')
+      expect(fake.terminated).toHaveLength(1)
+      expect(plugin.browserClosed).toBe(true)
+      expect(said('error')).toEqual([])
+      expect(logged).toEqual([])
+
+      const ready = fake.project.readReady()
+
+      expect(ready).toMatchObject({command, status: 'starting'})
+      expect(ready).not.toHaveProperty('code')
+      expect(ready).not.toHaveProperty('browserLaunchFailedAt')
+      expect(ready).not.toHaveProperty('browserExitedAt')
+      // The launch still ends, and its caller is told no line is owed.
+      expect(error.printed).toBe(true)
+    })
+
+    it.each([
+      ['preview', 'production'],
+      ['dev', 'development']
+    ] as const)('records and says nothing when a %s launch returns after the stop', async (command, mode) => {
+      // The debugger answered, and the stop landed before the launch saw it.
+      const {plugin, launch} = await start({
+        mode,
+        prepare(made) {
+          const connect = made.deps.setupRdp
+
+          made.deps.setupRdp = async (...args) => {
+            const controller = await connect(...args)
+
+            await made.watchers[0].shutdown()
+            await new Promise((resolve) => setTimeout(resolve, 50))
+
+            return controller
+          }
+        }
+      })
+
+      await onFakeClock(launch)
+
+      expect(fake.terminated).toHaveLength(1)
+      expect(plugin.browserClosed).toBe(true)
+      expect(said('error')).toEqual([])
+      expect(logged).toEqual([])
+      expect(said('log').join('\n')).not.toMatch(/ready for development/i)
+
+      const ready = fake.project.readReady()
+
+      expect(ready).toMatchObject({command, status: 'starting'})
+      expect(ready).not.toHaveProperty('code')
+      expect(ready).not.toHaveProperty('browserLaunchFailedAt')
+      expect(ready).not.toHaveProperty('browserExitedAt')
     })
   })
 

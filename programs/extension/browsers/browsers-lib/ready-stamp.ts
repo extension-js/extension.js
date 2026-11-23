@@ -477,6 +477,9 @@ export function stampReadyBrowserLaunchFailed(
   errorCode?: string
 ) {
   patchReady(extensionOutputPath, runId, (ready) => {
+    // A session that ended on request keeps that ending.
+    if (ready.status === 'stopped') return false
+
     if (
       ready.status === 'error' &&
       ready.code &&
@@ -497,6 +500,25 @@ export function stampReadyBrowserLaunchFailed(
     // The coded class of the refusal, so a reader can tell a bad pin, which
     // is a value to change, from a browser that would not start.
     if (errorCode) ready.browserLaunchFailedCode = errorCode
+  })
+}
+
+// A run-only session told to stop, stamped as the run leaves. The record then
+// says what the terminal frame says, as a dev session's does at watch close.
+export function stampReadySessionStopped(
+  extensionOutputPath: string | undefined,
+  runId?: string
+) {
+  patchReady(extensionOutputPath, runId, (ready) => {
+    if (ready.command !== 'preview' && ready.command !== 'start') return false
+    if (typeof ready.pid === 'number' && ready.pid !== process.pid) return false
+    // A run that ended as failed keeps the code that ended it.
+    if (typeof ready.endedAsFailedAt === 'string') return false
+
+    ready.status = 'stopped'
+    ready.code = 'shutdown'
+    ready.message = `the ${ready.command} session ended`
+    dateStatus(ready)
   })
 }
 
@@ -746,7 +768,9 @@ export function stampReadyBrowserExited(
     const how =
       code == null && signal ? `signal ${signal}` : `code ${code ?? 'unknown'}`
 
-    if (ready.command === 'preview' || ready.command === 'start') {
+    if (ready.status === 'stopped') {
+      // A session that ended on request keeps that ending beside the exit.
+    } else if (ready.command === 'preview' || ready.command === 'start') {
       ready.status = 'error'
       ready.code = 'browser_exited'
       dateStatus(ready)

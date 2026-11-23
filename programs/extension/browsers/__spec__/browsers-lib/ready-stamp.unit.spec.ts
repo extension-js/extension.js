@@ -27,7 +27,8 @@ import {
   stampReadyExtensionLoadRefused,
   stampReadyProfileLocked,
   stampReadyRdpPort,
-  stampReadyRdpPortError
+  stampReadyRdpPortError,
+  stampReadySessionStopped
 } from '../../browsers-lib/ready-stamp'
 import {CDPClient} from '../../run-chromium/cdp/cdp-client'
 
@@ -1417,6 +1418,124 @@ describe('the time a launcher stamp leaves on the record', () => {
 
     expect(ready.code).toBe('browser_exited')
     expect(isFreshContractPayload(ready)).toBe(true)
+  })
+})
+
+describe('a session told to stop', () => {
+  let tmp: string
+  let outputPath: string
+  let readyPath: string
+
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ready-stamp-'))
+    outputPath = path.join(tmp, 'dist', 'firefox')
+    readyPath = path.join(tmp, 'dist', 'extension-js', 'firefox', 'ready.json')
+    fs.mkdirSync(path.dirname(readyPath), {recursive: true})
+  })
+
+  afterEach(() => {
+    fs.rmSync(tmp, {recursive: true, force: true})
+  })
+
+  const write = (record: Record<string, unknown>) =>
+    fs.writeFileSync(readyPath, JSON.stringify(record))
+  const read = () => JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+
+  it.each([
+    ['preview', 'starting'],
+    ['start', 'starting'],
+    ['preview', 'ready'],
+    ['start', 'error']
+  ])('stamps a %s record that read %s as stopped, the way dev ends', (command, status) => {
+    write({command, status, browser: 'firefox', runId: 'run-A'})
+
+    stampReadySessionStopped(outputPath, 'run-A')
+
+    expect(read()).toMatchObject({
+      command,
+      runId: 'run-A',
+      status: 'stopped',
+      code: 'shutdown',
+      message: `the ${command} session ended`,
+      ts: expect.stringMatching(ISO_INSTANT)
+    })
+  })
+
+  it.each([
+    ['a dev record, which its own writer ends', {command: 'dev'}],
+    ['the record of a later run', {command: 'preview', runId: 'run-B'}],
+    [
+      'the record another process wrote',
+      {command: 'preview', pid: process.ppid}
+    ],
+    [
+      'a run that ended as failed',
+      {
+        command: 'start',
+        status: 'error',
+        code: 'shutdown',
+        endedAsFailedAt: '2026-11-01T00:00:00.000Z',
+        endedAsFailedCode: 'E_BROWSER_LAUNCH'
+      }
+    ]
+  ])('leaves %s as it was', (_title, fields) => {
+    const record = {status: 'starting', runId: 'run-A', ...fields}
+
+    write(record)
+    stampReadySessionStopped(outputPath, 'run-A')
+
+    expect(read()).toEqual(record)
+  })
+
+  // The stop ends a browser that is still starting, and its launcher or its
+  // close handler may only get to the record after the stop is on it.
+  it.each([
+    'preview',
+    'start',
+    'dev'
+  ])('keeps a stopped %s record stopped when a launch failure is stamped late', (command) => {
+    const stopped = {
+      command,
+      status: 'stopped',
+      code: 'shutdown',
+      message: `the ${command} session ended`,
+      runId: 'run-A'
+    }
+
+    write(stopped)
+    stampReadyBrowserLaunchFailed(
+      outputPath,
+      'Firefox exited before its debugger answered',
+      'run-A',
+      'E_BROWSER_LAUNCH'
+    )
+
+    expect(read()).toEqual(stopped)
+  })
+
+  it.each([
+    ['preview', false],
+    ['start', false],
+    ['dev', true]
+  ])('keeps a stopped %s record stopped when the browser exit is stamped late', (command, beforeReady) => {
+    const stopped = {
+      command,
+      status: 'stopped',
+      code: 'shutdown',
+      message: `the ${command} session ended`,
+      runId: 'run-A'
+    }
+
+    write(stopped)
+    stampReadyBrowserExited(outputPath, null, 'SIGINT', 'run-A', {beforeReady})
+
+    // The exit is a fact beside the status, which stays.
+    expect(read()).toMatchObject({
+      ...stopped,
+      browserExitCode: null,
+      browserExitSignal: 'SIGINT',
+      browserExitedAt: expect.stringMatching(ISO_INSTANT)
+    })
   })
 })
 
