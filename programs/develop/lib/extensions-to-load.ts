@@ -11,9 +11,9 @@ import * as path from 'node:path'
 import type {Manifest} from '../types'
 import {codedError} from './coded-error'
 import {STOCK_COMPANION_DIR} from './constants'
+import {readManifest} from './manifest/source-manifest'
 import * as messages from './messages'
 import {CODES, stripChannelPrefix} from './messaging'
-import {parseAuthoredJson} from './parse-json-safe'
 import {devtoolsEngineFor} from './paths'
 import {findNearestProjectManifestDirSync} from './project-manifest'
 import {realPath} from './real-path'
@@ -23,8 +23,7 @@ function hasNewTabOverride(extensionDir: string): boolean {
   if (!fs.existsSync(manifestPath)) return false
 
   try {
-    const raw = fs.readFileSync(manifestPath, 'utf-8')
-    const manifest = parseAuthoredJson<Manifest | null>(raw)
+    const manifest = readManifest<Manifest | null>(manifestPath)
     const newtab = manifest?.chrome_url_overrides?.newtab
 
     return typeof newtab === 'string' && newtab.trim().length > 0
@@ -43,7 +42,7 @@ interface IdentityFields {
 
 function readManifestAt(file: string): IdentityFields | undefined {
   try {
-    const parsed: unknown = parseAuthoredJson(fs.readFileSync(file, 'utf-8'))
+    const parsed = readManifest<unknown>(file)
 
     return parsed && typeof parsed === 'object'
       ? (parsed as IdentityFields)

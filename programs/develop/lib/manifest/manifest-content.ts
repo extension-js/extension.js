@@ -6,10 +6,10 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as fs from 'node:fs'
 import type {Compilation} from '@rspack/core'
 import type {Manifest} from '../../types'
 import {parseJsonSafe} from '../parse-json-safe'
+import {readManifestText} from './source-manifest'
 
 // The manifest as the author wrote it rides per compilation, since later
 // steps rewrite the asset and the checks on authored fields need the source.
@@ -99,5 +99,5 @@ export function getManifestContent(
 
   // No step has emitted a manifest for this compilation yet, so the file
   // the author saved is the only copy there is.
-  return parseJsonSafe(fs.readFileSync(manifestPath, 'utf8'))
+  return parseJsonSafe(readManifestText(manifestPath))
 }

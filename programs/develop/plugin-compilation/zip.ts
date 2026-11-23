@@ -13,9 +13,9 @@ import {type Zippable, zipSync} from 'fflate'
 import ignore from 'ignore'
 import glob from 'tiny-glob'
 import {resolveLocalizedManifestName} from '../lib/localized-manifest-name'
+import {readManifest as readSourceManifest} from '../lib/manifest/source-manifest'
 import * as messages from '../lib/messages'
 import {debugLine, isDebug} from '../lib/messaging'
-import {parseJsonSafe} from '../lib/parse-json-safe'
 import {isKnownBrowserName} from '../lib/paths'
 import {REMOTE_SOURCE_PROVENANCE_FILE} from '../lib/zip'
 import type {DevOptions} from '../types'
@@ -784,7 +784,7 @@ type ManifestLike = {
 }
 
 function readManifest(manifestPath: string): ManifestLike {
-  return parseJsonSafe(fs.readFileSync(manifestPath, 'utf-8')) as ManifestLike
+  return readSourceManifest<ManifestLike>(manifestPath, {emptyAsObject: true})
 }
 
 // A missing default-locale folder makes the zip store-rejectable; warn up

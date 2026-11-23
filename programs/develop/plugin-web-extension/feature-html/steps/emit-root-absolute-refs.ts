@@ -21,7 +21,6 @@ import {WITHHELD_CSS_REF, withheldCssRefs} from '../../../lib/withheld-file'
 import * as messages from '../../feature-scripts/messages'
 import {
   type CompileRequest,
-  compileRuntimeLoadedFiles,
   planTracedFile,
   saidNotShipped,
   type TracedFilePlan
@@ -29,6 +28,10 @@ import {
 import {collectRootAbsoluteRefs} from '../../shared/paths'
 import * as htmlMessages from '../html-lib/messages'
 import {missingRefName} from './add-assets-to-compilation'
+import {
+  type RootRefCompiles,
+  rootRefCompilesFor
+} from './compile-root-absolute-refs'
 
 // The asset a ref was read from, which names the surface in a warning.
 interface RefOrigin {
@@ -111,6 +114,32 @@ export async function emitRootAbsoluteRefs(
   projectRoot: string = context,
   // The source file of an emitted page, which a missing ref names as PATH.
   pageSourceOf: (assetName: string) => string | undefined = () => undefined
+): Promise<void> {
+  const compiles = rootRefCompilesFor(compilation)
+
+  try {
+    await emitEachPass(
+      compilation,
+      compiles,
+      context,
+      publicDir,
+      publicIsOff,
+      projectRoot,
+      pageSourceOf
+    )
+  } finally {
+    compiles.forgetUnasked()
+  }
+}
+
+async function emitEachPass(
+  compilation: Compilation,
+  compiles: RootRefCompiles,
+  context: string,
+  publicDir: string,
+  publicIsOff: boolean,
+  projectRoot: string,
+  pageSourceOf: (assetName: string) => string | undefined
 ): Promise<void> {
   const scanned = new Set<string>()
   const warned = new Set<string>()
@@ -267,12 +296,7 @@ export async function emitRootAbsoluteRefs(
     }
 
     if (requests.size > 0) {
-      const compiled = await compileRuntimeLoadedFiles(
-        compilation,
-        compilation.compiler,
-        [...requests.values()]
-      )
-      emitted += compiled.length
+      emitted += await compiles.compile([...requests.values()])
     }
 
     if (emitted === 0) return

@@ -6,11 +6,10 @@
 // ╚═╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {readManifest} from '../../lib/manifest/source-manifest'
 import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
-import {parseAuthoredJson} from '../../lib/parse-json-safe'
-import type {DevOptions, FilepathList, Manifest} from '../../types'
+import type {DevOptions, FilepathList} from '../../types'
 
 // The manifest-fields package keys theme images by basename, so two images
 // that share a basename collapse into one entry before the emitter runs.
@@ -25,7 +24,7 @@ export function themeImageFields(
     // A theme written as firefox:theme is invisible to a raw read, and the
     // basename collapse this function exists to undo comes back with it.
     manifest = filterKeysForThisBrowser(
-      parseAuthoredJson(fs.readFileSync(manifestPath, 'utf8')) as Manifest,
+      readManifest(manifestPath),
       browser
     ) as {theme?: {images?: unknown}}
   } catch {

@@ -9,6 +9,7 @@
 import * as path from 'node:path'
 import type {Compilation, Compiler} from '@rspack/core'
 import * as messages from './messages'
+import {sayPendingAfterCompile} from './pending-diagnostics'
 
 const STYLESHEET_FILE = /\.(?:css|pcss|postcss|scss|sass|less|styl|stylus)$/i
 const STYLE_BLOCK_QUERY = /[?&]type=style(?:&|$)/
@@ -38,7 +39,8 @@ export class UnresolvedCssUrlRefs {
   }
 
   apply(compiler: Compiler): void {
-    compiler.hooks.afterCompile.tap(
+    sayPendingAfterCompile(
+      compiler,
       UnresolvedCssUrlRefs.name,
       (compilation: Compilation) => {
         if (this.refs.size === 0) return

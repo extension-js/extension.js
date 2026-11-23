@@ -11,7 +11,7 @@ import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import {isGeckoBasedBrowser} from '../../lib/constants'
 import {extensionSchemeFor} from '../../lib/extension-base-from-stack'
-import {parseAuthoredJson} from '../../lib/parse-json-safe'
+import {readManifest} from '../../lib/manifest/source-manifest'
 import {extensionBaseAttributeFor} from '../../lib/taken-extension-base'
 import type {
   DevOptions,
@@ -101,9 +101,7 @@ export class SetupChunkLoadingTarget {
     let patchedManifest: Manifest
 
     try {
-      const manifest: Manifest = parseAuthoredJson(
-        fs.readFileSync(this.manifestPath, 'utf-8')
-      )
+      const manifest: Manifest = readManifest(this.manifestPath)
       patchedManifest = filterKeysForThisBrowser(manifest, this.browser)
     } catch {
       // An unreadable manifest is reported by the manifest feature; a build
