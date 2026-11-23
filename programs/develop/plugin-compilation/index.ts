@@ -9,6 +9,7 @@
 import * as path from 'node:path'
 import type {Compiler, WebpackError} from '@rspack/core'
 import CaseSensitivePathsPlugin from 'case-sensitive-paths-webpack-plugin'
+import {forgetManifestReadsPerCompilation} from '../lib/manifest/source-manifest'
 import {debugLine, isDebug} from '../lib/messaging'
 import type {PluginInterface} from '../types'
 import {BoringPlugin} from './boring'
@@ -99,6 +100,7 @@ export class CompilationPlugin {
   }
 
   public apply(compiler: Compiler): void {
+    forgetManifestReadsPerCompilation(compiler)
     this.applyIgnoreWarnings(compiler)
 
     new CaseSensitivePathsPlugin().apply(

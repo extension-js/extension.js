@@ -6,10 +6,9 @@
 // ╚═╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {readManifest} from '../../lib/manifest/source-manifest'
 import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
-import {parseAuthoredJson} from '../../lib/parse-json-safe'
 import type {DevOptions, FilepathList, Manifest} from '../../types'
 import {dropWebkitUnsupportedKeys} from '../feature-manifest/manifest-lib/filter-keys-safari'
 
@@ -26,10 +25,7 @@ export function omniboxIconFields(
     // and the manifest then names an icon path nothing produces. Safari
     // drops the key, so there it names no icon at all.
     manifest = dropWebkitUnsupportedKeys(
-      filterKeysForThisBrowser(
-        parseAuthoredJson(fs.readFileSync(manifestPath, 'utf8')) as Manifest,
-        browser
-      ) as Manifest,
+      filterKeysForThisBrowser(readManifest(manifestPath), browser) as Manifest,
       browser
     ).manifest as {omnibox?: {default_icon?: unknown}}
   } catch {

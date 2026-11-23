@@ -9,7 +9,6 @@
 import {existsSync} from 'node:fs'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
-import type {Manifest} from '../types'
 import {recordCodedWarning} from './coded-warnings'
 import {type ConfigEnvTarget, loadDefineTypes} from './config-loader'
 import {
@@ -17,9 +16,9 @@ import {
   projectBringsOwnChromeTypes,
   renderExtensionEnvTypes
 } from './extension-env-template'
+import {readManifest} from './manifest/source-manifest'
 import * as messages from './messages'
 import {CODES, humanLine} from './messaging'
-import {parseJsonSafe} from './parse-json-safe'
 import {tsconfigCanIncludeFile} from './tsconfig-includes-file'
 import {getUserTypeScriptConfigFile} from './user-tsconfig'
 
@@ -95,12 +94,9 @@ export async function generateExtensionTypes(
     humanLine(messages.updatingTypeDefinitions(extensionEnvFile))
     await fs.writeFile(extensionEnvFile, fileContent)
   } catch (err) {
-    const manifestText = await fs.readFile(
-      path.join(manifestDir, 'manifest.json'),
-      'utf8'
-    )
-
-    const manifest = parseJsonSafe<Manifest>(manifestText)
+    const manifest = readManifest(path.join(manifestDir, 'manifest.json'), {
+      emptyAsObject: true
+    })
     humanLine(messages.writingTypeDefinitions(manifest))
 
     try {

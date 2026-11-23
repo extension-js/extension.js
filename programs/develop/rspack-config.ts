@@ -26,6 +26,7 @@ import {
   unresolvedNamedCompanions
 } from './lib/extensions-to-load'
 import {ForgetResolvedModuleFolders} from './lib/forget-resolved-module-folders'
+import {readManifest} from './lib/manifest/source-manifest'
 import {filterKeysForThisBrowser} from './lib/manifest-utils'
 import * as messages from './lib/messages'
 import {
@@ -39,7 +40,6 @@ import {
   installedPackageDir,
   MissingReferenceWatch
 } from './lib/missing-reference-watch'
-import {parseAuthoredJson} from './lib/parse-json-safe'
 import {asAbsolute, getDirs, toPosixPath} from './lib/paths'
 import type {ProjectStructure} from './lib/project'
 import {sessionStateDir} from './lib/session-paths'
@@ -92,9 +92,7 @@ export default function webpackConfig(
   let rawManifest: unknown
 
   try {
-    rawManifest = parseAuthoredJson(fs.readFileSync(manifestPath, 'utf-8'), {
-      browser: devOptions.browser
-    })
+    rawManifest = readManifest(manifestPath, {browser: devOptions.browser})
   } catch (error) {
     throw codedError(
       CODES.E_MANIFEST_INVALID,

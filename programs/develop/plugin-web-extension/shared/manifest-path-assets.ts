@@ -8,8 +8,8 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {readManifest as readSourceManifest} from '../../lib/manifest/source-manifest'
 import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
-import {parseAuthoredJson} from '../../lib/parse-json-safe'
 import {findPublicFile} from '../../lib/special-folders/resolve-public-folder'
 import type {DevOptions, FilepathList, Manifest} from '../../types'
 import {dropWebkitUnsupportedKeys} from '../feature-manifest/manifest-lib/filter-keys-safari'
@@ -36,7 +36,7 @@ function readManifest(
 ): SettingsManifest {
   try {
     const manifest = filterKeysForThisBrowser(
-      parseAuthoredJson(fs.readFileSync(manifestPath, 'utf8')) as Manifest,
+      readSourceManifest(manifestPath),
       browser
     ) as Manifest
 
