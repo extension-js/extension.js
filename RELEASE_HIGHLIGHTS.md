@@ -47,6 +47,7 @@
 
 - A binary set in the config file is named by its key and file, for example `browser.chrome.chromiumBinary in extension.config.js`, in errors, the start card, `doctor` and `ready.json`.
 - A version probe that times out on a binary pinned by a variable names the variable, and the `preview` and `start` card shows what pinned the binary.
+- On Windows, a pinned browser binary's version is read in a fraction of a second where it could take 20 seconds or more per read, and `preview` refuses a `--gecko-binary` path that does not exist at once.
 - The manifest is read 4 times on a first build and once per rebuild, down from 51 and 14.
 - `extension create` scaffolds the examples with every dependency pinned to an exact version.
 - The line-and-column message covers `package.json`, the manifest, `_locales`, declarative net request rulesets, the managed schema, `ready.json` and the `create` template readers.
