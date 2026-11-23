@@ -58,6 +58,27 @@ const BROKEN_BUILDS: Array<{
       return distPath
     },
     error: {name: 'SyntaxError', code: undefined, message: /JSON/}
+  },
+  {
+    reason: 'the built manifest.json holds text that is not JSON',
+    make: (root) => {
+      const distPath = path.join(root, 'dist', 'chrome')
+
+      fs.mkdirSync(distPath, {recursive: true})
+      fs.writeFileSync(
+        path.join(distPath, 'manifest.json'),
+        'root:x:0:0:secret-hunter2'
+      )
+
+      return distPath
+    },
+    // Node's own message quotes the file, so the start failure says the place.
+    error: {
+      name: 'SyntaxError',
+      code: undefined,
+      message:
+        /^manifest\.json is not valid JSON: unexpected character at line 1 column 1$/
+    }
   }
 ]
 

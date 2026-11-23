@@ -534,7 +534,10 @@ describe('installInternalDependencies', () => {
       `PATH ${manifestPath}`
     ])
 
-    expect(frame.split('\n')[2]).toMatch(/^REASON .*JSON/)
+    expect(frame.split('\n')[2]).toBe(
+      'REASON unexpected character at line 1 column 10'
+    )
+
     expect(frame.match(/⏵⏵⏵/g)).toHaveLength(1)
     expect(error.cause).toBeInstanceOf(SyntaxError)
     expect((error as {code?: unknown}).code).toBe('E_TEMPLATE_NOT_FOUND')

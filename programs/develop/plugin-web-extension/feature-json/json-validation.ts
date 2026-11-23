@@ -8,6 +8,7 @@
 
 import {type Compilation, WebpackError} from '@rspack/core'
 import {isChromiumBasedBrowser} from '../../lib/constants'
+import {describeJsonParseFailure} from '../../lib/json-parse-position'
 import {stripBom} from '../../lib/parse-json-safe'
 import * as messages from './messages'
 
@@ -187,15 +188,16 @@ export function validateJsonAsset(
   browser?: string
 ): boolean {
   let parsed: unknown
+  const text = stripBom(buf.toString('utf-8'))
 
   try {
-    parsed = JSON.parse(stripBom(buf.toString('utf-8')))
-  } catch (e) {
+    parsed = JSON.parse(text)
+  } catch {
     const err = new WebpackError(
       messages.invalidJsonSyntax(
         feature,
         filePath,
-        String((e as Error | undefined)?.message || e)
+        describeJsonParseFailure(text)
       )
     )
     ;(err as Error & {file?: string}).file = filePath

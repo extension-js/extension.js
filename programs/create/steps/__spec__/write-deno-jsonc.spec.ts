@@ -199,6 +199,33 @@ describe('writeDenoJsonc', () => {
     ).toBe(templateConfig)
   })
 
+  // Node's parse message quotes the start of the file, which a template
+  // deno.json linked to another file would relay.
+  it('refuses a template deno.json that is not JSON by its place alone', async () => {
+    const secret = 'root:x:0:0:secret-hunter2'
+    await fsp.writeFile(path.join(projectPath, 'deno.json'), secret)
+    let error: Error | undefined
+
+    await withDenoGlobal(async () => {
+      error = await writeDenoJsonc(
+        projectPath,
+        {primary: true},
+        noopLogger
+      ).then(
+        () => new Error('the step did not refuse'),
+        (thrown: Error) => thrown
+      )
+    })
+
+    const message = String(error?.message)
+
+    expect(message).toContain('unexpected character at line 1 column 1')
+
+    for (let i = 0; i + 4 <= secret.length; i++) {
+      expect(message).not.toContain(secret.slice(i, i + 4))
+    }
+  })
+
   it('primary mode folds the extension import into a template deno.json', async () => {
     await fsp.writeFile(
       path.join(projectPath, 'deno.json'),
@@ -402,7 +429,10 @@ describe('writeDenoJsonc', () => {
       `PATH ${packageJsonPath}`
     ])
 
-    expect(frame[2]).toMatch(/^REASON .*JSON/)
+    expect(frame[2]).toBe(
+      'REASON unexpected end of the file at line 1 column 37'
+    )
+
     expect(error?.cause).toBeInstanceOf(SyntaxError)
     expect(errors).toEqual([])
     // Neither manifest was touched: no deno.jsonc, package.json as shipped.

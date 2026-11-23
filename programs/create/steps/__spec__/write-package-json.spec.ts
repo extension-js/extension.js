@@ -509,7 +509,7 @@ describe('overridePackageJson with a template package.json it cannot use', () =>
       'is cut short',
       '{"name": "seed", "dependencies": {"react": "^19.0.0"}',
       SyntaxError,
-      /JSON/
+      /^REASON unexpected end of the file at line 1 column 54$/
     ],
     [
       'holds a list and not an object',

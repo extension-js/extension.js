@@ -652,6 +652,28 @@ describe('the update check against a loopback registry', () => {
     ).rejects.toThrow(/200 ms/)
   })
 
+  // Node's parse message quotes the answer, and debug output relays it.
+  it('lookupLatest names where an answer stops parsing and quotes none of it', async () => {
+    const secret = 'root:x:0:0:secret-hunter2'
+    const answering = await registry({status: 200, body: secret})
+    const message = await lookupLatest(
+      'extension',
+      new URL(answering.url),
+      30_000
+    ).then(
+      () => '',
+      (error: Error) => error.message
+    )
+
+    expect(message).toBe(
+      'The registry answer is not JSON: unexpected character at line 1 column 1'
+    )
+
+    for (let i = 0; i + 4 <= secret.length; i++) {
+      expect(message).not.toContain(secret.slice(i, i + 4))
+    }
+  })
+
   it('an answer over 1 MB is cut off before the bound', async () => {
     const endless = await registry('endless')
     const started = Date.now()

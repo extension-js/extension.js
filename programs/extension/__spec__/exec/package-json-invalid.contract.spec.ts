@@ -1,4 +1,11 @@
-import {chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync
+} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
@@ -136,6 +143,116 @@ describe('a package.json that is not JSON', () => {
 
     expect(check?.remediation).toBe('Fix package.json, then run doctor again')
   })
+})
+
+// Node's parse message quotes the start of the file, so an agent pointed at a
+// folder whose package.json links to another file relayed that file.
+const SECRET = 'root:x:0:0:secret-hunter2'
+const SECRET_SLICES = Array.from({length: SECRET.length - 3}, (_, i) =>
+  SECRET.slice(i, i + 4)
+)
+
+function expectNoSecret(text: string) {
+  for (const slice of SECRET_SLICES) expect(text).not.toContain(slice)
+}
+
+// Windows needs a privilege to make a file link, which a CI runner has and an
+// ordinary user may not, so the linked row runs wherever a link can be made.
+function canLink(dir: string): boolean {
+  try {
+    writeFileSync(join(dir, 'link-target'), '')
+    symlinkSync(join(dir, 'link-target'), join(dir, 'link-probe'))
+
+    return true
+  } catch {
+    return false
+  }
+}
+
+describe('a package.json whose text is not JSON is described by position only', () => {
+  let work = ''
+  const layouts: Array<[string, string]> = []
+
+  beforeAll(() => {
+    work = mkdtempSync(join(tmpdir(), 'extjs-pkg-leak-'))
+
+    const plain = join(work, 'plain')
+    mkdirSync(plain)
+    writeFileSync(join(plain, 'package.json'), SECRET)
+    layouts.push(['a file', plain])
+
+    if (canLink(work)) {
+      const linked = join(work, 'linked')
+      mkdirSync(linked)
+      writeFileSync(join(work, 'outside.txt'), `${SECRET}\n`)
+      symlinkSync(join(work, 'outside.txt'), join(linked, 'package.json'))
+      layouts.push(['a link to another file', linked])
+    }
+
+    for (const [, dir] of layouts) {
+      writeFileSync(
+        join(dir, 'manifest.json'),
+        JSON.stringify({manifest_version: 3, name: 'Leak', version: '1.0.0'})
+      )
+    }
+  })
+
+  afterAll(() => {
+    rmSync(work, {recursive: true, force: true})
+  })
+
+  it('runs the linked row where the platform allows links', () => {
+    const fewest = process.platform === 'win32' ? 1 : 2
+
+    expect(layouts.length).toBeGreaterThanOrEqual(fewest)
+  })
+
+  for (const index of [0, 1]) {
+    it(`names the line and column for package.json as layout ${index} in doctor --output json`, async () => {
+      if (!layouts[index]) return
+
+      const [, dir] = layouts[index]
+      const run = await runCli(['doctor', dir, '--output', 'json'])
+      const [frame] = framesIn<{value: Array<{check: string; detail: string}>}>(
+        run.stdout
+      )
+      const check = frame.value.find((each) => each.check === 'peer-rspack')
+
+      expect(check?.detail).toBe(
+        `${join(dir, 'package.json')} cannot be read as JSON (unexpected character at line 1 column 1), so no dependency was checked`
+      )
+
+      expectNoSecret(run.stdout + run.stderr)
+    })
+
+    it(`names the line and column for package.json as layout ${index} in doctor text`, async () => {
+      if (!layouts[index]) return
+
+      const [, dir] = layouts[index]
+      const run = await runCli(['doctor', dir])
+
+      expect(run.stdout + run.stderr).toContain(
+        'unexpected character at line 1 column 1'
+      )
+
+      expectNoSecret(run.stdout + run.stderr)
+    })
+
+    it(`names the line and column for package.json as layout ${index} in build --output json`, async () => {
+      if (!layouts[index]) return
+
+      const [, dir] = layouts[index]
+      const run = await runCli(['build', dir, '--output', 'json'])
+      const [frame] = framesIn<Frame>(run.stdout)
+
+      expect(frame.error?.code).toBe('E_PACKAGE_JSON_INVALID')
+      expect(frame.error?.message).toContain(
+        'unexpected character at line 1 column 1'
+      )
+
+      expectNoSecret(run.stdout + run.stderr)
+    })
+  }
 })
 
 // Posix only: Windows has no mode bits that keep the owner from reading,

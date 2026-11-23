@@ -13,6 +13,7 @@ import * as https from 'node:https'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import * as semver from 'semver'
+import {describeJsonParseFailure} from '../../develop/lib/json-parse-position'
 import {getCliPackageJson} from './cli-package-json'
 import * as messages from './messages'
 import {isDebug} from './messaging'
@@ -200,19 +201,31 @@ export function lookupLatest(
 
       response.on('error', reject)
       response.on('end', () => {
+        const text = Buffer.concat(chunks).toString('utf8')
+        let answer: {version?: unknown} | null
+
+        // Node's parse message quotes the answer, and debug output relays it.
         try {
-          const latest = JSON.parse(
-            Buffer.concat(chunks).toString('utf8')
-          )?.version
+          answer = JSON.parse(text)
+        } catch {
+          reject(
+            new Error(
+              `The registry answer is not JSON: ${describeJsonParseFailure(text)}`
+            )
+          )
 
-          if (typeof latest !== 'string') {
-            throw new Error('The registry answer has no latest version')
-          }
-
-          resolve(latest)
-        } catch (error) {
-          reject(error)
+          return
         }
+
+        const latest = answer?.version
+
+        if (typeof latest !== 'string') {
+          reject(new Error('The registry answer has no latest version'))
+
+          return
+        }
+
+        resolve(latest)
       })
     })
   })

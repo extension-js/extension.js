@@ -9,6 +9,10 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {codedError} from './coded-error'
+import {
+  describeJsonParseFailure,
+  describeJsonReadFailure
+} from './json-parse-position'
 import * as messages from './messages'
 import {CODES} from './messaging'
 import type {ParsedJson} from './parse-json-safe'
@@ -97,7 +101,7 @@ export function readPackageJson<T = ParsedJson>(packageJsonPath: string): T {
       CODES.E_PACKAGE_JSON_INVALID,
       messages.packageJsonUnopened(
         packageJsonPath,
-        error instanceof Error ? error.message : String(error)
+        describeJsonReadFailure(error)
       )
     )
   }
@@ -111,14 +115,16 @@ export function readPackageJson<T = ParsedJson>(packageJsonPath: string): T {
     )
   }
 
+  const text = bytes.toString('utf8') || '{}'
+
   try {
-    return JSON.parse(bytes.toString('utf8') || '{}')
-  } catch (error) {
+    return JSON.parse(text)
+  } catch {
     throw codedError(
       CODES.E_PACKAGE_JSON_INVALID,
       messages.packageJsonInvalid(
         packageJsonPath,
-        error instanceof Error ? error.message : String(error)
+        describeJsonParseFailure(text)
       )
     )
   }

@@ -598,22 +598,22 @@ export function manifestNotFound(projectPath: string, searchDepth: number) {
   )
 }
 
-export function manifestNotParseable(manifestPath: string, error: unknown) {
+export function manifestNotParseable(manifestPath: string, reason: string) {
   return (
     `${prefix('error')} Couldn't read a manifest.json for this scaffold.\n` +
     `${fmt.label('PATH')} ${fmt.val(manifestPath)}\n` +
-    `${fmt.label('REASON')} ${fmt.val(fmt.truncate(String((error as Error | undefined)?.message || error)))}\n` +
+    `${fmt.label('REASON')} ${fmt.val(reason)}\n` +
     `${colors.red('Fix that file, then create again.')}`
   )
 }
 
 // A config file the template ships that cannot be read or parsed is the
 // template's to fix, the same refusal a broken package.json gets.
-export function templateFileNotReadable(filePath: string, error: unknown) {
+export function templateFileNotReadable(filePath: string, reason: string) {
   return (
     `${prefix('error')} Couldn't read the template's ${colors.blue(path.basename(filePath))}.\n` +
     `${fmt.label('PATH')} ${fmt.val(filePath)}\n` +
-    `${fmt.label('REASON')} ${fmt.val(fmt.truncate(String((error as Error | undefined)?.message || error)))}\n` +
+    `${fmt.label('REASON')} ${fmt.val(reason)}\n` +
     `${colors.red('Fix that file in the template, then create again.')}`
   )
 }
@@ -622,12 +622,12 @@ export function templateFileNotReadable(filePath: string, error: unknown) {
 // a minimal one in its place would drop the author's dependencies and scripts.
 export function templatePackageJsonNotParseable(
   packageJsonPath: string,
-  error: unknown
+  reason: string
 ) {
   return (
     `${prefix('error')} Couldn't read the template's ${colors.blue('package.json')}.\n` +
     `${fmt.label('PATH')} ${fmt.val(packageJsonPath)}\n` +
-    `${fmt.label('REASON')} ${fmt.val(fmt.truncate(String((error as Error | undefined)?.message || error)))}\n` +
+    `${fmt.label('REASON')} ${fmt.val(reason)}\n` +
     `${colors.red('Fix that file in the template, then create again.')}`
   )
 }
