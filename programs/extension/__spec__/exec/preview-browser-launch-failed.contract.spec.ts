@@ -181,7 +181,8 @@ describe.skipIf(process.platform === 'win32')(
         "Chrome couldn't start, so the extension isn't running."
       )
 
-      expect(result.stderr).toContain(`spawn ${binary} ENOENT`)
+      expect(result.stderr).toContain('(spawn ENOENT)')
+      expect(result.stderr).toContain(`PINNED BY --chromium-binary ${binary}`)
     }, 90_000)
 
     it('preview codes it E_BROWSER_LAUNCH under --output json', async () => {

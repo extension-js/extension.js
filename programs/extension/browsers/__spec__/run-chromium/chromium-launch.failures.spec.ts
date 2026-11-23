@@ -286,6 +286,45 @@ describe('a Chromium launch that does not reach a running extension', () => {
       expect(fake.project.readReady()).not.toHaveProperty('browserPid')
     })
 
+    // What Windows answers for a text file named .exe, and macOS for a file
+    // in no format it runs, in the shape Node gives a spawn refusal.
+    it.each([
+      ['UNKNOWN', -4094],
+      ['ENOEXEC', -8]
+    ])('names the pinned binary and its flag when the system answers %s', async (errno, number) => {
+      const notAProgram = Object.assign(new Error(`spawn ${errno}`), {
+        code: errno,
+        errno: number,
+        syscall: 'spawn'
+      })
+      const {plugin, runOnly} = await start({script: {spawnError: notAProgram}})
+      const pin = fake.project.plantBinary()
+      const error = await failure(runOnly())
+      const message = stripAnsi(error.message)
+
+      expect(message).toContain('The pinned browser binary could not be run')
+      expect(message).toContain(`(spawn ${errno})`)
+      expect(message).toContain(`PINNED BY --chromium-binary ${pin}`)
+      expect(message).toContain(
+        'The file may not be a browser. Pass --chromium-binary <abs-path> with a working browser binary.'
+      )
+
+      // A Node errno is no launcher code, so the class stays E_BROWSER_LAUNCH.
+      expect(error.code).toBe(errno)
+      expect(plugin.spawnedBrowser).toBe(false)
+
+      const ready = fake.project.readReady()
+      expect(ready).toMatchObject({
+        status: 'error',
+        code: 'browser_launch_failed'
+      })
+
+      expect(ready).not.toHaveProperty('browserLaunchFailedCode')
+      expect(String(ready.message)).toContain(pin)
+      expect(String(ready.message)).toContain('--chromium-binary')
+      expect(String(ready.message)).toMatch(/, nothing is running$/)
+    })
+
     it('gives back the debugging port claim it took before the spawn', async () => {
       const {runOnly} = await start({script: {spawnError: refused}})
       await failure(runOnly())
@@ -633,8 +672,11 @@ describe('a Chromium launch that does not reach a running extension', () => {
         '[browser] chrome wrote this before it exited:\n  Missing X server or $DISPLAY'
       )
 
+      const pin = fake.project.plantBinary()
+      const pinNote = `The binary at ${pin} was pinned by --chromium-binary and may not be a browser. Pass --chromium-binary <abs-path> with a working browser binary.`
+
       expect(said('error').at(-1)).toContain(
-        'Chrome exited before the extension loaded, so nothing is running.'
+        `Chrome exited before the extension loaded, so nothing is running.\n${pinNote}`
       )
 
       expect(said('log').join('\n')).not.toMatch(/ready for development/i)
@@ -644,8 +686,7 @@ describe('a Chromium launch that does not reach a running extension', () => {
         code: 'browser_exited',
         browserExitCode: 1,
         browserExitSignal: null,
-        message:
-          'the browser process exited (code 1) before the extension loaded, nothing is running'
+        message: `the browser process exited (code 1) before the extension loaded, nothing is running. ${pinNote}`
       })
 
       expect(fake.signalWatchers).toEqual({registered: 1, disposed: 1})

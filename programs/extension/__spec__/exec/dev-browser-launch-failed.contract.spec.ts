@@ -23,6 +23,17 @@ function plantUnspawnableBinary(dir: string, name: string): string {
   return binary
 }
 
+// A file that is no browser, with the permission bits of one. macOS refuses
+// to spawn the text (ENOEXEC), Linux hands it to sh, which exits at once.
+function plantNotABrowser(dir: string, name: string, body: string): string {
+  const binary = join(dir, name)
+  mkdirSync(dir, {recursive: true})
+  writeFileSync(binary, body)
+  chmodSync(binary, 0o755)
+
+  return binary
+}
+
 function writeProject(dir: string) {
   writeFileSync(
     join(dir, 'manifest.json'),
@@ -104,6 +115,19 @@ async function waitForLaunchFailure(session: Session, timeoutMs = 60_000) {
   )
 }
 
+// Either way the system treats the file, the contract ends on an error that
+// names the pin.
+async function waitForPinnedVerdict(session: Session, timeoutMs = 60_000) {
+  await session.cli.waitFor(
+    () =>
+      session.ready()?.status === 'error' &&
+      /may not be a browser/i.test(String(session.ready()?.message)) &&
+      /may not be a browser/i.test(session.output()),
+    timeoutMs,
+    'the pinned binary named on the contract and the terminal'
+  )
+}
+
 async function runWaiter(projectDir: string, browser: string) {
   return runCli([
     'dev',
@@ -176,7 +200,7 @@ describe.skipIf(process.platform === 'win32')(
 
       const events = session.events()
       expect(events, events).toMatch(/"type":"browser_launch_failed"/)
-      expect(events, events).toMatch(/"reason":"spawn /)
+      expect(events, events).toMatch(/"reason":"[^"]*\(spawn ENOENT\)/)
 
       // The second process a consumer runs: it must not be told the session
       // is up while nothing can load.
@@ -237,6 +261,55 @@ describe.skipIf(process.platform === 'win32')(
         error: {code: 'E_BROWSER_BINARY_INVALID'}
       })
     }, 120_000)
+
+    it.each([
+      ['chrome', '--chromium-binary', 'not a browser\n'],
+      ['firefox', '--gecko-binary', '#!/bin/sh\nexit 1\n']
+    ])(
+      'names the file and the flag when a pinned %s binary is no browser',
+      async (browser, flag, body) => {
+        const {work, projectDir} = makeWorkspace()
+        const binary = plantNotABrowser(join(work, 'bin'), 'fake-browser', body)
+
+        session = startDev(projectDir, browser, [flag, binary])
+        await waitForPinnedVerdict(session)
+
+        const output = session.output()
+        expect(output, output).toContain(binary)
+        expect(output, output).toContain(flag)
+        expect(output, output).not.toMatch(/ready for development/)
+        expect(output, output).not.toMatch(/Uncaught exception/)
+
+        const ready = session.ready()
+        expect(String(ready?.code)).toMatch(/^browser_(launch_failed|exited)$/)
+        expect(String(ready?.message)).toContain(binary)
+        expect(String(ready?.message)).toContain(flag)
+        expect(String(ready?.message)).not.toMatch(/\n|⏵/)
+        // A file that would not run is no bad value: the launch class stands.
+        expect(ready?.browserLaunchFailedCode).toBeUndefined()
+
+        const waiter = await runWaiter(projectDir, browser)
+        expect(waiter.status, waiter.stderr).toBe(1)
+        const lines = waiter.stdout.split('\n').filter((line) => line.trim())
+        expect(lines, waiter.stdout).toHaveLength(1)
+        const frame = JSON.parse(lines[0]) as {
+          ok: boolean
+          error: {code: string; message: string}
+        }
+        expect(frame.ok).toBe(false)
+        // A second process reads a browser that ran and left as an exit.
+        expect(frame.error.code).toBe(
+          ready?.code === 'browser_exited'
+            ? 'E_BROWSER_EXITED'
+            : 'E_BROWSER_LAUNCH'
+        )
+
+        expect(frame.error.message).toContain(binary)
+        expect(frame.error.message).toContain(flag)
+        expect(frame.error.message).toMatch(/may not be a browser/)
+      },
+      120_000
+    )
 
     it('reports the firefox spawn refusal the same way', async () => {
       const {work, projectDir} = makeWorkspace()

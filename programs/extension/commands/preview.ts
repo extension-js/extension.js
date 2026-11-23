@@ -9,6 +9,7 @@
 import {type Command, Option} from 'commander'
 import {normalizeProfileOption} from '../browsers/browsers-lib/resolve-profile'
 import {runOnlyPreviewBrowser} from '../browsers/run-only'
+import {browserForBinaryFlags} from '../helpers/binary-flag-browser'
 import {
   refuseUnknownListItems,
   refuseUnlistedChoices
@@ -169,7 +170,7 @@ export function registerPreviewCommand(
     )
     .option(
       '--chromium-binary <path-to-binary>',
-      'specify a path to the Chromium binary. This option overrides the --browser setting and the binary variables. Without it the managed install runs, then the system install'
+      'specify a path to the Chromium binary. It overrides the binary variables, and a --browser beside it must be a Chromium one. Without it the managed install runs, then the system install'
     )
     .addOption(geckoBinaryOption())
     .addOption(firefoxBinaryAliasOption())
@@ -252,14 +253,22 @@ export function registerPreviewCommand(
         const {browser: cliBrowser, ...previewOptions} = options
         // Only an untyped --browser falls through to extension.config.js
         // commands.preview.browser, then the stock chromium default.
-        const browser =
-          cliBrowser ??
-          ((await resolveConfigBrowser(
-            pathOrRemoteUrl || process.cwd(),
-            'preview',
-            loadDevelop
-          )) as PreviewOptions['browser']) ??
-          'chromium'
+        const binaryPick = browserForBinaryFlags({
+          typedBrowser: cliBrowser,
+          configBrowser:
+            cliBrowser !== undefined
+              ? undefined
+              : await resolveConfigBrowser(
+                  pathOrRemoteUrl || process.cwd(),
+                  'preview',
+                  loadDevelop
+                ),
+          chromiumBinary: previewOptions.chromiumBinary,
+          geckoBinary: cliGeckoBinary(previewOptions)
+        })
+        const browser = (binaryPick.browser ?? 'chromium') as NonNullable<
+          PreviewOptions['browser']
+        >
 
         if (previewOptions.debug || previewOptions.authorMode) {
           process.env.EXTENSION_DEBUG = '1'
@@ -353,6 +362,24 @@ export function registerPreviewCommand(
             )
           } else {
             console.error(messages.safariCommandNotSupported('preview'))
+          }
+
+          await exitAfterDrain(1)
+
+          return
+        }
+
+        if (binaryPick.refusal) {
+          if (asJson) {
+            emit(
+              ENVELOPE.fail('preview', 'usage', {
+                code: CODES.E_INVALID_OPTION,
+                message: binaryPick.refusal
+              })
+            )
+          } else {
+            // eslint-disable-next-line no-console
+            console.error(messages.usageRefusal(binaryPick.refusal))
           }
 
           await exitAfterDrain(1)
