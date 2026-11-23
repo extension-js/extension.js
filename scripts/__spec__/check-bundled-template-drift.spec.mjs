@@ -63,10 +63,10 @@ function makeTrees(bundledManifest) {
   return {base, templates, repo}
 }
 
-function runCheck({templates, repo}) {
+function runCheck({templates, repo}, args = []) {
   return spawnSync(
     'bash',
-    [path.join(repo, 'scripts', path.basename(script))],
+    [path.join(repo, 'scripts', path.basename(script)), ...args],
     {
       encoding: 'utf8',
       env: {...gitEnv, TEMPLATES_REPO_URL: templates}
@@ -101,6 +101,32 @@ test('fails on drift and prints the resync command', {skip: !runsBash}, () => {
     assert.match(result.stdout, /-\{"a":2\}/)
     assert.match(result.stderr, /has drifted from/)
     assert.match(result.stderr, /rsync -a --delete/)
+    assert.match(result.stderr, /check-bundled-template-drift\.sh --write/)
+  } finally {
+    fs.rmSync(trees.base, {recursive: true, force: true})
+  }
+})
+
+test('--write brings the bundled copy to the pinned templates', {
+  skip: !runsBash
+}, () => {
+  const trees = makeTrees('{"a":2}\n')
+  const bundled = path.join(trees.repo, 'programs/create/templates/javascript')
+
+  try {
+    write(path.join(bundled, 'gone-upstream.js'), 'x\n')
+
+    const written = runCheck(trees, ['--write'])
+
+    assert.equal(written.status, 0, written.stderr)
+    assert.match(written.stdout, /Resynced the bundled javascript template/)
+    assert.deepEqual(fs.readdirSync(bundled), ['manifest.json'])
+    assert.equal(
+      fs.readFileSync(path.join(bundled, 'manifest.json'), 'utf8'),
+      '{"a":1}\n'
+    )
+
+    assert.equal(runCheck(trees).status, 0)
   } finally {
     fs.rmSync(trees.base, {recursive: true, force: true})
   }

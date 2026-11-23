@@ -138,10 +138,10 @@ jobs:
     if: ${{ needs.corpus-target.outputs.canary != '' }}
     permissions:
       contents: read
-    uses: extension-js/templates/.github/workflows/ci.yml@97ada57e4088cad7c878496883c99f27c7e65682 # main, 2026-11-23
+    uses: extension-js/templates/.github/workflows/ci.yml@fcfc7eb4e92d1dadfa5ec59f0ce455ae035aca7c # main, 2026-11-23
     with:
       cli-version: ${{ needs.corpus-target.outputs.canary }}
-      ref: 97ada57e4088cad7c878496883c99f27c7e65682
+      ref: fcfc7eb4e92d1dadfa5ec59f0ce455ae035aca7c
 
   publish:
     needs: [corpus-target, corpus-gate, templates-gate]
@@ -233,7 +233,10 @@ jobs:
             exit 0
           fi
           node scripts/generate-template-corpus.mjs --ref main
-          git --no-pager diff --stat -- programs/create/steps/import-external-template.ts programs/extension/helpers/template-corpus.generated.ts
+          # The bundled copy follows the pin, so a template change since the
+          # last release never needs a hand resync before this one.
+          bash scripts/check-bundled-template-drift.sh --write
+          git --no-pager diff --stat -- programs/create/steps/import-external-template.ts programs/extension/helpers/template-corpus.generated.ts programs/create/templates/javascript
 
       # The bundled `javascript` template ships in the npm package as the
       # offline fast-path for `extension create`; gate releases on it being
@@ -427,6 +430,7 @@ jobs:
             # The repin step above may have moved the corpus pin; the release
             # commit is where that lands, so a scaffold and its release agree.
             git add programs/create/steps/import-external-template.ts programs/extension/helpers/template-corpus.generated.ts
+            git add -A programs/create/templates/javascript
             # --no-verify: hooks run tree code, and the release job never runs
             # tree code beside a credential (HUSKY=0 on the job backs this up).
             if ! git diff --cached --quiet; then git commit --no-verify -m "Release $CHANNEL v$VERSION"; fi
@@ -864,7 +868,7 @@ jobs:
     if: ${{ !cancelled() && needs.publish.result == 'success' && (inputs.channel != 'canary' || inputs.readings) }}
     permissions:
       contents: read
-    uses: extension-js/templates/.github/workflows/ci.yml@97ada57e4088cad7c878496883c99f27c7e65682 # main, 2026-11-23
+    uses: extension-js/templates/.github/workflows/ci.yml@fcfc7eb4e92d1dadfa5ec59f0ce455ae035aca7c # main, 2026-11-23
     with:
       cli-version: ${{ needs.publish.outputs.version }}
-      ref: 97ada57e4088cad7c878496883c99f27c7e65682
+      ref: fcfc7eb4e92d1dadfa5ec59f0ce455ae035aca7c

@@ -53,6 +53,13 @@ report_pin_health() {
   fi
 }
 
+# --write copies the pinned source over the bundled copy instead of failing,
+# which is how a release that just moved the pin brings the copy along.
+WRITE=0
+if [[ "${1:-}" == "--write" ]]; then
+  WRITE=1
+fi
+
 if [[ "${EXTENSION_SKIP_TEMPLATE_DRIFT:-}" == "1" ]]; then
   echo "EXTENSION_SKIP_TEMPLATE_DRIFT=1 is set, so the bundled template drift check is skipped."
   exit 0
@@ -101,12 +108,29 @@ if diff "${DIFF_ARGS[@]}" "$BUNDLED_DIR" "$UPSTREAM_DIR"; then
   exit 0
 fi
 
+if [[ "$WRITE" == "1" ]]; then
+  # By content: a same-size file checked out in the same second looks unchanged.
+  RSYNC_ARGS=(-a --delete --checksum)
+  for name in "${EXCLUDES[@]}"; do
+    RSYNC_ARGS+=(--exclude "$name")
+  done
+
+  rsync "${RSYNC_ARGS[@]}" "$UPSTREAM_DIR/" "$BUNDLED_DIR/"
+  echo "Resynced the bundled javascript template from extension-js/templates @ ${EXAMPLES_REF}."
+  report_pin_health || exit 1
+  exit 0
+fi
+
 cat >&2 <<EOF
 
 error: programs/create/templates/javascript has drifted from
 $REPO_URL/tree/$EXAMPLES_REF/examples/javascript (the pinned source of truth).
 Fresh 'extension create' scaffolds use the bundled copy, so this drift
-ships to users. Resync from a checkout of the examples repo:
+ships to users. Resync with:
+
+  bash scripts/check-bundled-template-drift.sh --write
+
+or from a checkout of the examples repo:
 
   rsync -a --delete $(printf -- '--exclude %s ' "${EXCLUDES[@]}")\\
     <examples-checkout>/examples/javascript/ programs/create/templates/javascript/
