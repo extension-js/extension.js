@@ -229,14 +229,15 @@ describe('the description length check', () => {
 describe('a dev rebuild', () => {
   const cjsFs = createRequire(import.meta.url)('node:fs') as typeof fs
 
-  // The step of this folder a read came from, read off the call stack.
+  // The shared reader or the step of this folder a read came from, read
+  // off the call stack.
   function readingStep(): string | undefined {
-    return /feature-manifest\/(?:steps|manifest-lib|manifest-overrides)\/([\w-]+)\.ts/.exec(
+    return /(?:feature-manifest\/(?:steps|manifest-lib|manifest-overrides)|lib\/manifest)\/([\w-]+)\.ts/.exec(
       String(new Error().stack)
     )?.[1]
   }
 
-  it('reads the manifest from disk once, when it is emitted', async () => {
+  it('reads the manifest from disk once, through the shared reader', async () => {
     const root = project()
     // A fixture as new as the first build makes the watcher build once more.
     ageProjectFiles(root)
@@ -277,6 +278,6 @@ describe('a dev rebuild', () => {
       syncBuiltinESMExports()
     }
 
-    expect(readers).toEqual(['emit-manifest'])
+    expect(readers).toEqual(['source-manifest'])
   })
 })

@@ -229,11 +229,15 @@ const FORWARDING: ForwardingRow[] = [
   },
   {
     argv: ['--gecko-binary', '/bin/gecko'],
-    options: {geckoBinary: '/bin/gecko'}
+    options: {browser: 'gecko-based', geckoBinary: '/bin/gecko'}
   },
   {
     argv: ['--firefox-binary', '/bin/firefox'],
-    options: {geckoBinary: '/bin/firefox', firefoxBinary: '/bin/firefox'}
+    options: {
+      browser: 'gecko-based',
+      geckoBinary: '/bin/firefox',
+      firefoxBinary: '/bin/firefox'
+    }
   },
   {
     argv: [...SAFARI, '--safari-binary', '/bin/safari'],

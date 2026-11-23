@@ -10,6 +10,7 @@ import * as path from 'node:path'
 import {type Command, Option} from 'commander'
 import {normalizeProfileOption} from '../browsers/browsers-lib/resolve-profile'
 import {runOnlyPreviewBrowser} from '../browsers/run-only'
+import {browserForBinaryFlags} from '../helpers/binary-flag-browser'
 import {
   refuseUnknownListItems,
   refuseUnlistedChoices
@@ -191,7 +192,7 @@ export function registerStartCommand(
     .option('--no-open', NO_OPEN_FLAG_DESCRIPTION)
     .option(
       '--chromium-binary <path-to-binary>',
-      'specify a path to the Chromium binary. This option overrides the --browser setting and the binary variables. Without it the managed install runs, then the system install'
+      'specify a path to the Chromium binary. It overrides the binary variables, and a --browser beside it must be a Chromium one. Without it the managed install runs, then the system install'
     )
     .addOption(geckoBinaryOption())
     .addOption(firefoxBinaryAliasOption())
@@ -296,14 +297,22 @@ export function registerStartCommand(
         const {browser: cliBrowser, ...startOptions} = options
         // Only an untyped --browser falls through to extension.config.js
         // commands.start.browser, then the stock chromium default.
-        const browser =
-          cliBrowser ??
-          ((await resolveConfigBrowser(
-            pathOrRemoteUrl || process.cwd(),
-            'start',
-            loadDevelop
-          )) as StartOptions['browser']) ??
-          'chromium'
+        const binaryPick = browserForBinaryFlags({
+          typedBrowser: cliBrowser,
+          configBrowser:
+            cliBrowser !== undefined
+              ? undefined
+              : await resolveConfigBrowser(
+                  pathOrRemoteUrl || process.cwd(),
+                  'start',
+                  loadDevelop
+                ),
+          chromiumBinary: startOptions.chromiumBinary,
+          geckoBinary: cliGeckoBinary(startOptions)
+        })
+        const browser = (binaryPick.browser ?? 'chromium') as NonNullable<
+          StartOptions['browser']
+        >
 
         if (startOptions.debug || startOptions.authorMode) {
           process.env.EXTENSION_DEBUG = '1'
@@ -403,6 +412,18 @@ export function registerStartCommand(
           failAndExit(asJson, 'usage', {
             code: CODES.E_COMMAND_UNSUPPORTED_FOR_TARGET,
             message: 'Safari is not supported by start.'
+          })
+        }
+
+        if (binaryPick.refusal) {
+          if (!asJson) {
+            // eslint-disable-next-line no-console
+            console.error(messages.usageRefusal(binaryPick.refusal))
+          }
+
+          failAndExit(asJson, 'usage', {
+            code: CODES.E_INVALID_OPTION,
+            message: binaryPick.refusal
           })
         }
 

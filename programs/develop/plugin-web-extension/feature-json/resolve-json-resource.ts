@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
+import {readManifestText} from '../../lib/manifest/source-manifest'
 import {parseJsonSafe} from '../../lib/parse-json-safe'
 import {rootAbsoluteClimbsOut} from '../../lib/public-private-files'
 import {isInsidePath, isOsPathUnder} from '../../lib/real-path'
@@ -158,7 +159,7 @@ export function jsonFieldClimbsOutOfRoot(
   let manifest: unknown
 
   try {
-    manifest = parseJsonSafe(original ?? fs.readFileSync(manifestPath, 'utf8'))
+    manifest = parseJsonSafe(original ?? readManifestText(manifestPath))
   } catch {
     return false
   }

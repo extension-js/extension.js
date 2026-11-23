@@ -49,8 +49,11 @@ import {isRefusedOfficialChrome} from '../../browsers-lib/official-chrome'
 import * as binariesResolver from '../../browsers-lib/output-binaries-resolver'
 import {
   envPinnedBinary,
+  type LaunchPin,
   type PinnedBinaryProblem,
-  pinnedBinaryProblem
+  pinnedBinaryExitNote,
+  pinnedBinaryProblem,
+  pinnedBinarySpawnError
 } from '../../browsers-lib/pinned-binary'
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
 import {
@@ -285,6 +288,8 @@ export class ChromiumLaunchPlugin {
   private didSpawn = false
   // Set by the child's close handler on every exit, asked or not.
   private didClose = false
+  // The binary this launch runs and what pinned it, for a failure to name.
+  private launchPin: LaunchPin = {}
   // Chrome's own refusal reason, when it declined to load the guest at launch.
   private extensionLoadRefused: string | undefined
   // The run that owned the record when the launch began, so a stamp cannot
@@ -998,6 +1003,8 @@ export class ChromiumLaunchPlugin {
         binaryOverrideNaming(String(browser), browserBinaryLocation) ||
         undefined
 
+    this.launchPin = {path: browserBinaryLocation, pinnedBy: binaryPinnedBy}
+
     const binaryProvenance = utils.classifyBinaryProvenance({
       binaryPath: browserBinaryLocation,
       managedCacheRoot: String(managedCacheRoot || ''),
@@ -1331,7 +1338,7 @@ export class ChromiumLaunchPlugin {
       // No browser will bind the port, so the next session may take it.
       portClaim.release()
 
-      throw error
+      throw pinnedBinarySpawnError(error, this.launchPin)
     }
 
     this.didSpawn = true
@@ -1566,7 +1573,12 @@ export class ChromiumLaunchPlugin {
 
       if (this.browserGone) {
         if (compilation.options.mode === 'development') {
-          humanError(messages.browserGoneBeforeReady(this.options.browser))
+          humanError(
+            messages.browserGoneBeforeReady(
+              this.options.browser,
+              pinnedBinaryExitNote(this.launchPin)
+            )
+          )
         }
 
         return

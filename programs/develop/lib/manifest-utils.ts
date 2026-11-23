@@ -6,7 +6,6 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as fs from 'node:fs'
 import type {DevOptions, Manifest} from '../types'
 import {
   isChromiumBasedBrowser,
@@ -14,7 +13,7 @@ import {
   SUPPORTED_BROWSERS,
   WEBKIT_BASED_BROWSERS
 } from './constants'
-import {parseJsonSafe} from './parse-json-safe'
+import {readManifest} from './manifest/source-manifest'
 
 // chrome: and edge: name one vendor. Up to 4.1.18 they reached every
 // Chromium-family target, which is why a drop elsewhere gets a warning.
@@ -422,9 +421,7 @@ export function isStaticThemeSource(
   if (!manifestPath) return false
 
   try {
-    const parsed = parseJsonSafe<Manifest>(
-      fs.readFileSync(manifestPath, 'utf-8')
-    )
+    const parsed = readManifest<Manifest>(manifestPath, {emptyAsObject: true})
 
     return isStaticTheme(
       filterKeysForThisBrowser(parsed, browser as DevOptions['browser'])

@@ -36,7 +36,8 @@ import {
 import {
   envPinnedBinary,
   type PinnedBinaryProblem,
-  pinnedBinaryProblem
+  pinnedBinaryProblem,
+  pinnedBinarySpawnError
 } from '../../browsers-lib/pinned-binary'
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
 import {
@@ -792,7 +793,10 @@ export class FirefoxLaunchPlugin {
         // No browser will bind the port, so the next session may take it.
         portClaim.release()
 
-        throw error
+        throw pinnedBinarySpawnError(error, {
+          path: binary,
+          pinnedBy: this.host.launchBinaryPinnedBy
+        })
       }
 
       // The contract names the executable that ran, the same fields the
