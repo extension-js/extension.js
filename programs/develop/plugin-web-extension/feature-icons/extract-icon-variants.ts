@@ -6,11 +6,10 @@
 // ╚═╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {readManifest} from '../../lib/manifest/source-manifest'
 import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
-import {parseAuthoredJson} from '../../lib/parse-json-safe'
-import type {DevOptions, FilepathList, Manifest} from '../../types'
+import type {DevOptions, FilepathList} from '../../types'
 import {resolveManifestIconPath} from './extract-action-theme-icons'
 
 const ACTION_KEYS = ['action', 'browser_action', 'page_action'] as const
@@ -46,7 +45,7 @@ export function extractIconVariants(
     // Filtered first so a list under chromium: or firefox: ships on that
     // target and stays out of the others.
     manifest = filterKeysForThisBrowser(
-      parseAuthoredJson(fs.readFileSync(manifestPath, 'utf8')) as Manifest,
+      readManifest(manifestPath),
       browser
     ) as Record<string, unknown>
   } catch {

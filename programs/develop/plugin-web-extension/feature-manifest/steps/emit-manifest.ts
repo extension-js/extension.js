@@ -6,8 +6,8 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import * as fs from 'node:fs'
 import rspack, {Compilation, type Compiler, sources} from '@rspack/core'
+import {readManifestText} from '../../../lib/manifest/source-manifest'
 import {debugLine, humanLine, isDebug} from '../../../lib/messaging'
 import {hasJsonComments, parseAuthoredJson} from '../../../lib/parse-json-safe'
 import type {PluginInterface} from '../../../types'
@@ -38,7 +38,7 @@ export class EmitManifest {
             let hadComments = false
 
             try {
-              const content = fs.readFileSync(this.manifestPath, 'utf-8')
+              const content = readManifestText(this.manifestPath)
               jsonContent = parseAuthoredJson(content, {browser: this.browser})
               hadComments = hasJsonComments(content)
 

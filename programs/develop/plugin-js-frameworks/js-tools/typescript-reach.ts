@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {parseJsonSafe} from '../../lib/parse-json-safe'
+import {readManifest} from '../../lib/manifest/source-manifest'
 import {getSpecialFoldersDataForProjectRoot} from '../../lib/special-folders/get-data'
 import {getResolvedManifestFieldsData} from '../../plugin-web-extension/shared/manifest-fields'
 import type {DevOptions} from '../../types'
@@ -115,7 +115,7 @@ export function buildReachesTypeScript(options: {
 
   // A manifest nobody can read names no entry, so the folder scan stands.
   try {
-    const manifest = parseJsonSafe(fs.readFileSync(manifestPath, 'utf-8'))
+    const manifest = readManifest(manifestPath, {emptyAsObject: true})
 
     if (!manifest || typeof manifest !== 'object') return true
 

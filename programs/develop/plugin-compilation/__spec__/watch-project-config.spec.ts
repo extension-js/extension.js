@@ -49,6 +49,7 @@ function createFakeCompiler(projectRoot: string, watch = true) {
         tap: (_n: string, cb: (c: Compilation) => void) =>
           thisCompilation.push(cb)
       },
+      beforeRun: noop,
       done: noop,
       watchClose: noop,
       invalid: noop,

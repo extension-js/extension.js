@@ -9,10 +9,10 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler, RuleSetRule, SwcLoaderOptions} from '@rspack/core'
+import {readManifest} from '../lib/manifest/source-manifest'
 import {filterKeysForThisBrowser} from '../lib/manifest-utils'
 import {debugLine, isDebug} from '../lib/messaging'
 import {ensureOptionalPackageResolved} from '../lib/optional-deps-resolver'
-import {type ParsedJson, parseJsonSafe} from '../lib/parse-json-safe'
 import {toResourceKey} from '../lib/resource-path'
 import {NOT_RAW_RESOURCE_QUERY, RAW_RESOURCE_QUERY} from '../lib/resource-query'
 import {setupInOrder} from '../lib/setup-in-order'
@@ -295,7 +295,7 @@ export class JsFrameworksPlugin {
     let manifest: Manifest = {}
 
     try {
-      manifest = parseJsonSafe(fs.readFileSync(this.manifestPath, 'utf-8'))
+      manifest = readManifest(this.manifestPath, {emptyAsObject: true})
     } catch {
       // Ignore
     }

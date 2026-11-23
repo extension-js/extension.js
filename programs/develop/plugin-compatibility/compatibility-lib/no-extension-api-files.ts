@@ -6,17 +6,16 @@
 //  ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝  ╚═╝   ╚═╝   ╚═╝╚═════╝ ╚═╝╚══════╝╚═╝   ╚═╝      ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
+import {readManifest} from '../../lib/manifest/source-manifest'
 import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
-import {parseAuthoredJson} from '../../lib/parse-json-safe'
 import {canonicalizeResourcePath} from '../../lib/resource-path'
 import {
   getRuntimeMainWorldEntries,
   parseCanonicalContentScriptEntryIndex
 } from '../../plugin-web-extension/feature-scripts/contracts'
-import type {DevOptions, Manifest} from '../../types'
+import type {DevOptions} from '../../types'
 
 export function resourceKey(resource: string): string {
   const file = String(resource || '').split('?')[0]
@@ -45,7 +44,7 @@ function contentScriptGroups(
 ): ContentScriptGroup[] {
   try {
     const manifest = filterKeysForThisBrowser(
-      parseAuthoredJson(fs.readFileSync(manifestPath, 'utf8')) as Manifest,
+      readManifest(manifestPath),
       browser
     )
 

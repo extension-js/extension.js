@@ -6,10 +6,10 @@
 //  ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═══╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler, Stats} from '@rspack/core'
 import {resolveLocalizedManifestName} from '../lib/localized-manifest-name'
+import {readManifestText} from '../lib/manifest/source-manifest'
 import {humanLine} from '../lib/messaging'
 import {parseJsonSafe} from '../lib/parse-json-safe'
 import {isInsidePath, isSameOrInsidePath} from '../lib/real-path'
@@ -107,9 +107,7 @@ export class BoringPlugin {
         // browser shows it, instead of the key.
         const parsedName = resolveLocalizedManifestName(
           parseJsonSafe(
-            emitted
-              ? String(emitted)
-              : fs.readFileSync(this.manifestPath, 'utf-8')
+            emitted ? String(emitted) : readManifestText(this.manifestPath)
           ),
           [
             path.dirname(this.manifestPath),

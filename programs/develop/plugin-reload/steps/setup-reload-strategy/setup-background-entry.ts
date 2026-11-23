@@ -11,11 +11,11 @@ import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
 import {resolveDevelopDistFile} from '../../../lib/develop-context'
+import {readManifest} from '../../../lib/manifest/source-manifest'
 import {
   filterKeysForThisBrowser,
   isStaticTheme
 } from '../../../lib/manifest-utils'
-import {parseAuthoredJson} from '../../../lib/parse-json-safe'
 import type {DevOptions, Manifest} from '../../../types'
 
 export class SetupBackgroundEntry {
@@ -47,9 +47,7 @@ export class SetupBackgroundEntry {
 
   apply(compiler: Compiler) {
     // Guards are handled at the root plugin level
-    const manifest = parseAuthoredJson<Manifest>(
-      fs.readFileSync(this.manifestPath, 'utf-8')
-    )
+    const manifest = readManifest<Manifest>(this.manifestPath)
     const browser = this.browser
     // Gecko family (firefox + forks) gets the gecko reload helper; everything else
     // (chromium family + Safari/webkit) gets the chromium one.

@@ -15,8 +15,8 @@ import {
 } from '../../../lib/asset-output-name'
 import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../../../lib/constants'
 import {templateCopiedAsset} from '../../../lib/copied-asset-env'
+import {readManifest} from '../../../lib/manifest/source-manifest'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
-import {parseAuthoredJson} from '../../../lib/parse-json-safe'
 import {
   hasPrivateFileName,
   privateFileKind,
@@ -394,7 +394,7 @@ function authoredSpellings(
   try {
     war = declaredWAR(
       filterKeysForThisBrowser(
-        parseAuthoredJson(fs.readFileSync(manifestPath, 'utf-8')) as Manifest,
+        readManifest(manifestPath),
         (browser || 'chrome') as DevOptions['browser']
       )
     )

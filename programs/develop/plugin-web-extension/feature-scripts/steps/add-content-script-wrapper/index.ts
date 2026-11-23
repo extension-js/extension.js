@@ -6,12 +6,11 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {Compilation, type Compiler, sources} from '@rspack/core'
 import {resolveDevelopDistFile} from '../../../../lib/develop-context'
+import {readManifest} from '../../../../lib/manifest/source-manifest'
 import {filterKeysForThisBrowser} from '../../../../lib/manifest-utils'
-import {parseAuthoredJson} from '../../../../lib/parse-json-safe'
 import {findNearestProjectManifestSync} from '../../../../lib/project-manifest'
 import {
   canonicalizeDir,
@@ -19,12 +18,7 @@ import {
 } from '../../../../lib/resource-path'
 import {NOT_RAW_RESOURCE_QUERY} from '../../../../lib/resource-query'
 import {scriptsFolderRoot} from '../../../../lib/special-folders/folders-config'
-import type {
-  DevOptions,
-  FilepathList,
-  Manifest,
-  PluginInterface
-} from '../../../../types'
+import type {DevOptions, FilepathList, PluginInterface} from '../../../../types'
 import {ResolveClassicConcat} from '../../../shared/classic-concat'
 import {contentScriptWrapperExtensionsFor} from '../../../shared/content-script-wrapper-extensions'
 import {
@@ -77,7 +71,7 @@ function findDeclaredMainWorldFiles(
 ): string[] {
   try {
     const manifest = filterKeysForThisBrowser(
-      parseAuthoredJson(fs.readFileSync(manifestPath, 'utf8')) as Manifest,
+      readManifest(manifestPath),
       browser
     )
     const groups = Array.isArray(manifest.content_scripts)

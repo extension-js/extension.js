@@ -25,9 +25,9 @@ import {
 } from '../lib/dead-url-refs'
 import {resolveDevelopDistFile} from '../lib/develop-context'
 import {extensionSchemeFor} from '../lib/extension-base-from-stack'
+import {readManifest} from '../lib/manifest/source-manifest'
 import {filterKeysForThisBrowser} from '../lib/manifest-utils'
 import {debugLine, isDebug} from '../lib/messaging'
-import {parseAuthoredJson} from '../lib/parse-json-safe'
 import {hasProjectDependency} from '../lib/project-manifest'
 import {toResourceKey} from '../lib/resource-path'
 import {NOT_RAW_RESOURCE_QUERY} from '../lib/resource-query'
@@ -47,7 +47,7 @@ import {
 } from '../lib/withheld-file'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../plugin-web-extension/feature-scripts/contracts'
 import {resolveScriptEntryPath} from '../plugin-web-extension/shared/script-entry-path'
-import type {DevOptions, Manifest, PluginInterface} from '../types'
+import type {DevOptions, PluginInterface} from '../types'
 import {usesStyleTools} from './common-style-loaders'
 import {cssInContentScriptLoader} from './css-in-content-script-loader'
 import {cssInHtmlLoader} from './css-in-html-loader'
@@ -631,7 +631,7 @@ export function findDeclaredContentScriptFiles(
 ): string[] {
   try {
     const manifest = filterKeysForThisBrowser(
-      parseAuthoredJson(fs.readFileSync(manifestPath, 'utf8')) as Manifest,
+      readManifest(manifestPath),
       browser
     )
     const groups = Array.isArray(manifest.content_scripts)

@@ -10,8 +10,8 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
+import {readManifest} from '../../../lib/manifest/source-manifest'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
-import {parseAuthoredJson} from '../../../lib/parse-json-safe'
 import type {DevOptions, FilepathList, PluginInterface} from '../../../types'
 import {classicConcatEntry, isClassicScript} from '../../shared/classic-concat'
 import {
@@ -285,7 +285,7 @@ export class AddScripts {
       // A chromium:background module worker is invisible to a raw read, so the
       // entry got importScripts chunk loading while the worker itself is ESM.
       manifestJson = filterKeysForThisBrowser(
-        parseAuthoredJson(fs.readFileSync(this.manifestPath, 'utf8')),
+        readManifest(this.manifestPath),
         this.browser
       ) as typeof manifestJson
     } catch {
