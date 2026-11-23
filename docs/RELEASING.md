@@ -34,9 +34,10 @@ Use the `Extension.js – Release Publish` workflow at `.github/workflows/publis
 - For `stable` and `next`, CI first moves the `extension create` template pin to the
   head of `extension-js/templates` (`node scripts/generate-template-corpus.mjs --ref main`)
   and carries the two generated files in the release commit, so a fresh scaffold
-  matches the corpus the release was cut against. The bundled `javascript` template
-  drift check then runs against that pin and fails the release if the bundled copy
-  needs a resync. A template added to the corpus still needs curating by hand
+  matches the corpus the release was cut against. The same step resyncs the bundled
+  `javascript` template from that pin (`bash scripts/check-bundled-template-drift.sh --write`)
+  and the release commit carries it. The drift check then runs against that pin and
+  fails the release if the two still differ. A template added to the corpus still needs curating by hand
   (groups and the AI-help snapshot) before a release, and the tests fail the cut
   with that reason. `EXTENSION_SKIP_TEMPLATE_REPIN=1` keeps the committed pin for an
   urgent release.
