@@ -12,6 +12,7 @@ import {
   formatDiscord,
   formatMarkdown,
   getCommits,
+  readFolded,
   readHighlights,
   resolveRange
 } from '../generate-release-notes.mjs'
@@ -125,6 +126,73 @@ test('formatMarkdown leads with highlights and folds other changes', () => {
   assert.match(md, /\(\[feat123\]\(https:\/\/example\.com\/repo\/commit\//)
 })
 
+test('the long tail of a release is printed folded under the highlights', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'folded-'))
+  const file = path.join(dir, 'RELEASE_HIGHLIGHTS.md')
+  writeFileSync(
+    file,
+    [
+      '<!-- ## Also',
+      '- a bullet inside the instructions -->',
+      '## Highlights',
+      '',
+      '- **Big thing**, does X',
+      '',
+      '## Also',
+      '',
+      '- A smaller thing',
+      '- Another one',
+      '',
+      '## Upgrade notes',
+      '',
+      '- Rename the code'
+    ].join('\n')
+  )
+
+  assert.deepEqual(readHighlights(file), ['**Big thing**, does X'])
+  const folded = readFolded(file, '9.9.9')
+  assert.deepEqual(folded, [
+    {title: 'Also in 9.9.9', items: ['A smaller thing', 'Another one']},
+    {title: 'Upgrade notes', items: ['Rename the code']}
+  ])
+
+  const md = formatMarkdown({
+    highlights: readHighlights(file),
+    folded,
+    buckets: categorize([commit('Add a feature', 'feat123')])
+  })
+  assert.equal(
+    md.split('\n\n### Features')[0],
+    [
+      '- **Big thing**, does X',
+      '',
+      '<details>',
+      '<summary>Also in 9.9.9 (2)</summary>',
+      '',
+      '- A smaller thing',
+      '- Another one',
+      '',
+      '</details>',
+      '',
+      '<details>',
+      '<summary>Upgrade notes (1)</summary>',
+      '',
+      '- Rename the code',
+      '',
+      '</details>'
+    ].join('\n')
+  )
+
+  writeFileSync(
+    file,
+    '## Highlights\n\n- Only this\n\n## Also\n\n## Upgrade notes\n'
+  )
+
+  assert.deepEqual(readFolded(file, '9.9.9'), [])
+  assert.deepEqual(readFolded(path.join(dir, 'nope.md')), [])
+  rmSync(dir, {recursive: true, force: true})
+})
+
 test('formatMarkdown returns a placeholder when nothing qualifies', () => {
   assert.equal(
     formatMarkdown({
@@ -233,7 +301,10 @@ test('findAnchor excludes the current version when its boundary already exists',
     {cwd: dir}
   )
 
-  execFileSync('git', ['commit', '--allow-empty', '-m', 'feature'], {cwd: dir})
+  execFileSync('git', ['commit', '--allow-empty', '-m', 'feature'], {
+    cwd: dir
+  })
+
   execFileSync(
     'git',
     ['commit', '--allow-empty', '-m', 'release(stable): v3.18.0'],
