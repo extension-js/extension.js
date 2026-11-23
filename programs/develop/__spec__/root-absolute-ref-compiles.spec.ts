@@ -94,7 +94,7 @@ async function watchProject(
           output,
           watched: [...compilation.fileDependencies]
             .filter((file) => file.startsWith(root))
-            .map((file) => path.relative(root, file)),
+            .map((file) => path.relative(root, file).split(path.sep).join('/')),
           warnings: [...compilation.warnings].map((warning) =>
             String((warning as Error).name)
           ),
