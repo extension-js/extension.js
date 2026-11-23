@@ -32,7 +32,7 @@ interface KeptBySession {
 
 const keptByCompiler = new WeakMap<object, KeptBySession>()
 
-export interface KeptChildCompiles {
+interface KeptChildCompiles {
   // Puts an earlier compile of the request back in the build when it holds.
   replay(request: CompileRequest): boolean
   // Keeps a compile that just ran and put `appeared` in the build.
