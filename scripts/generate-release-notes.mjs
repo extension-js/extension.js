@@ -184,10 +184,23 @@ function categorize(commits) {
   return buckets
 }
 
+// One pass can leave a new marker behind (`<!-<!-- x -->-`), so strip until
+// nothing changes, and drop an opener that never closes.
+export function stripHtmlComments(text) {
+  let previous
+
+  do {
+    previous = text
+    text = text.replace(/<!--[\s\S]*?-->/g, '')
+  } while (text !== previous)
+
+  return text.replace(/<!--/g, '')
+}
+
 function readSection(file, title) {
   if (!file || !existsSync(file)) return []
 
-  const raw = readFileSync(file, 'utf8').replace(/<!--[\s\S]*?-->/g, '')
+  const raw = stripHtmlComments(readFileSync(file, 'utf8'))
   const lines = raw.split('\n')
   const heading = new RegExp(`^##\\s+${title}\\s*$`, 'i')
   const start = lines.findIndex((line) => heading.test(line))

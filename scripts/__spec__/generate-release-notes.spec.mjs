@@ -14,7 +14,8 @@ import {
   getCommits,
   readFolded,
   readHighlights,
-  resolveRange
+  resolveRange,
+  stripHtmlComments
 } from '../generate-release-notes.mjs'
 
 const commit = (subject, short = 'abc1234') => ({
@@ -374,4 +375,11 @@ test('release boundaries resolve across the legacy and house-style subjects', ()
     process.chdir(prevCwd)
     rmSync(dir, {recursive: true, force: true})
   }
+})
+
+test('stripHtmlComments leaves no comment marker, nested or unclosed', () => {
+  assert.equal(stripHtmlComments('a<!-- x -->b'), 'ab')
+  assert.equal(stripHtmlComments('a<!-<!-- x -->- y -->b'), 'ab')
+  assert.equal(stripHtmlComments('a<!-- never closed'), 'a never closed')
+  assert.ok(!stripHtmlComments('<!<!--<!-- x -->-->-- y').includes('<!--'))
 })
