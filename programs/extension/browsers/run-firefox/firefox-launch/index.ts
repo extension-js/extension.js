@@ -853,6 +853,7 @@ export class FirefoxLaunchPlugin {
       const portWait = await this.deps.awaitRdpPort(this.extensionOutputPath, {
         port: debugPort,
         isBrowserGone: () => this.browserGone,
+        isStopAsked: () => this.endedByUs,
         runId: this.launchRunId
       })
 

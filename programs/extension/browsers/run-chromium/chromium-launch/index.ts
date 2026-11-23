@@ -281,9 +281,11 @@ export class ChromiumLaunchPlugin {
   // writes "Local State" on its first run, so its presence at spawn time is
   // the one reliable mark of a reused profile, managed or explicit.
   private profileReused = false
-  // Set by the child's close handler when the browser left without being
-  // asked. A ready claim after that would describe a browser that is gone.
+  // Set by the child's close handler on every exit. A ready claim after
+  // that would describe a browser that is gone.
   private browserGone = false
+  // Set with it when the session asked for the stop, which is not a failure.
+  private stoppedByUs = false
   // Set once a browser process exists. A launch that throws before this is a
   // launch that never spawned anything, and the contract has to say so.
   private didSpawn = false
@@ -1580,7 +1582,7 @@ export class ChromiumLaunchPlugin {
       if (!this.browserGone) humanError(`[browser] ${message}${hint}`)
 
       if (this.browserGone) {
-        if (compilation.options.mode === 'development') {
+        if (compilation.options.mode === 'development' && !this.stoppedByUs) {
           humanError(
             messages.browserGoneBeforeReady(
               this.options.browser,
@@ -1868,11 +1870,13 @@ export class ChromiumLaunchPlugin {
           this.logger.info(messages.chromeProcessExited(code || 0))
         }
 
+        this.stoppedByUs = this.deps.terminatedByUs(child)
+        this.browserGone = true
+
         // An exit we didn't ask for means the browser died out from under a live
         // session. Say so loudly and stamp ready.json so automation sees it too.
-        if (!this.deps.terminatedByUs(child)) {
+        if (!this.stoppedByUs) {
           const beforeReady = !this.didReportReady
-          this.browserGone = true
 
           this.logger.error(
             messages.browserExitedUnasked(

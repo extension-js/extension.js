@@ -172,6 +172,9 @@ export function stampReadyRdpPortError(
   runId?: string
 ) {
   patchReady(extensionOutputPath, runId, (ready) => {
+    // A session that ended on request names no fault for the port it closed.
+    if (ready.status === 'stopped') return false
+
     delete ready.rdpPort
     ready.rdpPortError =
       String(reason || '').trim() ||

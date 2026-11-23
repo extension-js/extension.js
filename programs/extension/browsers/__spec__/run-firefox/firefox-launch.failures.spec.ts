@@ -564,6 +564,8 @@ describe('a Firefox launch that does not reach a running add-on', () => {
       expect(ready).not.toHaveProperty('code')
       expect(ready).not.toHaveProperty('browserLaunchFailedAt')
       expect(ready).not.toHaveProperty('browserExitedAt')
+      // No port opened because of the stop, which is not a fault to name.
+      expect(ready).not.toHaveProperty('rdpPortError')
       // The launch still ends, and its caller is told no line is owed.
       expect(error.printed).toBe(true)
     })

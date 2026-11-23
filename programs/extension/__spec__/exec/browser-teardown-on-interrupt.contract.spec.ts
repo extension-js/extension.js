@@ -233,6 +233,7 @@ describe('a session interrupted with Ctrl+C while its browser runs', () => {
 
     expect(run.ready, context).not.toHaveProperty('browserLaunchFailedAt')
     expect(run.ready, context).not.toHaveProperty('endedAsFailedAt')
+    expect(run.ready, context).not.toHaveProperty('rdpPortError')
     // The failure block of a launch that broke, which this one did not.
     expect(run.stderr, context).not.toContain("couldn't start")
   })

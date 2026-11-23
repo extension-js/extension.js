@@ -1513,6 +1513,15 @@ describe('a session told to stop', () => {
     expect(read()).toEqual(stopped)
   })
 
+  it('names no debugger port fault on a record that already says stopped', () => {
+    const stopped = {command: 'dev', status: 'stopped', code: 'shutdown'}
+
+    write(stopped)
+    stampReadyRdpPortError(outputPath, 'Firefox exited before it opened it')
+
+    expect(read()).toEqual(stopped)
+  })
+
   it.each([
     ['preview', false],
     ['start', false],

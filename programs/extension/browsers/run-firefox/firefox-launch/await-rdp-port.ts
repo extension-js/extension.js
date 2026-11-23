@@ -71,13 +71,17 @@ export async function waitForRdpPort(options: {
 // reason in its place when Firefox never does.
 export async function stampReadyWhenRdpPortOpens(
   extensionOutputPath: string | undefined,
-  options: Parameters<typeof waitForRdpPort>[0] & {runId?: string}
+  options: Parameters<typeof waitForRdpPort>[0] & {
+    runId?: string
+    // Whether the session ended the browser itself, which is no fault to name.
+    isStopAsked?: () => boolean
+  }
 ): Promise<RdpPortWait> {
   const result = await waitForRdpPort(options)
 
   if (result.open) {
     stampReadyRdpPort(extensionOutputPath, options.port, options.runId)
-  } else {
+  } else if (!options.isStopAsked?.()) {
     stampReadyRdpPortError(extensionOutputPath, result.reason, options.runId)
   }
 

@@ -672,7 +672,7 @@ describe('a Chromium launch that does not reach a running extension', () => {
       ['dev', {bindsPort: false}],
       ['preview', {handshake: 'silent'}],
       ['dev', {handshake: 'silent'}]
-    ] as const)('records no failure when a %s launch loses its browser to the stop (%o)', async (command, script) => {
+    ] as const)('records and says nothing when a %s launch loses its browser to the stop (%o)', async (command, script) => {
       const {plugin, runOnly, dev} = await start({script, command})
 
       // The launch returns: this launcher reads a stop as no failure.
@@ -685,6 +685,9 @@ describe('a Chromium launch that does not reach a running extension', () => {
       expect(fake.terminated).toHaveLength(1)
       expect(plugin.browserClosed).toBe(true)
       expect(said('log').join('\n')).not.toMatch(/ready for development/i)
+      // A browser the session ended is gone, and nothing about it is news.
+      expect(said('error')).toEqual([])
+      expect(said('warn').join('\n')).not.toMatch(/is up, but/)
 
       const ready = fake.project.readReady()
 
@@ -692,6 +695,8 @@ describe('a Chromium launch that does not reach a running extension', () => {
       expect(ready).not.toHaveProperty('code')
       expect(ready).not.toHaveProperty('browserLaunchFailedAt')
       expect(ready).not.toHaveProperty('browserExitedAt')
+      expect(ready).not.toHaveProperty('browserUpNotAttachedAt')
+      expect(ready.cdpFaultCode).not.toBe('W_BROWSER_CONNECTION_CLOSED')
     })
   })
 
