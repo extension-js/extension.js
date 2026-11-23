@@ -47,7 +47,11 @@ export type ChromiumLocatorName =
 export interface ChromiumLaunchDependencies {
   locate: Record<ChromiumLocatorName, SystemLocator>
   offerInstall: (target: InstallableTarget) => Promise<boolean>
-  probeVersion: (binary: string, browser: string) => Promise<string>
+  probeVersion: (
+    binary: string,
+    browser: string,
+    pinnedBy?: string
+  ) => Promise<string>
   claimPort: (startPort: number) => Promise<DebugPortClaim>
   spawn: typeof spawnChromiumProcess
   watchSignals: typeof setupProcessSignalHandlers
@@ -69,8 +73,8 @@ export const chromiumLaunchDefaults: ChromiumLaunchDependencies = {
     yandex: (env) => locateYandex(true, {env})
   },
   offerInstall: (target) => offerManagedInstall(target),
-  probeVersion: (binary, browser) =>
-    probeChromiumBinaryVersion(binary, browser),
+  probeVersion: (binary, browser, pinnedBy) =>
+    probeChromiumBinaryVersion(binary, browser, undefined, pinnedBy),
   claimPort: (startPort) => claimDebugPortNear(startPort),
   spawn: spawnChromiumProcess,
   watchSignals: setupProcessSignalHandlers,

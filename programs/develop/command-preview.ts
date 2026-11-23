@@ -18,6 +18,7 @@ import {controlledBuildParts} from './controlled-build-parts'
 import {CONTROL_WS_PATH} from './dev-server/control-bridge/contracts'
 import * as devServerMessages from './dev-server/messages'
 import {startProductionControl} from './dev-server/production-control'
+import {binaryPinSources} from './lib/binary-pin-source'
 import {announceLeftoverOutputFolder} from './lib/build-output-guard'
 import {codedError} from './lib/coded-error'
 import {
@@ -112,6 +113,9 @@ export interface ResolvedPreviewOptions {
   startingUrl?: string
   chromiumBinary?: string
   geckoBinary?: string
+  // The config key that named each binary. Unset when the flag did.
+  chromiumBinarySource?: string
+  geckoBinarySource?: string
   instanceId?: string
   port?: number | string
   dryRun?: boolean
@@ -817,6 +821,17 @@ async function runPreview(
       startingUrl: merged.startingUrl,
       chromiumBinary: merged.chromiumBinary,
       geckoBinary: merged.geckoBinary,
+      ...(await binaryPinSources({
+        projectDir: packageJsonDir,
+        command: metadataCommand,
+        browser: String(browser),
+        envTarget,
+        layers: {
+          flags: safePreviewOptions,
+          command: safeCommandConfig,
+          browser: safeBrowserConfig
+        }
+      })),
       instanceId: merged.instanceId,
       port: merged.port,
       dryRun: merged.dryRun,

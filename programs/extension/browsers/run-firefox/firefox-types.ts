@@ -27,6 +27,7 @@ export type FirefoxPluginLike = Pick<
   | 'startingUrl'
   | 'noOpen'
   | 'geckoBinary'
+  | 'geckoBinarySource'
   | 'instanceId'
   | 'port'
   | 'logLevel'

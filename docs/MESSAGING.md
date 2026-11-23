@@ -118,7 +118,8 @@ The contract for `extension dev` with the default managed browser:
 ```
 
 A pinned binary or a system install is named on the Browser row, as `(pinned with
---chromium-binary)` or `(system install)`. The card gains no row and no flow line is added:
+--chromium-binary)` or `(system install)`. A pin names what set it: the flag, the variable, or the
+config key as `(pinned with browser.chrome.chromiumBinary in extension.config.js)`. The card gains no row and no flow line is added:
 
 ```
  🧩 Extension.js 4.0.20

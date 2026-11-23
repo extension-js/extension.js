@@ -2277,30 +2277,45 @@ export function requireGeckoBinaryForGeckoBased() {
   return browserRunnerError(body)
 }
 
-export function invalidChromiumBinaryPath(p: string) {
+export function invalidChromiumBinaryPath(
+  p: string,
+  source = '--chromium-binary'
+) {
   const body =
     `Can't find a Chromium binary at the given path.\n` +
     `${colors.gray('NOT FOUND')} ${colors.underline(p)}\n` +
-    `Pass ${colors.blue('--chromium-binary')} ${colors.gray('<abs-path>')} with a working path.`
+    correctBinarySourceLine(source, 'path')
 
   return browserRunnerError(body)
 }
 
-export function invalidGeckoBinaryPath(p: string) {
+export function invalidGeckoBinaryPath(p: string, source = '--gecko-binary') {
   const body =
     `Can't find a Firefox or Gecko binary at the given path.\n` +
     `${colors.gray('NOT FOUND')} ${colors.underline(p)}\n` +
-    `Pass ${colors.blue('--gecko-binary')} ${colors.gray('<abs-path>')} with a working path.`
+    correctBinarySourceLine(source, 'path')
 
   return browserRunnerError(body)
 }
 
-// The flag or the environment variable that named the binary, so the last
-// line tells the person which of the two to correct.
+// A flag starts with dashes and a variable is all capitals. Anything else
+// is a config key, written as "<key> in <config file>".
+export function binaryPinSourceKind(source: string): 'flag' | 'env' | 'config' {
+  if (source.startsWith('--')) return 'flag'
+
+  return /^[A-Z][A-Z0-9_]*$/.test(source) ? 'env' : 'config'
+}
+
+// The flag, the environment variable or the config key that named the
+// binary, so the last line tells the person which one to correct.
 function correctBinarySourceLine(source: string, noun: string): string {
-  return source.startsWith('--')
-    ? `Pass ${colors.blue(source)} ${colors.gray('<abs-path>')} with a working ${noun}.`
-    : `Set ${colors.blue(source)} to a working ${noun}, or unset it to run the managed or system browser.`
+  const kind = binaryPinSourceKind(source)
+
+  if (kind === 'flag') {
+    return `Pass ${colors.blue(source)} ${colors.gray('<abs-path>')} with a working ${noun}.`
+  }
+
+  return `Set ${colors.blue(source)} to a working ${noun}, or ${kind === 'env' ? 'unset' : 'remove'} it to run the managed or system browser.`
 }
 
 export function binaryNotExecutable(p: string, source: string) {
@@ -2328,9 +2343,11 @@ export function pinnedBinaryCouldNotRun(
 
 // Plain text, for the contract and for the line under a human block.
 export function pinnedBinaryMayNotBeBrowser(p: string, source: string) {
-  const fix = source.startsWith('--')
-    ? `Pass ${source} <abs-path> with a working browser binary.`
-    : `Set ${source} to a working browser binary, or unset it to run the managed or system browser.`
+  const kind = binaryPinSourceKind(source)
+  const fix =
+    kind === 'flag'
+      ? `Pass ${source} <abs-path> with a working browser binary.`
+      : `Set ${source} to a working browser binary, or ${kind === 'env' ? 'unset' : 'remove'} it to run the managed or system browser.`
 
   return `The binary at ${p} was pinned by ${source} and may not be a browser. ${fix}`
 }
@@ -2346,13 +2363,13 @@ export function binaryOverrideNotFound(name: string, p: string) {
 
 export function browserBinaryVersionTimedOut(
   p: string,
-  flag: '--chromium-binary' | '--gecko-binary',
+  source: string,
   seconds: number
 ) {
   const body =
     `The browser binary at ${p} did not answer within ${seconds} seconds when asked for its version, so it can't be used.\n` +
     `${colors.gray('NOT USABLE')} ${colors.underline(p)}\n` +
-    `Pass ${colors.blue(flag)} ${colors.gray('<abs-path>')} with a working binary.`
+    correctBinarySourceLine(source, 'binary')
 
   return browserRunnerError(body)
 }

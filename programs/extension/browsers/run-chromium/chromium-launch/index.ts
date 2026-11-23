@@ -207,13 +207,14 @@ async function maybePrintLaunchBanner(args: {
 // bare process.exit left a machine consumer reading exit 1 with nothing on it.
 function invalidBinaryPinError(
   requestedPath: string,
+  pinnedBy: string,
   problem: PinnedBinaryProblem = 'missing'
 ): Error {
   return Object.assign(
     new Error(
       problem === 'not-executable'
-        ? messages.binaryNotExecutable(requestedPath, '--chromium-binary')
-        : messages.invalidChromiumBinaryPath(requestedPath)
+        ? messages.binaryNotExecutable(requestedPath, pinnedBy)
+        : messages.invalidChromiumBinaryPath(requestedPath, pinnedBy)
     ),
     {code: CODES.E_BROWSER_BINARY_INVALID}
   )
@@ -483,6 +484,9 @@ export class ChromiumLaunchPlugin {
       getExtensionOutputPath(compilation, undefined)
     )
 
+    // The flag, unless the config file named the binary and said which key.
+    const pinLabel = this.options?.chromiumBinarySource || '--chromium-binary'
+
     // A bad --chromium-binary is a pin error on every target, said before
     // anything looks for a browser, so it never reads as "not installed".
     if (this.options?.chromiumBinary) {
@@ -491,7 +495,7 @@ export class ChromiumLaunchPlugin {
 
       const problem = pinnedBinaryProblem(normalizedEarly)
 
-      if (problem) throw invalidBinaryPinError(requested, problem)
+      if (problem) throw invalidBinaryPinError(requested, pinLabel, problem)
     }
 
     const dryRun = Boolean(this.options?.dryRun)
@@ -612,7 +616,7 @@ export class ChromiumLaunchPlugin {
       const normalized = normalizePath(requestedPin)
 
       if (!normalized || !isUsableBinary(normalized)) {
-        throw invalidBinaryPinError(requestedPin)
+        throw invalidBinaryPinError(requestedPin, pinLabel)
       }
 
       browserBinaryLocation = normalized
@@ -714,7 +718,11 @@ export class ChromiumLaunchPlugin {
     }
 
     const getBrowserVersionLine = (bin: string): Promise<string> =>
-      this.deps.probeVersion(bin, String(browser || ''))
+      this.deps.probeVersion(
+        bin,
+        String(browser || ''),
+        binaryPinnedByFlag ? pinLabel : binaryPinnedByEnv
+      )
 
     const managedCacheRoot =
       binariesResolver.computeBinariesBaseDir(compilation)
@@ -896,7 +904,7 @@ export class ChromiumLaunchPlugin {
 
     if (!browserBinaryLocation || !fs.existsSync(browserBinaryLocation)) {
       if (binaryPinnedByFlag) {
-        throw invalidBinaryPinError(requestedPin)
+        throw invalidBinaryPinError(requestedPin, pinLabel)
       }
 
       browserBinaryLocation = browserBinaryLocation || resolveManagedBinary()
@@ -998,7 +1006,7 @@ export class ChromiumLaunchPlugin {
     // The identity card names the exact binary this session runs, so a
     // silently preferred snapshot or system fallback stays visible there.
     const binaryPinnedBy = binaryPinnedByFlag
-      ? '--chromium-binary'
+      ? pinLabel
       : binaryPinnedByEnv ||
         binaryOverrideNaming(String(browser), browserBinaryLocation) ||
         undefined
