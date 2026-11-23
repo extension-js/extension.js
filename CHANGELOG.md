@@ -4,16 +4,52 @@
 
 ## 4.3.0 (November 21, 2026)
 
-- **Reloads only when they are needed**, saving a file the build never read no longer reloads the extension, saving a page reloads only the tabs that show it, only the project manifest and its `_locales` force a full reload, and a rebuild waits while the browser is still launching or the previous reload is still landing. A dev restart that failed is retried on the next save of any project file, and quitting dev on macOS is prompt. [Docs](https://extension.js.org/docs/commands/dev)
-- **A reload that did not land says so**, when a build compiles but the extension never confirms the reload, `--output json` and `events.ndjson` report a `warning` with `W_RELOAD_NOT_APPLIED`, and the reload messages in the browser console carry a code: `W_RELOAD_NOT_APPLIED`, `W_CONTENT_SCRIPT_NOT_INJECTED`, `W_CONTENT_SCRIPT_CLEANUP`, `W_CONTENT_SCRIPT_MOUNT` or `W_DEV_SERVER_SOCKET`. [Docs](https://extension.js.org/docs/contracts/error-codes)
-- **Each browser is built for itself**, Firefox output targets `firefox >= 98` and Safari output targets `safari >= 15.4` when the project declares no floor, Safari drops `minimum_chrome_version`, and a browser prefix on a permission item such as `"gecko:tabs"` is kept for that browser and left out for the others with one `W_MANIFEST_COMPAT` warning. [Docs](https://extension.js.org/docs/features/browser-specific-fields)
-- **Your Babel config and tsconfig are followed**, a project with a Babel config runs Babel before SWC, tsconfig `jsxImportSource` and `useDefineForClassFields` apply, `.vue` files inside `node_modules` compile, and `extension.config.js` is read with the mode and browser of the command, so `.env.<browser>` values reach it in dev.
-- **A broken package.json stops with one clear error**, a `package.json` that is not valid JSON, has a byte order mark, is saved as UTF-16, cannot be opened or is a folder stops `build`, `dev`, `start` and `preview` with `E_PACKAGE_JSON_INVALID` and says what it found, and a config file that fails to load is named by its real file name. [Docs](https://extension.js.org/docs/contracts/error-codes)
-- **A JSON run always ends with one frame**, a run interrupted by Ctrl+C or a termination signal writes one `stopped` frame with `E_INTERRUPTED`, a signal that arrives after the build already succeeded exits 0, and `ready.json` keeps what the launcher recorded across rebuilds and drops `cdpPort` and `rdpPort` once the browser exits. [Docs](https://extension.js.org/docs/contracts/ready-json)
-- **Safer placeholders and pages**, `$EXTENSION_*` placeholders are filled in copied `.json` and `.html` files and escaped for the spot they land in, a page that declares another charset is converted to UTF-8 with a `W_HTML_NOT_UTF8` warning, a `web_accessible_resources` file that does not exist warns in dev too, and `build --zip` no longer packages the previous build after compile errors. [Docs](https://extension.js.org/docs/commands/build)
-- **`extension create` picks a name npm accepts**, the folder keeps the name you typed, `package.json` gets a valid `name`, failures carry real error codes, and a pinned template is cached for the next run. `extension install edge` no longer hangs on an unanswered sudo prompt, an install that times out on Windows is ended even when `taskkill` fails, and the CLI starts under Yarn PnP on Node 22.
-- **Upgrade notes**, a `package.json` with a byte order mark or saved as UTF-16 built before and now stops with `E_PACKAGE_JSON_INVALID`, so save it as UTF-8 without one. A leftover Babel config now runs in the build and needs `babel-loader` and `@babel/core` installed. `Pages/`, `Scripts/` and `Public/` must be lowercase, a script entry with an uppercase extension such as `.JS` is no longer an entry, and when two files claim one entry name the last one in sort order wins with a warning. The dev reload socket moved from `/ws` to `/ws/<instance id>`, so a proxy rule that matches the exact path `/ws` must allow the longer one. `$NAME$` tokens in `_locales` messages are left for the browser, and an unquoted placeholder that breaks an inline script stops the build with `E_INLINE_SCRIPT_SYNTAX`. A Svelte project whose `svelte` differs from the bundled compiler runs on the compiler's runtime and warns once. The update notice shows only when stderr is a terminal. TypeScript callers of `extensionDev` can no longer pass `mode`, `sourceMaps` or the zip fields, which dev never read. The `extension-develop/manifest` entry, deprecated in 4.2, is removed.
-- **Codes and exit codes that changed**, a script that matches on these reads the new value: an unresolved CSS `url()` is `E_CSS_DEAD_REF` in place of `E_ASSET_MISSING`, a missing `new URL()` target in a script is `E_SCRIPT_DEP_MISSING` in place of `E_CSS_DEAD_REF`, a missing background file is `E_ENTRY_NOT_FOUND` in place of `E_BACKGROUND_REQUIRED`, and an install failure with no known cause is `E_INTERNAL` in place of `E_BROWSER_DOWNLOAD`. In `--output json` an unbuilt `preview` reports status `not-found` with `E_PREVIEW_NO_DIST`, a missing manifest reports `usage`, and usage frames no longer carry `error.name`. `build --zip` exits 1 with `E_ZIP_SKIPPED` when the archive step fails, a mistyped `--log-context` item exits 1, `extension --output json` with no command and `doctor` on a missing folder exit 1, and an orphaned `dev --parent-pid` run exits 1. A parser with a fixed list of event types must accept `warning` and `restart_failed`.
+- **Reloads only when they are needed**, saving a file the build never read no longer reloads the extension, and saving a page reloads only the tabs that show it. [Docs](https://extension.js.org/docs/commands/dev)
+- **A reload that did not land says so**, `--output json` and `events.ndjson` report a `warning` with `W_RELOAD_NOT_APPLIED`, and the reload messages in the browser console carry a code. [Docs](https://extension.js.org/docs/contracts/error-codes)
+- **Each browser is built for itself**, Firefox output targets `firefox >= 98`, Safari output targets `safari >= 15.4`, and a prefixed permission such as `"gecko:tabs"` stays with its browser. [Docs](https://extension.js.org/docs/features/browser-specific-fields)
+- **Your Babel config and tsconfig are followed**, a Babel config runs before SWC, tsconfig `jsxImportSource` and `useDefineForClassFields` apply, and `extension.config.js` sees the mode and browser of the command.
+- **A broken package.json stops with one clear error**, `build`, `dev`, `start` and `preview` stop with `E_PACKAGE_JSON_INVALID` and say what they found. [Docs](https://extension.js.org/docs/contracts/error-codes)
+
+<details>
+<summary>Also in 4.3.0 (13)</summary>
+
+- The reload codes in the browser console are `W_RELOAD_NOT_APPLIED`, `W_CONTENT_SCRIPT_NOT_INJECTED`, `W_CONTENT_SCRIPT_CLEANUP`, `W_CONTENT_SCRIPT_MOUNT` and `W_DEV_SERVER_SOCKET`.
+- The Firefox and Safari targets apply when the project declares no floor, Safari drops `minimum_chrome_version`, and a prefixed permission left out for the other browsers gets one `W_MANIFEST_COMPAT` warning.
+- `.vue` files inside `node_modules` compile, and `.env.<browser>` values reach `extension.config.js` in dev.
+- `E_PACKAGE_JSON_INVALID` covers a `package.json` that is not valid JSON, has a byte order mark, is saved as UTF-16, cannot be opened or is a folder. A config file that fails to load is named by its real file name.
+- Only the project manifest and its `_locales` force a full reload, and a rebuild waits while the browser is still launching or the previous reload is still landing.
+- A dev restart that failed is retried on the next save of any project file, and quitting dev on macOS is prompt.
+- A `--output json` run interrupted by Ctrl+C or a termination signal ends with one `stopped` frame with `E_INTERRUPTED`, and a signal that arrives after the build succeeded exits 0. [Docs](https://extension.js.org/docs/contracts/ready-json)
+- `ready.json` keeps what the launcher recorded across rebuilds and drops `cdpPort` and `rdpPort` once the browser exits.
+- `$EXTENSION_*` placeholders are filled in copied `.json` and `.html` files and escaped for the spot they land in. [Docs](https://extension.js.org/docs/commands/build)
+- A page that declares another charset is converted to UTF-8 with a `W_HTML_NOT_UTF8` warning, and a `web_accessible_resources` file that does not exist warns in dev too.
+- `build --zip` no longer packages the previous build after compile errors.
+- `extension create` picks a name npm accepts while the folder keeps the name you typed, its failures carry real error codes, and a pinned template is cached for the next run.
+- `extension install edge` no longer hangs on an unanswered sudo prompt, a timed-out install on Windows is ended even when `taskkill` fails, and the CLI starts under Yarn PnP on Node 22.
+
+</details>
+
+<details>
+<summary>Upgrade notes (16)</summary>
+
+- Save `package.json` as UTF-8 without a byte order mark. A file with one, or saved as UTF-16, built before and now stops with `E_PACKAGE_JSON_INVALID`.
+- A leftover Babel config now runs in the build and needs `babel-loader` and `@babel/core` installed.
+- `Pages/`, `Scripts/` and `Public/` must be lowercase, and a script entry with an uppercase extension such as `.JS` is no longer an entry.
+- When two files claim one entry name, the last one in sort order wins with a warning.
+- The dev reload socket moved from `/ws` to `/ws/<instance id>`, so a proxy rule that matches the exact path `/ws` must allow the longer one.
+- `$NAME$` tokens in `_locales` messages are left for the browser, and an unquoted placeholder that breaks an inline script stops the build with `E_INLINE_SCRIPT_SYNTAX`.
+- A Svelte project whose `svelte` differs from the bundled compiler runs on the compiler's runtime and warns once.
+- The update notice shows only when stderr is a terminal.
+- TypeScript callers of `extensionDev` can no longer pass `mode`, `sourceMaps` or the zip fields, which dev never read.
+- The `extension-develop/manifest` entry, deprecated in 4.2, is removed.
+- Renamed codes: an unresolved CSS `url()` is `E_CSS_DEAD_REF` in place of `E_ASSET_MISSING`, and a missing `new URL()` target in a script is `E_SCRIPT_DEP_MISSING` in place of `E_CSS_DEAD_REF`.
+- Renamed codes: a missing background file is `E_ENTRY_NOT_FOUND` in place of `E_BACKGROUND_REQUIRED`, and an install failure with no known cause is `E_INTERNAL` in place of `E_BROWSER_DOWNLOAD`.
+- In `--output json`, an unbuilt `preview` reports status `not-found` with `E_PREVIEW_NO_DIST`, a missing manifest reports `usage`, and usage frames no longer carry `error.name`.
+- `build --zip` exits 1 with `E_ZIP_SKIPPED` when the archive step fails, and a mistyped `--log-context` item exits 1.
+- `extension --output json` with no command, `doctor` on a missing folder and an orphaned `dev --parent-pid` run exit 1.
+- A parser with a fixed list of event types must accept `warning` and `restart_failed`.
+
+</details>
 
 ### Features
 
@@ -151,16 +187,43 @@ Validated before publishing: `extension@4.2.1-canary.472.df3e2e9`, cut from the 
 
 ## 4.2.0 (November 20, 2026)
 
-- **A steadier dev loop**, a save that fixes a build error rebuilds the page, a content script file deleted and written back is rebuilt, a content script still waiting on the old build retires on reload, dev on macOS no longer misses an edit, two dev sessions in one process no longer share a host or port, an auto-exit session lets a slow stop finish and exits 0, and after a restart `--output json` writes `ready` again with `restarted: true`. [Docs](https://extension.js.org/docs/commands/dev)
-- **Private files never ship**, files such as `.env`, `.npmrc`, `.git` and `.DS_Store` are never copied into the build, even from `public/`, the dev server answers them as missing, and a page or stylesheet that points at one gets a single warning with a code. [Docs](https://extension.js.org/docs/features/special-folders)
-- **Build diagnostics you can match on**, named build warnings and errors carry a stable code, and `--output json` reports them without terminal layout or paths from your machine, so scripts and CI can rely on them. Each issue is said once, and with color off every warning and error line says `Warning:` or `Error:`. [Docs](https://extension.js.org/docs/commands/build)
-- **The polyfill stays out of page code**, with `polyfill: true`, MAIN world content scripts, scripts the extension registers into the MAIN world at runtime and sandboxed pages no longer bundle `webextension-polyfill`, which threw "This script should only be loaded in a browser extension." there. Their `browser` is the page's own global, and extension code keeps the polyfill.
-- **Failures that say so instead of hanging**, a browser that does not start within 3 minutes, or a first Safari package within 10, is reported with `E_BROWSER_START_TIMEOUT` while rebuilds keep running. A failed Safari package prints why, a browser log capture failure is a warning and the session still reports ready, a locked browser profile leads with the fix, a dev session ends when the process that started it is gone, and `extension create` ends a timed-out template clone or install along with everything it started. [Docs](https://extension.js.org/docs/commands/dev)
-- **CSS you can link to**, outside a content script `import href from './panel.css?url'` gives the URL of the compiled sheet under `assets/`, a PostCSS config keeps its `parser`, `syntax`, `stringifier` and `map`, and a project rule that sets a stylesheet `type` gets a warning instead of being replaced without a word.
-- **Install several browsers at once**, `extension install chrome firefox` takes more than one browser name, and the update check asks the npm registry you configured, caches the answer for an hour and stays quiet in CI, under `--output json` or with `EXTENSION_NO_UPDATE_CHECK=1`. [Docs](https://extension.js.org/docs/commands/install)
-- **Fail a build on a budget overrun**, set `perfBudgets.onExceed: 'error'` and a production build that goes over an asset size budget fails instead of only warning. [Docs](https://extension.js.org/docs/features/extension-configuration)
-- **Upgrade notes**, the bundler moves to rspack 2.3.3 and Extension.js no longer ships `postcss-preset-env`. If your PostCSS config names `postcss-preset-env` without installing it, run `npm install -D postcss-preset-env`, or the build skips that plugin with a warning. A project with no package.json now writes `dist/` at the folder you name, not beside a manifest in `src/`, and a `perfBudgets` value that is not a positive number now stops the build with a clear error. A dev stop that runs past its 10 second bound now ends on `failed` with `E_SHUTDOWN_TIMEOUT` in place of `E_INTERNAL` (the exit code stays 1), and a launch with no free debugging port from 9222 to 9271 stops with `E_PORT_UNAVAILABLE`. The generated `extension-env.d.ts` names `@types/chrome` only when your package.json lists it, so a project that relies on those types lists `@types/chrome` itself. The `commands.preview` config type no longer accepts `polyfill`, `include` or `exclude`, which preview never applied, so a config that sets them there fails its type check and should move them to `commands.build`.
-- **Warning codes start with W_**, every coded warning now reports a `W_` code in `--output json` details, in `warnings` and in `ready.json` `cdpFaultCode`, while errors and refusals keep their `E_` code. A script that matches a warning by code reads `W_` in place of `E_` for these 30 names: `MANAGED_DEP_CONFLICT`, `TYPES_EMIT`, `MODULE_NOT_FOUND`, `ENTRY_NOT_FOUND`, `ASSET_MISSING`, `SCRIPT_DEP_MISSING`, `CSS_PARSE`, `CSS_PREPROCESSOR_MISSING`, `CSS_DEAD_REF`, `POLYFILL_NOT_FOUND`, `LOCALES_LAYOUT`, `PROD_LOOPBACK_ORIGIN`, `NO_ENTRYPOINTS`, `REMOTE_RESOURCE_BLOCKED`, `PERF_BUDGET`, `ENV_NO_MATCH`, `LAUNCH_SKIPPED_COMPILE_ERRORS`, `UNINSTALL_NOOP`, `PORT_IN_USE`, `LOGS_STREAM_GAP`, `CDP_NOT_CONNECTED`, `CDP_TIMEOUT`, `CDP_OP_FAILED`, `BROWSER_CONNECTION_CLOSED`, `EXTENSION_ID_UNKNOWN`, `MANIFEST_INVALID`, `WAR_INVALID`, `RESERVED_FOLDER`, `INTERNAL`, `COMPANION_EXTENSION_PATH`.
+- **A steadier dev loop**, a save that fixes a build error rebuilds the page, a content script file deleted and written back is rebuilt, and dev on macOS no longer misses an edit. [Docs](https://extension.js.org/docs/commands/dev)
+- **Private files never ship**, files such as `.env`, `.npmrc`, `.git` and `.DS_Store` are never copied into the build, even from `public/`. [Docs](https://extension.js.org/docs/features/special-folders)
+- **Build diagnostics you can match on**, named build warnings and errors carry a stable code, and `--output json` reports them without terminal layout or paths from your machine. [Docs](https://extension.js.org/docs/commands/build)
+- **The polyfill stays out of page code**, with `polyfill: true`, MAIN world content scripts and sandboxed pages no longer bundle `webextension-polyfill`, which threw there.
+- **Failures that say so instead of hanging**, a browser that does not start within 3 minutes is reported with `E_BROWSER_START_TIMEOUT` while rebuilds keep running. [Docs](https://extension.js.org/docs/commands/dev)
+
+<details>
+<summary>Also in 4.2.0 (11)</summary>
+
+- A content script still waiting on the old build retires on reload, and two dev sessions in one process no longer share a host or port.
+- An auto-exit session lets a slow stop finish and exits 0, and after a restart `--output json` writes `ready` again with `restarted: true`.
+- The dev server answers private files as missing, and a page or stylesheet that points at one gets a single warning with a code.
+- Each build issue is said once, and with color off every warning and error line says `Warning:` or `Error:`.
+- Scripts the extension registers into the MAIN world at runtime skip the polyfill too, where it threw "This script should only be loaded in a browser extension." Their `browser` is the page's own global, and extension code keeps the polyfill.
+- A first Safari package that takes more than 10 minutes is reported with `E_BROWSER_START_TIMEOUT`, and a failed Safari package prints why.
+- A browser log capture failure is a warning and the session still reports ready, a locked browser profile leads with the fix, and a dev session ends when the process that started it is gone.
+- `extension create` ends a timed-out template clone or install along with everything it started.
+- Outside a content script, `import href from './panel.css?url'` gives the URL of the compiled sheet under `assets/`. A PostCSS config keeps its `parser`, `syntax`, `stringifier` and `map`, and a project rule that sets a stylesheet `type` gets a warning instead of being replaced without a word.
+- `extension install chrome firefox` takes more than one browser name. The update check asks the npm registry you configured, caches the answer for an hour and stays quiet in CI, under `--output json` or with `EXTENSION_NO_UPDATE_CHECK=1`. [Docs](https://extension.js.org/docs/commands/install)
+- Set `perfBudgets.onExceed: 'error'` and a production build that goes over an asset size budget fails instead of only warning. [Docs](https://extension.js.org/docs/features/extension-configuration)
+
+</details>
+
+<details>
+<summary>Upgrade notes (9)</summary>
+
+- The bundler moves to rspack 2.3.3.
+- Extension.js no longer ships `postcss-preset-env`. If your PostCSS config names it without installing it, run `npm install -D postcss-preset-env`, or the build skips that plugin with a warning.
+- A project with no package.json now writes `dist/` at the folder you name, not beside a manifest in `src/`.
+- A `perfBudgets` value that is not a positive number now stops the build with a clear error.
+- A dev stop that runs past its 10 second bound now ends on `failed` with `E_SHUTDOWN_TIMEOUT` in place of `E_INTERNAL`. The exit code stays 1.
+- A launch with no free debugging port from 9222 to 9271 stops with `E_PORT_UNAVAILABLE`.
+- The generated `extension-env.d.ts` names `@types/chrome` only when your package.json lists it, so a project that relies on those types lists `@types/chrome` itself.
+- The `commands.preview` config type no longer accepts `polyfill`, `include` or `exclude`, which preview never applied. Move them to `commands.build`.
+- Every coded warning now reports a `W_` code in `--output json` details, in `warnings` and in `ready.json` `cdpFaultCode`, while errors and refusals keep their `E_` code. A script that matches a warning by code reads `W_` in place of `E_` for these 30 names: `MANAGED_DEP_CONFLICT`, `TYPES_EMIT`, `MODULE_NOT_FOUND`, `ENTRY_NOT_FOUND`, `ASSET_MISSING`, `SCRIPT_DEP_MISSING`, `CSS_PARSE`, `CSS_PREPROCESSOR_MISSING`, `CSS_DEAD_REF`, `POLYFILL_NOT_FOUND`, `LOCALES_LAYOUT`, `PROD_LOOPBACK_ORIGIN`, `NO_ENTRYPOINTS`, `REMOTE_RESOURCE_BLOCKED`, `PERF_BUDGET`, `ENV_NO_MATCH`, `LAUNCH_SKIPPED_COMPILE_ERRORS`, `UNINSTALL_NOOP`, `PORT_IN_USE`, `LOGS_STREAM_GAP`, `CDP_NOT_CONNECTED`, `CDP_TIMEOUT`, `CDP_OP_FAILED`, `BROWSER_CONNECTION_CLOSED`, `EXTENSION_ID_UNKNOWN`, `MANIFEST_INVALID`, `WAR_INVALID`, `RESERVED_FOLDER`, `INTERNAL`, `COMPANION_EXTENSION_PATH`.
+
+</details>
 
 ### Features
 

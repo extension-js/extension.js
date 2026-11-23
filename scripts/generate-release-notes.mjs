@@ -184,12 +184,13 @@ function categorize(commits) {
   return buckets
 }
 
-function readHighlights(file) {
+function readSection(file, title) {
   if (!file || !existsSync(file)) return []
 
   const raw = readFileSync(file, 'utf8').replace(/<!--[\s\S]*?-->/g, '')
   const lines = raw.split('\n')
-  const start = lines.findIndex((line) => /^##\s+Highlights\s*$/i.test(line))
+  const heading = new RegExp(`^##\\s+${title}\\s*$`, 'i')
+  const start = lines.findIndex((line) => heading.test(line))
 
   if (start === -1) return []
 
@@ -206,6 +207,22 @@ function readHighlights(file) {
   return highlights
 }
 
+function readHighlights(file) {
+  return readSection(file, 'Highlights')
+}
+
+// The long tail of a release: printed folded under the highlights, so the
+// top of the notes stays a short list.
+function readFolded(file, version = '') {
+  return [
+    {
+      title: version ? `Also in ${version}` : 'Also in this release',
+      items: readSection(file, 'Also')
+    },
+    {title: 'Upgrade notes', items: readSection(file, 'Upgrade notes')}
+  ].filter((group) => group.items.length > 0)
+}
+
 function bullet(commit, repoUrl) {
   const link = repoUrl
     ? `([${commit.short}](${repoUrl}/commit/${commit.full}))`
@@ -214,12 +231,19 @@ function bullet(commit, repoUrl) {
   return `- ${commit.subject} ${link}`
 }
 
-/** @param {{highlights: any[], buckets: any, repoUrl?: string}} options */
-function formatMarkdown({highlights, buckets, repoUrl}) {
+/** @param {{highlights: any[], folded?: {title: string, items: string[]}[], buckets: any, repoUrl?: string}} options */
+function formatMarkdown({highlights, folded = [], buckets, repoUrl}) {
   const sections = []
 
   if (highlights.length > 0) {
     sections.push(highlights.map((h) => `- ${h}`).join('\n'))
+  }
+
+  for (const group of folded) {
+    const body = group.items.map((item) => `- ${item}`).join('\n')
+    sections.push(
+      `<details>\n<summary>${group.title} (${group.items.length})</summary>\n\n${body}\n\n</details>`
+    )
   }
 
   for (const group of CATEGORIES) {
@@ -310,6 +334,7 @@ export function generate({
   const commits = getCommits(range)
   const buckets = categorize(commits)
   const highlights = readHighlights(highlightsFile)
+  const folded = readFolded(highlightsFile, currentVersion)
 
   if (format === 'json') {
     return JSON.stringify(
@@ -318,6 +343,8 @@ export function generate({
         range,
         notesUrl: resolvedNotesUrl || null,
         highlights,
+        also: readSection(highlightsFile, 'Also'),
+        upgradeNotes: readSection(highlightsFile, 'Upgrade notes'),
         features: buckets.features.map((c) => c.subject),
         fixes: buckets.fixes.map((c) => c.subject),
         other: buckets.other.map((c) => c.subject),
@@ -351,7 +378,7 @@ export function generate({
     })
   }
 
-  return formatMarkdown({highlights, buckets, repoUrl})
+  return formatMarkdown({highlights, folded, buckets, repoUrl})
 }
 
 function main() {
@@ -378,6 +405,7 @@ export {
   getCommits,
   categorize,
   readHighlights,
+  readFolded,
   formatMarkdown,
   formatDiscord,
   buildTweet,
