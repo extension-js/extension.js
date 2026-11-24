@@ -1,5 +1,13 @@
 import {spawnSync} from 'node:child_process'
-import {existsSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs'
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs'
 import {join} from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {windowsTaskkillPath} from '../../browsers/browsers-lib/process-teardown'
@@ -130,6 +138,9 @@ interface Launched {
   work: string
   tree: Row[]
   root: number
+  rootParent: number
+  cliPid: number
+  profilePath: string
   reachedReady: boolean
   upMs: number
 }
@@ -171,7 +182,13 @@ async function launch(
       '--output',
       'json'
     ],
-    {home, env: {EXTENSION_HEADLESS: mode === 'headless' ? '1' : undefined}}
+    {
+      home,
+      env: {
+        EXTENSION_HEADLESS: mode === 'headless' ? '1' : undefined,
+        EXTENSION_DEBUG: '1'
+      }
+    }
   )
 
   await session.waitFor(
@@ -199,13 +216,40 @@ async function launch(
   const root = Number(readReady(readyFile)?.browserPid)
   const cliPid = session.child.pid ?? 0
   const tree = browserTree([cliPid, root], browser)
+  const rootParent = tree.find((row) => row.pid === root)?.parent ?? -1
+  const profilePath = String(readReady(readyFile)?.profilePath ?? '')
 
-  return {session, work, tree, root, reachedReady, upMs}
+  return {
+    session,
+    work,
+    tree,
+    root,
+    rootParent,
+    cliPid,
+    profilePath,
+    reachedReady,
+    upMs
+  }
 }
 
 function cleanup(run: Launched): void {
   forceTree(run.tree.map((row) => row.pid))
   run.session.killGroup()
+}
+
+const LANDMARKS: Array<[string, RegExp]> = [
+  ['cleanup', /proc\s+cleanup/],
+  ['terminate', /mode=graceful/],
+  ['exited', /instance exited/],
+  ['forced', /exit gracefully/]
+]
+
+function countFiles(dir: string): number {
+  try {
+    return readdirSync(dir, {recursive: true}).length
+  } catch {
+    return -1
+  }
 }
 
 async function cliQuitRun(
@@ -216,11 +260,50 @@ async function cliQuitRun(
 ): Promise<string> {
   const run = await launch(browser, mode, binary)
   const pids = run.tree.map((row) => row.pid)
+  const profileFiles = countFiles(run.profilePath)
+  const copy = join(run.work, 'profile-copy')
+  let copied = 'no'
 
   try {
-    const asked = Date.now()
+    cpSync(run.profilePath, copy, {recursive: true, force: true})
+    copied = `files=${countFiles(copy)}`
+  } catch (error) {
+    copied = `failed ${String(error).slice(0, 80)}`
+  }
+
+  try {
+    const marks: string[] = []
+    let asked = 0
+
+    const note = (chunk: Buffer | string) => {
+      if (!asked) return
+
+      for (const [label, pattern] of LANDMARKS) {
+        if (pattern.test(String(chunk))) {
+          marks.push(`${label}@${Date.now() - asked}`)
+        }
+      }
+    }
+
+    run.session.child.stdout?.on('data', note)
+    run.session.child.stderr?.on('data', note)
+
+    asked = Date.now()
     const ceiling = setTimeout(() => run.session.killGroup(), 30_000)
     const interrupt = interruptCli(run.session.child, run.work)
+    let treeGoneMs = -1
+    let watching = true
+    const watch = (async () => {
+      while (watching) {
+        if (!pids.some(isAlive)) {
+          treeGoneMs = Date.now() - asked
+
+          return
+        }
+
+        await sleep(10)
+      }
+    })()
     let status: number | null = null
 
     try {
@@ -232,9 +315,26 @@ async function cliQuitRun(
     const quitMs = Date.now() - asked
     const left = pids.filter(isAlive).length
     const goneAfterMs = await goneWithin(pids, 3_000)
-    const stderr = run.session.read().stderr.replace(/\s+/g, ' ').trim()
+    watching = false
+    await watch
 
-    return `CLI-QUIT ${browser} ${mode} run=${index} ready=${run.reachedReady} tree=${pids.length} interrupt="${interrupt}" status=${status} quitMs=${quitMs} leftAtExit=${left} goneAfterExitMs=${goneAfterMs} stderr="${stderr.slice(-300)}"`
+    const profileLeft = existsSync(run.profilePath)
+    const rmStarted = Date.now()
+
+    try {
+      rmSync(copy, {
+        recursive: true,
+        force: true,
+        maxRetries: 4,
+        retryDelay: 100
+      })
+    } catch {
+      // Measured either way
+    }
+
+    const rmCopyMs = Date.now() - rmStarted
+
+    return `CLI-QUIT ${browser} ${mode} run=${index} ready=${run.reachedReady} tree=${pids.length} handoff=${run.rootParent !== run.cliPid} status=${status} quitMs=${quitMs} treeGoneMs=${treeGoneMs} marks=[${marks.join(' ')}] leftAtExit=${left} goneAfterExitMs=${goneAfterMs} profileFiles=${profileFiles} profileLeftAfterExit=${profileLeft} copy=${copied} rmCopyMs=${rmCopyMs} interrupt="${interrupt}"`
   } finally {
     cleanup(run)
   }
@@ -258,7 +358,9 @@ describe.runIf(process.platform === 'win32')(
 
           const lines: string[] = []
 
-          for (let index = 1; index <= 3; index++) {
+          const count = browser === 'firefox' ? 4 : 2
+
+          for (let index = 1; index <= count; index++) {
             try {
               lines.push(await cliQuitRun(browser, mode, binary, index))
             } catch (error) {
@@ -270,7 +372,7 @@ describe.runIf(process.platform === 'win32')(
             console.log(lines.at(-1))
           }
 
-          expect(lines.length).toBe(3)
+          expect(lines.length).toBe(count)
         }, 600_000)
       }
     }
