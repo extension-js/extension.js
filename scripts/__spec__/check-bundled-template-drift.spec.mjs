@@ -148,3 +148,15 @@ test('notes a pin that is behind templates main', {skip: !runsBash}, () => {
     fs.rmSync(trees.base, {recursive: true, force: true})
   }
 })
+
+test('the release commit can stage the bundled template', () => {
+  const root = path.resolve(path.dirname(script), '..')
+  const ignored = (file) =>
+    spawnSync('git', ['check-ignore', '-q', '--no-index', file], {
+      cwd: root,
+      env: gitEnv
+    }).status
+  // The publish job runs git add -A on this folder, which refuses an ignored path.
+  assert.equal(ignored('programs/create/templates/javascript/package.json'), 1)
+  assert.equal(ignored('templates/javascript/package.json'), 0)
+})
