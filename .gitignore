@@ -116,8 +116,9 @@ _FUTURE/
 # A local consumer fixture the optional-deps smoke reads when it exists
 extensions/browser-extension/
 
-# Hydrated from extension-js/templates by scripts/hydrate-templates-from-examples.sh
-templates/
+# Hydrated from extension-js/templates by scripts/hydrate-templates-from-examples.sh.
+# Anchored, so the bundled template under programs/create stays addable.
+/templates/
 
 # Published production dists the hydrated spec fixtures write at the repo root
 .prod-dist/
