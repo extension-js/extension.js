@@ -203,10 +203,35 @@ export function stripHtmlComments(text) {
   }
 }
 
+// An opener with no closer swallows every heading after it, so the release
+// would ship without them. That stops the release before it is tagged.
+export function assertCommentsClosed(text, file = 'the highlights file') {
+  let from = 0
+
+  for (;;) {
+    const open = text.indexOf('<!--', from)
+    if (open === -1) return
+
+    const close = text.indexOf('-->', open + 4)
+
+    if (close === -1) {
+      const line = text.slice(0, open).split('\n').length
+
+      throw new Error(
+        `${file} opens a comment on line ${line} that is never closed with -->, so the sections after it would be left out of the notes`
+      )
+    }
+
+    from = close + 3
+  }
+}
+
 function readSection(file, title) {
   if (!file || !existsSync(file)) return []
 
-  const raw = stripHtmlComments(readFileSync(file, 'utf8'))
+  const text = readFileSync(file, 'utf8')
+  assertCommentsClosed(text, file)
+  const raw = stripHtmlComments(text)
   const lines = raw.split('\n')
   const heading = new RegExp(`^##\\s+${title}\\s*$`, 'i')
   const start = lines.findIndex((line) => heading.test(line))
