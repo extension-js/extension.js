@@ -43,7 +43,6 @@ export interface TeardownDependencies {
   kill: (pid: number, signal: NodeJS.Signals) => boolean
   killTree: (pid: number) => void
   killTreeOnExit: (pid: number) => void
-  askTree: (pid: number) => void
   print: (line: string) => void
 }
 
@@ -80,14 +79,13 @@ function runTaskkill(
   pid: number | undefined,
   options: {
     sync: boolean
-    force: boolean
     platform?: NodeJS.Platform
     waitMs?: number
   }
 ): void {
   if ((options.platform ?? process.platform) !== 'win32' || !pid) return
 
-  const args = ['/PID', String(pid), '/T', ...(options.force ? ['/F'] : [])]
+  const args = ['/PID', String(pid), '/T', '/F']
   const bin = windowsTaskkillPath()
 
   try {
@@ -109,7 +107,7 @@ function runTaskkill(
 }
 
 function killWindowsTree(pid: number | undefined, sync: boolean): void {
-  runTaskkill(pid, {sync, force: true})
+  runTaskkill(pid, {sync})
 }
 
 // Ends a process and what it started: the system taskkill on Windows, the
@@ -126,7 +124,6 @@ export function killProcessTree(
   if (platform === 'win32') {
     runTaskkill(pid, {
       sync: options.sync === true,
-      force: true,
       platform,
       waitMs: options.waitMs
     })
@@ -164,7 +161,6 @@ export const teardownDefaults: TeardownDependencies = {
   kill: signalPid,
   killTree: (pid) => killWindowsTree(pid, false),
   killTreeOnExit: (pid) => killWindowsTree(pid, true),
-  askTree: (pid) => runTaskkill(pid, {sync: false, force: false}),
   print: (line) => humanLine(line)
 }
 
@@ -270,8 +266,8 @@ export function forceKillPidOnExit(
   deps.kill(pid, 'SIGKILL')
 }
 
-// A signal on Windows ends the process at once and orphans its helpers, so
-// there the tree is asked to close and the grace timer forces it.
+// Chrome and Firefox on Windows ignore a taskkill without /F, headless or
+// not, so there the whole tree is forced at once instead of after a grace.
 function askToStop(
   pid: number | undefined,
   deps: TeardownDependencies,
@@ -283,7 +279,7 @@ function askToStop(
     return
   }
 
-  if (pid) deps.askTree(pid)
+  if (pid) deps.killTree(pid)
 }
 
 // Signal-path teardown: SIGTERM, then a forced kill after a grace window. The

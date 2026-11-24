@@ -65,7 +65,6 @@ function scriptedTeardown(over: Partial<TeardownDependencies> = {}) {
     kill: vi.fn(() => true),
     killTree: vi.fn(),
     killTreeOnExit: vi.fn(),
-    askTree: vi.fn(),
     print: (line) => printed.push(line),
     ...over
   }
@@ -232,34 +231,31 @@ describe.skipIf(process.platform === 'win32')(
       expect(await exited).toEqual([null, 'SIGKILL'])
     })
 
-    // On Windows a signal ends the browser at once and orphans its helpers,
-    // so the tree is asked to close and only forced once the grace ends.
-    it('asks the tree to close on Windows, then forces it after the grace', async () => {
+    // Chrome and Firefox on Windows ignore a taskkill without /F, so the
+    // tree is forced at once, and once more if it outlives the grace.
+    it('forces the tree at once on Windows, again only past the grace', async () => {
       const child = await startChild(STUBBORN)
       const kill = vi.spyOn(child, 'kill')
-      const order: string[] = []
-      const {deps, printed} = scriptedTeardown({
-        platform: 'win32',
-        askTree: vi.fn(() => order.push('ask')),
-        killTree: vi.fn(() => order.push('force'))
-      })
+      const {deps, printed} = scriptedTeardown({platform: 'win32'})
       vi.useFakeTimers({toFake: ['setTimeout', 'clearTimeout']})
 
       gracefulTerminateChild(child, 'chrome', undefined, deps)
-      expect(deps.askTree).toHaveBeenCalledExactlyOnceWith(child.pid)
-      expect(deps.killTree).not.toHaveBeenCalled()
+      expect(deps.killTree).toHaveBeenCalledExactlyOnceWith(child.pid)
       endGracePeriod()
 
-      expect(order).toEqual(['ask', 'force'])
-      expect(deps.killTree).toHaveBeenCalledExactlyOnceWith(child.pid)
+      expect(vi.mocked(deps.killTree).mock.calls).toEqual([
+        [child.pid],
+        [child.pid]
+      ])
+
       expect(kill).not.toHaveBeenCalled()
       expect(deps.kill).not.toHaveBeenCalled()
       expect(deps.sweep).not.toHaveBeenCalled()
       expect(printed).toEqual([])
 
-      // A second stop of the same child asks nothing more.
+      // A second stop of the same child forces nothing more.
       gracefulTerminateChild(child, 'chrome', undefined, deps)
-      expect(deps.askTree).toHaveBeenCalledTimes(1)
+      expect(deps.killTree).toHaveBeenCalledTimes(2)
     })
   }
 )
@@ -390,7 +386,11 @@ describe('gracefulTerminatePid', () => {
       platform === 'win32' ? [] : [[pid, 'SIGTERM']]
     )
 
-    expect(deps.killTree).not.toHaveBeenCalled()
+    // Windows forces the tree at the ask, while the pid is still the browser.
+    expect(vi.mocked(deps.killTree).mock.calls).toEqual(
+      platform === 'win32' ? [[pid]] : []
+    )
+
     expect(deps.sweep).not.toHaveBeenCalled()
     expect(printed).toEqual([
       `⏵⏵⏵ Warning: Firefox (pid ${pid}) did not stop and could not be confirmed as the browser this run started, so it was left running. ` +
@@ -440,22 +440,16 @@ describe('gracefulTerminatePid', () => {
     expect(printed[0]).toContain('was left running')
   })
 
-  it('asks a proven pid to close on Windows, then forces its tree', async () => {
+  it('forces the tree of a proven pid at once on Windows', async () => {
     const pid = await adoptedPid()
-    const order: string[] = []
-    const {deps} = scriptedTeardown({
-      platform: 'win32',
-      askTree: vi.fn(() => order.push('ask')),
-      killTree: vi.fn(() => order.push('force'))
-    })
+    const {deps} = scriptedTeardown({platform: 'win32'})
     vi.useFakeTimers({toFake: ['setTimeout', 'clearTimeout']})
 
     gracefulTerminatePid(pid, 'firefox', deps)
-    expect(deps.askTree).toHaveBeenCalledExactlyOnceWith(pid)
+    expect(deps.killTree).toHaveBeenCalledExactlyOnceWith(pid)
     endGracePeriod()
 
-    expect(order).toEqual(['ask', 'force'])
-    expect(deps.killTree).toHaveBeenCalledExactlyOnceWith(pid)
+    expect(vi.mocked(deps.killTree).mock.calls).toEqual([[pid], [pid]])
     expect(deps.kill).not.toHaveBeenCalled()
   })
 })

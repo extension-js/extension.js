@@ -33,7 +33,6 @@ const BINARIES: Record<Browser, {flag: string; paths: string[]}> = {
   }
 }
 
-const POLITE_BOUND_MS = 10_000
 const makeTemp = trackTempFolders()
 
 function sleep(ms: number): Promise<void> {
@@ -209,36 +208,6 @@ function cleanup(run: Launched): void {
   run.session.killGroup()
 }
 
-async function politeRun(
-  browser: Browser,
-  mode: Mode,
-  binary: string,
-  index: number
-): Promise<string> {
-  const run = await launch(browser, mode, binary)
-  const pids = run.tree.map((row) => row.pid)
-
-  try {
-    const asked = Date.now()
-    const sent = spawnSync(
-      windowsTaskkillPath(),
-      ['/PID', String(run.root), '/T'],
-      {encoding: 'utf8', windowsHide: true, timeout: 15_000}
-    )
-    const taskkillMs = Date.now() - asked
-    const goneMs = await goneWithin(pids, POLITE_BOUND_MS)
-    const elapsed = Date.now() - asked
-    const left = pids.filter(isAlive).length
-    const said = `${sent.stdout || ''} ${sent.stderr || ''}`
-      .replace(/\s+/g, ' ')
-      .trim()
-
-    return `POLITE-CLOSE ${browser} ${mode} run=${index} ready=${run.reachedReady} upMs=${run.upMs} tree=${pids.length} taskkillExit=${sent.status} taskkillMs=${taskkillMs} goneMs=${goneMs} elapsedMs=${elapsed} leftAfterBound=${left} taskkill="${said.slice(0, 400)}"`
-  } finally {
-    cleanup(run)
-  }
-}
-
 async function cliQuitRun(
   browser: Browser,
   mode: Mode,
@@ -291,18 +260,6 @@ describe.runIf(process.platform === 'win32')(
 
           for (let index = 1; index <= 3; index++) {
             try {
-              lines.push(await politeRun(browser, mode, binary, index))
-            } catch (error) {
-              lines.push(
-                `POLITE-CLOSE ${browser} ${mode} run=${index} error=${String(error).slice(0, 600)}`
-              )
-            }
-
-            console.log(lines.at(-1))
-          }
-
-          for (let index = 1; index <= 2; index++) {
-            try {
               lines.push(await cliQuitRun(browser, mode, binary, index))
             } catch (error) {
               lines.push(
@@ -313,7 +270,7 @@ describe.runIf(process.platform === 'win32')(
             console.log(lines.at(-1))
           }
 
-          expect(lines.length).toBe(5)
+          expect(lines.length).toBe(3)
         }, 600_000)
       }
     }
