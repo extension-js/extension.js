@@ -1,0 +1,35 @@
+name: Extension.js – Re-run Jobs No Runner Took
+
+# GitHub can leave a hosted job without a machine (macOS arm64 capacity) and
+# cancel it unstarted, which stops a release before publish. When a
+# release run fails only that way, its failed jobs are re-run, up to three
+# attempts. A run canceled by hand, or one where a job that ran failed, is
+# left alone. The publish job still refuses a main that moved.
+# workflow_run only fires for the copy of this file on the default branch.
+
+on:
+  workflow_run:
+    workflows: ["Extension.js – Release Publish"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  rerun:
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      # Reads the run's jobs and re-runs the failed ones
+      actions: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Re-run the failed jobs when no runner took them
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: node scripts/rerun-unacquired-jobs.mjs
