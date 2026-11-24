@@ -1,3 +1,4 @@
+import type {ChildProcess} from 'node:child_process'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
@@ -16,6 +17,7 @@ import {
   invokingNpmrcReleaseAge,
   KILL_GRACE_MS,
   runInstall,
+  TREE_END_WAIT_MS,
   windowsTaskkillPath,
   withoutInheritedReleaseAge
 } from '../install-runner'
@@ -245,8 +247,17 @@ describe('install-runner runInstall', () => {
         platform: 'win32',
         timeoutMs: 5000
       })
+      let answered = false
 
-      await vi.advanceTimersByTimeAsync(5000)
+      void run.then(() => {
+        answered = true
+      })
+
+      // This taskkill never finishes. The answer waits for it, with a bound,
+      // since a caller removes the folder the tree runs in right after.
+      await vi.advanceTimersByTimeAsync(5000 + TREE_END_WAIT_MS - 1)
+      expect(answered).toBe(false)
+      await vi.advanceTimersByTimeAsync(1)
 
       await expect(run).resolves.toMatchObject({
         code: null,
@@ -264,6 +275,42 @@ describe('install-runner runInstall', () => {
       expect(calls[0].destroyed).toEqual(['stdout', 'stderr'])
       expect(calls[0].options).not.toHaveProperty('detached')
       expect(calls[0].signals).toEqual([])
+    })
+
+    // taskkill ends the manager before it answers, and that exit is the
+    // timeout's own doing, not the install failing with a code.
+    it('reports the timeout when the ended child closes before taskkill answers', async () => {
+      vi.useFakeTimers()
+      const {spawn: faked} = fakeSpawn(() => ({}))
+      const children: ChildProcess[] = []
+
+      const spawn: typeof faked = (...input) => {
+        const child = faked(...input)
+
+        children.push(child)
+
+        return child
+      }
+
+      const run = runInstall('pnpm', ['install'], {
+        cwd: os.tmpdir(),
+        stdio: 'pipe',
+        spawn,
+        platform: 'win32',
+        timeoutMs: 5000
+      })
+
+      await vi.advanceTimersByTimeAsync(5000)
+      children[0].emit('close', 1, null)
+      await vi.advanceTimersByTimeAsync(TREE_END_WAIT_MS)
+
+      await expect(run).resolves.toEqual({
+        code: null,
+        stdout: '',
+        stderr: '',
+        reason:
+          'The install did not finish within 5 seconds (EXTENSION_CREATE_INSTALL_TIMEOUT_MS)'
+      })
     })
 
     // The shim is killed only once taskkill has failed: a kill before it ran

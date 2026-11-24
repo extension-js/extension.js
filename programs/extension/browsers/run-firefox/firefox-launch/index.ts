@@ -208,6 +208,8 @@ export class FirefoxLaunchPlugin {
     timer?: NodeJS.Timeout
   }
   private browserGone = false
+  // Whether the stop was asked before the browser left.
+  private goneOnRequest = false
   private didReportReady = false
   private disposeProcessHandlers?: () => void
   private readonly deps: FirefoxLaunchDependencies
@@ -233,6 +235,18 @@ export class FirefoxLaunchPlugin {
   // ending the session can wait for the close instead of killing it.
   public get browserClosed(): boolean {
     return this.browserGone
+  }
+
+  // Whether the session ended this browser itself. A launch that then ends
+  // did not fail, so it has nothing to record on the contract or to print.
+  private get endedByUs(): boolean {
+    // The cleanup after an exit nobody asked for marks the child as well.
+    if (this.browserGone) return this.goneOnRequest
+
+    return (
+      this.deps.terminatedByUs(this.child) ||
+      this.deps.pidTerminatedByUs(this.livePid)
+    )
   }
 
   // Run the Firefox launch flow without a bundler compiler instance;
@@ -264,6 +278,12 @@ export class FirefoxLaunchPlugin {
       await this.launch(compilation, options)
     } catch (error) {
       this.stampLaunchFailed(error)
+
+      // A caller prints a failure block for a launch that threw, and this
+      // one only lost its browser to the stop the session asked for.
+      if (this.endedByUs && error instanceof Error) {
+        Object.assign(error, {printed: true})
+      }
 
       throw error
     }
@@ -833,6 +853,7 @@ export class FirefoxLaunchPlugin {
       const portWait = await this.deps.awaitRdpPort(this.extensionOutputPath, {
         port: debugPort,
         isBrowserGone: () => this.browserGone,
+        isStopAsked: () => this.endedByUs,
         runId: this.launchRunId
       })
 
@@ -867,12 +888,14 @@ export class FirefoxLaunchPlugin {
 
           // A process exists and the add-on never reached it, so the contract
           // cannot go on saying starting or ready. An exit already on it stays.
-          stampReadyBrowserLaunchFailed(
-            this.extensionOutputPath,
-            describeLaunchFailure(error),
-            this.launchRunId,
-            launchFailureCode(error)
-          )
+          if (!this.endedByUs) {
+            stampReadyBrowserLaunchFailed(
+              this.extensionOutputPath,
+              describeLaunchFailure(error),
+              this.launchRunId,
+              launchFailureCode(error)
+            )
+          }
 
           throw error
         }
@@ -1001,7 +1024,10 @@ export class FirefoxLaunchPlugin {
   // A browser that already left gets the browserless line here, never ready.
   private reportReady(mode: 'development' | 'production') {
     if (this.browserGone) {
-      humanError(messages.browserGoneBeforeReady(this.host.browser))
+      // A browser the session ended itself is not one that went missing.
+      if (!this.endedByUs) {
+        humanError(messages.browserGoneBeforeReady(this.host.browser))
+      }
 
       return
     }
@@ -1018,6 +1044,7 @@ export class FirefoxLaunchPlugin {
     if (this.browserGone) return
 
     this.browserGone = true
+    this.goneOnRequest = expected
     this.endSuccessorWait()
 
     if (this.watchTimeout) {

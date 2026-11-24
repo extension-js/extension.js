@@ -90,6 +90,7 @@ vi.mock('../../browsers-lib/debug-port-claim', async (importOriginal) => {
 })
 
 import {createReadyContractWriter} from '../../../../develop/plugin-ready-contract'
+import {stampReadyBrowserLaunchFailed} from '../../browsers-lib/ready-stamp'
 import {
   runOnlyPreviewBrowser,
   warnIgnoredHostPermissionPatterns
@@ -958,6 +959,124 @@ describe('the signal listeners of a run-only session', () => {
       vi.advanceTimersByTime(100)
       expect(exit).toHaveBeenCalledExactlyOnceWith(0)
       expect(outcome).toBe('pending')
+    })
+
+    // The record a reader in another process waits on. A launcher that lost
+    // its browser to the stop may have stamped a failed launch on it first.
+    it.each([
+      ['preview', 'chromium', 'throws', chromiumRunOnce],
+      ['preview', 'firefox', 'throws', firefoxRunOnce],
+      ['start', 'chromium', 'throws', chromiumRunOnce],
+      ['start', 'firefox', 'throws', firefoxRunOnce],
+      ['preview', 'chromium', 'returns', chromiumRunOnce],
+      ['preview', 'firefox', 'returns', firefoxRunOnce],
+      ['start', 'chromium', 'returns', chromiumRunOnce],
+      ['start', 'firefox', 'returns', firefoxRunOnce]
+    ] as const)('leaves ready.json stopped when %s on %s is interrupted and its launch %s', async (command, browser, ending, runOnce) => {
+      const dir = fs.mkdtempSync(path.join(scratch, 'stopped-'))
+      const outPath = path.join(dir, 'dist', browser)
+      const readyPath = path.join(dir, 'ready.json')
+
+      fs.mkdirSync(outPath, {recursive: true})
+      fs.writeFileSync(
+        readyPath,
+        JSON.stringify({
+          command,
+          browser,
+          status: 'starting',
+          runId: 'run-1',
+          pid: process.pid
+        })
+      )
+
+      let endLaunch = (_error?: Error) => {}
+
+      let launching = () => {}
+
+      const isLaunching = new Promise<void>((resolve) => {
+        launching = resolve
+      })
+
+      runOnce.mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve, reject) => {
+            endLaunch = (error) => (error ? reject(error) : resolve())
+            launching()
+          })
+      )
+
+      void runOnlyPreviewBrowser({
+        browser,
+        command,
+        outPath,
+        readyPath,
+        contextDir: dir,
+        extensionsToLoad: [outPath]
+      }).catch(() => {})
+
+      await isLaunching
+      vi.useFakeTimers({toFake: ['setTimeout', 'clearTimeout', 'Date']})
+
+      signal('SIGINT')
+      launched.closed = true
+
+      if (ending === 'throws') {
+        stampReadyBrowserLaunchFailed(
+          outPath,
+          'the browser exited before its debugger answered',
+          'run-1',
+          'E_BROWSER_LAUNCH'
+        )
+
+        endLaunch(new Error('the browser exited before its debugger answered'))
+      } else {
+        endLaunch()
+      }
+
+      for (let turn = 0; turn < 20; turn += 1) await Promise.resolve()
+
+      vi.advanceTimersByTime(100)
+      expect(exit).toHaveBeenCalledExactlyOnceWith(0)
+      expect(JSON.parse(fs.readFileSync(readyPath, 'utf8'))).toMatchObject({
+        command,
+        runId: 'run-1',
+        status: 'stopped',
+        code: 'shutdown',
+        message: `the ${command} session ended`
+      })
+    })
+
+    it('leaves the record of another process as it was', async () => {
+      const dir = fs.mkdtempSync(path.join(scratch, 'stopped-'))
+      const outPath = path.join(dir, 'dist', 'chromium')
+      const readyPath = path.join(dir, 'ready.json')
+      const record = JSON.stringify({
+        command: 'dev',
+        browser: 'chromium',
+        status: 'ready',
+        runId: 'run-of-dev',
+        pid: process.ppid
+      })
+
+      fs.mkdirSync(outPath, {recursive: true})
+      fs.writeFileSync(readyPath, record)
+
+      await runOnlyPreviewBrowser({
+        browser: 'chromium',
+        outPath,
+        readyPath,
+        contextDir: dir,
+        extensionsToLoad: [outPath]
+      })
+
+      vi.useFakeTimers({toFake: ['setTimeout', 'clearTimeout', 'Date']})
+
+      signal('SIGINT')
+      launched.closed = true
+      vi.advanceTimersByTime(100)
+
+      expect(exit).toHaveBeenCalledExactlyOnceWith(0)
+      expect(fs.readFileSync(readyPath, 'utf8')).toBe(record)
     })
 
     it('exits at once when no browser was started', async () => {

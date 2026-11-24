@@ -33,7 +33,8 @@ import {
   launchFailureCode,
   readReadyRunId,
   stampReadyBrowserLaunchFailed,
-  stampReadyCdpPort
+  stampReadyCdpPort,
+  stampReadySessionStopped
 } from './browsers-lib/ready-stamp'
 import {
   buildBrowserLaunchRequest,
@@ -418,9 +419,7 @@ export async function runOnlyPreviewBrowser(
   holdSessionSignals(session)
 
   try {
-    const started = await launchPreviewSession(opts, (launched) => {
-      session.launcher = launched
-    })
+    const started = await launchPreviewSession(opts, session)
 
     if (stopAsked) return untilTheStopExits()
 
@@ -444,6 +443,8 @@ interface SessionOnSignal {
   launcher?: LaunchedBrowser
   // The launch returned, so a browser that is not running will not start.
   settled?: boolean
+  // Writes the stop on the record this session owns.
+  recordStopped?: () => void
 }
 
 // One listener per signal serves every session of the process, so a caller
@@ -472,9 +473,17 @@ function createSignalHandler() {
 
   stopAsked = false
 
+  // The record says stopped before the run leaves. A session whose launch
+  // had not returned has no other writer for that ending.
+  const exitStopped = () => {
+    for (const session of sessionsOnSignal) session.recordStopped?.()
+
+    process.exit(0)
+  }
+
   return () => {
     if (exitScheduled) {
-      process.exit(0)
+      exitStopped()
 
       return
     }
@@ -485,7 +494,7 @@ function createSignalHandler() {
 
     const exitOnceClosed = () => {
       if (![...sessionsOnSignal].some(isRunning) || Date.now() >= deadline) {
-        process.exit(0)
+        exitStopped()
 
         return
       }
@@ -530,7 +539,7 @@ function releaseSessionSignals(session: SessionOnSignal) {
 
 async function launchPreviewSession(
   opts: PreviewRunOptions,
-  onLauncher: (launcher: LaunchedBrowser) => void
+  session: SessionOnSignal
 ): Promise<PreviewBrowserSession | undefined> {
   // Every stamp the launchers write lands on the contract this session owns,
   // which is not beside the loaded directory when that is a source folder.
@@ -538,6 +547,8 @@ async function launchPreviewSession(
   // Read once here: read again at each stamp it names whoever owns the record
   // by then, so a run that replaced this one would be written over.
   const runId = readReadyRunId(opts.outPath)
+
+  session.recordStopped = () => stampReadySessionStopped(opts.outPath, runId)
 
   const compilationLike = createPreviewCompilationLike(opts)
   const previewPluginOptions = buildPreviewPluginOptions(opts)
@@ -568,7 +579,7 @@ async function launchPreviewSession(
     const ctx = createChromiumContext()
     const chromiumOptions = buildPreviewChromiumOptions(opts)
     const launcher = new ChromiumLaunchPlugin(chromiumOptions, ctx)
-    onLauncher(launcher)
+    session.launcher = launcher
     // A reader waits for the card, so the port is claimed and on the record
     // before it prints. The launch clears it if the browser opens none.
     let debugPortClaim: DebugPortClaim | undefined
@@ -627,7 +638,7 @@ async function launchPreviewSession(
     buildPreviewFirefoxOptions(opts),
     ctx
   )
-  onLauncher(launcher)
+  session.launcher = launcher
   // Identity before the launch here too: the add-on install still verifies
   // through the banner's nameability verdict, which survives a dedupe hit.
   await printProdBannerOnce(bannerOptions)

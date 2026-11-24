@@ -246,6 +246,8 @@ export const signalProcessGroup: SignalGroup = (pid, signal) => {
 
 // How long a manager gets to end its own children before SIGKILL.
 export const KILL_GRACE_MS = 2000
+// How long a caller waits for taskkill to answer before it goes on without it.
+export const TREE_END_WAIT_MS = 5000
 
 export type InstallRunner = (
   command: string,
@@ -274,9 +276,25 @@ export function endProcessTree(
   child: ChildProcess,
   spawnProcess: SpawnProcess,
   platform: NodeJS.Platform,
-  signalGroup?: SignalGroup
+  signalGroup?: SignalGroup,
+  // Called once the tree was told to end. Windows only says so when taskkill
+  // is done, and a caller that removes the tree's folder before that is refused.
+  onAsked?: () => void
 ) {
   if (platform === 'win32' && child.pid !== undefined) {
+    let told = false
+
+    const tell = () => {
+      if (told) return
+
+      told = true
+      clearTimeout(bound)
+      onAsked?.()
+    }
+
+    // Armed only for a caller that waits, so no other one is held by it.
+    const bound = onAsked ? setTimeout(tell, TREE_END_WAIT_MS) : undefined
+
     // Only once taskkill has failed: a kill before it runs would end the shim
     // alone and orphan the manager it started.
     const killShim = () => {
@@ -293,12 +311,18 @@ export function endProcessTree(
         ['/pid', String(child.pid), '/T', '/F'],
         {stdio: 'ignore'}
       )
-        .on('error', killShim)
+        .on('error', () => {
+          killShim()
+          tell()
+        })
         .on('close', (code: number | null) => {
           if (code !== 0) killShim()
+
+          tell()
         })
     } catch {
       killShim()
+      tell()
     }
 
     return
@@ -323,6 +347,7 @@ export function endProcessTree(
     if (signalGroup || stillRunning(child)) send('SIGKILL')
   }, KILL_GRACE_MS)
   escalate.unref?.()
+  onAsked?.()
 }
 
 // A child in its own group no longer hears the terminal's Ctrl+C, so the
@@ -424,25 +449,33 @@ export async function runInstall(
   }
 
   return new Promise<InstallResult>((resolve, reject) => {
+    let timedOut = false
+
     // Resolved here and not on close: a surviving grandchild can hold the
     // pipes open, and close would then never arrive.
     const timer = setTimeout(() => {
+      timedOut = true
       release()
-      endProcessTree(child, spawnProcess, platform, signalGroup)
+      endProcessTree(child, spawnProcess, platform, signalGroup, () => {
+        resolve({
+          code: null,
+          stderr,
+          stdout,
+          reason: installTimedOutReason(timeoutMs)
+        })
+      })
+
       // Neither the pipes a surviving grandchild holds nor the child itself
       // may keep the create from ending, as the probe and the clone do.
       child.stdout?.destroy()
       child.stderr?.destroy()
       child.unref()
-      resolve({
-        code: null,
-        stderr,
-        stdout,
-        reason: installTimedOutReason(timeoutMs)
-      })
     }, timeoutMs)
 
     child.on('close', (code, signal) => {
+      // The exit of a child the timeout ended is the timeout's to report.
+      if (timedOut) return
+
       clearTimeout(timer)
       release()
       resolve({
@@ -454,6 +487,8 @@ export async function runInstall(
     })
 
     child.on('error', (error) => {
+      if (timedOut) return
+
       clearTimeout(timer)
       release()
       reject(error)

@@ -653,6 +653,53 @@ describe('a Chromium launch that does not reach a running extension', () => {
     })
   })
 
+  describe('a stop asked while the browser is still starting', () => {
+    // The signal handler's own stop, asked once the browser has spawned.
+    const stopOnceSpawned = () => {
+      const stop = () => {
+        const child = fake.child()
+
+        if (child) fake.deps.terminate(child.asChild(), 'chrome')
+        else setTimeout(stop, 50)
+      }
+
+      setTimeout(stop, 300)
+    }
+
+    // A port that never opens, and a debugger that never answers.
+    it.each([
+      ['preview', {bindsPort: false}],
+      ['dev', {bindsPort: false}],
+      ['preview', {handshake: 'silent'}],
+      ['dev', {handshake: 'silent'}]
+    ] as const)('records and says nothing when a %s launch loses its browser to the stop (%o)', async (command, script) => {
+      const {plugin, runOnly, dev} = await start({script, command})
+
+      // The launch returns: this launcher reads a stop as no failure.
+      await onFakeClock(() => {
+        stopOnceSpawned()
+
+        return command === 'dev' ? dev() : runOnly()
+      })
+
+      expect(fake.terminated).toHaveLength(1)
+      expect(plugin.browserClosed).toBe(true)
+      expect(said('log').join('\n')).not.toMatch(/ready for development/i)
+      // A browser the session ended is gone, and nothing about it is news.
+      expect(said('error')).toEqual([])
+      expect(said('warn').join('\n')).not.toMatch(/is up, but/)
+
+      const ready = fake.project.readReady()
+
+      expect(ready).toMatchObject({command, status: 'starting'})
+      expect(ready).not.toHaveProperty('code')
+      expect(ready).not.toHaveProperty('browserLaunchFailedAt')
+      expect(ready).not.toHaveProperty('browserExitedAt')
+      expect(ready).not.toHaveProperty('browserUpNotAttachedAt')
+      expect(ready.cdpFaultCode).not.toBe('W_BROWSER_CONNECTION_CLOSED')
+    })
+  })
+
   describe('a browser that exits before it is ready', () => {
     const crash = {
       exitsAfterMs: 0,

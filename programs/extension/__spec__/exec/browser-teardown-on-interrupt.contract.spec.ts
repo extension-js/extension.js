@@ -18,15 +18,21 @@ interface InterruptRun {
   quitMs: number
   // The stand-in and the child it started, and whether each one ended.
   tree: Array<{name: string; pid: number; ended: boolean}>
+  // The record a reader in another process waits on, as the run left it.
+  ready: Record<string, unknown> | null
 }
 
 const QUIT_CEILING_MS = 30_000
 
+// The stand-in opens no debugger port, so every launch is still under way
+// when the interrupt lands: the browser is running and not yet up.
 const CASES: Array<[Command, Browser, string]> = [
   ['preview', 'chrome', '--chromium-binary'],
   ['start', 'chrome', '--chromium-binary'],
   ['dev', 'chrome', '--chromium-binary'],
-  ['preview', 'firefox', '--gecko-binary']
+  ['preview', 'firefox', '--gecko-binary'],
+  ['start', 'firefox', '--gecko-binary'],
+  ['dev', 'firefox', '--gecko-binary']
 ]
 
 const makeTemp = trackTempFolders()
@@ -51,6 +57,14 @@ async function endedWithin(pid: number, ms: number): Promise<boolean> {
   }
 
   return true
+}
+
+function readRecord(file: string): Record<string, unknown> | null {
+  try {
+    return JSON.parse(readFileSync(file, 'utf8'))
+  } catch {
+    return null
+  }
 }
 
 // The pin is a stand-in that answers its version, starts a child of its
@@ -126,6 +140,9 @@ async function interruptRun(
     run.stdout = output.stdout
     run.stderr = output.stderr
     session.killGroup()
+    run.ready = readRecord(
+      join(projectDir, 'dist', 'extension-js', browser, 'ready.json')
+    )
 
     // What outlives the CLI is ended by number, so no run leaks a process.
     for (const [name, file] of [
@@ -198,5 +215,26 @@ describe('a session interrupted with Ctrl+C while its browser runs', () => {
       run.stdout.split('\n').filter((line) => line.includes('"ok":false')),
       context
     ).toHaveLength(1)
+  })
+
+  it.each(
+    CASES.map(([command, browser]) => [command, browser])
+  )('%s on %s leaves ready.json saying the session stopped, not that a launch failed', async (command, browser) => {
+    const run = await (runs.get(
+      `${command} ${browser}`
+    ) as Promise<InterruptRun>)
+    const context = `${run.interrupt} status=${run.status}\n${JSON.stringify(run.ready)}\n${run.stdout}\n${run.stderr}`
+
+    expect(run.ready, context).toMatchObject({
+      command,
+      status: 'stopped',
+      code: 'shutdown'
+    })
+
+    expect(run.ready, context).not.toHaveProperty('browserLaunchFailedAt')
+    expect(run.ready, context).not.toHaveProperty('endedAsFailedAt')
+    expect(run.ready, context).not.toHaveProperty('rdpPortError')
+    // The failure block of a launch that broke, which this one did not.
+    expect(run.stderr, context).not.toContain("couldn't start")
   })
 })

@@ -3,6 +3,7 @@ import * as fsp from 'node:fs/promises'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
+import {runInstall} from '../lib/install-runner'
 import {shellQuote} from '../lib/utils'
 import {type CreateSeams, runCreate} from '../run-create'
 import {
@@ -112,6 +113,65 @@ describe('a failed create leaves nothing half-personalized on disk', {
     expect(catalog.hits('/catalog.zip')).toBe(1)
 
     expect(fs.existsSync(projectPath)).toBe(false)
+  })
+
+  // A real manager that hangs in the project folder, with a child of its
+  // own there. Windows keeps a folder a process that is still leaving ran in.
+  it('removes the directory after an install that timed out in it', async () => {
+    const tmpRoot = await makeTempRoot()
+    const projectPath = path.join(tmpRoot, 'proof')
+    const script = path.join(tmpRoot, 'manager.cjs')
+    const started = path.join(tmpRoot, 'started')
+
+    await fsp.writeFile(
+      script,
+      `
+      const {spawn} = require('node:child_process')
+      const hang = "require('node:fs').writeFileSync(process.argv[1], '1'); setInterval(() => {}, 1000)"
+      const child = spawn(process.execPath, ['-e', hang, process.argv[2]], {stdio: 'ignore'})
+      require('node:fs').writeSync(1, child.pid + ' ' + process.pid + '\\n')
+      setInterval(() => {}, 1000)
+    `
+    )
+
+    const pids: number[] = []
+    const hungInstall: CreateSeams = {
+      ...refusedInstall,
+      async runInstall(_command, _args, options) {
+        const result = await runInstall(process.execPath, [script, started], {
+          ...options,
+          stdio: 'pipe',
+          timeoutMs: 4000
+        })
+
+        pids.push(...result.stdout.trim().split(' ').map(Number))
+
+        return result
+      }
+    }
+
+    try {
+      const {frame} = await failedCreate(
+        runCreate(projectPath, {install: true, logger: noopLogger}, hungInstall)
+      )
+
+      // The stand-in ran, in the project, until the timeout ended it.
+      expect(fs.existsSync(started)).toBe(true)
+      expect(pids).toHaveLength(2)
+      expect(frame).toContain("Couldn't install the dependencies")
+      expect(frame).toContain('did not finish within 4 seconds')
+      expect(frame).toContain('The new project files were removed.')
+      expect(fs.existsSync(projectPath)).toBe(false)
+    } finally {
+      // Only pids this row started, so a failed run leaves no process.
+      for (const pid of pids) {
+        try {
+          process.kill(pid, 'SIGKILL')
+        } catch {
+          // Already gone, which is the point.
+        }
+      }
+    }
   })
 
   it('keeps what pre-existed and drops only what the run wrote', async () => {

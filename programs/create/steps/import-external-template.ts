@@ -951,8 +951,10 @@ export interface ImportExternalTemplateOptions {
 // once lost .git to a transient download failure).
 export type RemovePath = (target: string) => Promise<void>
 
+// Windows keeps a folder for a moment after the last process that ran in it
+// has ended, so a refusal is asked again a few times before it is reported.
 const removeRecursively: RemovePath = (target) =>
-  fs.rm(target, {recursive: true, force: true})
+  fs.rm(target, {recursive: true, force: true, maxRetries: 5, retryDelay: 100})
 
 // Answers the paths it could not remove, so the caller can name them.
 export async function cleanupFailedImport(
