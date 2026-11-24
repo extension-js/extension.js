@@ -2,6 +2,81 @@
 
 ## Unreleased
 
+## 4.4.0 (November 24, 2026)
+
+<details>
+<summary>Also in 4.4.0 (6)</summary>
+
+- A binary set in the config file is named by its key and file, for example `browser.chrome.chromiumBinary in extension.config.js`.
+- On Windows, a pinned binary's version is read in a fraction of a second, where each read could take 20 s or more.
+- On Windows, a pinned binary that never answers its version probe is stopped with its child processes, and a Firefox profile path with accented or CJK characters works.
+- Stopping `preview`, `start` or `dev` while the browser is still starting ends as stopped with exit 0, and `ready.json` says `stopped`.
+- `extension create` scaffolds the examples with exact dependency versions, and on Windows waits for a timed-out install to end before it removes the folder.
+- The manifest is read 4 times on a first build and once per rebuild, down from 51 and 14.
+
+</details>
+
+<details>
+<summary>Upgrade notes (4)</summary>
+
+- A binary flag for the engine you did not pick, such as `--browser firefox --chromium-binary <path>`, was ignored and is now refused with `E_INVALID_OPTION`.
+- With no `--browser`, a binary flag picks its engine (`--gecko-binary` alone runs `gecko-based`), and both flags together are refused. Pass `--browser chromium-based,gecko-based` to run both.
+- A script that matched the runtime's JSON wording, such as `Unexpected token`, now reads `unexpected character at line 1 column 1`.
+- `binaryPinnedBy` in `ready.json` can hold a config key and file, not only a flag or variable name.
+
+</details>
+
+### Features
+
+- Add the Windows quit line to the release notes (#1441) ([cdbcf8ef8](https://github.com/extension-js/extension.js/commit/cdbcf8ef88a0e158657a3d9433dc51ea5fa6af6f))
+- Add the interrupt and install timeout lines to the release notes (#1439) ([f07d836e0](https://github.com/extension-js/extension.js/commit/f07d836e050107cfab45bc5154178e3b6eefa297))
+- Add the Windows teardown and path lines to the release notes (#1436) ([1beb85ba2](https://github.com/extension-js/extension.js/commit/1beb85ba2889d8b884d528d7761574ee06af03b5))
+- Add the Windows version read to the next release notes (#1428) ([75ceff6f3](https://github.com/extension-js/extension.js/commit/75ceff6f34059b255ae2ba57bbe9992d2fa62bf1))
+
+### Fixes
+
+- Stop ignoring the bundled create template in the release commit (#1444) ([00e7626a3](https://github.com/extension-js/extension.js/commit/00e7626a3cd1b5a6cb4e78220fa0867c5e874365))
+- Stop the browser at once when a Windows session quits (#1440) ([ba951bab3](https://github.com/extension-js/extension.js/commit/ba951bab3a73c6b0fc186ebba29061e80e8906fd))
+
+<details>
+<summary>Other changes (32)</summary>
+
+- Tighten the next release notes (#1443) ([7ea86a4c3](https://github.com/extension-js/extension.js/commit/7ea86a4c3cd321dc8fd0529f60b79120fbf1574f))
+- Name a system sleep in failed rows, isolate exec runner caches (#1442) ([b2520077b](https://github.com/extension-js/extension.js/commit/b2520077b3ef5f1060e2f92ab547a51101f08272))
+- Record an interrupted run as stopped and end a timed-out install (#1438) ([f66aba453](https://github.com/extension-js/extension.js/commit/f66aba453174a81c5ff1fa9d17b928fb2bc96783))
+- End an interrupted browser launch on one stopped frame (#1437) ([24c9345a0](https://github.com/extension-js/extension.js/commit/24c9345a0834378015e1b0743464ad7d8fa8e169))
+- Read the Windows process table as UTF-8 and prove Ctrl+C teardown (#1434) ([335f42fd4](https://github.com/extension-js/extension.js/commit/335f42fd42179e49d6f8f1174fc68e50a8248c25))
+- Clear the Biome warnings and fail lint on new ones (#1435) ([96ec1417f](https://github.com/extension-js/extension.js/commit/96ec1417fa2470c3c6c5eeadb1ebfda6ebf26a67))
+- Strip nested comment markers from the release highlights (#1433) ([c1e640cec](https://github.com/extension-js/extension.js/commit/c1e640cec60fd86136fb308dc5e038cf134b9d20))
+- End a probed binary's whole tree before the CLI exits on Windows (#1430) ([31dbaa31c](https://github.com/extension-js/extension.js/commit/31dbaa31c8ce28b535c2eaf15a3440e6d6c20fac))
+- Bump Svelte to 5.59.1 (#1432) ([ef0981a2c](https://github.com/extension-js/extension.js/commit/ef0981a2c3cc32e4e95007686a8d7a02f95f996f))
+- Follow the declaration plugin to its parser in all four programs (#1431) ([93f0b4c92](https://github.com/extension-js/extension.js/commit/93f0b4c92d4aeaf14ba6fc936c86041dd680c3f1))
+- Run the create and install tool stand-in specs on Windows (#1429) ([16d98a625](https://github.com/extension-js/extension.js/commit/16d98a625af7f060fa88ad31405b5f3ef6f1e832))
+- Read a Windows browser version fast and run pin specs there (#1423) ([983b16115](https://github.com/extension-js/extension.js/commit/983b16115b49e64d0bae841122697e85332639a6))
+- Write the highlights and upgrade notes for the next release (#1427) ([b4de645c9](https://github.com/extension-js/extension.js/commit/b4de645c9fb94a3b25e9b382a1236ae3e7b0e707))
+- Reuse traced child compiles in dev and rebuild when a file returns (#1426) ([02a25ccf3](https://github.com/extension-js/extension.js/commit/02a25ccf3fb7d18dd237ef4510442ad5cc30dd86))
+- Say when a config file pinned the browser binary, name its key (#1422) ([8ce934d92](https://github.com/extension-js/extension.js/commit/8ce934d92a46eb44f386bd0109027ded12635796))
+- Resync the bundled template when a release moves the pin (#1420) ([8c53b1454](https://github.com/extension-js/extension.js/commit/8c53b145420ad6d4a5ba614247bd959d67c37240))
+- Move the templates pins to the head with the docs site blue (#1419) ([3bf01b16e](https://github.com/extension-js/extension.js/commit/3bf01b16e68f0a4dc5bdd6355f7ed9257d1f6f5f))
+- Count what an env save asks for, not how many watcher events came (#1418) ([9adfec925](https://github.com/extension-js/extension.js/commit/9adfec925aae46b94fd58f279dedb824ab2dea52))
+- Say where a JSON file fails without quoting its text (#1416) ([31c40a0ea](https://github.com/extension-js/extension.js/commit/31c40a0eaeed6989f66d6ad7a3e612d6ef043df0))
+- Keep a Firefox session through a self-update restart on Windows (#1412) ([880ec764b](https://github.com/extension-js/extension.js/commit/880ec764b42d835272b2e21d2adcea97cdf4c721))
+- Keep release highlights short and fold the rest in the notes (#1415) ([9d478bdee](https://github.com/extension-js/extension.js/commit/9d478bdeea056f8124868270d78454c838e8fe9d))
+- Scan only changed scripts in the runtime trace on dev rebuilds (#1414) ([021c2a9ac](https://github.com/extension-js/extension.js/commit/021c2a9ac78a3a39dfd838a3f4fe1ae54fa61ebe))
+- Name the pinned binary on a failed launch, keep binary flags (#1411) ([27b9ac104](https://github.com/extension-js/extension.js/commit/27b9ac104b962b725b61acec44b063dc356501df))
+- Reuse a compiled root-absolute ref across unrelated dev rebuilds (#1410) ([33dd32d7f](https://github.com/extension-js/extension.js/commit/33dd32d7f473c81fc2d8bf38a2a9c1b7cc481cf2))
+- Move the templates gate pin to the head with pinned examples (#1413) ([b63f0b1e6](https://github.com/extension-js/extension.js/commit/b63f0b1e6a8b007584bdc6e55878cbb2c3912df8))
+- Read the source manifest once per compilation in develop (#1409) ([a259a4baf](https://github.com/extension-js/extension.js/commit/a259a4bafe1042815adbda171712c4b827c0623c))
+- Move js-yaml to 5 in the scripts and keep 4 for transitive deps (#1407) ([6eae4eff5](https://github.com/extension-js/extension.js/commit/6eae4eff5112d190a5c23567a3ee15071874def6))
+- Give each run of main its own concurrency group (#1408) ([7f381c49e](https://github.com/extension-js/extension.js/commit/7f381c49e551169870225d3b62a5a6819d3912c5))
+- Accept the renamed Rspack dynamic path diagnostic in a spec (#1403) ([4075475d2](https://github.com/extension-js/extension.js/commit/4075475d22777e85b8a3a96f82411d85b16986fd))
+- Hide the renamed Dynamic module path warning from node_modules (#1405) ([802d73a72](https://github.com/extension-js/extension.js/commit/802d73a7264ead6a30b9ad643a9ec6cd62693ca8))
+- Say how to create without the network in the AI help (#1404) ([04ee4cc4c](https://github.com/extension-js/extension.js/commit/04ee4cc4c54dfc6b5d4247523a7801b45a72d1f7))
+- Never cancel a run of main and close the gates issue when current (#1402) ([92fa191df](https://github.com/extension-js/extension.js/commit/92fa191dffa7d01b9cb22873e90e4130291efa44))
+</details>
+
+Validated before publishing: `extension@4.3.1-canary.476.00e7626`, cut from the same commit, built every buildable sample of [extension-js/corpus](https://github.com/extension-js/corpus) on Chrome, Firefox, Edge and Safari, and passed the [extension-js/templates](https://github.com/extension-js/templates) suite ([run](https://github.com/extension-js/extension.js/actions/runs/45415640536)).
+
 ## 4.3.0 (November 21, 2026)
 
 - **Reloads only when they are needed**, saving a file the build never read no longer reloads the extension, and saving a page reloads only the tabs that show it. [Docs](https://extension.js.org/docs/commands/dev)
