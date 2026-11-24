@@ -4,6 +4,12 @@
 
 ## 4.4.0 (November 24, 2026)
 
+- **Faster dev rebuilds**, two steps that ran on every rebuild went from about 155 ms to under 30 ms on a large project.
+- **A pinned browser binary is never ignored**, `--gecko-binary` alone runs a Gecko browser, and a failed launch names the binary and what pinned it. [Docs](https://extension.js.org/docs/browsers/running-other-browsers)
+- **JSON errors say where**, a file that fails to parse is reported by line and column, never by quoting its text. [Docs](https://extension.js.org/docs/contracts/error-codes)
+- **A missing file that comes back rebuilds**, creating or restoring a file a page or worker names rebuilds without a second save.
+- **Windows sessions stop and recover cleanly**, Ctrl+C closes the browser at once, and a Firefox session follows the browser through a self-update.
+
 <details>
 <summary>Also in 4.4.0 (6)</summary>
 

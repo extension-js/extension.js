@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict'
 import {execFileSync} from 'node:child_process'
-import {mkdtempSync, rmSync, writeFileSync} from 'node:fs'
+import {mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
+import {fileURLToPath} from 'node:url'
 
 import {
+  assertCommentsClosed,
   buildTweet,
   categorize,
   findAnchor,
@@ -105,6 +107,39 @@ test('readHighlights returns [] for the empty template and missing file', () => 
   assert.deepEqual(readHighlights(file), [])
   assert.deepEqual(readHighlights(path.join(dir, 'nope.md')), [])
   rmSync(dir, {recursive: true, force: true})
+})
+
+test('a comment that never closes stops the notes instead of hiding sections', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'hl-'))
+  const file = path.join(dir, 'RELEASE_HIGHLIGHTS.md')
+  // The 4.4.0 shape: the template comment lost its closer and indented the heading.
+  writeFileSync(
+    file,
+    [
+      '<!--',
+      '  Example:',
+      '  ## Highlights',
+      '',
+      '- **Faster dev rebuilds**, one sentence',
+      '',
+      '## Also',
+      '',
+      '- one line'
+    ].join('\n')
+  )
+
+  assert.throws(() => readHighlights(file), /line 1 that is never closed/)
+  assert.throws(() => readFolded(file, '4.4.0'), /never closed/)
+  rmSync(dir, {recursive: true, force: true})
+})
+
+test('the repo highlights file closes every comment it opens', () => {
+  const file = fileURLToPath(
+    new URL('../../RELEASE_HIGHLIGHTS.md', import.meta.url)
+  )
+  assert.doesNotThrow(() =>
+    assertCommentsClosed(readFileSync(file, 'utf8'), file)
+  )
 })
 
 // formatters
