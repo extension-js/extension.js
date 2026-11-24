@@ -1,4 +1,5 @@
-import {beforeEach, expect} from 'vitest'
+import {afterAll, afterEach, beforeEach, expect} from 'vitest'
+import {lastSleepWindow, sleptDuring} from './sleep-guard'
 
 process.env.FORCE_COLOR = '0'
 process.env.NO_COLOR = '1'
@@ -34,8 +35,32 @@ if (!process.env.EXTENSION_TEMPLATE_CATALOG_LIVE) {
 const MUST_ASSERT =
   /[/\\]programs[/\\]extension[/\\](?:__spec__[/\\](?!exec[/\\]cli-exec\.)|helpers[/\\]|commands[/\\])/
 
+let testStartedAt = Date.now()
+const fileStartedAt = Date.now()
+
 beforeEach(() => {
+  testStartedAt = Date.now()
+
   if (MUST_ASSERT.test(expect.getState().testPath ?? '')) {
     expect.hasAssertions()
   }
+})
+
+// A row that failed across a system sleep says so, or it reads as a hang.
+afterEach(({task}) => {
+  if (task.result?.state !== 'fail') return
+
+  const note = sleptDuring(testStartedAt, lastSleepWindow())
+
+  if (note) throw new Error(note)
+})
+
+// The same note for a hook that failed outside any row.
+// biome-ignore lint/correctness/noEmptyPattern: vitest passes the file suite second and parses the first as fixtures
+afterAll(({}, suite) => {
+  if (!suite.result?.errors?.length) return
+
+  const note = sleptDuring(fileStartedAt, lastSleepWindow())
+
+  if (note) throw new Error(note)
 })

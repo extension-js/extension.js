@@ -79,9 +79,26 @@ const existingPath = process.env.PATH || process.env.Path || ''
 const pathParts = [nodeDir]
 if (pnpmHome) pathParts.push(pnpmHome)
 
+// The runners get caches and config of their own, or they write the user's
+// npm and pnpm caches and send the registry token from the user's npmrc.
+const runnerHome = mkdtempSync(join(tmpdir(), 'extjs-cli-runner-'))
+const userNpmrc = join(runnerHome, 'npmrc')
+const globalNpmrc = join(runnerHome, 'global-npmrc')
+writeFileSync(userNpmrc, '')
+writeFileSync(globalNpmrc, '')
+
 const baseEnv: NodeJS.ProcessEnv = {
   ...process.env,
-  PATH: pathParts.join(pathDelim) + pathDelim + existingPath
+  PATH: pathParts.join(pathDelim) + pathDelim + existingPath,
+  npm_config_userconfig: userNpmrc,
+  npm_config_globalconfig: globalNpmrc,
+  npm_config_cache: join(runnerHome, 'npm-cache'),
+  // pnpm 10 reads the npm_config_ names, pnpm 11 and later only pnpm_config_.
+  npm_config_cache_dir: join(runnerHome, 'pnpm-cache'),
+  npm_config_store_dir: join(runnerHome, 'pnpm-store'),
+  pnpm_config_cache_dir: join(runnerHome, 'pnpm-cache'),
+  pnpm_config_store_dir: join(runnerHome, 'pnpm-store'),
+  npm_config_update_notifier: 'false'
 }
 
 const defaultEnv: NodeJS.ProcessEnv = {
@@ -153,12 +170,17 @@ function cleanupWorkspaceAfterTimedDev(targetPath: string, timedOut: boolean) {
 // stuck fetch, so a degraded registry would otherwise outlive the hook.
 const PROBE_TIMEOUT_MS = 90_000
 
+// A synchronous child blocks the worker, so the row timeout cannot end it.
+// Each call carries its own bound and names the command when it runs out.
+const COMMAND_TIMEOUT_MS = 100_000
+
 function runCommand(
   command: string,
   args: string[],
   options: {cwd?: string; env?: NodeJS.ProcessEnv; timeoutMs?: number} = {}
 ) {
   const {timeoutMs, ...spawnOptions} = options
+  const bound = timeoutMs ?? COMMAND_TIMEOUT_MS
   const useShell =
     process.platform === 'win32' &&
     (command.endsWith('.cmd') || command.endsWith('.bat'))
@@ -166,7 +188,8 @@ function runCommand(
     ...spawnOptions,
     stdio: 'pipe',
     encoding: 'utf8',
-    ...(timeoutMs ? {timeout: timeoutMs, killSignal: 'SIGKILL' as const} : {}),
+    timeout: bound,
+    killSignal: 'SIGKILL',
     ...(useShell ? {shell: true} : {})
   })
 
@@ -174,6 +197,21 @@ function runCommand(
 
   if (result.error && errorCode !== 'ETIMEDOUT') {
     throw result.error
+  }
+
+  // The probe reads a timeout as a runner that is not ready. Any other call
+  // fails here with what it ran and the last lines it printed.
+  if (errorCode === 'ETIMEDOUT' && timeoutMs === undefined) {
+    const said = `${result.stdout || ''}${result.stderr || ''}`
+      .trim()
+      .split(/\r?\n/)
+      .slice(-8)
+      .join('\n')
+
+    throw new Error(
+      `${command} ${args.join(' ')} did not exit within ${bound} ms ` +
+        `in ${spawnOptions.cwd ?? process.cwd()}\n${said}`
+    )
   }
 
   return result
@@ -455,6 +493,8 @@ afterAll(async () => {
   if (packDir) {
     rmSync(packDir, {recursive: true, force: true})
   }
+
+  rmSync(runnerHome, {recursive: true, force: true})
 
   await catalog?.close()
 })
