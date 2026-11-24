@@ -52,6 +52,7 @@
 - On Windows, a Firefox session survives a self-update restart when the profile path has accented or CJK characters.
 - Stopping `preview`, `start` or `dev` with Ctrl+C while the browser is still starting ends the run as stopped with exit 0, and `ready.json` reads `stopped`, not `starting` or a failed launch.
 - `extension create` waits for a timed-out install to end on Windows before it removes the project folder.
+- On Windows, Ctrl+C closes the browser at once, so `start` and `preview` quit in under a second where Chrome waited about 5.6 s.
 - The manifest is read 4 times on a first build and once per rebuild, down from 51 and 14.
 - `extension create` scaffolds the examples with every dependency pinned to an exact version.
 - The line-and-column message covers `package.json`, the manifest, `_locales`, declarative net request rulesets, the managed schema, `ready.json` and the `create` template readers.
