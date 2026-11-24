@@ -72,9 +72,15 @@ describe('a Firefox that applies a pending update at launch', () => {
         platform
       })
 
-  const start = async (script: FakeBrowserScript, read?: TableRead) => {
+  const start = async (
+    script: FakeBrowserScript,
+    read?: TableRead,
+    tune?: (deps: FakeFirefox['deps']) => void
+  ) => {
     fake = await fakeFirefox({script: {bindsPort: false, ...script}})
     if (read) fake.deps.resolveLivePid = read
+
+    tune?.(fake.deps)
 
     fake.project.writeReady({command: 'dev', status: 'starting', runId: 'r1'})
 
@@ -167,6 +173,41 @@ describe('a Firefox that applies a pending update at launch', () => {
     await fake.watchers[0].shutdown()
 
     expect(fake.terminatedPids).toEqual([8668])
+  })
+
+  // A stopping session waits on this exit before it leaves, so it is read
+  // within a beat of the stop, not on the next once-a-second probe.
+  it('sees the adopted browser gone within 50 ms of stopping it', async () => {
+    let stopped = false
+    const {plugin, launch} = await start(
+      {
+        exitsAfterMs: 1200,
+        exit: {code: 0, signal: null},
+        table: [...launcherRows(1200), ...relaunchedRows(1500)]
+      },
+      undefined,
+      (deps) => {
+        const alive = deps.isPidAlive
+
+        deps.isPidAlive = (pid) => !(stopped && pid === 8668) && alive(pid)
+      }
+    )
+
+    await onFakeClock(launch)
+    vi.useFakeTimers()
+
+    try {
+      await fake.watchers[0].shutdown()
+      stopped = true
+
+      await vi.advanceTimersByTimeAsync(49)
+      expect(plugin.browserClosed).toBe(false)
+
+      await vi.advanceTimersByTimeAsync(1)
+      expect(plugin.browserClosed).toBe(true)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('still reports a launcher gone when nothing takes over within the window', async () => {

@@ -1,6 +1,7 @@
 import {existsSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {beforeAll, describe, expect, it} from 'vitest'
+import {FORCE_KILL_GRACE_MS} from '../../browsers/browsers-lib/process-teardown'
 import {plantBrowserStandIn} from '../helpers/browser-stand-in'
 import {interruptCli} from '../helpers/console-interrupt'
 import {freshCliHome, startCli} from '../helpers/run-cli'
@@ -204,6 +205,12 @@ describe('a session interrupted with Ctrl+C while its browser runs', () => {
 
     // The CLI left by itself, before the ceiling ended it.
     expect(run.quitMs, context).toBeLessThan(QUIT_CEILING_MS)
+
+    // Windows forces the tree at once, so no quit waits out the grace.
+    if (process.platform === 'win32') {
+      expect(run.quitMs, context).toBeLessThan(FORCE_KILL_GRACE_MS)
+    }
+
     expect(run.status, context).toBe(0)
     expect(
       JSON.parse(run.stdout.trim().split('\n').at(-1) ?? 'null'),

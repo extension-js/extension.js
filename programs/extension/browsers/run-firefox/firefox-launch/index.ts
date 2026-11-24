@@ -107,6 +107,11 @@ import {
 const DRY_RUN_NO_BROWSER =
   'a dry run prints the Firefox launch plan and starts no browser'
 
+// A browser that handed off its session is probed for its exit, slowly while
+// it runs and quickly once the session asked it to stop.
+const LIVE_EXIT_POLL_MS = 1000
+const STOPPING_EXIT_POLL_MS = 50
+
 export type LaunchOptions = {
   browser: BrowserType
   mode: 'development' | 'production' | 'none'
@@ -1286,7 +1291,7 @@ export class FirefoxLaunchPlugin {
 
   // A process we did not spawn has no 'close' event, so its exit is probed. Ref'd:
   // after a handoff with a refused add-on it is the only handle keeping us alive.
-  private watchLivePidExit() {
+  private watchLivePidExit(intervalMs = LIVE_EXIT_POLL_MS) {
     if (this.liveExitWatcher) clearInterval(this.liveExitWatcher)
 
     this.liveExitWatcher = setInterval(() => {
@@ -1300,7 +1305,7 @@ export class FirefoxLaunchPlugin {
       if (!expected && this.awaitSuccessor(null)) return
 
       this.onBrowserGone(null, expected)
-    }, 1000)
+    }, intervalMs)
   }
 
   // Re-offer the dist to a browser that refused it. A fresh controller is
@@ -1398,6 +1403,10 @@ export class FirefoxLaunchPlugin {
     // still runs on the profile; that one has to end with the session too.
     if (this.livePid && this.livePid !== this.child?.pid) {
       this.deps.terminatePid(this.livePid, this.host.browser as BrowserType)
+
+      // The session waits on this exit to leave, so it is no longer read once
+      // a second, which on Windows held every stop for up to a second more.
+      if (this.liveExitWatcher) this.watchLivePidExit(STOPPING_EXIT_POLL_MS)
     }
   }
 
