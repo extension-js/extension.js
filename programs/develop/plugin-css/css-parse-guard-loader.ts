@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
+import {WebpackError} from '@rspack/core'
 import postcss from 'postcss'
 import {toProjectRelativePath} from '../lib/resource-path'
 import * as messages from './css-lib/messages'
@@ -20,6 +21,7 @@ interface CssParseGuardLoaderContext {
   resourcePath: string
   rootContext?: string
   _module?: {type?: unknown}
+  _compilation?: {warnings: Error[]}
   async(): (err: Error | null, content?: string) => void
   emitWarning(warning: Error): void
 }
@@ -49,17 +51,21 @@ export function pitch(this: CssParseGuardLoaderContext): void {
         postcss.parse(raw, {from: this.resourcePath})
         callback(null)
       } catch (error) {
-        this.emitWarning(
-          Object.assign(
-            new Error(
-              messages.cssParseErrorShippedVerbatim(
-                toProjectRelativePath(this.rootContext, this.resourcePath),
-                error
-              )
-            ),
-            {name: 'CssParseWarning'}
+        const warning = new WebpackError(
+          messages.cssParseErrorShippedVerbatim(
+            toProjectRelativePath(this.rootContext, this.resourcePath),
+            error
           )
         )
+        warning.name = 'CssParseWarning'
+
+        // Keep the diagnostic name on the compilation. The loader warning
+        // wrapper can discard it when it cleans the original stack header.
+        if (this._compilation) {
+          this._compilation.warnings.push(warning)
+        } else {
+          this.emitWarning(warning)
+        }
 
         // Short-circuit the chain. An inline asset takes the raw sheet as
         // its source, exactly as authored. The native css type would parse

@@ -262,7 +262,17 @@ describe('a green build prefixes a coded warning with its code', () => {
       }
     )
 
-    const summary = await build(root)
+    // Exercise the compiled command and loader with the same bundler instance.
+    const builtEntry = '../dist/module.mjs'
+    const {extensionBuild} = (await import(
+      builtEntry
+    )) as typeof import('../module')
+    const summary = await extensionBuild(root, {
+      browser: 'chrome',
+      silent: true,
+      install: false,
+      mode: 'production'
+    })
     expect(summary.errors_count).toBe(0)
     expect(summary.warnings_count).toBe(1)
     const lines = String(summary.warnings?.[0]).split('\n')

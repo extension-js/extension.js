@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import {sources} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+import {warningCodes} from '../../lib/compilation-diagnostics'
 import {restoreVerbatimCssAssets} from '../css-lib/verbatim-css'
 import {pitch} from '../css-parse-guard-loader'
 
@@ -23,7 +24,8 @@ const BROKEN_CSS = [
 function runPitch(
   resourcePath: string,
   module?: {type: string},
-  rootContext?: string
+  rootContext?: string,
+  compilation?: {warnings: Error[]}
 ) {
   return new Promise<{
     result: string | undefined
@@ -34,6 +36,7 @@ function runPitch(
       resourcePath,
       rootContext,
       _module: module,
+      _compilation: compilation,
       emitWarning: (w: Error) => warnings.push(w),
       async: () => (err: Error | null, content?: string) =>
         err ? reject(err) : resolve({result: content, warnings})
@@ -77,6 +80,27 @@ describe('css-parse-guard-loader', () => {
     const lines = warnings[0].message.replace(ANSI, '').split('\n')
     expect(lines[1]).toBe('PATH content/styles.css')
     expect(warnings[0].message).not.toContain(root)
+  })
+
+  it('keeps the CSS parse code on the compilation without a stack header', async () => {
+    const file = writeTemp('output.css', BROKEN_CSS)
+    const compilation = {warnings: [] as Error[]}
+    const {result, warnings} = await runPitch(
+      file,
+      undefined,
+      undefined,
+      compilation
+    )
+
+    expect(result).toBe(BROKEN_CSS)
+    expect(warnings).toEqual([])
+    expect(compilation.warnings).toHaveLength(1)
+    const warning = compilation.warnings[0]
+    expect(warning.name).toBe('CssParseWarning')
+    warning.stack = undefined
+    expect(warningCodes(compilation).get(warning.message.trim())).toBe(
+      'W_CSS_PARSE'
+    )
   })
 
   it('ignores non-.css resources (preprocessor errors stay fatal)', async () => {
