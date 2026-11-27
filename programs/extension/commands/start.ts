@@ -305,7 +305,9 @@ export function registerStartCommand(
               : await resolveConfigBrowser(
                   pathOrRemoteUrl || process.cwd(),
                   'start',
-                  loadDevelop
+                  loadDevelop,
+                  undefined,
+                  startOptions.install
                 ),
           chromiumBinary: startOptions.chromiumBinary,
           geckoBinary: cliGeckoBinary(startOptions)
@@ -356,7 +358,10 @@ export function registerStartCommand(
             console.error(messages.usageRefusal(message))
           }
 
-          failAndExit(asJson, 'usage', {code: CODES.E_INVALID_OPTION, message})
+          failAndExit(asJson, 'usage', {
+            code: CODES.E_INVALID_OPTION,
+            message
+          })
         }
 
         if (startOptions.waitTimeout !== undefined && !startOptions.wait) {
@@ -367,7 +372,10 @@ export function registerStartCommand(
             console.error(messages.usageRefusal(message))
           }
 
-          failAndExit(asJson, 'usage', {code: CODES.E_INVALID_OPTION, message})
+          failAndExit(asJson, 'usage', {
+            code: CODES.E_INVALID_OPTION,
+            message
+          })
         }
 
         // Tells develop to route human lines to stderr, so stdout carries
@@ -535,7 +543,10 @@ export function registerStartCommand(
           // eslint-disable-next-line no-console
           if (!asJson) console.error(messages.usageRefusal(message))
 
-          failAndExit(asJson, 'usage', {code: CODES.E_INVALID_OPTION, message})
+          failAndExit(asJson, 'usage', {
+            code: CODES.E_INVALID_OPTION,
+            message
+          })
         }
 
         let interruptArmed = false

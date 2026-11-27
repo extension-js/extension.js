@@ -447,6 +447,32 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
     }
   })
 
+  // Edge takes the theme, then shows an "Installed theme, Undo" bar on every
+  // launch, so the theme built for it is there and still left out.
+  it('leaves the built-in theme out for Edge', () => {
+    const root = tmpDir('extjs-builtins-theme-edge-')
+    const userOut = path.join(root, 'dist', 'edge')
+    const devtools = path.join(root, 'dist', 'extension-js-devtools', 'edge')
+    const theme = path.join(root, 'dist', 'extension-js-theme', 'edge')
+
+    for (const [dir, manifest] of [
+      [userOut, {name: 'User'}],
+      [devtools, {name: 'DevTools'}],
+      [theme, {name: 'Theme', theme: {}}]
+    ] as const) {
+      fs.mkdirSync(dir, {recursive: true})
+      fs.writeFileSync(
+        path.join(dir, 'manifest.json'),
+        JSON.stringify({manifest_version: 3, version: '0.0.0', ...manifest}),
+        'utf-8'
+      )
+    }
+
+    expect(
+      computeExtensionsToLoad(root, 'development', 'edge', userOut, [])
+    ).toEqual([devtools, userOut])
+  })
+
   it('skips built-in devtools when user source manifest defines newtab but output manifest is not built yet', () => {
     const root = tmpDir('extjs-devtools-source-manifest-')
     const userOut = path.join(root, 'dist', 'chrome')

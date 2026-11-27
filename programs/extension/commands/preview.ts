@@ -261,7 +261,9 @@ export function registerPreviewCommand(
               : await resolveConfigBrowser(
                   pathOrRemoteUrl || process.cwd(),
                   'preview',
-                  loadDevelop
+                  loadDevelop,
+                  undefined,
+                  false
                 ),
           chromiumBinary: previewOptions.chromiumBinary,
           geckoBinary: cliGeckoBinary(previewOptions)

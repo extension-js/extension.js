@@ -26,7 +26,12 @@ export type DevelopFor<K extends keyof DevelopModule = never> = Pick<
   DevelopModule,
   K
 > &
-  Partial<Pick<DevelopModule, 'loadCommandConfig'>>
+  Partial<
+    Pick<
+      DevelopModule,
+      'loadCommandConfig' | 'installMissingProjectDependencies'
+    >
+  >
 
 // The engine is refused at any other version, so its bridge has every export.
 export type DevelopBridge = typeof import('extension-develop/bridge')

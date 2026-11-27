@@ -192,13 +192,29 @@ async function runBuild(
       chromiumBinary: buildOptions?.chromiumBinary,
       geckoBinary: buildOptions?.geckoBinary || buildOptions?.firefoxBinary,
       safariBinary: buildOptions?.safariBinary,
-      configBrowser: async (stockBrowser) =>
-        (
-          await loadCommandConfig(packageJsonDir, commandKey, {
-            mode: resolvedMode,
-            browser: stockBrowser
-          })
-        ).browser
+      configBrowser: async (stockBrowser) => {
+        const read = async () =>
+          (
+            await loadCommandConfig(packageJsonDir, commandKey, {
+              mode: resolvedMode,
+              browser: stockBrowser
+            })
+          ).browser
+
+        try {
+          return await read()
+        } catch (error) {
+          // A config that resolves a declared package fails in a folder with
+          // no node_modules, so the install runs first and the read repeats.
+          if (buildOptions?.install === false) throw error
+
+          if (!(await ensureUserProjectDependencies(packageJsonDir))) {
+            throw error
+          }
+
+          return read()
+        }
+      }
     })
     const envTarget = {mode: resolvedMode, browser: String(browser)}
 

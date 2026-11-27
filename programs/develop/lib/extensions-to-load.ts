@@ -143,8 +143,10 @@ function resolveBuiltInExtensionForBrowser(input: {
 // --load-extension with a "Extension type is not supported" dialog, so the
 // first thing an Opera user saw from us was a load error for a cosmetic
 // companion. Yandex answers "Themes are not supported" over CDP, the only
-// route that loads anything there. Every other Chromium target takes the theme.
+// route that loads anything there. Edge loads it, then shows an "Installed
+// theme, Undo" bar on every launch that no flag hides. The rest take the theme.
 const THEME_REFUSING_BROWSERS: ReadonlySet<string> = new Set([
+  'edge',
   'opera',
   'yandex'
 ])

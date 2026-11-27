@@ -40,7 +40,12 @@ export const READY_EVENT_TYPES = [
 export function readyContractErrorCode(code: unknown): ErrorCode | undefined {
   if (typeof code !== 'string') return undefined
 
-  return READY_CONTRACT_CODES[code.trim().toLowerCase()]
+  const key = code.trim().toLowerCase()
+
+  // A name every object inherits, such as constructor, is not a code.
+  return Object.prototype.hasOwnProperty.call(READY_CONTRACT_CODES, key)
+    ? READY_CONTRACT_CODES[key]
+    : undefined
 }
 
 // The launcher stamps the code it refused with beside the generic id, and a

@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {resolveConfigBrowser} from '../config-browser'
+import {loadExtensionDevelopModule} from '../extension-develop-runtime'
 
 const makeTempFolder = trackTempFolders()
 
@@ -70,5 +71,94 @@ describe('the probe that finds the browser in the config', () => {
     await expect(
       resolveConfigBrowser(projectWith({}), 'dev')
     ).resolves.toBeUndefined()
+  })
+})
+
+// A fresh checkout has no node_modules, and this config resolves a declared
+// package where the file loads, so it only reads once the install has run.
+function projectResolvingADependency(): string {
+  const dir = makeTempFolder('extjs-config-browser-')
+
+  fs.writeFileSync(
+    path.join(dir, 'package.json'),
+    '{"name":"probe","type":"module","dependencies":{"probe-dep":"1.0.0"}}'
+  )
+
+  fs.writeFileSync(
+    path.join(dir, 'extension.config.js'),
+    "import {createRequire} from 'node:module'\n" +
+      "createRequire(import.meta.url).resolve('probe-dep')\n" +
+      "export default {commands: {build: {browser: 'firefox'}}}\n"
+  )
+
+  return dir
+}
+
+function putDependencyInPlace(dir: string) {
+  const dependency = path.join(dir, 'node_modules', 'probe-dep')
+
+  fs.mkdirSync(dependency, {recursive: true})
+  fs.writeFileSync(
+    path.join(dependency, 'package.json'),
+    '{"name":"probe-dep","version":"1.0.0","main":"index.js"}'
+  )
+
+  fs.writeFileSync(path.join(dependency, 'index.js'), 'module.exports = 1\n')
+}
+
+describe('the probe in a folder whose packages are not installed yet', () => {
+  // The real engine loads the config, so Node's own module cache is in play.
+  const engineInstalling =
+    (installs: string[], installed: boolean) => async () => {
+      const develop = await loadExtensionDevelopModule()
+
+      return {
+        loadCommandConfig: develop.loadCommandConfig,
+        installMissingProjectDependencies: async (projectPath: string) => {
+          installs.push(projectPath)
+          if (installed) putDependencyInPlace(projectPath)
+
+          return installed
+        }
+      }
+    }
+
+  it('installs, then finds the browser the config names', async () => {
+    const dir = projectResolvingADependency()
+    const installs: string[] = []
+
+    await expect(
+      resolveConfigBrowser(dir, 'build', engineInstalling(installs, true))
+    ).resolves.toBe('firefox')
+
+    expect(installs).toEqual([dir])
+  })
+
+  it('answers unset without installing when the run installs nothing', async () => {
+    const dir = projectResolvingADependency()
+    const installs: string[] = []
+
+    await expect(
+      resolveConfigBrowser(
+        dir,
+        'build',
+        engineInstalling(installs, true),
+        undefined,
+        false
+      )
+    ).resolves.toBeUndefined()
+
+    expect(installs).toEqual([])
+  })
+
+  it('answers unset when there was nothing to install', async () => {
+    const dir = projectResolvingADependency()
+    const installs: string[] = []
+
+    await expect(
+      resolveConfigBrowser(dir, 'build', engineInstalling(installs, false))
+    ).resolves.toBeUndefined()
+
+    expect(installs).toEqual([dir])
   })
 })

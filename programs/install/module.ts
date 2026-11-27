@@ -101,7 +101,8 @@ import {
   PRIVILEGE_PROMPT_WAIT_MS,
   prepareInstall,
   runCommand,
-  type SystemEdgeLookup
+  type SystemEdgeLookup,
+  sudoNeedsNoPassword
 } from './lib/runner'
 
 export interface InstallOptions extends InstallPlanOptions {
@@ -123,6 +124,7 @@ export interface InstallOptions extends InstallPlanOptions {
   // Each one left out is read from the process and the disk.
   stdinIsTTY?: boolean
   isRoot?: boolean
+  sudoNeedsNoPassword?: () => boolean
   systemEdge?: SystemEdgeLookup
   removeTree?: (dir: string) => void
   // The clock, the wait and the pid check of the one-install-at-a-time lock.
@@ -522,6 +524,7 @@ export async function extensionInstall(options: InstallOptions): Promise<void> {
     cwd,
     stdinIsTTY,
     isRoot = process.getuid?.() === 0,
+    sudoNeedsNoPassword: sudoIsFree = sudoNeedsNoPassword,
     systemEdge,
     lock: lockSeams = {}
   } = options
@@ -530,8 +533,8 @@ export async function extensionInstall(options: InstallOptions): Promise<void> {
   const destination = resolveBrowserInstallDir(target, cacheRoot)
   const edgeLookup = {platform, env, ...systemEdge}
 
-  // Playwright needs sudo to prompt only when Edge is absent and the process
-  // is not root, so those two are asked before the session is refused.
+  // Playwright needs sudo to prompt only when Edge is absent, the process is
+  // not root and sudo wants a password, so all three are asked before refusing.
   if (
     target === 'edge' &&
     edgeInstallNeedsInteractivePrivilegedSession(platform, stdinIsTTY)
@@ -546,7 +549,7 @@ export async function extensionInstall(options: InstallOptions): Promise<void> {
       return
     }
 
-    if (!isRoot) {
+    if (!isRoot && !sudoIsFree()) {
       throw new BrowserInstallPrivilegeError(
         messages.edgeInstallNeedsInteractivePrivilegedSession()
       )

@@ -31,7 +31,7 @@ import {
   resolvePackageManager,
   workspaceManagerOverride
 } from './package-manager'
-import {type AbsolutePath, needsInstall} from './paths'
+import {type AbsolutePath, asAbsolute, needsInstall} from './paths'
 import {readProjectDependencies} from './project-manifest'
 
 // Under machine output stdout carries only the envelope, so the manager's
@@ -171,14 +171,16 @@ function isProjectInstallSkippedByEnv(): boolean {
   return raw === '1' || raw === 'true'
 }
 
+// Answers whether it installed, so a caller whose config failed to load
+// knows a second read can find the packages the first one could not.
 export async function ensureUserProjectDependencies(
   packageJsonDir: AbsolutePath,
   retry?: InstallRetryOptions
-) {
-  if (isProjectInstallSkippedByEnv()) return
+): Promise<boolean> {
+  if (isProjectInstallSkippedByEnv()) return false
 
   const member = findWorkspaceMember(packageJsonDir)
-  if (!needsInstall(packageJsonDir, member?.root)) return
+  if (!needsInstall(packageJsonDir, member?.root)) return false
 
   // A member's lockfile lives at its workspace root, so the manager is read there.
   const pm =
@@ -207,6 +209,16 @@ export async function ensureUserProjectDependencies(
     directDependencyNames(packageJsonDir),
     retry
   )
+
+  return true
+}
+
+// The CLI reads the config for its browser before the engine runs. A config
+// that resolves a declared package only loads once the install has run.
+export function installMissingProjectDependencies(
+  projectPath: string
+): Promise<boolean> {
+  return ensureUserProjectDependencies(asAbsolute(path.resolve(projectPath)))
 }
 
 // Only a source checkout carries the build config. An installed copy that
@@ -331,7 +343,10 @@ export async function ensureDevelopArtifacts(
 
     throw codedError(
       CODES.E_INTERNAL,
-      messages.developArtifactsMissing(missing, {command: rebuild, developRoot})
+      messages.developArtifactsMissing(missing, {
+        command: rebuild,
+        developRoot
+      })
     )
   }
 

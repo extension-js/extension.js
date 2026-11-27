@@ -116,7 +116,9 @@ process.stdout.write('RESULT:' + JSON.stringify(outcome))
     const scriptPath = path.join(makeTempFolder('tmp-extjs-runner-'), 'run.mjs')
     fs.writeFileSync(scriptPath, script)
 
-    const run = spawnSync(process.execPath, [scriptPath], {encoding: 'utf-8'})
+    const run = spawnSync(process.execPath, [scriptPath], {
+      encoding: 'utf-8'
+    })
 
     return {
       status: run.status,
@@ -250,7 +252,11 @@ process.stdout.write('RESULT:' + JSON.stringify(outcome))
     const project = countedProject(name, body, type)
     const run = loadDevCommandConfig(project.dir)
 
-    expect(run).toMatchObject({status: 0, result: {code: 'E_CONFIG_LOAD'}})
+    expect(run).toMatchObject({
+      status: 0,
+      result: {code: 'E_CONFIG_LOAD'}
+    })
+
     expect(run.result?.cause).toContain(cause)
     expect(project.evaluations()).toBe(1)
   })
@@ -308,5 +314,36 @@ process.stdout.write('RESULT:' + JSON.stringify(outcome))
       status: 0,
       result: {config: {port: 4321}}
     })
+  })
+})
+
+// Node keeps a failed import under its URL, so the same read would fail
+// again after the install that brings the missing package.
+describe('a config that failed for a package that was not installed yet', () => {
+  it('loads on the next read once the package is in place', async () => {
+    const dir = makeProject(
+      {
+        'extension.config.js':
+          "import {createRequire} from 'node:module'\n" +
+          "createRequire(import.meta.url).resolve('probe-dep')\n" +
+          "export default {commands: {build: {browser: 'firefox'}}}\n"
+      },
+      'module'
+    )
+    const read = () => loadCommandConfig(dir, 'build', {mode: 'production'})
+
+    await expect(read()).rejects.toMatchObject({code: 'E_CONFIG_LOAD'})
+
+    const dependency = path.join(dir, 'node_modules', 'probe-dep')
+
+    fs.mkdirSync(dependency, {recursive: true})
+    fs.writeFileSync(
+      path.join(dependency, 'package.json'),
+      '{"name":"probe-dep","version":"1.0.0","main":"index.js"}'
+    )
+
+    fs.writeFileSync(path.join(dependency, 'index.js'), 'module.exports = 1\n')
+
+    await expect(read()).resolves.toMatchObject({browser: 'firefox'})
   })
 })
