@@ -727,9 +727,12 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
           installCmd === runner.command
             ? ['add', '--save-dev', cliTgz, createTgz, developTgz]
             : ['install', '--save-dev', cliTgz, createTgz, developTgz]
+        // npm takes 90 to 110 s for the three tarballs on a hosted Windows
+        // runner, which the default bound of one command does not cover.
         const installResult = runCommand(installCmd, installArgs, {
           cwd: projectPath,
-          env: baseEnv
+          env: baseEnv,
+          timeoutMs: process.platform === 'win32' ? 200_000 : undefined
         })
         expect(installResult.status).toBe(0)
         expect(existsSync(join(projectPath, 'node_modules'))).toBe(true)
