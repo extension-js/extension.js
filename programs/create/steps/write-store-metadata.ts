@@ -86,6 +86,8 @@ export async function writeStoreMetadata(
 
     await fs.writeFile(storePath, rewritten)
   } catch (error) {
+    // The listing name is advisory: the warning says to edit it by hand, and
+    // a scaffold that is otherwise good is never failed over it.
     logger.error(messages.writingStoreMetadataError(error))
   }
 }

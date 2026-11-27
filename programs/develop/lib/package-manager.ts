@@ -685,6 +685,39 @@ export function installScriptSuppression(pm: PackageManagerResolution): {
   return {args: ['--ignore-scripts'], env: {}}
 }
 
+const STRICT_DEP_BUILDS_ENV = 'pnpm_config_strict_dep_builds'
+
+// pnpm 11 and newer fail an install that leaves a dependency build nobody
+// approved. With scripts allowed that becomes pnpm's warning, unless the
+// project or the shell already decided the setting.
+export function unapprovedBuildsEnv(
+  pm: PackageManagerResolution,
+  cwd: string,
+  env: Record<string, string | undefined> = process.env
+): Record<string, string> {
+  if (pm.name !== 'pnpm') return {}
+  if (env.EXTENSION_ALLOW_INSTALL_SCRIPTS !== 'true') return {}
+
+  const decidedInShell = Object.keys(env).some(
+    (name) => name.toLowerCase() === STRICT_DEP_BUILDS_ENV
+  )
+
+  if (decidedInShell) return {}
+
+  try {
+    const workspace = fs.readFileSync(
+      path.join(cwd, 'pnpm-workspace.yaml'),
+      'utf8'
+    )
+
+    if (/^\s*strictDepBuilds\s*:/m.test(workspace)) return {}
+  } catch {
+    // Ignore: no workspace file means the project decided nothing.
+  }
+
+  return {[STRICT_DEP_BUILDS_ENV]: 'false'}
+}
+
 export function buildInstallCommand(
   pm: PackageManagerResolution,
   args: string[]

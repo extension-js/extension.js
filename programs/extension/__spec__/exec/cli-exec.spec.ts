@@ -115,7 +115,9 @@ function sleepSync(ms: number) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
 }
 
-function removeWorkspaceWithRetry(targetPath: string, attempts = 6) {
+// A hosted Windows runner can hold a finished build's folder for several
+// seconds, so the waits grow: about 16 s in all before a busy folder fails.
+function removeWorkspaceWithRetry(targetPath: string, attempts = 12) {
   let lastError: unknown
 
   for (let index = 0; index < attempts; index++) {
@@ -140,7 +142,7 @@ function removeWorkspaceWithRetry(targetPath: string, attempts = 6) {
         throw error
       }
 
-      sleepSync(150)
+      sleepSync(150 * (index + 1))
     }
   }
 
@@ -725,9 +727,12 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
           installCmd === runner.command
             ? ['add', '--save-dev', cliTgz, createTgz, developTgz]
             : ['install', '--save-dev', cliTgz, createTgz, developTgz]
+        // npm takes 90 to 110 s for the three tarballs on a hosted Windows
+        // runner, which the default bound of one command does not cover.
         const installResult = runCommand(installCmd, installArgs, {
           cwd: projectPath,
-          env: baseEnv
+          env: baseEnv,
+          timeoutMs: process.platform === 'win32' ? 200_000 : undefined
         })
         expect(installResult.status).toBe(0)
         expect(existsSync(join(projectPath, 'node_modules'))).toBe(true)

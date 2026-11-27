@@ -141,4 +141,31 @@ describe('writeStoreMetadata', () => {
       await fs.rm(dir, {recursive: true, force: true})
     }
   })
+
+  // The listing name is advisory, so a file that cannot be written is a
+  // warning that says what to edit, never a failed scaffold.
+  it('warns and carries on when the file cannot be written', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'extjs-create-store-'))
+    const storePath = path.join(dir, 'STORE.md')
+    const errors: string[] = []
+
+    try {
+      await fs.writeFile(storePath, TEMPLATE_STORE_MD)
+      await fs.chmod(storePath, 0o444)
+
+      await expect(
+        writeStoreMetadata(dir, 'my-extension', 'JavaScript Sidebar Example', {
+          log: () => undefined,
+          error: (line) => errors.push(String(line))
+        })
+      ).resolves.toBeUndefined()
+
+      expect(errors).toHaveLength(1)
+      expect(errors[0]).toContain("Couldn't update")
+      expect(await fs.readFile(storePath, 'utf8')).toBe(TEMPLATE_STORE_MD)
+    } finally {
+      await fs.chmod(storePath, 0o644)
+      await fs.rm(dir, {recursive: true, force: true})
+    }
+  })
 })
