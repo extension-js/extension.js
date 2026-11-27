@@ -93,7 +93,6 @@ import {
   type CommandResult,
   detectSystemEdgeBinary,
   edgeInstallNeedsInteractivePrivilegedSession,
-  sudoNeedsNoPassword,
   type InstallPlan,
   type InstallPlanOptions,
   installTimeoutMs,
@@ -102,7 +101,8 @@ import {
   PRIVILEGE_PROMPT_WAIT_MS,
   prepareInstall,
   runCommand,
-  type SystemEdgeLookup
+  type SystemEdgeLookup,
+  sudoNeedsNoPassword
 } from './lib/runner'
 
 export interface InstallOptions extends InstallPlanOptions {
