@@ -25,7 +25,7 @@ Works with `npm`, `pnpm`, `yarn`, `bun`, and `deno`.
 
 The CLI itself runs on Node.js 22.12+, Deno 2.5+, and Bun 1.2+.
 
-[Documentation](https://extension.js.org/docs) · [Examples](https://github.com/extension-js/templates) · [YouTube](https://www.youtube.com/@BrowserExtension) · [Showcase](https://extension.js.org/showcase) · [Blog](https://extension.js.org/blog)
+[Documentation](https://extension.js.org/docs) · [Templates](https://extension.js.org/templates) · [YouTube](https://www.youtube.com/@BrowserExtension) · [Showcase](https://extension.js.org/showcase) · [Blog](https://extension.js.org/blog)
 
 ## Why Extension.js
 
@@ -53,7 +53,7 @@ If you have used [Plasmo](https://www.plasmo.com), [WXT](https://wxt.dev), or [C
 | Managed browser binaries | `extension install firefox` downloads an isolated build |
 | Targeted content-script reload across browsers | Built in, only the changed entries re-inject, no plugin glue |
 | Production zip for the stores | `extension build --zip` |
-| Framework agnostic | [Vanilla](https://github.com/extension-js/templates/tree/main/examples/javascript), [TS](https://github.com/extension-js/templates/tree/main/examples/typescript), [React](https://github.com/extension-js/templates/tree/main/examples/react), [Vue](https://github.com/extension-js/templates/tree/main/examples/vue), [Svelte](https://github.com/extension-js/templates/tree/main/examples/svelte), [Preact](https://github.com/extension-js/templates/tree/main/examples/preact), no lock-in |
+| Framework agnostic | [Vanilla](https://extension.js.org/templates#javascript), [TS](https://extension.js.org/templates#typescript), [React](https://extension.js.org/templates#react), [Vue](https://extension.js.org/templates#vue), [Svelte](https://extension.js.org/templates#svelte), [Preact](https://extension.js.org/templates#preact), no lock-in |
 | Custom Chromium and Gecko binaries | `--chromium-binary`, `--gecko-binary` |
 
 ## Frameworks
@@ -62,7 +62,7 @@ If you have used [Plasmo](https://www.plasmo.com), [WXT](https://wxt.dev), or [C
 
 | <img alt="ESNext" src="https://github.com/cezaraugusto/extension.js/assets/4672033/a9e2541a-96f0-4caa-9fc9-5fc5c3e901c8" width="70"> | <img alt="TypeScript" src="https://github.com/cezaraugusto/extension.js/assets/4672033/b42c5330-9e2a-4045-99c3-1f7d264dfaf4" width="70"> | <img alt="WASM" src="https://github.com/cezaraugusto/extension.js/assets/4672033/f19edff3-9005-4f50-b05c-fba615896a7f" width="70"> | <img alt="React" src="https://github.com/cezaraugusto/extension.js/assets/4672033/ff64721d-d145-4213-930d-e70193f8d57e" width="70"> | <img alt="Vue" src="https://github.com/cezaraugusto/extension.js/assets/4672033/15f1314a-aa65-4ce2-a3f3-cf53c4f730cf" width="70"> | <img alt="Svelte" src="https://github.com/cezaraugusto/extension.js/assets/4672033/de1082fd-7cf6-4202-8c12-a5c3cd3e5b42" width="70"> | <img alt="Preact" src="https://github.com/cezaraugusto/extension.js/assets/4672033/8807efd9-93e5-4db5-a1d2-9ac524f7ecc2" width="70"> |
 | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
-| ESNext<br>[Try out](https://github.com/extension-js/templates/tree/main/examples/javascript) | TypeScript<br>[Try out](https://github.com/extension-js/templates/tree/main/examples/typescript) | WASM<br>[Try out](https://github.com/extension-js/templates/tree/main/examples/transformers-js) | React<br>[Try out](https://github.com/extension-js/templates/tree/main/examples/react) | Vue<br>[Try out](https://github.com/extension-js/templates/tree/main/examples/vue) | Svelte<br>[Try out](https://github.com/extension-js/templates/tree/main/examples/svelte) | Preact<br>[Try out](https://github.com/extension-js/templates/tree/main/examples/preact) |
+| ESNext<br>[Try out](https://extension.js.org/templates#javascript) | TypeScript<br>[Try out](https://extension.js.org/templates#typescript) | WASM<br>[Try out](https://extension.js.org/templates#transformers-js) | React<br>[Try out](https://extension.js.org/templates#react) | Vue<br>[Try out](https://extension.js.org/templates#vue) | Svelte<br>[Try out](https://extension.js.org/templates#svelte) | Preact<br>[Try out](https://extension.js.org/templates#preact) |
 
 </div>
 
@@ -182,13 +182,13 @@ npx extension@latest dev https://github.com/GoogleChrome/chrome-extensions-sampl
 
 Add Extension.js to a project, or run it once without installing, with the package manager you already use.
 
-| Package manager | Add to a project | Run without installing |
-| :-- | :-- | :-- |
-| npm | `npm install extension@latest --save-dev` | `npx extension@latest create my-extension` |
-| pnpm | `pnpm add extension@latest --save-dev` | `pnpm dlx extension@latest create my-extension` |
-| Yarn | `yarn add extension@latest --dev` | `yarn dlx extension@latest create my-extension` |
-| Bun | `bun add --dev extension@latest` | `bunx extension@latest create my-extension` |
-| Deno | `deno add npm:extension@latest` | `deno run -A npm:extension@latest create my-extension` |
+| | Package manager | Add to a project | Run without installing |
+| :-: | :-- | :-- | :-- |
+| <img alt="npm" src="https://media.extension.land/logos/package-managers/npm.svg" width="64"> | npm | `npm install extension@latest --save-dev` | `npx extension@latest create my-extension` |
+| <img alt="pnpm" src="https://media.extension.land/logos/package-managers/pnpm.svg" width="64"> | pnpm | `pnpm add extension@latest --save-dev` | `pnpm dlx extension@latest create my-extension` |
+| <img alt="Yarn" src="https://media.extension.land/logos/package-managers/yarn.svg" width="64"> | Yarn | `yarn add extension@latest --dev` | `yarn dlx extension@latest create my-extension` |
+| <img alt="Bun" src="https://media.extension.land/logos/package-managers/bun.svg" width="64"> | Bun | `bun add --dev extension@latest` | `bunx extension@latest create my-extension` |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="https://media.extension.land/logos/package-managers/deno-dark.svg"><img alt="Deno" src="https://media.extension.land/logos/package-managers/deno.svg" width="64"></picture> | Deno | `deno add npm:extension@latest` | `deno run -A npm:extension@latest create my-extension` |
 
 Which runtime the CLI then executes on is a separate question, answered below.
 
@@ -209,7 +209,7 @@ Extension.js collects a tiny amount of anonymous telemetry to understand which c
 - Star the repo if Extension.js helped you ship faster
 - Join the [Discord](https://discord.gg/BRqbPDfPxb) for help and feedback
 - Open issues and feature requests on [GitHub](https://github.com/extension-js/extension.js/issues)
-- Browse production-ready [examples](https://github.com/extension-js/templates)
+- Browse production-ready [templates](https://extension.js.org/templates)
 
 ## Sponsors
 
