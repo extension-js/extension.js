@@ -30,6 +30,7 @@ endSessionAsFailed
 extensionBuild
 extensionDev
 extensionPreview
+installMissingProjectDependencies
 loadCommandConfig
 loadProjectConfigDefaults"
 `;
@@ -231,6 +232,7 @@ endSessionAsFailed = develop/module#endSessionAsFailed
 extensionBuild = develop/module#extensionBuild
 extensionDev = develop/module#extensionDev
 extensionPreview = develop/module#extensionPreview
+installMissingProjectDependencies = develop/module#installMissingProjectDependencies
 loadCommandConfig = develop/module#loadCommandConfig
 loadProjectConfigDefaults = develop/module#loadProjectConfigDefaults
 
@@ -871,6 +873,9 @@ declare const extensionDev: typeof DevCommand;
 
 ## develop/module#extensionPreview
 declare const extensionPreview: typeof PreviewCommand;
+
+## develop/module#installMissingProjectDependencies
+declare const installMissingProjectDependencies: (projectPath: string) => Promise<boolean>;
 
 ## develop/module#loadCommandConfig
 declare const loadCommandConfig: (projectPath: string, command: 'dev' | 'build' | 'start' | 'preview', envTarget?: PublicConfigEnvTarget) => Promise<CommandLayerConfig>;

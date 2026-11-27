@@ -1091,7 +1091,22 @@ describe('extensionInstall on a temp cache root', () => {
       ])
     })
 
-    it('refuses on Linux without a terminal when Edge is absent and the process is not root', async () => {
+    it('installs on Linux without a terminal when sudo asks for no password', async () => {
+      const runInstaller = installerEnding({code: 0})
+
+      await install({
+        browser: 'edge',
+        stdinIsTTY: false,
+        isRoot: false,
+        sudoNeedsNoPassword: () => true,
+        runInstaller,
+        systemEdge: noSystemEdge
+      })
+
+      expect(runInstaller).toHaveBeenCalledTimes(1)
+    })
+
+    it('refuses on Linux without a terminal when Edge is absent, the process is not root and sudo wants a password', async () => {
       const runInstaller = installerEnding({code: 0})
       const lookup = vi.fn(() => null)
 
@@ -1099,6 +1114,7 @@ describe('extensionInstall on a temp cache root', () => {
         browser: 'edge',
         stdinIsTTY: false,
         isRoot: false,
+        sudoNeedsNoPassword: () => false,
         runInstaller,
         systemEdge: {exists: never, lookup, registry: never}
       })

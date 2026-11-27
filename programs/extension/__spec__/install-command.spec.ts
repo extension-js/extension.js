@@ -703,13 +703,17 @@ describe('extension install', () => {
     expect(frame.error?.message).toContain('brave cannot be installed')
   })
 
-  it('emits E_BROWSER_NOT_INSTALLABLE when install itself rejects a fork', async () => {
+  // The CLI lets a managed name through, so this refusal is install's own.
+  it('emits E_BROWSER_NOT_INSTALLABLE when install itself refuses the browser', async () => {
     vi.mocked(extensionInstall).mockRejectedValueOnce(
-      notInstallableError('brave')
+      notInstallableError('firefox')
     )
 
-    expect(await run(['install', 'brave', '--output', 'json'])).toBe(1)
+    expect(await run(['install', 'firefox', '--output', 'json'])).toBe(1)
+    expect(extensionInstall).toHaveBeenCalledTimes(1)
+
     const frame = wholeStdout()
+
     expect(frame.status).toBe('usage')
     expect((frame.error as {code: string}).code).toBe(
       'E_BROWSER_NOT_INSTALLABLE'

@@ -39,4 +39,8 @@
 
 ## Also
 
+- A first `build` in a folder with no `node_modules` no longer fails when `extension.config.js` resolves a declared package as the file loads, and the browser that config names is kept.
+- `extension dev --browser=edge` no longer opens with Edge's "Installed theme, Undo" bar, since the Extension.js theme is left out on Edge.
+- `extension install edge` on Linux runs without a terminal when `sudo` asks for no password, as on a CI runner or in a container.
+
 ## Upgrade notes

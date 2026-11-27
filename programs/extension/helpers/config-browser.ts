@@ -23,21 +23,38 @@ export async function resolveConfigBrowser(
   command: 'dev' | 'build' | 'start' | 'preview',
   loadDevelop: () => Promise<DevelopFor> = loadExtensionDevelopModule,
   // The mode a build was asked for. Unset, it follows the command.
-  mode?: string
+  mode?: string,
+  // False when the run was told not to install, or never installs.
+  install?: boolean
 ): Promise<string | undefined> {
   try {
     const develop: DevelopFor = await loadDevelop()
-    if (typeof develop.loadCommandConfig !== 'function') return undefined
+    const load = develop.loadCommandConfig
+    if (typeof load !== 'function') return undefined
 
-    const config = await develop.loadCommandConfig(projectPath, command, {
-      mode: mode || undefined,
-      browser: STOCK_BROWSER
-    })
-    const browser = config.browser
+    const read = async () => {
+      const {browser} = await load(projectPath, command, {
+        mode: mode || undefined,
+        browser: STOCK_BROWSER
+      })
 
-    return typeof browser === 'string' && browser.length > 0
-      ? browser
-      : undefined
+      return typeof browser === 'string' && browser.length > 0
+        ? browser
+        : undefined
+    }
+
+    try {
+      return await read()
+    } catch (error) {
+      // A config that resolves a declared package fails in a folder with no
+      // node_modules, so the install runs first and the read repeats.
+      const installMissing = develop.installMissingProjectDependencies
+
+      if (install === false || typeof installMissing !== 'function') throw error
+      if (!(await installMissing(projectPath))) throw error
+
+      return await read()
+    }
   } catch {
     // The engine loads the same config before it builds or launches and fails
     // the run with its own code, so answering unset here keeps one report.

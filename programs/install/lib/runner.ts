@@ -665,6 +665,19 @@ export function edgeInstallNeedsInteractivePrivilegedSession(
   return platform === 'linux' && !(stdinIsTTY ?? process.stdin?.isTTY)
 }
 
+// A CI runner or a container user often has sudo without a password, and
+// Playwright then needs no prompt. -n makes sudo answer instead of asking.
+export function sudoNeedsNoPassword(): boolean {
+  try {
+    return (
+      spawnSync('sudo', ['-n', 'true'], {stdio: 'ignore', timeout: 5000})
+        .status === 0
+    )
+  } catch {
+    return false
+  }
+}
+
 // The lines sudo and su print when they could not get a password. Playwright
 // announces the switch to root before every attempt, so that line says nothing.
 const ESCALATION_FAILURES = [

@@ -217,6 +217,7 @@ interface InstallOptions extends InstallPlanOptions {
     runInstaller?: typeof runCommand;
     stdinIsTTY?: boolean;
     isRoot?: boolean;
+    sudoNeedsNoPassword?: () => boolean;
     systemEdge?: SystemEdgeLookup;
     removeTree?: (dir: string) => void;
     lock?: LockSeams;

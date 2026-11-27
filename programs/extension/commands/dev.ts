@@ -378,7 +378,9 @@ export function registerDevCommand(
               : await resolveConfigBrowser(
                   pathOrRemoteUrl || process.cwd(),
                   'dev',
-                  loadDevelop
+                  loadDevelop,
+                  undefined,
+                  devOptions.install
                 ),
           chromiumBinary: devOptions.chromiumBinary,
           geckoBinary: cliGeckoBinary(devOptions)

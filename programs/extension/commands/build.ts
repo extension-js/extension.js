@@ -267,7 +267,8 @@ export function registerBuildCommand(
             pathOrRemoteUrl || process.cwd(),
             'build',
             loadDevelop,
-            buildOptions.mode?.trim().toLowerCase()
+            buildOptions.mode?.trim().toLowerCase(),
+            buildOptions.install
           )) as BuildOptions['browser']) ??
           'chromium'
 
@@ -360,7 +361,10 @@ export function registerBuildCommand(
             console.error(messages.usageRefusal(message))
           }
 
-          failAndExit(asJson, 'usage', {code: CODES.E_INVALID_OPTION, message})
+          failAndExit(asJson, 'usage', {
+            code: CODES.E_INVALID_OPTION,
+            message
+          })
         }
 
         const missingFolder = missingProjectFolder(pathOrRemoteUrl)

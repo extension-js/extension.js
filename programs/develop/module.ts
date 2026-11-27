@@ -47,14 +47,16 @@ import type {
 // variable again, so every module that reaches rspack loads after this call.
 ensureRustMinStack()
 
-const [build, dev, preview, browsers, config, sessionEnd] = await Promise.all([
-  import('./command-build'),
-  import('./command-dev'),
-  import('./command-preview'),
-  import('./plugin-browsers'),
-  import('./lib/config-loader'),
-  import('./dev-server/session-end')
-])
+const [build, dev, preview, browsers, config, sessionEnd, artifacts] =
+  await Promise.all([
+    import('./command-build'),
+    import('./command-dev'),
+    import('./command-preview'),
+    import('./plugin-browsers'),
+    import('./lib/config-loader'),
+    import('./dev-server/session-end'),
+    import('./lib/ensure-develop-artifacts')
+  ])
 
 export const extensionBuild: typeof BuildCommand = build.extensionBuild
 export const extensionDev: typeof DevCommand = dev.extensionDev
@@ -75,6 +77,11 @@ export const loadCommandConfig = (
     command,
     config.envTargetOf(command, envTarget)
   )
+// Installs a project's declared packages when none are in place, and answers
+// whether it did. A config that failed to load is worth one more read then.
+export const installMissingProjectDependencies: (
+  projectPath: string
+) => Promise<boolean> = artifacts.installMissingProjectDependencies
 export const loadProjectConfigDefaults = (
   projectPath: string,
   envTarget?: PublicConfigEnvTarget

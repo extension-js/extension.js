@@ -34,7 +34,8 @@ export function boring(
 
   const {errors, warnings, warningsListed} = report
 
-  // One glyph across all five channels; the color carries the severity.
+  // One glyph across all five channels. Color carries the severity, and a
+  // word says it when color is off.
   const arrow =
     errors > 0
       ? prefix('error', 'Error')

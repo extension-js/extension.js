@@ -850,6 +850,21 @@ function canRetryAsCommonJs(absolutePath: string, importError: unknown) {
   )
 }
 
+// Node keeps a failed import under its URL and throws it again, so a retry
+// after the cause is gone, such as a dependency install, needs its own URL.
+const failedConfigImports = new Map<string, number>()
+
+function configImportUrl(absolutePath: string, earlierRuns: number) {
+  const failedRuns = failedConfigImports.get(absolutePath) || 0
+  const query = [
+    earlierRuns > 0 ? `env=${earlierRuns}` : '',
+    failedRuns > 0 ? `retry=${failedRuns}` : ''
+  ].filter(Boolean)
+  const fileUrl = pathToFileURL(absolutePath).href
+
+  return query.length > 0 ? `${fileUrl}?${query.join('&')}` : fileUrl
+}
+
 async function loadConfigFileUncached(
   absolutePath: string
 ): Promise<FileConfig> {
@@ -880,14 +895,16 @@ async function loadConfigFileUncached(
     // and import.meta.dirname is the project, which a temp copy both broke.
     prepareImportMetaEnv(absolutePath)
 
-    const fileUrl = pathToFileURL(absolutePath).href
-    const module = await import(
-      earlierRuns > 0 ? `${fileUrl}?env=${earlierRuns}` : fileUrl
-    )
+    const module = await import(configImportUrl(absolutePath, earlierRuns))
 
     return unwrapDefaultExport(module) as FileConfig
   } catch (err: unknown) {
     let reason = err
+
+    failedConfigImports.set(
+      absolutePath,
+      (failedConfigImports.get(absolutePath) || 0) + 1
+    )
 
     claimRejectionOf(err)
 

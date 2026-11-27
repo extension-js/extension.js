@@ -289,6 +289,11 @@ describe('the error-code table', () => {
 
     expect(readyContractErrorCode('something_else')).toBeUndefined()
     expect(readyContractErrorCode(undefined)).toBeUndefined()
+
+    // A name every object inherits is not a code the table declares.
+    for (const inherited of ['constructor', '__proto__', 'toString']) {
+      expect(readyContractErrorCode(inherited)).toBeUndefined()
+    }
   })
 
   it('maps every legacy PascalCase error name onto the table', () => {
