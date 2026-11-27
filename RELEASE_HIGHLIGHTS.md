@@ -41,6 +41,7 @@
 
 - A first `build` in a folder with no `node_modules` no longer fails when `extension.config.js` resolves a declared package as the file loads, and the browser that config names is kept.
 - `extension dev --browser=edge` no longer opens with Edge's "Installed theme, Undo" bar, since the Extension.js theme is left out on Edge.
+- With `EXTENSION_ALLOW_INSTALL_SCRIPTS=true`, an install on pnpm 11 or newer no longer fails when a dependency has a build script nobody approved. pnpm's own warning names it.
 - `extension install edge` on Linux runs without a terminal when `sudo` asks for no password, as on a CI runner or in a container.
 
 ## Upgrade notes

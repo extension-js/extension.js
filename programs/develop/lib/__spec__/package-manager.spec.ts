@@ -44,7 +44,8 @@ import {
   projectInstallArgs,
   projectInstallTarget,
   readPnpmWorkspacePackages,
-  resolvePackageManager
+  resolvePackageManager,
+  unapprovedBuildsEnv
 } from '../package-manager'
 
 describe('package-manager resolution', () => {
@@ -746,5 +747,51 @@ describe('installScriptSuppression: auto-install must not run wild lifecycle scr
       args: [],
       env: {}
     })
+  })
+})
+
+// pnpm 11 and newer exit 1 on ERR_PNPM_IGNORED_BUILDS when a dependency has
+// a build script nobody approved, after the install itself succeeded.
+describe('unapprovedBuildsEnv: an install with scripts allowed on pnpm', () => {
+  const allowed = {EXTENSION_ALLOW_INSTALL_SCRIPTS: 'true'}
+  const emptyDir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-builds-'))
+
+  it('turns the refusal of unapproved builds into a warning', () => {
+    expect(unapprovedBuildsEnv({name: 'pnpm'}, emptyDir(), allowed)).toEqual({
+      pnpm_config_strict_dep_builds: 'false'
+    })
+  })
+
+  it('adds nothing while scripts are off, since nothing would build', () => {
+    expect(unapprovedBuildsEnv({name: 'pnpm'}, emptyDir(), {})).toEqual({})
+  })
+
+  it.each([
+    'npm',
+    'yarn',
+    'bun',
+    'deno'
+  ] as const)('adds nothing for %s', (name) => {
+    expect(unapprovedBuildsEnv({name}, emptyDir(), allowed)).toEqual({})
+  })
+
+  it('leaves a setting the shell already made', () => {
+    expect(
+      unapprovedBuildsEnv({name: 'pnpm'}, emptyDir(), {
+        ...allowed,
+        PNPM_CONFIG_STRICT_DEP_BUILDS: 'true'
+      })
+    ).toEqual({})
+  })
+
+  it('leaves a setting the workspace file already made', () => {
+    const dir = emptyDir()
+
+    fs.writeFileSync(
+      path.join(dir, 'pnpm-workspace.yaml'),
+      'packages:\n  - .\nstrictDepBuilds: true\n'
+    )
+
+    expect(unapprovedBuildsEnv({name: 'pnpm'}, dir, allowed)).toEqual({})
   })
 })

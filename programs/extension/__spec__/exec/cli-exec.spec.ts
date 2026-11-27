@@ -115,7 +115,9 @@ function sleepSync(ms: number) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
 }
 
-function removeWorkspaceWithRetry(targetPath: string, attempts = 6) {
+// A hosted Windows runner can hold a finished build's folder for several
+// seconds, so the waits grow: about 16 s in all before a busy folder fails.
+function removeWorkspaceWithRetry(targetPath: string, attempts = 12) {
   let lastError: unknown
 
   for (let index = 0; index < attempts; index++) {
@@ -140,7 +142,7 @@ function removeWorkspaceWithRetry(targetPath: string, attempts = 6) {
         throw error
       }
 
-      sleepSync(150)
+      sleepSync(150 * (index + 1))
     }
   }
 

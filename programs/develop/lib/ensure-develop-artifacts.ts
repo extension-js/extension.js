@@ -29,6 +29,7 @@ import {
   installScriptSuppression,
   projectInstallTarget,
   resolvePackageManager,
+  unapprovedBuildsEnv,
   workspaceManagerOverride
 } from './package-manager'
 import {type AbsolutePath, asAbsolute, needsInstall} from './paths'
@@ -205,7 +206,10 @@ export async function ensureUserProjectDependencies(
   await installWithRegistryRetry(
     pm.name,
     cmd,
-    {cwd: target.cwd, env: suppression.env},
+    {
+      cwd: target.cwd,
+      env: {...suppression.env, ...unapprovedBuildsEnv(pm, target.cwd)}
+    },
     directDependencyNames(packageJsonDir),
     retry
   )
