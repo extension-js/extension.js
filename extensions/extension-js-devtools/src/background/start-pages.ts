@@ -19,11 +19,16 @@ export type RepointDecision = 'wait' | 'repoint' | 'stop'
 // reader gets no sign the extension loaded.
 export const START_PAGES_WITHOUT_NEW_TAB: readonly RegExp[] = [
   /^chrome:\/\/startpage(?:shared)?\/?/,
+  // Chromium serves the new tab page from here when the remote one is out
+  // of reach, as Edge does offline.
+  /^chrome-search:\/\/local-ntp\//,
   // Vivaldi 8.3 moved its start page here from chrome://startpage.
   /^chrome:\/\/vivaldi-webui\/startpage(?:[/?#]|$)/,
   /^https:\/\/(?:[a-z0-9-]+\.)*msn\.com\//i,
   /^https:\/\/(?:[a-z0-9-]+\.)*(?:ya\.ru|yandex\.[a-z.]+)\//i
 ]
+
+const PLAIN_NEW_TAB = /^(?:chrome|edge):\/\/(?:newtab|welcome)/
 
 export function isStartPage(url: string, browser: string | undefined): boolean {
   if (browser === 'firefox') {
@@ -35,11 +40,10 @@ export function isStartPage(url: string, browser: string | undefined): boolean {
     )
   }
 
-  const scheme = browser === 'edge' ? 'edge' : 'chrome'
-
+  // Both schemes count on every Chromium target: Edge launched through
+  // --chromium-binary runs the chromium build and still reports edge://.
   return (
-    url.startsWith(`${scheme}://newtab`) ||
-    url.startsWith(`${scheme}://welcome`) ||
+    PLAIN_NEW_TAB.test(url) ||
     START_PAGES_WITHOUT_NEW_TAB.some((pattern) => pattern.test(url))
   )
 }
