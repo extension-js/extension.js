@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {sessionBrowser} from './session-flags'
-import {decideRepoint} from './start-pages'
+import {decideRepoint, isStartPage} from './start-pages'
 
 export async function getDevExtensions() {
   try {
@@ -117,6 +117,40 @@ function repointTab(tabId: number, url: string, browser?: string) {
   chrome.tabs.update(tabId, {url})
 }
 
+// Chromium pins its launch warnings to the tab it starts with, such as the
+// unsupported flag bar, so that tab is replaced instead of reused.
+function swapStartTab(tabId: number, url?: string, browser?: string) {
+  const reuse = () => {
+    if (url) repointTab(tabId, url, browser)
+  }
+
+  try {
+    chrome.tabs.create(
+      url ? {url, active: false, index: 0} : {active: true, index: 0},
+      (created) => {
+        if (chrome.runtime.lastError || typeof created?.id !== 'number') {
+          reuse()
+
+          return
+        }
+
+        // Another tool may have taken the start tab since it was checked.
+        chrome.tabs.get(tabId, (current) => {
+          if (chrome.runtime.lastError || !current) return
+
+          const at = String(current.url || current.pendingUrl || '')
+
+          if (at && !isStartPage(at, browser)) return
+
+          chrome.tabs.remove(tabId, () => void chrome.runtime.lastError)
+        })
+      }
+    )
+  } catch {
+    reuse()
+  }
+}
+
 export type FirstRunOptions = {
   // The CLI is about to load a starting URL into the launch tab, so the
   // welcome page opens without taking the window.
@@ -146,6 +180,12 @@ export async function handleFirstRun(
     const stored = result?.[storageKey] as {didRun?: boolean} | undefined
 
     if (stored?.didRun) {
+      // No welcome page on a later run, and the start tab still carries
+      // the launch warnings, so a clean new tab takes its place.
+      if (!isFirefox && typeof startTabId === 'number') {
+        swapStartTab(startTabId, undefined, browser)
+      }
+
       return
     }
 
@@ -204,14 +244,10 @@ export async function handleFirstRun(
       } else {
         opened = await createTab({url: welcomeUrl, active: true})
 
-        // Then update the original active tab to the extensions page
-        // in the background (avoid stealing focus on Edge).
+        // The extensions page opens behind the welcome page, in a new tab
+        // that replaces the start tab.
         if (typeof startTabId === 'number') {
-          try {
-            repointTab(startTabId, extensionsPage, browser)
-          } catch {
-            console.error('Error updating original active tab')
-          }
+          swapStartTab(startTabId, extensionsPage, browser)
         }
       }
     } catch {

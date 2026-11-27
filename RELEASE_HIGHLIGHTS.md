@@ -44,5 +44,6 @@
 - With `EXTENSION_ALLOW_INSTALL_SCRIPTS=true`, an install on pnpm 11 or newer no longer fails when a dependency has a build script nobody approved. pnpm's own warning names it.
 - `extension install edge` on Linux runs without a terminal when `sudo` asks for no password, as on a CI runner or in a container.
 - Edge opens the welcome page when it starts offline, and when it is launched through `--chromium-binary`.
+- A headed Chromium session no longer shows the "unsupported command-line flag" bar on its extensions tab. With `--starting-url` the bar still shows on the tab that loads the URL.
 
 ## Upgrade notes
