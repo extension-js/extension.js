@@ -10,8 +10,26 @@ describe('isStartPage', () => {
     expect(isStartPage('chrome://newtab/', 'chromium')).toBe(true)
     expect(isStartPage('chrome://welcome/', 'chrome')).toBe(true)
     expect(isStartPage('edge://newtab/', 'edge')).toBe(true)
+    expect(isStartPage('edge://welcome/', 'edge')).toBe(true)
     expect(isStartPage('about:home', 'firefox')).toBe(true)
     expect(isStartPage('about:blank', 'firefox')).toBe(true)
+  })
+
+  it('takes the Edge scheme on the chromium build, for --chromium-binary', () => {
+    expect(isStartPage('edge://newtab/', 'chromium')).toBe(true)
+    expect(isStartPage('edge://welcome/', 'chromium')).toBe(true)
+    expect(isStartPage('edge://extensions/', 'chromium')).toBe(false)
+    expect(isStartPage('edge://newtab/', 'firefox')).toBe(false)
+  })
+
+  it('takes the local new tab page a browser serves offline', () => {
+    const local = 'chrome-search://local-ntp/local-ntp.html'
+
+    expect(isStartPage(local, 'edge')).toBe(true)
+    expect(isStartPage(local, 'chromium')).toBe(true)
+    expect(isStartPage(local, 'chrome')).toBe(true)
+    expect(isStartPage('chrome-search://most-visited/', 'edge')).toBe(false)
+    expect(isStartPage(local, 'firefox')).toBe(false)
   })
 
   it('takes the start pages of browsers that never open a new tab', () => {
