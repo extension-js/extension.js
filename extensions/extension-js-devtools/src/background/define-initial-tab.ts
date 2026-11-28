@@ -48,6 +48,9 @@ export async function getDevExtension() {
   return devExtensions[devExtensions.length - 1]
 }
 
+// Longer than the CLI's developer mode check can keep its tab open.
+const EXTENSIONS_TAB_WATCH_MS = 30000
+
 // Adapted from https://github.com/jeremyben/webpack-chrome-extension-launcher
 // (MIT license).
 
@@ -60,11 +63,7 @@ export function createExtensionsPageTab(initialTab: chrome.tabs.Tab) {
   const scheme = isFirefox ? 'about' : isEdge ? 'edge' : 'chrome'
   const extensionsPage = isFirefox ? 'about:addons' : `${scheme}://extensions/`
 
-  chrome.tabs.query({url: extensionsPage}, (tabs) => {
-    const extensionsTabExist = tabs.length > 0
-
-    if (extensionsTabExist) return
-
+  const open = () => {
     chrome.tabs.create(
       {url: extensionsPage, active: false},
       function setBackgroundTab(extensionsTab) {
@@ -78,6 +77,37 @@ export function createExtensionsPageTab(initialTab: chrome.tabs.Tab) {
           }, 500)
         })
       }
+    )
+  }
+
+  chrome.tabs.query({url: extensionsPage}, (tabs) => {
+    const found = (Array.isArray(tabs) ? tabs : [])
+      .map((tab) => tab.id)
+      .filter((id): id is number => typeof id === 'number')
+
+    if (found.length === 0) {
+      open()
+
+      return
+    }
+
+    // The CLI opens this page for a moment to switch developer mode on, then
+    // closes it. A tab found here can be that one, so its closing is watched.
+    const onRemoved = (removedId: number) => {
+      if (!found.includes(removedId)) return
+
+      chrome.tabs.query({url: extensionsPage}, (left) => {
+        if (Array.isArray(left) && left.length > 0) return
+
+        chrome.tabs.onRemoved.removeListener(onRemoved)
+        open()
+      })
+    }
+
+    chrome.tabs.onRemoved.addListener(onRemoved)
+    setTimeout(
+      () => chrome.tabs.onRemoved.removeListener(onRemoved),
+      EXTENSIONS_TAB_WATCH_MS
     )
   })
 }
