@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {DevAdditionEntry} from '../../browsers-lib/ready-stamp'
 import {isManagedEphemeralProfile} from '../../browsers-lib/shared-utils'
+import {closeUtilityTab} from './close-utility-tab'
 import {
   type DeveloperModeTransport,
   developerModeFlipIsSafe,
@@ -191,7 +192,7 @@ export async function ensureStartupNewTab(options: {
   } finally {
     if (targetId) {
       try {
-        await transport.sendCommand('Target.closeTarget', {targetId})
+        await closeUtilityTab(transport, targetId)
       } catch {
         // best-effort, the tab goes with the browser anyway
       }
