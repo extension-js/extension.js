@@ -101,7 +101,11 @@ describe('the launch argv', () => {
 })
 
 describe('Chromium opens the starting url after install', () => {
-  function makeController(outPath: string, targetLists: unknown[][]) {
+  function makeController(
+    outPath: string,
+    targetLists: unknown[][],
+    newTargetId: string | null = 'n1'
+  ) {
     const controller = controllerInternals(
       new CDPExtensionController({
         outPath,
@@ -124,6 +128,10 @@ describe('Chromium opens the starting url after install', () => {
         async (method: string, params: unknown, sessionId?: string) => {
           commands.push([method, params, sessionId])
 
+          if (method === 'Target.createTarget') {
+            return {targetId: newTargetId ?? undefined}
+          }
+
           return method === 'Target.attachToTarget' ? {sessionId: 's1'} : {}
         }
       )
@@ -132,7 +140,7 @@ describe('Chromium opens the starting url after install', () => {
     return {controller, commands}
   }
 
-  it("waits for the extension's background before navigating the blank launch tab", async () => {
+  it("waits for the extension's background, then opens the page in a new tab and closes the launch tab", async () => {
     const outPath = makeDist({
       manifest_version: 3,
       background: {service_worker: 'sw.js'}
@@ -152,25 +160,40 @@ describe('Chromium opens the starting url after install', () => {
 
     await expect(
       controller.openStartingUrl(URL, {intervalMs: 0})
-    ).resolves.toBe('navigated')
+    ).resolves.toBe('replaced')
 
     expect(controller.cdp.getTargets).toHaveBeenCalledTimes(4)
     expect(commands).toEqual([
+      ['Target.createTarget', {url: URL}, undefined],
+      ['Target.closeTarget', {targetId: 'p1'}, undefined],
+      ['Target.activateTarget', {targetId: 'n1'}, undefined]
+    ])
+  })
+
+  // Closing the launch tab with nothing beside it would close the window.
+  it('navigates the launch tab when the new tab was not made', async () => {
+    const outPath = makeDist({manifest_version: 3})
+    const blank = {type: 'page', targetId: 'p1', url: 'about:blank'}
+    const {controller, commands} = makeController(outPath, [[blank]], null)
+
+    await expect(
+      controller.openStartingUrl(URL, {intervalMs: 0})
+    ).resolves.toBe('navigated')
+
+    expect(commands).toEqual([
+      ['Target.createTarget', {url: URL}, undefined],
       ['Target.attachToTarget', {targetId: 'p1', flatten: true}, undefined],
       ['Page.navigate', {url: URL}, 's1']
     ])
   })
 
   // A caller that reads something just ahead of the page hears once, right
-  // before the command that starts the navigation.
-  it('tells the caller once, just before it navigates or opens the tab', async () => {
+  // before the command that opens it.
+  it('tells the caller once, just before it opens the tab', async () => {
     const outPath = makeDist({manifest_version: 3})
     const blank = {type: 'page', targetId: 'p1', url: 'about:blank'}
 
-    for (const [targets, command] of [
-      [[blank], 'Page.navigate'],
-      [[], 'Target.createTarget']
-    ] as const) {
+    for (const targets of [[blank], []]) {
       const {controller, commands} = makeController(outPath, [[...targets]])
       const seen: number[] = []
 
@@ -179,8 +202,8 @@ describe('Chromium opens the starting url after install', () => {
         beforeNavigate: () => seen.push(commands.length)
       })
 
-      expect(seen).toEqual([commands.length - 1])
-      expect(commands.at(-1)?.[0]).toBe(command)
+      expect(seen).toEqual([0])
+      expect(commands[0]?.[0]).toBe('Target.createTarget')
     }
   })
 

@@ -188,9 +188,10 @@ export class CDPExtensionController {
   }
 
   // The launch tab opened on about:blank so the starting page waits for the
-  // extension: navigated once its background target is up, so the page gets
-  // the document_start content scripts and CSS. A launch that left no blank
-  // tab gets a new one. A background that never shows still gets the page.
+  // extension: opened once its background target is up, so the page gets
+  // the document_start content scripts and CSS. The page opens in a new tab
+  // and the launch tab closes, since Chromium pins its launch warning bars
+  // to that tab. A background that never shows still gets the page.
   async openStartingUrl(
     url: string,
     options: {
@@ -198,7 +199,7 @@ export class CDPExtensionController {
       intervalMs?: number
       beforeNavigate?: () => void
     } = {}
-  ): Promise<'navigated' | 'opened' | 'unavailable'> {
+  ): Promise<'navigated' | 'opened' | 'replaced' | 'unavailable'> {
     if (!this.cdp) return 'unavailable'
 
     const extensionId =
@@ -217,24 +218,42 @@ export class CDPExtensionController {
       (target) => target?.type === 'page' && target?.url === LAUNCH_TAB_URL
     )
 
-    if (launchTab?.targetId) {
+    options.beforeNavigate?.()
+
+    const created = (await this.cdp.sendCommand('Target.createTarget', {
+      url
+    })) as {targetId?: string} | undefined
+
+    if (!launchTab?.targetId) return 'opened'
+
+    // Only a launch tab whose replacement exists is closed, or the window
+    // would close with its last tab.
+    if (!created?.targetId) {
       const attached = (await this.cdp.sendCommand('Target.attachToTarget', {
         targetId: launchTab.targetId,
         flatten: true
       })) as {sessionId?: string} | undefined
 
-      if (attached?.sessionId) {
-        options.beforeNavigate?.()
-        await this.cdp.sendCommand('Page.navigate', {url}, attached.sessionId)
+      if (!attached?.sessionId) return 'opened'
 
-        return 'navigated'
-      }
+      await this.cdp.sendCommand('Page.navigate', {url}, attached.sessionId)
+
+      return 'navigated'
     }
 
-    options.beforeNavigate?.()
-    await this.cdp.sendCommand('Target.createTarget', {url})
+    try {
+      await this.cdp.sendCommand('Target.closeTarget', {
+        targetId: launchTab.targetId
+      })
 
-    return 'opened'
+      await this.cdp.sendCommand('Target.activateTarget', {
+        targetId: created.targetId
+      })
+    } catch {
+      // The page is open either way.
+    }
+
+    return 'replaced'
   }
 
   // A session on the extension's background that is this caller's alone,
