@@ -123,6 +123,28 @@ export function buildBrowserLaunchRequest<T extends object = object>(
   }
 }
 
+// A binary pinned under another browser's name is still what it is: Edge
+// shows an "Installed theme, Undo" bar for the built-in theme, Opera and
+// Yandex refuse it. The session's browser name cannot tell, the binary's own
+// path can: the version line is read under the session's name, so a pinned
+// Edge answers there as "Chromium".
+const THEME_REFUSING_BINARY =
+  /(^|[\\/])(microsoft[ -]edge[^\\/]*|msedge(\.exe)?|opera[^\\/]*|yandex[^\\/]*)$/i
+
+export function withoutThemeForBinary(
+  extensions: string[],
+  binaryPath: string | undefined
+): string[] {
+  if (!THEME_REFUSING_BINARY.test(String(binaryPath || '').trim())) {
+    return extensions
+  }
+
+  return extensions.filter(
+    (extensionPath) =>
+      !String(extensionPath).split(/[\\/]/).includes('extension-js-theme')
+  )
+}
+
 export function toExtensionLoadList(
   extension: PluginInterface['extension']
 ): string[] {

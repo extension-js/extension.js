@@ -74,7 +74,8 @@ import {
 } from '../../browsers-lib/ready-stamp'
 import {
   pickSharedBrowserRuntimeOptions,
-  toExtensionLoadList
+  toExtensionLoadList,
+  withoutThemeForBinary
 } from '../../browsers-lib/runtime-options'
 import * as utils from '../../browsers-lib/shared-utils'
 import {isVersionProbeTimeout} from '../../browsers-lib/version-probe'
@@ -1032,7 +1033,10 @@ export class ChromiumLaunchPlugin {
       usedManagedSnapshot
     })
 
-    const extensionsToLoad = toExtensionLoadList(this.options.extension)
+    const extensionsToLoad = withoutThemeForBinary(
+      toExtensionLoadList(this.options.extension),
+      browserBinaryLocation
+    )
 
     // Dotted version of the resolved binary ("Google Chrome 150.0.7871.24"
     // -> "150.0.7871.24") for the minimum_chrome_version blocker check.
