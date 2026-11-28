@@ -44,7 +44,7 @@ jobs:
             else
               failed=$((failed + 1))
               echo "::group::round $round FAILED"
-              tail -60 "round-$round.log"
+              grep -aE "TRACE|proc  |Pipe closed|compiled in" "round-$round.log" | tail -150
               echo "::endgroup::"
             fi
           done

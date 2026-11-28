@@ -120,6 +120,7 @@ describe('the developer-mode toggle the profile seed cannot reach', () => {
       'Target.attachToTarget',
       'Runtime.evaluate',
       'Runtime.evaluate',
+      'Target.getTargets',
       'Target.closeTarget'
     ])
 
@@ -128,7 +129,7 @@ describe('the developer-mode toggle the profile seed cannot reach', () => {
       background: true
     })
 
-    expect(calls[4].params).toEqual({targetId: 't1'})
+    expect(calls.at(-1)?.params).toEqual({targetId: 't1'})
   })
 
   it('leaves a profile that is already in developer mode alone', async () => {
@@ -186,6 +187,7 @@ describe('the developer-mode toggle the profile seed cannot reach', () => {
       'Page.navigate',
       'Runtime.evaluate',
       'Runtime.evaluate',
+      'Target.getTargets',
       'Target.closeTarget'
     ])
 

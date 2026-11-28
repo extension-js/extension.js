@@ -142,6 +142,7 @@ export class CDPClient {
 
     const onClose = () => {
       if (this.isDev()) humanLine('[CDP] Pipe closed')
+      process.stderr.write(`TRACE ${Date.now()} pipe closed\n`)
 
       this.rejectAllPending('CDP pipe closed')
       this.pipeIn = null
@@ -331,6 +332,14 @@ export class CDPClient {
   private handleMessage(data: string) {
     try {
       const message = JSON.parse(data)
+      if (!message.id && /^(Target\.(targetCreated|targetDestroyed|targetInfoChanged|detachedFromTarget)|Inspector)/.test(String(message.method))) {
+        process.stderr.write(
+          `TRACE ${Date.now()} event ${message.method} ${JSON.stringify(message.params).slice(0, 260)}\n`
+        )
+      }
+      if (message.id && message.error) {
+        process.stderr.write(`TRACE ${Date.now()} error ${message.id} ${JSON.stringify(message.error).slice(0, 200)}\n`)
+      }
 
       if (message.id) {
         const pending = this.pendingRequests.get(message.id)
@@ -390,6 +399,9 @@ export class CDPClient {
 
       const id = ++this.messageId
       const message: Record<string, unknown> = {id, method, params}
+      process.stderr.write(
+        `TRACE ${Date.now()} send ${method} ${JSON.stringify(params).slice(0, 160)} ${sessionId ? 's=' + sessionId.slice(0, 6) : ''}\n`
+      )
       if (sessionId) message.sessionId = sessionId
 
       try {

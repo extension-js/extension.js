@@ -91,6 +91,7 @@ describe('the startup choice the profile seed cannot reach', () => {
       'Target.createTarget',
       'Target.attachToTarget',
       'Runtime.evaluate',
+      'Target.getTargets',
       'Target.closeTarget'
     ])
 
