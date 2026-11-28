@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterEach, beforeEach, describe, expect, it} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {readyContractPath} from '../../../../develop/lib/session-contract'
 import {isFreshContractPayload} from '../../../commands/dev-wait'
 import {CODES} from '../../../helpers/messaging'
@@ -252,6 +252,96 @@ describe('stampReadyBrowserLaunch', () => {
     expect(ready.runId).toBe('run-A')
   })
 
+  describe('on Windows, where dating a pid takes a PowerShell start', () => {
+    const STARTED = '2026-11-28T10:00:00.000Z'
+    const read = () => JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+
+    function slowProbe() {
+      const asked: number[] = []
+
+      let answer: (value: string | undefined) => void = () => {}
+
+      const startedAt = (pid: number) => {
+        asked.push(pid)
+
+        return new Promise<string | undefined>((resolve) => {
+          answer = resolve
+        })
+      }
+
+      return {
+        asked,
+        answer: (value: string | undefined) => answer(value),
+        late: {platform: 'win32' as const, startedAt}
+      }
+    }
+
+    beforeEach(() => {
+      fs.writeFileSync(
+        readyPath,
+        JSON.stringify({status: 'ready', runId: 'run-A'})
+      )
+    })
+
+    it('writes the pid at once and its start time when the answer arrives', async () => {
+      const probe = slowProbe()
+
+      stampReadyBrowserLaunch(
+        outputPath,
+        {browserPid: 4242},
+        'run-A',
+        undefined,
+        probe.late
+      )
+
+      expect(read().browserPid).toBe(4242)
+      expect('browserStartedAt' in read()).toBe(false)
+      expect(probe.asked).toEqual([4242])
+
+      probe.answer(STARTED)
+      await vi.waitFor(() => expect(read().browserStartedAt).toBe(STARTED))
+    })
+
+    it('drops an answer for a pid the record no longer names', async () => {
+      const probe = slowProbe()
+
+      stampReadyBrowserLaunch(
+        outputPath,
+        {browserPid: 4242},
+        'run-A',
+        undefined,
+        probe.late
+      )
+
+      const record = read()
+      record.browserPid = 5151
+      fs.writeFileSync(readyPath, JSON.stringify(record))
+
+      probe.answer(STARTED)
+      await new Promise((resolve) => setTimeout(resolve, 30))
+
+      expect(read().browserPid).toBe(5151)
+      expect('browserStartedAt' in read()).toBe(false)
+    })
+
+    it('asks once for a pid a later stamp names again', () => {
+      const probe = slowProbe()
+      const stamp = () =>
+        stampReadyBrowserLaunch(
+          outputPath,
+          {browserPid: 4242},
+          'run-A',
+          undefined,
+          probe.late
+        )
+
+      stamp()
+      stamp()
+
+      expect(probe.asked).toEqual([4242])
+    })
+  })
+
   it('stamps the pid alone when no managed profile path exists', () => {
     fs.writeFileSync(readyPath, JSON.stringify({status: 'ready'}))
 
@@ -262,7 +352,7 @@ describe('stampReadyBrowserLaunch', () => {
     expect(ready.browserPid).toBe(4242)
   })
 
-  it('publishes when the browser and launcher processes started beside their pids', () => {
+  it('publishes when the browser and launcher processes started beside their pids', async () => {
     fs.writeFileSync(readyPath, JSON.stringify({status: 'ready'}))
 
     // This process is in the table. 2 ** 30 is larger than any pid the OS
@@ -272,8 +362,15 @@ describe('stampReadyBrowserLaunch', () => {
       launcherPid: 2 ** 30
     })
 
-    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-    expect(ready.browserPid).toBe(process.pid)
+    const read = () => JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+
+    expect(read().browserPid).toBe(process.pid)
+    // Windows dates a pid a moment after it writes it.
+    await vi.waitFor(() => expect(read().browserStartedAt).toBeTruthy(), {
+      timeout: 15_000
+    })
+
+    const ready = read()
     expect(ready.browserStartedAt).toMatch(
       /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
     )

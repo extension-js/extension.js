@@ -150,14 +150,20 @@ export function listProcesses(
 
 function runQuietWithoutBlocking(
   bin: string,
-  args: string[]
+  args: string[],
+  timeoutMs?: number
 ): Promise<string | null> {
   return new Promise((resolve) => {
     try {
       execFile(
         bin,
         args,
-        {encoding: 'utf-8', windowsHide: true, maxBuffer: 64 * 1024 * 1024},
+        {
+          encoding: 'utf-8',
+          windowsHide: true,
+          maxBuffer: 64 * 1024 * 1024,
+          ...(timeoutMs ? {timeout: timeoutMs} : {})
+        },
         (error, stdout) => resolve(error ? null : String(stdout || ''))
       ).on('error', () => resolve(null))
     } catch {
@@ -337,6 +343,16 @@ export function isPidAlive(pid: number | null | undefined): boolean {
 // the one spelling Date.parse reads.
 export const PID_START_PROBE_TIMEOUT_MS = 5000
 
+function windowsStartTimeArgs(pid: number): string[] {
+  return [
+    '-NoProfile',
+    '-NonInteractive',
+    '-Command',
+    `[System.Diagnostics.Process]::GetProcessById(${pid})` +
+      ".StartTime.ToUniversalTime().ToString('o')"
+  ]
+}
+
 export function pidStartedAtMs(
   pid: number | null | undefined,
   platform = process.platform,
@@ -346,17 +362,7 @@ export function pidStartedAtMs(
 
   const output =
     platform === 'win32'
-      ? runQuiet(
-          'powershell.exe',
-          [
-            '-NoProfile',
-            '-NonInteractive',
-            '-Command',
-            `[System.Diagnostics.Process]::GetProcessById(${pid})` +
-              ".StartTime.ToUniversalTime().ToString('o')"
-          ],
-          timeoutMs
-        )
+      ? runQuiet('powershell.exe', windowsStartTimeArgs(pid), timeoutMs)
       : runQuiet('ps', ['-o', 'lstart=', '-p', String(pid)], timeoutMs, {
           ...process.env,
           LC_ALL: 'C'
@@ -365,6 +371,20 @@ export function pidStartedAtMs(
   const started = Date.parse(String(output || '').trim())
 
   return Number.isNaN(started) ? null : started
+}
+
+// The Windows answer without holding the session: a cold PowerShell takes a
+// second or more, and a waited one right after a launch holds back a Ctrl+C.
+export function windowsPidStartedAtIso(
+  pid: number,
+  run: (bin: string, args: string[]) => Promise<string | null> = (bin, args) =>
+    runQuietWithoutBlocking(bin, args, PID_START_PROBE_TIMEOUT_MS)
+): Promise<string | undefined> {
+  return run('powershell.exe', windowsStartTimeArgs(pid)).then((output) => {
+    const started = Date.parse(String(output || '').trim())
+
+    return Number.isNaN(started) ? undefined : new Date(started).toISOString()
+  })
 }
 
 // What reading a start id asks of the machine, so any host can stand in

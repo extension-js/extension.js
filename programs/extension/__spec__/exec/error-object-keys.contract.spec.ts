@@ -161,7 +161,13 @@ describe('the error object of one failure across the commands that can raise it'
     keys,
     runs
   }) => {
-    const frames = await Promise.all(runs().map(failureOf))
+    // One at a time: a dev run owns the project's dist while it lives, so a
+    // start beside it is refused for that and never reaches its own failure.
+    const frames: Frame[] = []
+
+    for (const args of runs()) {
+      frames.push(await failureOf(args))
+    }
 
     for (const frame of frames) {
       expect(

@@ -152,6 +152,19 @@ const LAUNCHED_PROCESS_FIELDS = {
   }
 } as const
 
+// A start time that arrived after its pid was stamped. It lands only while
+// the record still names that pid, so a later launch is never dated by it.
+export function stampLaunchedProcessStart(
+  ready: ReadyRecord,
+  which: keyof typeof LAUNCHED_PROCESS_FIELDS,
+  pid: number,
+  startedAt: string
+): void {
+  const fields = LAUNCHED_PROCESS_FIELDS[which]
+
+  if (ready[fields.pid] === pid) ready[fields.startedAt] = startedAt
+}
+
 // The process table is asked once per pid: a later stamp naming the same pid
 // keeps the answer, and a pid it cannot date carries no time rather than a guess.
 export function stampLaunchedProcess(

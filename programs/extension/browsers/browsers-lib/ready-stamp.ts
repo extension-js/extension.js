@@ -12,7 +12,8 @@ import {
   patchReadyRecord,
   type ReadyRecord,
   readReadyRecord,
-  stampLaunchedProcess
+  stampLaunchedProcess,
+  stampLaunchedProcessStart
 } from '../../../develop/lib/ready-contract-writer'
 import {
   isDevSessionStarting,
@@ -22,7 +23,11 @@ import {
 } from '../../../develop/lib/session-contract'
 import {cdpFaultWarningCode, stripChannelPrefix} from '../../helpers/messaging'
 import {pinnedBinaryExitNote} from './pinned-binary'
-import {pidStartedAtIso, pidStartId} from './resolve-live-pid'
+import {
+  pidStartedAtIso,
+  pidStartId,
+  windowsPidStartedAtIso
+} from './resolve-live-pid'
 
 // A run-only session loading a source folder keeps its contract under the
 // project's dist, a place the loaded directory cannot name, so it claims it.
@@ -331,6 +336,16 @@ const pidStartProbes: PidStartProbes = {
   startId: (pid) => pidStartId(pid)
 }
 
+export interface LateStartProbe {
+  platform: NodeJS.Platform
+  startedAt: (pid: number) => Promise<string | undefined>
+}
+
+const lateStartProbe: LateStartProbe = {
+  platform: process.platform,
+  startedAt: (pid) => windowsPidStartedAtIso(pid)
+}
+
 // Publish which profile directory and browser process this session launched.
 // An ephemeral profile's leaf name is generated, so no path helper can rebuild
 // it, and the pid is the only supported handle for reaping the browser.
@@ -356,9 +371,30 @@ export function stampReadyBrowserLaunch(
     profileReused?: boolean
   },
   runId?: string,
-  probes: PidStartProbes = pidStartProbes
+  probes: PidStartProbes = pidStartProbes,
+  late: LateStartProbe = lateStartProbe
 ) {
+  // Windows dates a pid through PowerShell, which a stamp never waits for:
+  // the pid is written now and its start time when the answer arrives.
+  const dateLater = late.platform === 'win32' && probes === pidStartProbes
+  const undated: Array<['browser' | 'launcher', number]> = []
+
+  if (dateLater) probes = {startedAt: () => undefined, startId: probes.startId}
+
   patchReady(extensionOutputPath, runId, (ready) => {
+    for (const which of ['browser', 'launcher'] as const) {
+      const pid = details?.[`${which}Pid`]
+
+      if (
+        dateLater &&
+        typeof pid === 'number' &&
+        Number.isFinite(pid) &&
+        ready[`${which}Pid`] !== pid
+      ) {
+        undated.push([which, pid])
+      }
+    }
+
     const profilePath = String(details?.profilePath || '').trim()
     if (profilePath) ready.profilePath = profilePath
 
@@ -414,6 +450,19 @@ export function stampReadyBrowserLaunch(
       }
     }
   })
+
+  for (const [which, pid] of undated) {
+    void late
+      .startedAt(pid)
+      .then((startedAt) => {
+        if (!startedAt) return
+
+        patchReady(extensionOutputPath, runId, (ready) => {
+          stampLaunchedProcessStart(ready, which, pid, startedAt)
+        })
+      })
+      .catch(() => {})
+  }
 }
 
 // Whether the runtime inside the guest has connected for THIS run. The dev
