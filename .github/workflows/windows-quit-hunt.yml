@@ -4,82 +4,48 @@ on:
   workflow_dispatch:
     inputs:
       rounds:
-        description: 'How many times to run the interrupt teardown spec'
+        description: 'How many times to run the edge dev smoke'
         required: false
-        default: '50'
+        default: '40'
 
 permissions:
   contents: read
 
 jobs:
   hunt:
-    name: Loop the interrupt teardown spec on Windows
+    name: Loop the edge dev smoke
     timeout-minutes: 90
-    runs-on: windows-latest
+    runs-on: ubuntu-22.04
     env:
       ROUNDS: ${{ inputs.rounds }}
-      EXTENSION_QUIT_TIMES_FILE: ${{ github.workspace }}/quit-times.txt
+      EXTENSION_AUTHOR_MODE: development
+      EXTENSION_FORCE_KILL_MS: '12000'
     steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
-
-      - name: Setup Node
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
         with:
-          node-version: 22
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Compile every package the CLI loads
+          node-version: '22'
+      - name: Compile
         run: pnpm compile
-
-      # PowerShell, like the CI job: under Git Bash the console interrupt
-      # the spec sends never reaches the CLI.
-      - name: Loop the spec
-        working-directory: programs/extension
+      - name: Hydrate templates from examples repo
+        run: bash scripts/hydrate-templates-from-examples.sh
+      - name: Install Playwright Chromium
+        timeout-minutes: 10
+        run: npx playwright install --with-deps chromium
+      - name: Loop
         run: |
-          $failed = 0
-          foreach ($round in 1..[int]$env:ROUNDS) {
-            Write-Host "::group::round $round"
-            node ../../scripts/run-vitest.mjs __spec__/exec/browser-teardown-on-interrupt.contract.spec.ts
-            if ($LASTEXITCODE -ne 0) {
-              $failed++
-              Write-Host "round $round failed"
-            }
-            Write-Host "::endgroup::"
-          }
-          Write-Host "failed rounds: $failed of $env:ROUNDS"
-          "FAILED_ROUNDS=$failed" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          exit 0
-
-      - name: Print the quit times
-        if: always()
-        shell: bash
-        run: |
-          file=quit-times.txt
-          if [ ! -f "$file" ]; then
-            echo "no quit was recorded"
-            exit 1
-          fi
-          echo "quits: $(wc -l < "$file")"
-          echo "slowest twenty (command browser quit gone):"
-          sort -k3 -n -r "$file" | head -20
-          echo "by bucket:"
-          awk '{b = int($3 / 500) * 500; n[b]++} END {for (b in n) print b, n[b]}' "$file" | sort -n
-          echo "at or past 4500 ms: $(awk '$3 >= 4500' "$file" | wc -l)"
-          echo "browser gone, by bucket:"
-          awk '{b = int($4 / 500) * 500; n[b]++} END {for (b in n) print b, n[b]}' "$file" | sort -n
-          echo "slowest twenty by browser gone (command browser quit gone):"
-          sort -k4 -n -r "$file" | head -20
-          echo "CLI exit after the browser was gone, by bucket:"
-          awk '{d = $3 - $4; b = int(d / 500) * 500; n[b]++} END {for (b in n) print b, n[b]}' "$file" | sort -n
-
-      - name: Fail when a round failed
-        if: env.FAILED_ROUNDS != '0'
-        shell: bash
-        run: exit 1
+          CHROMIUM_BIN="$(node -e 'import("@playwright/test").then((m) => console.log(m.chromium.executablePath()))')"
+          pnpm extension build templates/typescript --browser edge --silent true
+          failed=0
+          for round in $(seq 1 "$ROUNDS"); do
+            rm -rf "$HOME/.config/chromium" "$HOME/.config/microsoft-edge" "$HOME/.cache/chromium"
+            if xvfb-run -a node scripts/nightly-dev-smoke.mjs templates/typescript --browser edge --chromium-binary "$CHROMIUM_BIN" --profile false --no-open --port 0 > "round-$round.log" 2>&1; then
+              echo "round $round ok"
+            else
+              failed=$((failed + 1))
+              echo "::group::round $round FAILED"
+              tail -60 "round-$round.log"
+              echo "::endgroup::"
+            fi
+          done
+          echo "failed rounds: $failed of $ROUNDS"
