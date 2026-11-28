@@ -12,6 +12,7 @@ import {
 import {tmpdir} from 'node:os'
 import {dirname, join, resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
+import {gunzipSync, gzipSync} from 'node:zlib'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {
   type ExamplesCatalogFixture,
@@ -34,6 +35,7 @@ const repoRoot = resolve(__dirname, '../../../..')
 const cliDir = resolve(repoRoot, 'programs/extension')
 const createDir = resolve(repoRoot, 'programs/create')
 const developDir = resolve(repoRoot, 'programs/develop')
+const installDir = resolve(repoRoot, 'programs/install')
 
 const nodeDir = dirname(process.execPath)
 const pathDelim = process.platform === 'win32' ? ';' : ':'
@@ -377,15 +379,75 @@ function resolveCliBin() {
 }
 
 let packDir = ''
+
+// pnpm links the packed CLI to the published copy of each engine package even
+// with its tarball on the command line, so the CLI names the tarballs itself.
+function dependOnTarballs(tgz: string, tarballs: Record<string, string>) {
+  const tar = gunzipSync(readFileSync(tgz))
+  const parts: Buffer[] = []
+  let rewritten = false
+
+  for (let at = 0; at + 512 <= tar.length; ) {
+    const header = tar.subarray(at, at + 512)
+
+    if (header.every((byte) => byte === 0)) break
+
+    const text = (from: number, to: number) =>
+      header.subarray(from, to).toString('utf8').replace(/\0.*$/, '')
+    const size = Number.parseInt(text(124, 136).trim(), 8) || 0
+    const span = 512 + Math.ceil(size / 512) * 512
+
+    if (text(0, 100) !== 'package/package.json') {
+      parts.push(tar.subarray(at, at + span))
+      at += span
+      continue
+    }
+
+    const manifest = JSON.parse(
+      tar.subarray(at + 512, at + 512 + size).toString('utf8')
+    )
+
+    for (const [name, file] of Object.entries(tarballs)) {
+      manifest.dependencies[name] = `file:${file.replace(/\\/g, '/')}`
+    }
+
+    const body = Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`)
+    const padded = Buffer.alloc(Math.ceil(body.length / 512) * 512)
+    const next = Buffer.from(header)
+
+    body.copy(padded)
+    next.write(`${body.length.toString(8).padStart(11, '0')}\0`, 124, 'ascii')
+    // The checksum is summed with its own field read as eight spaces.
+    next.fill(' ', 148, 156)
+    next.write(
+      `${next
+        .reduce((sum, byte) => sum + byte, 0)
+        .toString(8)
+        .padStart(6, '0')}\0 `,
+      148,
+      'ascii'
+    )
+
+    parts.push(next, padded)
+    rewritten = true
+    at += span
+  }
+
+  if (!rewritten) throw new Error(`No package.json found in ${tgz}`)
+
+  writeFileSync(tgz, gzipSync(Buffer.concat([...parts, Buffer.alloc(1024)])))
+}
+
 let cliTgz = ''
 let createTgz = ''
 let developTgz = ''
+let installTgz = ''
 const runnerReady = new Map<string, boolean>()
 
 // Every runner takes the tarball paths bare. pnpm 10 dlx reads a
 // `name@file:/abs` spec under its own cache folder and fails with ENOENT.
 function getPackagesForRunner() {
-  return [cliTgz, createTgz, developTgz]
+  return [cliTgz, createTgz, developTgz, installTgz]
 }
 
 // No bunx lane: bunx keeps one --package and takes that package's own
@@ -443,9 +505,16 @@ beforeAll(
     ensureCompiled(cliDir, resolve(cliDir, 'dist/cli.cjs'))
     ensureCompiled(createDir, resolve(createDir, 'dist/module.cjs'))
     ensureCompiled(developDir, resolve(developDir, 'dist/module.cjs'))
+    ensureCompiled(installDir, resolve(installDir, 'dist/module.cjs'))
     cliTgz = packPackage(cliDir, packDir)
     createTgz = packPackage(createDir, packDir)
     developTgz = packPackage(developDir, packDir)
+    installTgz = packPackage(installDir, packDir)
+    dependOnTarballs(cliTgz, {
+      'extension-create': createTgz,
+      'extension-develop': developTgz,
+      'extension-install': installTgz
+    })
 
     for (const runner of runners) {
       if (!runner.isAvailable()) {
@@ -725,8 +794,15 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
         const installCmd = hasNpm ? npmCommand : runner.command
         const installArgs =
           installCmd === runner.command
-            ? ['add', '--save-dev', cliTgz, createTgz, developTgz]
-            : ['install', '--save-dev', cliTgz, createTgz, developTgz]
+            ? ['add', '--save-dev', cliTgz, createTgz, developTgz, installTgz]
+            : [
+                'install',
+                '--save-dev',
+                cliTgz,
+                createTgz,
+                developTgz,
+                installTgz
+              ]
         // npm takes 90 to 110 s for the three tarballs on a hosted Windows
         // runner, which the default bound of one command does not cover.
         const installResult = runCommand(installCmd, installArgs, {
@@ -757,6 +833,41 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
     },
     installAndBuildTimeoutMs
   )
+})
+
+// pnpm keeps each dlx install two folders down, next to its lockfile.
+function dlxLockfiles(dlxDir: string): string[] {
+  if (!existsSync(dlxDir)) return []
+
+  return readdirSync(dlxDir)
+    .flatMap((key) => {
+      const keyDir = join(dlxDir, key)
+
+      if (!statSync(keyDir).isDirectory()) return []
+
+      return readdirSync(keyDir).map((run) =>
+        join(keyDir, run, 'pnpm-lock.yaml')
+      )
+    })
+    .filter((file) => existsSync(file))
+}
+
+describe('the engine a pnpm dlx run loads', () => {
+  it('is the packed one, never a copy from the registry', ({skip}) => {
+    if (!runnerReady.get('pnpmDlx')) {
+      skip('pnpmDlx could not run the packed CLI')
+    }
+
+    const locks = dlxLockfiles(join(runnerHome, 'pnpm-cache', 'dlx'))
+
+    expect(locks.length).toBeGreaterThan(0)
+
+    for (const lock of locks) {
+      expect(readFileSync(lock, 'utf8'), lock).not.toMatch(
+        /^ {2}extension-(?:create|develop|install)@\d/m
+      )
+    }
+  })
 })
 
 describe('cli direct flow (no npx)', () => {
