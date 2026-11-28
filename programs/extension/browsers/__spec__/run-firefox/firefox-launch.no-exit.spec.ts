@@ -287,7 +287,7 @@ describe('a Firefox that hands the session to a relaunched process', () => {
     }
   })
 
-  it('stamps when the adopted process started, and no time for a launcher the table lost', () => {
+  it('stamps when the adopted process started, and no time for a launcher the table lost', async () => {
     const plugin = makePlugin()
     internals(plugin).ctx.logger = logger()
     internals(plugin).onBrowserGone = vi.fn()
@@ -306,10 +306,16 @@ describe('a Firefox that hands the session to a relaunched process', () => {
     internals(plugin).adoptLivePid(process.pid)
 
     try {
-      const ready = JSON.parse(
-        readFileSync(join(readyDir, 'ready.json'), 'utf-8')
-      )
-      expect(ready.browserPid).toBe(process.pid)
+      const read = () =>
+        JSON.parse(readFileSync(join(readyDir, 'ready.json'), 'utf-8'))
+
+      expect(read().browserPid).toBe(process.pid)
+      // Windows dates a pid a moment after it writes it.
+      await vi.waitFor(() => expect(read().browserStartedAt).toBeTruthy(), {
+        timeout: 15_000
+      })
+
+      const ready = read()
       expect(ready.browserStartedAt).toMatch(
         /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
       )

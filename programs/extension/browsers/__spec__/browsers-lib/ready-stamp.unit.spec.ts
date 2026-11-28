@@ -352,7 +352,7 @@ describe('stampReadyBrowserLaunch', () => {
     expect(ready.browserPid).toBe(4242)
   })
 
-  it('publishes when the browser and launcher processes started beside their pids', () => {
+  it('publishes when the browser and launcher processes started beside their pids', async () => {
     fs.writeFileSync(readyPath, JSON.stringify({status: 'ready'}))
 
     // This process is in the table. 2 ** 30 is larger than any pid the OS
@@ -362,8 +362,15 @@ describe('stampReadyBrowserLaunch', () => {
       launcherPid: 2 ** 30
     })
 
-    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-    expect(ready.browserPid).toBe(process.pid)
+    const read = () => JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+
+    expect(read().browserPid).toBe(process.pid)
+    // Windows dates a pid a moment after it writes it.
+    await vi.waitFor(() => expect(read().browserStartedAt).toBeTruthy(), {
+      timeout: 15_000
+    })
+
+    const ready = read()
     expect(ready.browserStartedAt).toMatch(
       /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
     )
