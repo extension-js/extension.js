@@ -138,10 +138,10 @@ jobs:
     if: ${{ needs.corpus-target.outputs.canary != '' }}
     permissions:
       contents: read
-    uses: extension-js/templates/.github/workflows/ci.yml@5e2089348c042f1c97e687952de7f53d38d93fac # main, 2026-11-24
+    uses: extension-js/templates/.github/workflows/ci.yml@1020d16cbc080231929e1a9e53f462e9d83f7212 # main, 2026-11-28
     with:
       cli-version: ${{ needs.corpus-target.outputs.canary }}
-      ref: 5e2089348c042f1c97e687952de7f53d38d93fac
+      ref: 1020d16cbc080231929e1a9e53f462e9d83f7212
 
   publish:
     needs: [corpus-target, corpus-gate, templates-gate]
@@ -868,7 +868,7 @@ jobs:
     if: ${{ !cancelled() && needs.publish.result == 'success' && (inputs.channel != 'canary' || inputs.readings) }}
     permissions:
       contents: read
-    uses: extension-js/templates/.github/workflows/ci.yml@5e2089348c042f1c97e687952de7f53d38d93fac # main, 2026-11-24
+    uses: extension-js/templates/.github/workflows/ci.yml@1020d16cbc080231929e1a9e53f462e9d83f7212 # main, 2026-11-28
     with:
       cli-version: ${{ needs.publish.outputs.version }}
-      ref: 5e2089348c042f1c97e687952de7f53d38d93fac
+      ref: 1020d16cbc080231929e1a9e53f462e9d83f7212

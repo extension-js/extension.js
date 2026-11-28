@@ -12,9 +12,13 @@ Apple's App Privacy and age rating) stay by hand and are listed under each
 store below. The HTML comments carry each field's format and limits, and the
 readers ignore them.
 
-Last updated: 2026-10-24
+Last updated: 2026-11-28
 
 ## Listing
+
+<!-- An extension that ships more than one _locales folder adds one
+section per extra language, headed "## Listing (pt-BR)" with that folder's
+language code and holding the same Name, Summary and Description lines. -->
 
 - Name: JavaScript Sidebar Example
   <!-- The store title, 100 characters at most on every store. -->
