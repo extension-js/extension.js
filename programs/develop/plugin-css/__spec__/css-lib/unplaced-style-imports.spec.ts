@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest'
+import {blankComments} from '../../../lib/blank-comments'
 import {
-  blankComments,
   findUnplacedStyleImports,
   namesShadowHost
 } from '../../css-lib/unplaced-style-imports'

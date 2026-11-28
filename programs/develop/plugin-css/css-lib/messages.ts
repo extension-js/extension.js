@@ -32,11 +32,7 @@ export function cssConfigsDetected(
   )
 }
 
-// The caller owns the prefix here: every call site already wraps this in a
-// debug line, so a glyph inside the string would print twice.
-export function isUsingIntegration(name: string) {
-  return `integration use=${name}`
-}
+export {isUsingIntegration} from '../../lib/integration-message'
 
 // `install` is the command for the project's own package manager.
 export function missingSassDependency(install: string) {

@@ -4,7 +4,7 @@ import {
   forgetBlankedSources,
   keptBlankedSources,
   skipString
-} from '../steps/source-literals'
+} from '../../../lib/blank-comments'
 
 // The answer one append per character gives, kept here as the reference the
 // faster walk has to match on every input.

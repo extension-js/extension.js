@@ -17,6 +17,11 @@ import {readManifest as readSourceManifest} from '../lib/manifest/source-manifes
 import * as messages from '../lib/messages'
 import {debugLine, isDebug} from '../lib/messaging'
 import {isKnownBrowserName} from '../lib/paths'
+import {
+  SESSION_ARTIFACT_FILES,
+  SESSION_ARTIFACT_SUBDIRS,
+  SESSION_ARTIFACTS_DIR
+} from '../lib/session-contract'
 import {REMOTE_SOURCE_PROVENANCE_FILE} from '../lib/zip'
 import type {DevOptions} from '../types'
 import * as compilationMessages from './compilation-lib/messages'
@@ -472,16 +477,9 @@ function isUnder(file: string, root: string | undefined): boolean {
 
 // A build writes its session folder beside the browser folder of whatever
 // output it used, so one can sit anywhere a build once ran.
-const SESSION_DIR = 'extension-js'
-const SESSION_SUBDIRS = new Set(['profiles', 'binaries'])
-const SESSION_FILES = new Set([
-  'ready.json',
-  'events.ndjson',
-  'logs.ndjson',
-  'actions.ndjson',
-  'build-summary.json',
-  'control-port'
-])
+const SESSION_DIR = SESSION_ARTIFACTS_DIR
+const SESSION_SUBDIRS = new Set(SESSION_ARTIFACT_SUBDIRS)
+const SESSION_FILES = new Set(SESSION_ARTIFACT_FILES)
 
 interface SessionDirFacts {
   ownPackage: boolean
