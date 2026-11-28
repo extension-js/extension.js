@@ -6,7 +6,6 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {CODES} from '../../../helpers/messaging'
 import {declaredCode} from './coded-error'
@@ -37,21 +36,6 @@ const MAX_SILENT_READS = 3
 const READ_DEVELOPER_MODE = `new Promise((resolve) => chrome.developerPrivate.getProfileConfiguration((config) => resolve(!!config.inDeveloperMode)))`
 
 const ENABLE_DEVELOPER_MODE = `new Promise((resolve) => chrome.developerPrivate.updateProfileConfiguration({inDeveloperMode: true}, () => resolve(!chrome.runtime.lastError)))`
-
-// Chromium keeps extensions.ui.developer_mode in the MAC-protected Secure
-// Preferences, so a value seeded into the profile is dropped when it loads.
-export function developerModeFromProfile(profilePath: string): boolean {
-  try {
-    const securePath = path.join(profilePath, 'Default', 'Secure Preferences')
-    const parsed = JSON.parse(fs.readFileSync(securePath, 'utf-8')) as {
-      extensions?: {ui?: {developer_mode?: unknown}}
-    }
-
-    return parsed?.extensions?.ui?.developer_mode === true
-  } catch {
-    return false
-  }
-}
 
 // The rig parks the browser windowless, where opening a page to reach the
 // WebUI would create the very window the take is avoiding.
@@ -170,6 +154,109 @@ export async function ensureDeveloperMode(options: {
     return 'unavailable'
   } catch {
     return 'unavailable'
+  } finally {
+    if (targetId) {
+      try {
+        await transport.sendCommand('Target.closeTarget', {targetId})
+      } catch {
+        // best-effort; the tab dies with the browser anyway
+      }
+    }
+  }
+}
+
+// Every extension the browser holds, with its state and why it is off.
+const READ_EXTENSION_STATES = `new Promise((resolve) => chrome.developerPrivate.getExtensionsInfo({includeDisabled: true, includeTerminated: true}, (items) => resolve(JSON.stringify((items || []).map((item) => ({path: item.path || '', state: item.state || '', reasons: Object.keys(item.disableReasons || {}).filter((key) => item.disableReasons[key] === true)}))))))`
+
+function sameFolder(left: string, right: string): boolean {
+  const spelled = (value: string) =>
+    path.resolve(value).replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
+
+  return spelled(left) === spelled(right)
+}
+
+// Why the browser holds the extension at this folder turned off, as its own
+// extensions page names it. Empty when it is on, undefined when nothing
+// could be read, so a caller never reports a guess.
+export async function readGuestDisableReasons(options: {
+  transport: DeveloperModeTransport
+  extensionPath: string
+  attempts?: number
+  delayMs?: number
+  answerTimeoutMs?: number
+  sleep?: (ms: number) => Promise<void>
+}): Promise<string[] | undefined> {
+  const {transport, extensionPath} = options
+  const attempts = options.attempts ?? 10
+  const delayMs = options.delayMs ?? 200
+  const answerTimeoutMs = options.answerTimeoutMs ?? 2000
+  const sleep =
+    options.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)))
+
+  let targetId = ''
+
+  try {
+    const created = (await transport.sendCommand('Target.createTarget', {
+      url: EXTENSIONS_PAGE,
+      background: true
+    })) as {targetId?: string} | undefined
+
+    targetId = created?.targetId ?? ''
+
+    if (!targetId) return undefined
+
+    const attached = (await transport.sendCommand('Target.attachToTarget', {
+      targetId,
+      flatten: true
+    })) as {sessionId?: string} | undefined
+
+    const sessionId = attached?.sessionId ?? ''
+
+    if (!sessionId) return undefined
+
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      let answer: unknown
+
+      try {
+        const response = (await transport.sendCommand(
+          'Runtime.evaluate',
+          {
+            expression: READ_EXTENSION_STATES,
+            awaitPromise: true,
+            returnByValue: true
+          },
+          sessionId,
+          answerTimeoutMs
+        )) as {result?: {value?: unknown}} | undefined
+
+        answer = response?.result?.value
+      } catch {
+        return undefined
+      }
+
+      // The WebUI bindings land a beat after the target exists.
+      if (typeof answer !== 'string') {
+        await sleep(delayMs)
+        continue
+      }
+
+      const states = JSON.parse(answer) as Array<{
+        path: string
+        state: string
+        reasons: string[]
+      }>
+      const guest = states.find(
+        (entry) => entry.path && sameFolder(entry.path, extensionPath)
+      )
+
+      if (!guest) return undefined
+
+      return guest.state === 'DISABLED' ? guest.reasons : []
+    }
+
+    return undefined
+  } catch {
+    return undefined
   } finally {
     if (targetId) {
       try {

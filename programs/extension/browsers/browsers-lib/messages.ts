@@ -1028,10 +1028,28 @@ export function browserUpNotAttached(opts: {
   profilePath?: string
   profileReused: boolean
   waitedMs: number
+  // Why the browser itself holds the extension turned off, when it does.
+  disableReasons?: string[]
 }) {
   const name = capitalizedBrowserName(opts.browser)
   const pid = opts.browserPid ? ` (pid ${opts.browserPid})` : ''
   const seconds = Math.round(opts.waitedMs / 1000)
+
+  if (opts.disableReasons?.length) {
+    const reasons = opts.disableReasons.join(', ')
+    const developerMode = opts.disableReasons.includes(
+      'unsupportedDeveloperExtension'
+    )
+
+    return (
+      `${getLoggingPrefix('warn')} ${name}${pid} is up, but it turned the extension off (${reasons}), so it has not connected after ${seconds} s.\n` +
+      (developerMode
+        ? `${name} only runs an unpacked extension while developer mode is on, and it could not be turned on from here. Open the extensions page in that window and switch on "Developer mode".`
+        : `Open the extensions page in that window to read why, and turn the extension back on there.`) +
+      `\nThe session keeps waiting and says "ready" once the extension connects.`
+    )
+  }
+
   const profile = opts.profilePath
     ? opts.profileReused
       ? `Profile ${colors.underline(opts.profilePath)} had been run before: a profile picker, a restore prompt or a stale copy of the extension in it can keep the extension from connecting.`

@@ -1700,12 +1700,42 @@ export class ChromiumLaunchPlugin {
     }
 
     const waitedMs = graceMs
+    const controller = this.ctx.getController?.()
+    const disableReasons = await controller
+      ?.guestDisableReasons?.()
+      .catch(() => undefined)
+
+    // Chrome turns a reloaded unpacked extension off while developer mode is
+    // off, and turning the mode on brings it straight back.
+    if (disableReasons?.includes('unsupportedDeveloperExtension')) {
+      const outcome = await controller
+        ?.ensureDeveloperMode?.()
+        .catch(() => 'unavailable' as const)
+
+      if (outcome === 'enabled') {
+        const settled = this.deps.now() + graceMs
+
+        while (!this.browserGone && !attached() && this.deps.now() < settled) {
+          await this.deps.sleep(pollMs)
+        }
+
+        if (this.browserGone) return
+
+        if (attached()) {
+          opts.reportReady()
+
+          return
+        }
+      }
+    }
+
     const message = messages.browserUpNotAttached({
       browser: this.options.browser,
       browserPid: opts.browserPid,
       profilePath: opts.profilePath,
       profileReused: this.profileReused,
-      waitedMs
+      waitedMs,
+      disableReasons
     })
     humanWarn(message)
     stampReadyBrowserUpNotAttached(

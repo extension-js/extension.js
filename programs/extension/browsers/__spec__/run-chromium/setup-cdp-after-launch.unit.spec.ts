@@ -305,7 +305,7 @@ describe('setupCdpAfterLaunch', () => {
     expect(ensureDeveloperModeSpy).toHaveBeenCalledTimes(1)
   })
 
-  it('leaves the toggle alone for a profile that already carries it', async () => {
+  it('asks the live page even when the profile file says the toggle is on', async () => {
     const plugin = runtime({
       browser: 'chromium',
       port: 9333,
@@ -330,7 +330,7 @@ describe('setupCdpAfterLaunch', () => {
       ['--remote-debugging-port=9333', `--user-data-dir=${profileDir}`]
     )
 
-    expect(ensureDeveloperModeSpy).not.toHaveBeenCalled()
+    expect(ensureDeveloperModeSpy).toHaveBeenCalledTimes(1)
   })
 
   it('never touches the user own profile or a windowless park', async () => {

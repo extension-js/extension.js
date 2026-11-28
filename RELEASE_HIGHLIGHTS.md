@@ -47,5 +47,6 @@
 - A headed Chromium session no longer shows the "unsupported command-line flag" bar on its extensions tab. The same holds for the tab that loads `--starting-url`.
 - `extension build --mode development` and a session with `EXTENSION_NO_RELOAD=true` no longer compile in the React Refresh runtime or Svelte hot reload code.
 - On Windows, Ctrl+C in the first seconds of a Firefox session ends the browser at once, where a process table read could hold the quit back for several seconds.
+- Chrome no longer leaves the extension turned off, with a warning that blamed a profile picker, on a kept profile whose stored developer mode setting Chrome rejected. The session turns developer mode on in the live browser, and the warning names the reason when Chrome itself turned the extension off.
 
 ## Upgrade notes
