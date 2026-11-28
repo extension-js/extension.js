@@ -62,6 +62,7 @@ import {JsFrameworksPlugin} from './plugin-js-frameworks'
 import {PerfBudgetsPlugin} from './plugin-perf-budgets'
 import {ReadyContractPlugin} from './plugin-ready-contract'
 import {PageReloadPlugin, ReloadPlugin} from './plugin-reload'
+import {isReloadSession} from './plugin-reload/reload-session'
 import {SpecialFoldersPlugin} from './plugin-special-folders'
 import {StaticAssetsPlugin} from './plugin-static-assets'
 import {WebExtensionPlugin} from './plugin-web-extension'
@@ -244,7 +245,8 @@ export default function webpackConfig(
       browser: devOptions.browser,
       mode: devOptions.mode,
       transpilePackages: devOptions.transpilePackages,
-      define: devOptions.define
+      define: devOptions.define,
+      hotRefresh: isReloadSession(devOptions.mode, devSession)
     }),
     new CompatibilityPlugin({
       manifestPath,

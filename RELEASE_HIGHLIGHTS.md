@@ -45,5 +45,6 @@
 - `extension install edge` on Linux runs without a terminal when `sudo` asks for no password, as on a CI runner or in a container.
 - Edge opens the welcome page when it starts offline, and when it is launched through `--chromium-binary`.
 - A headed Chromium session no longer shows the "unsupported command-line flag" bar on its extensions tab. The same holds for the tab that loads `--starting-url`.
+- `extension build --mode development` and a session with `EXTENSION_NO_RELOAD=true` no longer compile in the React Refresh runtime or Svelte hot reload code.
 
 ## Upgrade notes

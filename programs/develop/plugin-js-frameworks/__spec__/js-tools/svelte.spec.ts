@@ -99,6 +99,19 @@ describe('maybeUseSvelte', () => {
     })
   })
 
+  it('keeps dev on and hot reload off for a build no session reloads', async () => {
+    const {root} = svelteProject()
+    const rules = (
+      await maybeUseSvelte(root, 'development', {hotReload: false})
+    )?.loaders as JsFrameworkRule[]
+
+    expect(svelteLoaderOptionsFor(rules, '/p/Counter.svelte')).toEqual({
+      emitCss: true,
+      compilerOptions: {dev: true},
+      hotReload: false
+    })
+  })
+
   it('turns dev and hot reload off in production', async () => {
     const {root} = svelteProject()
     const rules = (await maybeUseSvelte(root, 'production'))
