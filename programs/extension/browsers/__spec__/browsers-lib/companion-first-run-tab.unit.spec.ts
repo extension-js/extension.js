@@ -193,6 +193,21 @@ describe('companion first run', () => {
     expect(onUpdatedListeners.length).toBe(0)
   })
 
+  it('reads the start tab again when it reports no url yet', async () => {
+    activeQueries = [{id: START_TAB.id, url: ''}]
+
+    await initManagerUI()
+    await new Promise((r) => setTimeout(r, 200))
+    await settle()
+
+    expect(creates.map((c) => c.url)).toEqual([
+      'chrome-extension://companion/pages/welcome.html',
+      'chrome://extensions/'
+    ])
+
+    expect(removed).toEqual([START_TAB.id])
+  })
+
   it('gives a later run a clean new tab and no welcome page', async () => {
     didRun = true
 
