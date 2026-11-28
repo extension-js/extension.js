@@ -89,7 +89,13 @@ describe('a version probe of a binary that never answers', () => {
       // The script is a real process: let it start before the clock moves.
       const giveUpAt = Date.now() + 10_000
 
-      while (!existsSync(join(dir, 'child.pid'))) {
+      // The file exists a moment before its pid is in it, and a tree ended
+      // in that moment leaves it empty, which reads as pid 0.
+      const childPidWritten = () =>
+        existsSync(join(dir, 'child.pid')) &&
+        readFileSync(join(dir, 'child.pid'), 'utf8').trim() !== ''
+
+      while (!childPidWritten()) {
         expect(Date.now()).toBeLessThan(giveUpAt)
         await turn()
       }
