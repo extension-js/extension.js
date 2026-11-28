@@ -8,6 +8,7 @@
 
 import * as path from 'node:path'
 import {CODES} from '../../../helpers/messaging'
+import {closeUtilityTab} from './close-utility-tab'
 import {declaredCode} from './coded-error'
 
 export type DeveloperModeOutcome =
@@ -157,7 +158,7 @@ export async function ensureDeveloperMode(options: {
   } finally {
     if (targetId) {
       try {
-        await transport.sendCommand('Target.closeTarget', {targetId})
+        await closeUtilityTab(transport, targetId)
       } catch {
         // best-effort; the tab dies with the browser anyway
       }
@@ -260,7 +261,7 @@ export async function readGuestDisableReasons(options: {
   } finally {
     if (targetId) {
       try {
-        await transport.sendCommand('Target.closeTarget', {targetId})
+        await closeUtilityTab(transport, targetId)
       } catch {
         // best-effort; the tab dies with the browser anyway
       }
