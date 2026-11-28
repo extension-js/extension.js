@@ -1,0 +1,71 @@
+name: CI – Windows quit time hunt
+
+on:
+  workflow_dispatch:
+    inputs:
+      rounds:
+        description: 'How many times to run the interrupt teardown spec'
+        required: false
+        default: '50'
+
+permissions:
+  contents: read
+
+jobs:
+  hunt:
+    name: Loop the interrupt teardown spec on Windows
+    timeout-minutes: 90
+    runs-on: windows-latest
+    env:
+      ROUNDS: ${{ inputs.rounds }}
+      EXTENSION_QUIT_TIMES_FILE: ${{ github.workspace }}/quit-times.txt
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Compile the CLI
+        run: pnpm --filter extension compile
+
+      - name: Loop the spec
+        shell: bash
+        run: |
+          failed=0
+          for round in $(seq 1 "$ROUNDS"); do
+            echo "::group::round $round"
+            if ! pnpm -C programs/extension exec vitest run __spec__/exec/browser-teardown-on-interrupt.contract.spec.ts; then
+              failed=$((failed + 1))
+              echo "round $round failed"
+            fi
+            echo "::endgroup::"
+          done
+          echo "failed rounds: $failed of $ROUNDS"
+          echo "FAILED_ROUNDS=$failed" >> "$GITHUB_ENV"
+
+      - name: Print the quit times
+        if: always()
+        shell: bash
+        run: |
+          file=quit-times.txt
+          echo "quits: $(wc -l < "$file")"
+          echo "slowest twenty (command browser ms):"
+          sort -k3 -n -r "$file" | head -20
+          echo "by bucket:"
+          awk '{b = int($3 / 500) * 500; n[b]++} END {for (b in n) print b, n[b]}' "$file" | sort -n
+          echo "at or past 4500 ms: $(awk '$3 >= 4500' "$file" | wc -l)"
+
+      - name: Fail when a round failed
+        if: env.FAILED_ROUNDS != '0'
+        shell: bash
+        run: exit 1
