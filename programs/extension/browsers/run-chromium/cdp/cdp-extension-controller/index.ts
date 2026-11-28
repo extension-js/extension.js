@@ -446,19 +446,36 @@ export class CDPExtensionController {
     }
 
     const targets = await this.cdp.getTargets()
-    let closed = 0
+    const pages = targets.filter((target) => target?.type === 'page')
 
-    for (const target of targets) {
+    const selfOpened = pages.filter((target) => {
       const url = String(target?.url || '')
       const welcome =
         /^chrome-extension:\/\/([a-p]+)\/pages\/welcome\.html/.exec(url)
-      const selfOpened =
+
+      return (
         url.startsWith('chrome://extensions') ||
         url.startsWith('edge://extensions') ||
         (welcome !== null && selfIds.has(welcome[1]))
+      )
+    })
 
-      if (target?.type !== 'page' || !selfOpened) continue
+    if (selfOpened.length === 0) return 0
 
+    // The companion can have replaced the launch tab by now, so these may be
+    // every tab there is. A browser quits with its last tab, so one blank tab
+    // takes their place first, and without it nothing is closed.
+    if (selfOpened.length === pages.length) {
+      const blank = (await this.cdp.sendCommand('Target.createTarget', {
+        url: 'about:blank'
+      })) as {targetId?: string} | undefined
+
+      if (!blank?.targetId) return 0
+    }
+
+    let closed = 0
+
+    for (const target of selfOpened) {
       await this.cdp.sendCommand('Target.closeTarget', {
         targetId: target.targetId
       })

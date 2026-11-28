@@ -36,8 +36,13 @@ function welcomeOf(extensionId: string) {
   return `chrome-extension://${extensionId}/pages/welcome.html`
 }
 
-function controllerWithTargets(targets: unknown[], companionPath?: string) {
+function controllerWithTargets(
+  targets: unknown[],
+  companionPath?: string,
+  blankTab: {targetId?: string} = {targetId: 'blank'}
+) {
   const closed: string[] = []
+  const calls: string[] = []
   const controller = new CDPExtensionController({
     outPath: path.join(root, 'dist', 'chromium'),
     browser: 'chrome',
@@ -47,14 +52,26 @@ function controllerWithTargets(targets: unknown[], companionPath?: string) {
 
   controllerInternals(controller).cdp = {
     getTargets: async () => targets,
-    sendCommand: async (method: string, params: {targetId: string}) => {
-      if (method === 'Target.closeTarget') closed.push(params.targetId)
+    sendCommand: async (
+      method: string,
+      params: {targetId: string; url?: string}
+    ) => {
+      if (method === 'Target.closeTarget') {
+        closed.push(params.targetId)
+        calls.push(`close ${params.targetId}`)
+      }
+
+      if (method === 'Target.createTarget') {
+        calls.push(`create ${params.url}`)
+
+        return blankTab
+      }
 
       return {}
     }
   }
 
-  return {controller, closed}
+  return {controller, closed, calls}
 }
 
 beforeAll(() => {
@@ -137,5 +154,45 @@ describe('--no-open closes the tabs the session opened for itself', () => {
 
     await expect(controller.closeSelfOpenedTabs()).resolves.toBe(0)
     expect(closed).toEqual([])
+  })
+
+  // Seen on the nightly Edge lane: the companion had replaced the launch tab,
+  // the sweep closed every tab left, and the browser quit with exit code 0.
+  it('opens a blank tab first when the tabs to close are every tab there is', async () => {
+    const {controller, calls} = controllerWithTargets(
+      [
+        {targetId: 'a', type: 'page', url: welcomeOf(PINNED_ID)},
+        {targetId: 'b', type: 'page', url: 'chrome://extensions/'},
+        {targetId: 'w', type: 'service_worker', url: 'chrome-extension://x/'}
+      ],
+      keyedCompanion
+    )
+
+    await expect(controller.closeSelfOpenedTabs()).resolves.toBe(2)
+    expect(calls).toEqual(['create about:blank', 'close a', 'close b'])
+  })
+
+  it('closes nothing when the blank tab cannot be opened', async () => {
+    const {controller, calls} = controllerWithTargets(
+      [{targetId: 'b', type: 'page', url: 'edge://extensions/'}],
+      keyedCompanion,
+      {}
+    )
+
+    await expect(controller.closeSelfOpenedTabs()).resolves.toBe(0)
+    expect(calls).toEqual(['create about:blank'])
+  })
+
+  it('opens no blank tab while another tab stays', async () => {
+    const {controller, calls} = controllerWithTargets(
+      [
+        {targetId: 'b', type: 'page', url: 'chrome://extensions/'},
+        {targetId: 'c', type: 'page', url: 'chrome://newtab/'}
+      ],
+      keyedCompanion
+    )
+
+    await expect(controller.closeSelfOpenedTabs()).resolves.toBe(1)
+    expect(calls).toEqual(['close b'])
   })
 })
