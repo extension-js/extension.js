@@ -107,7 +107,64 @@ function runTaskkill(
 }
 
 function killWindowsTree(pid: number | undefined, sync: boolean): void {
-  runTaskkill(pid, {sync})
+  if (sync || process.platform !== 'win32' || !pid) {
+    runTaskkill(pid, {sync})
+
+    return
+  }
+
+  forceWindowsTree(pid)
+}
+
+export const TASKKILL_RETRIES = 2
+export const TASKKILL_RETRY_MS = 100
+
+// taskkill answers 128 for a pid that is not there, so nothing is left to end.
+const TASKKILL_NO_SUCH_PROCESS = 128
+
+type StartTaskkill = (pid: number, done: (code: number | null) => void) => void
+
+function startTaskkill(pid: number, done: (code: number | null) => void) {
+  let answered = false
+
+  const answer = (code: number | null) => {
+    if (answered) return
+
+    answered = true
+    done(code)
+  }
+
+  try {
+    spawn(windowsTaskkillPath(), ['/PID', String(pid), '/T', '/F'], {
+      stdio: 'ignore',
+      windowsHide: true
+    })
+      .on('error', () => answer(null))
+      .on('exit', (code) => answer(code))
+  } catch {
+    answer(null)
+  }
+}
+
+// A taskkill that fails once would leave the browser up until the grace
+// ends, so a failed one is run again while the pid is still there.
+export function forceWindowsTree(
+  pid: number,
+  start: StartTaskkill = startTaskkill,
+  isAlive: (pid: number) => boolean = isPidAlive,
+  retriesLeft: number = TASKKILL_RETRIES
+): void {
+  start(pid, (code) => {
+    if (code === 0 || code === TASKKILL_NO_SUCH_PROCESS) return
+    if (retriesLeft <= 0 || !isAlive(pid)) return
+
+    const again = setTimeout(
+      () => forceWindowsTree(pid, start, isAlive, retriesLeft - 1),
+      TASKKILL_RETRY_MS
+    )
+
+    again.unref?.()
+  })
 }
 
 // Ends a process and what it started: the system taskkill on Windows, the
