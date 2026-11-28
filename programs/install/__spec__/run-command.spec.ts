@@ -423,6 +423,27 @@ describe('runCommand with a real child', () => {
       }
     )
 
+    // The real taskkill, with nothing standing in: Windows has no process
+    // group to signal, so the tree is all that reaches a grandchild.
+    it.runIf(process.platform === 'win32')(
+      'ends a child and the grandchild it started through the real taskkill',
+      async () => {
+        const result = await start(
+          'const grandchild = require("node:child_process").spawn(process.execPath, ' +
+            `["-e", '${IDLE}', "--", "${TAG}"], {stdio: "ignore"}); ` +
+            `process.stdout.write(String(grandchild.pid)); ${IDLE}`,
+          {timeoutMs: 1_000}
+        )
+        const grandchild = Number(result.stdout)
+
+        expect(result.timedOut).toBe(true)
+        expect(grandchild).toBeGreaterThan(1)
+        await until(() => !alive(grandchild) && !alive(started[0]))
+        expect(alive(grandchild)).toBe(false)
+        expect(alive(started[0])).toBe(false)
+      }
+    )
+
     // The leader ends on SIGTERM and closes the pipes, so nothing but the
     // group still names the grandchild that ignored it.
     it.skipIf(process.platform === 'win32')(
