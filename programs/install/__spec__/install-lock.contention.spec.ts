@@ -2,7 +2,7 @@ import {type ChildProcess, spawn} from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import {afterEach, beforeEach, describe, expect, it} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {acquireLockNow} from '../lib/install-lock'
 
 // Another process takes and drops the same folder as fast as it can. On
@@ -57,5 +57,50 @@ describe('a lock folder another process keeps taking and dropping', () => {
 
     expect(attempts).toBeGreaterThan(100)
     expect(taken).toBeGreaterThan(0)
+  })
+})
+
+describe('a lock folder Windows reports as refused while it is being removed', () => {
+  let scratch: string
+
+  const refusal = () =>
+    Object.assign(new Error('EPERM: operation not permitted, mkdir'), {
+      code: 'EPERM'
+    })
+
+  beforeEach(() => {
+    scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-lock-eperm-'))
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    fs.rmSync(scratch, {recursive: true, force: true})
+  })
+
+  it('takes the lock once the refusal passes', () => {
+    const lockDir = path.join(scratch, 'lock')
+    const real = fs.mkdirSync.bind(fs)
+    let refusals = 3
+
+    vi.spyOn(fs, 'mkdirSync').mockImplementation(((...args: unknown[]) => {
+      if (args[0] === lockDir && refusals-- > 0) throw refusal()
+
+      return (real as (...a: unknown[]) => unknown)(...args)
+    }) as typeof fs.mkdirSync)
+
+    const lock = acquireLockNow(lockDir, 60_000)
+
+    expect(lock).not.toBeNull()
+    lock?.release()
+  })
+
+  it('throws the refusal of a parent that never lets the folder be made', () => {
+    const lockDir = path.join(scratch, 'lock')
+    const made = vi.spyOn(fs, 'mkdirSync').mockImplementation(() => {
+      throw refusal()
+    })
+
+    expect(() => acquireLockNow(lockDir, 60_000)).toThrow(/EPERM/)
+    expect(made).toHaveBeenCalledTimes(20)
   })
 })

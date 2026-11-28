@@ -146,16 +146,34 @@ function removeStaleLock(lockDir: string, seams: LockSeams): boolean {
   return true
 }
 
+const MID_REMOVAL_ATTEMPTS = 20
+
+// Windows answers EPERM for a folder that is mid-removal, and the folder can
+// be gone by the time anyone looks. A parent that refuses says it every time.
+function makeLockDir(lockDir: string): void {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      fs.mkdirSync(lockDir)
+
+      return
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code
+      const midRemoval = code === 'EPERM' && !fs.existsSync(lockDir)
+
+      if (!midRemoval || attempt >= MID_REMOVAL_ATTEMPTS) throw error
+    }
+  }
+}
+
 function take(
   lockDir: string,
   timeoutMs: number,
   seams: LockSeams
 ): HeldLock | null {
   try {
-    fs.mkdirSync(lockDir)
+    makeLockDir(lockDir)
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code
-    // Windows answers EPERM for a folder that is mid-removal.
     const held =
       code === 'EEXIST' || (code === 'EPERM' && fs.existsSync(lockDir))
 
