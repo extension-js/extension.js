@@ -88,6 +88,7 @@ export class JsFrameworksPlugin {
   public readonly mode: DevOptions['mode']
   public readonly transpilePackages: string[]
   public readonly define: Record<string, unknown>
+  public readonly hotRefresh: boolean
   // One plugin serves one compiler, so its once-only lines are that build's.
   private readonly notices = createSessionNotices()
 
@@ -97,6 +98,9 @@ export class JsFrameworksPlugin {
       transpilePackages?: string[]
       // The project's `define` constants, so framework defaults step aside.
       define?: Record<string, unknown>
+      // Whether a session reloads this build. Off, no refresh runtime or
+      // hot component code is compiled in. The caller owns that answer.
+      hotRefresh?: boolean
     }
   ) {
     this.manifestPath = options.manifestPath
@@ -104,6 +108,7 @@ export class JsFrameworksPlugin {
     this.mode = options.mode
     this.transpilePackages = options.transpilePackages || []
     this.define = options.define || {}
+    this.hotRefresh = options.hotRefresh !== false
   }
 
   private findVueLoaderRuleIndices(rules: LooseRuleSetRule[]): number[] {
@@ -373,7 +378,7 @@ export class JsFrameworksPlugin {
     }
 
     const maybeInstallReact = await maybeUseReact(projectPath, {
-      disableRefresh: mode !== 'development',
+      disableRefresh: mode !== 'development' || !this.hotRefresh,
       notices: this.notices,
       // A custom exclude replaces the plugin's own node_modules rule, so it
       // has to carry it: without it React itself was wrapped in refresh
@@ -399,7 +404,8 @@ export class JsFrameworksPlugin {
     )
     const maybeInstallSvelte = await maybeUseSvelte(projectPath, mode, {
       notices: this.notices,
-      compiler
+      compiler,
+      hotReload: this.hotRefresh
     })
     const tsConfigPath = getUserTypeScriptConfigFile(projectPath)
     const tsRoot = tsConfigPath ? path.dirname(tsConfigPath) : manifestDir
@@ -526,7 +532,7 @@ export class JsFrameworksPlugin {
 
     // Refresh is React's, in development. Only then does the background
     // compile in its own layer, through the same rules with refresh left out.
-    const refresh = usesReactRefresh(projectPath, mode)
+    const refresh = this.hotRefresh && usesReactRefresh(projectPath, mode)
     const surfaces: Array<{issuerLayer: unknown; refresh: boolean}> = refresh
       ? [
           {
@@ -713,7 +719,7 @@ export class JsFrameworksPlugin {
     const projectPath = compiler.options.context as string
     const mode = compiler.options.mode || 'development'
 
-    if (!usesReactRefresh(projectPath, mode)) return
+    if (!this.hotRefresh || !usesReactRefresh(projectPath, mode)) return
 
     const refreshEntries = [resolveReactRefreshEntry(projectPath)].filter(
       (file): file is string => typeof file === 'string'

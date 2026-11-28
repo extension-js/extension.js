@@ -64,12 +64,12 @@ function scaffold(name: string, framework: 'react' | 'preact') {
   return root
 }
 
-async function compileDev(root: string) {
+async function compileDev(root: string, command: 'dev' | 'build' = 'dev') {
   const projectStructure = await getProjectStructure(root)
   const config = webpackConfig(projectStructure, {
     browser: 'chrome',
     mode: 'development',
-    metadataCommand: 'dev',
+    metadataCommand: command,
     silent: true,
     output: {clean: false, path: path.join(root, 'dist', 'chrome')}
   })
@@ -114,6 +114,19 @@ describe('js framework refresh plugins (real rspack compile)', () => {
     expect(stats.hasErrors()).toBe(false)
     expect(emitted).toContain('$RefreshReg$')
     expect(emitted).toContain('$RefreshSig$')
+  }, 120_000)
+
+  // A development build is an artifact to ship: nothing reloads it.
+  it('leaves the React refresh runtime out of build --mode development', async () => {
+    const {stats, emitted} = await compileDev(
+      scaffold('react-build', 'react'),
+      'build'
+    )
+
+    expect(stats.hasErrors()).toBe(false)
+    expect(emitted).not.toContain('$RefreshReg$')
+    expect(emitted).not.toContain('$RefreshSig$')
+    expect(emitted).toContain('hello')
   }, 120_000)
 
   // Preact fast-refresh stays off on purpose: rspack 2.x renames the module

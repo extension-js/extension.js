@@ -159,9 +159,12 @@ export async function maybeUseSvelte(
   mode: DevOptions['mode'],
   {
     notices,
-    compiler
+    compiler,
+    hotReload = true
   }: {
     notices?: SessionNotices
+    // False for a build no session reloads.
+    hotReload?: boolean
     // The build the mismatch warning is counted in.
     compiler?: object
   } = {}
@@ -191,7 +194,7 @@ export async function maybeUseSvelte(
           dev: mode === 'development'
         },
         // Do not use svelte-preprocess; rely on Svelte 5 built-in TS support.
-        hotReload: mode === 'development'
+        hotReload: mode === 'development' && hotReload
       },
       customOptions
     )
