@@ -1,4 +1,10 @@
-import {existsSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs'
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync
+} from 'node:fs'
 import {join} from 'node:path'
 import {beforeAll, describe, expect, it} from 'vitest'
 import {FORCE_KILL_GRACE_MS} from '../../browsers/browsers-lib/process-teardown'
@@ -135,6 +141,14 @@ async function interruptRun(
     }
 
     run.quitMs = Date.now() - asked
+
+    // The Windows quit hunt reads every time, not only one that failed.
+    if (process.env.EXTENSION_QUIT_TIMES_FILE) {
+      appendFileSync(
+        process.env.EXTENSION_QUIT_TIMES_FILE,
+        `${command} ${browser} ${run.quitMs}\n`
+      )
+    }
   } finally {
     const output = session.read()
 
