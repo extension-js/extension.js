@@ -47,6 +47,22 @@ function isAlive(pid: number): boolean {
   }
 }
 
+// A short bound can end the stand-in before it writes a pid, or between
+// creating the file and filling it. Neither names a process to look for.
+function recordedPids(dir: string): Array<[string, number]> {
+  const recorded: Array<[string, number]> = []
+
+  for (const file of ['self.pid', 'child.pid']) {
+    if (!existsSync(join(dir, file))) continue
+
+    const pid = Number(readFileSync(join(dir, file), 'utf8').trim())
+
+    if (Number.isInteger(pid) && pid > 0) recorded.push([file, pid])
+  }
+
+  return recorded
+}
+
 // Windows ends a tree through taskkill, a process of its own, so the two
 // pids are gone a moment later there than after a signal.
 const TREE_END_MS = process.platform === 'win32' ? 3000 : 200
@@ -117,8 +133,7 @@ describe('a version probe of a binary that never answers', () => {
 
     await new Promise((done) => setTimeout(done, TREE_END_MS))
 
-    for (const file of ['self.pid', 'child.pid']) {
-      const pid = Number(readFileSync(join(dir, file), 'utf8').trim())
+    for (const [file, pid] of recordedPids(dir)) {
       expect(isAlive(pid), `${file} ${pid}`).toBe(false)
     }
   })
@@ -144,8 +159,7 @@ describe('a version probe of a binary that never answers', () => {
 
     await new Promise((done) => setTimeout(done, TREE_END_MS))
 
-    for (const file of ['self.pid', 'child.pid']) {
-      const pid = Number(readFileSync(join(dir, file), 'utf8').trim())
+    for (const [file, pid] of recordedPids(dir)) {
       expect(isAlive(pid), `${file} ${pid}`).toBe(false)
     }
   })
