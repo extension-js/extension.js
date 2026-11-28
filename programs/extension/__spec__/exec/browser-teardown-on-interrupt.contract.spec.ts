@@ -234,10 +234,9 @@ describe('a session interrupted with Ctrl+C while its browser runs', () => {
     // The CLI left by itself, before the ceiling ended it.
     expect(run.quitMs, context).toBeLessThan(QUIT_CEILING_MS)
 
-    // Windows forces the tree at once, so no quit waits out the grace.
-    if (process.platform === 'win32') {
-      expect(run.quitMs, context).toBeLessThan(FORCE_KILL_GRACE_MS)
-    }
+    // The quit waits for the browser process alone, so a helper that holds
+    // its output open never makes a session wait out the grace.
+    expect(run.quitMs, context).toBeLessThan(FORCE_KILL_GRACE_MS)
 
     expect(run.status, context).toBe(0)
     expect(

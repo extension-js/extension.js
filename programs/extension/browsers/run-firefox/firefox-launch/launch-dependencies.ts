@@ -26,6 +26,7 @@ import {
 import {
   isPidAlive,
   listProcesses,
+  listProcessesWithoutBlocking,
   type ProcessRow,
   pidStartId,
   resolveLiveBrowserPid
@@ -67,6 +68,8 @@ export interface FirefoxLaunchDependencies {
   isPidAlive: (pid: number | null | undefined) => boolean
   pidStartId: (pid: number) => string | undefined
   listProcesses: () => ProcessRow[]
+  // The same table for a poll, read while the session keeps answering.
+  listProcessesWithoutBlocking: () => Promise<ProcessRow[]>
   resolveLivePid: typeof resolveLiveBrowserPid
   exit: (code: number) => void
 }
@@ -96,6 +99,7 @@ export const firefoxLaunchDefaults: FirefoxLaunchDependencies = {
   isPidAlive,
   pidStartId: (pid) => pidStartId(pid),
   listProcesses: () => listProcesses(),
+  listProcessesWithoutBlocking: () => listProcessesWithoutBlocking(),
   resolveLivePid: resolveLiveBrowserPid,
   exit: (code) => process.exit(code)
 }
