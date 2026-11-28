@@ -16,6 +16,11 @@ const AUTOMATION_TAB: Tab = {id: 2, url: 'https://example.com/'}
 
 let activeQueries: Tab[]
 let updates: Array<{tabId: number; url?: string}>
+let creates: Array<{url?: string; active?: boolean}>
+let removed: number[]
+let startTabNow: Tab
+let didRun: boolean
+let refuseExtensionsTab: boolean
 let onUpdatedListeners: Array<OnUpdatedListener>
 
 function later(fn: () => void) {
@@ -25,12 +30,17 @@ function later(fn: () => void) {
 function installChrome() {
   activeQueries = [START_TAB, AUTOMATION_TAB]
   updates = []
+  creates = []
+  removed = []
+  startTabNow = START_TAB
+  didRun = false
+  refuseExtensionsTab = false
   onUpdatedListeners = []
 
   const chromeMock = {
     runtime: {
       id: 'companion',
-      lastError: undefined,
+      lastError: undefined as {message: string} | undefined,
       getURL: (p: string) => `chrome-extension://companion/${p}`
     },
     management: {
@@ -39,7 +49,7 @@ function installChrome() {
     storage: {
       local: {
         get: (_key: string, cb: (result: unknown) => void) =>
-          later(() => cb({})),
+          later(() => cb(didRun ? {'__first_run__:chromium': {didRun}} : {})),
         set: () => undefined
       }
     },
@@ -57,8 +67,29 @@ function installChrome() {
 
         later(() => cb([]))
       },
-      create: (props: {url: string}, cb?: (tab: Tab) => void) => {
-        later(() => cb?.({id: 3, url: props.url}))
+      create: (
+        props: {url?: string; active?: boolean},
+        cb?: (tab?: Tab) => void
+      ) => {
+        creates.push(props)
+
+        later(() => {
+          if (refuseExtensionsTab && props.url?.includes('://extensions')) {
+            chromeMock.runtime.lastError = {message: 'refused'}
+            cb?.(undefined)
+            chromeMock.runtime.lastError = undefined
+
+            return
+          }
+
+          cb?.({id: 3 + creates.length, url: props.url ?? 'chrome://newtab/'})
+        })
+      },
+      get: (_id: number, cb: (tab: Tab) => void) =>
+        later(() => cb(startTabNow)),
+      remove: (tabId: number, cb?: () => void) => {
+        removed.push(tabId)
+        later(() => cb?.())
       },
       update: (tabId: number, props: {url?: string}) => {
         updates.push({tabId, url: props.url})
@@ -98,19 +129,50 @@ afterEach(() => {
 })
 
 describe('companion first run', () => {
-  it('repoints the start tab it checked, not a tab that became active later', async () => {
+  it('replaces the start tab it checked with a new extensions tab', async () => {
+    await initManagerUI()
+    await settle()
+
+    const extensionsTabs = creates.filter((c) =>
+      c.url?.includes('://extensions')
+    )
+
+    expect(extensionsTabs).toEqual([
+      {url: 'chrome://extensions/', active: false, index: 0}
+    ])
+
+    expect(removed).toEqual([START_TAB.id])
+    expect(updates.some((u) => u.url)).toBe(false)
+  })
+
+  it('leaves the start tab open once it is on a page someone else opened', async () => {
+    startTabNow = {id: START_TAB.id, url: 'https://example.com/'}
+
+    await initManagerUI()
+    await settle()
+
+    expect(removed).toEqual([])
+    expect(updates.some((u) => u.url)).toBe(false)
+  })
+
+  it('reuses the start tab when the new extensions tab is refused', async () => {
+    refuseExtensionsTab = true
+
     await initManagerUI()
     await settle()
 
     const repointed = updates.filter((u) => u.url?.includes('://extensions'))
 
+    expect(removed).toEqual([])
     expect(repointed.map((u) => u.tabId)).toEqual([START_TAB.id])
     expect(updates.some((u) => u.tabId === AUTOMATION_TAB.id && u.url)).toBe(
       false
     )
   })
 
-  it('stops repointing once the start tab is on a page someone else opened', async () => {
+  it('stops reusing once the start tab is on a page someone else opened', async () => {
+    refuseExtensionsTab = true
+
     await initManagerUI()
     await settle()
 
@@ -129,6 +191,16 @@ describe('companion first run', () => {
 
     expect(updates.length).toBe(before)
     expect(onUpdatedListeners.length).toBe(0)
+  })
+
+  it('gives a later run a clean new tab and no welcome page', async () => {
+    didRun = true
+
+    await initManagerUI()
+    await settle()
+
+    expect(creates).toEqual([{active: true, index: 0}])
+    expect(removed).toEqual([START_TAB.id])
   })
 })
 
