@@ -23,6 +23,8 @@ interface InterruptRun {
   stderr: string
   // From Ctrl+C to the exit of the CLI.
   quitMs: number
+  // From Ctrl+C to the end of the browser process, unset if it outlived the CLI.
+  browserGoneMs?: number
   // The stand-in and the child it started, and whether each one ended.
   tree: Array<{name: string; pid: number; ended: boolean}>
   // The record a reader in another process waits on, as the run left it.
@@ -132,7 +134,15 @@ async function interruptRun(
     const asked = Date.now()
     const ceiling = setTimeout(() => session.killGroup(), QUIT_CEILING_MS)
 
+    const browserPid = read(pidFile)
+
     run.interrupt = interruptCli(session.child, bin)
+
+    const browserGone = endedWithin(browserPid, QUIT_CEILING_MS).then(
+      (ended) => {
+        if (ended) run.browserGoneMs = Date.now() - asked
+      }
+    )
 
     try {
       run.status = (await session.closed).status
@@ -141,12 +151,16 @@ async function interruptRun(
     }
 
     run.quitMs = Date.now() - asked
+    await Promise.race([
+      browserGone,
+      new Promise((resolvePromise) => setTimeout(resolvePromise, 2_000))
+    ])
 
     // The Windows quit hunt reads every time, not only one that failed.
     if (process.env.EXTENSION_QUIT_TIMES_FILE) {
       appendFileSync(
         process.env.EXTENSION_QUIT_TIMES_FILE,
-        `${command} ${browser} ${run.quitMs}\n`
+        `${command} ${browser} ${run.quitMs} ${run.browserGoneMs ?? 'alive'}\n`
       )
     }
   } finally {

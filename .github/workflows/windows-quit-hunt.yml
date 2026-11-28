@@ -67,11 +67,17 @@ jobs:
             exit 1
           fi
           echo "quits: $(wc -l < "$file")"
-          echo "slowest twenty (command browser ms):"
+          echo "slowest twenty (command browser quit gone):"
           sort -k3 -n -r "$file" | head -20
           echo "by bucket:"
           awk '{b = int($3 / 500) * 500; n[b]++} END {for (b in n) print b, n[b]}' "$file" | sort -n
           echo "at or past 4500 ms: $(awk '$3 >= 4500' "$file" | wc -l)"
+          echo "browser gone, by bucket:"
+          awk '{b = int($4 / 500) * 500; n[b]++} END {for (b in n) print b, n[b]}' "$file" | sort -n
+          echo "slowest twenty by browser gone (command browser quit gone):"
+          sort -k4 -n -r "$file" | head -20
+          echo "CLI exit after the browser was gone, by bucket:"
+          awk '{d = $3 - $4; b = int(d / 500) * 500; n[b]++} END {for (b in n) print b, n[b]}' "$file" | sort -n
 
       - name: Fail when a round failed
         if: env.FAILED_ROUNDS != '0'

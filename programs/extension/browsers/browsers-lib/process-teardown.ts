@@ -385,6 +385,11 @@ export function forceKillChildOnExit(
   if (!child) return
 
   terminatedByUs.add(child)
+
+  // Node saw it exit, so nothing is left to end. On Windows the taskkill
+  // is waited for and costs seconds on a busy machine, even for a dead pid.
+  if (typeof child.exitCode === 'number' || child.signalCode) return
+
   if (deps.platform === 'win32' && child.pid) deps.killTreeOnExit(child.pid)
 
   try {

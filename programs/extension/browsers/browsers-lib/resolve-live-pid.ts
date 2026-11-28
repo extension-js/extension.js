@@ -6,7 +6,7 @@
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {spawnSync} from 'node:child_process'
+import {execFile, spawnSync} from 'node:child_process'
 import * as fs from 'node:fs'
 
 export interface ProcessRow {
@@ -19,7 +19,7 @@ export interface ProcessRow {
   command: string
 }
 
-export type ProcessLister = () => ProcessRow[]
+export type ProcessLister = () => ProcessRow[] | Promise<ProcessRow[]>
 
 const PS_ROW = /^\s*(\d+)\s+(\d+)\s+(.*)$/
 
@@ -104,10 +104,7 @@ function appendLinuxProfileEnv(
 
 // The ps and PowerShell calls run without a shell, so no argument is ever
 // interpreted. PowerShell prints the same three-column shape ps does.
-export function listProcesses(
-  platform = process.platform,
-  io: ProcessTableIo = processTableIo
-): ProcessRow[] {
+function processTableCommand(platform: NodeJS.Platform): [string, string[]] {
   if (platform === 'win32') {
     // PowerShell writes a pipe in the console code page, which turned a
     // profile path outside it into question marks that matched nothing.
@@ -119,26 +116,68 @@ export function listProcesses(
       asUtf8 +
       "([wmisearcher]'SELECT ProcessId, ParentProcessId, CommandLine FROM Win32_Process').Get() | ForEach-Object { " +
       '"$($_.ProcessId) $($_.ParentProcessId) $($_.CommandLine)" }'
-    const output = io.run('powershell.exe', [
-      '-NoProfile',
-      '-NonInteractive',
-      '-Command',
-      script
-    ])
 
-    return output ? parseProcessRows(output) : []
+    return [
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-Command', script]
+    ]
   }
 
-  if (platform === 'darwin') {
-    const output = io.run('ps', ['-axEo', 'pid=,ppid=,command='])
+  return [
+    'ps',
+    [platform === 'darwin' ? '-axEo' : '-axo', 'pid=,ppid=,command=']
+  ]
+}
 
-    return output ? parseProcessRows(output) : []
-  }
-
-  const output = io.run('ps', ['-axo', 'pid=,ppid=,command='])
+function rowsOfTable(
+  output: string | null,
+  platform: NodeJS.Platform,
+  readFile: ProcessTableIo['readFile']
+): ProcessRow[] {
   const rows = output ? parseProcessRows(output) : []
 
-  return platform === 'linux' ? appendLinuxProfileEnv(rows, io.readFile) : rows
+  return platform === 'linux' ? appendLinuxProfileEnv(rows, readFile) : rows
+}
+
+export function listProcesses(
+  platform = process.platform,
+  io: ProcessTableIo = processTableIo
+): ProcessRow[] {
+  const [bin, args] = processTableCommand(platform)
+
+  return rowsOfTable(io.run(bin, args), platform, io.readFile)
+}
+
+function runQuietWithoutBlocking(
+  bin: string,
+  args: string[]
+): Promise<string | null> {
+  return new Promise((resolve) => {
+    try {
+      execFile(
+        bin,
+        args,
+        {encoding: 'utf-8', windowsHide: true, maxBuffer: 64 * 1024 * 1024},
+        (error, stdout) => resolve(error ? null : String(stdout || ''))
+      ).on('error', () => resolve(null))
+    } catch {
+      resolve(null)
+    }
+  })
+}
+
+// The same table, read while the session keeps answering. A PowerShell read
+// takes a second or more on Windows, and a waited one holds back a Ctrl+C.
+export async function listProcessesWithoutBlocking(
+  platform = process.platform,
+  run: (
+    bin: string,
+    args: string[]
+  ) => Promise<string | null> = runQuietWithoutBlocking
+): Promise<ProcessRow[]> {
+  const [bin, args] = processTableCommand(platform)
+
+  return rowsOfTable(await run(bin, args), platform, processTableIo.readFile)
 }
 
 function normalizePath(value: string): string {
@@ -406,7 +445,7 @@ export async function resolveLiveBrowserPid(input: {
   intervalMs?: number
   sleep?: (ms: number) => Promise<void>
 }): Promise<number | null> {
-  const list = input.list || listProcesses
+  const list = input.list || (() => listProcessesWithoutBlocking())
   const attempts = Math.max(1, input.attempts ?? 6)
   const intervalMs = input.intervalMs ?? 500
   // Unref'd: background polling must never hold a finished session open.
@@ -423,7 +462,7 @@ export async function resolveLiveBrowserPid(input: {
       profilePath: input.profilePath,
       binary: input.binary,
       launcherPid: input.launcherPid,
-      rows: list(),
+      rows: await list(),
       platform: input.platform
     })
 

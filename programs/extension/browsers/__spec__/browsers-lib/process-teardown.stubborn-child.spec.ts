@@ -650,6 +650,19 @@ describe('forceKillChildOnExit', () => {
   })
 
   it.each([
+    ['an exit code', {exitCode: 0}],
+    ['a signal', {exitCode: null, signalCode: 'SIGTERM'}]
+  ])('waits for no taskkill on Windows once the child left with %s', (_name, left) => {
+    const {child, kill} = standIn(2 ** 30)
+    const {deps} = scriptedTeardown({platform: 'win32'})
+
+    forceKillChildOnExit(Object.assign(child, left), 'chrome', deps)
+
+    expect(deps.killTreeOnExit).not.toHaveBeenCalled()
+    expect(kill).not.toHaveBeenCalled()
+  })
+
+  it.each([
     'darwin',
     'linux'
   ] as const)('signals the child alone on %s', (platform) => {
