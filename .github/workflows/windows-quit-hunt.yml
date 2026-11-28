@@ -35,29 +35,37 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Compile the CLI
-        run: pnpm --filter extension compile
+      - name: Compile every package the CLI loads
+        run: pnpm compile
 
+      # PowerShell, like the CI job: under Git Bash the console interrupt
+      # the spec sends never reaches the CLI.
       - name: Loop the spec
-        shell: bash
+        working-directory: programs/extension
         run: |
-          failed=0
-          for round in $(seq 1 "$ROUNDS"); do
-            echo "::group::round $round"
-            if ! pnpm -C programs/extension exec vitest run __spec__/exec/browser-teardown-on-interrupt.contract.spec.ts; then
-              failed=$((failed + 1))
-              echo "round $round failed"
-            fi
-            echo "::endgroup::"
-          done
-          echo "failed rounds: $failed of $ROUNDS"
-          echo "FAILED_ROUNDS=$failed" >> "$GITHUB_ENV"
+          $failed = 0
+          foreach ($round in 1..[int]$env:ROUNDS) {
+            Write-Host "::group::round $round"
+            node ../../scripts/run-vitest.mjs __spec__/exec/browser-teardown-on-interrupt.contract.spec.ts
+            if ($LASTEXITCODE -ne 0) {
+              $failed++
+              Write-Host "round $round failed"
+            }
+            Write-Host "::endgroup::"
+          }
+          Write-Host "failed rounds: $failed of $env:ROUNDS"
+          "FAILED_ROUNDS=$failed" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          exit 0
 
       - name: Print the quit times
         if: always()
         shell: bash
         run: |
           file=quit-times.txt
+          if [ ! -f "$file" ]; then
+            echo "no quit was recorded"
+            exit 1
+          fi
           echo "quits: $(wc -l < "$file")"
           echo "slowest twenty (command browser ms):"
           sort -k3 -n -r "$file" | head -20
