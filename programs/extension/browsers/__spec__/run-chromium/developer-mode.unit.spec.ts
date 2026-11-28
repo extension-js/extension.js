@@ -1,11 +1,10 @@
-import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterEach, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {
   developerModeFlipIsSafe,
-  developerModeFromProfile,
-  ensureDeveloperMode
+  ensureDeveloperMode,
+  readGuestDisableReasons
 } from '../../run-chromium/cdp/ensure-developer-mode'
 
 interface Call {
@@ -234,56 +233,90 @@ describe('the developer-mode toggle the profile seed cannot reach', () => {
   })
 })
 
-describe('the two checks that decide whether to flip it', () => {
-  const made: string[] = []
-
-  afterEach(() => {
-    for (const dir of made.splice(0)) {
-      fs.rmSync(dir, {recursive: true, force: true})
-    }
-  })
-
-  function profileWith(securePreferences: unknown) {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'devmode-profile-'))
-    made.push(dir)
-    fs.mkdirSync(path.join(dir, 'Default'), {recursive: true})
-
-    if (securePreferences !== undefined) {
-      fs.writeFileSync(
-        path.join(dir, 'Default', 'Secure Preferences'),
-        JSON.stringify(securePreferences)
-      )
-    }
-
-    return dir
-  }
-
-  it('reads the toggle back from Secure Preferences, where Chromium keeps it', () => {
-    const on = profileWith({extensions: {ui: {developer_mode: true}}})
-    const off = profileWith({extensions: {ui: {developer_mode: false}}})
-
-    expect(developerModeFromProfile(on)).toBe(true)
-    expect(developerModeFromProfile(off)).toBe(false)
-  })
-
-  it('treats a fresh profile with no Secure Preferences as off', () => {
-    expect(developerModeFromProfile(profileWith(undefined))).toBe(false)
-  })
-
-  it('ignores the plain Preferences copy, which Chromium drops on load', () => {
-    const dir = profileWith(undefined)
-    fs.writeFileSync(
-      path.join(dir, 'Default', 'Preferences'),
-      JSON.stringify({extensions: {ui: {developer_mode: true}}})
-    )
-
-    expect(developerModeFromProfile(dir)).toBe(false)
-  })
-
+describe('the check that decides whether to flip it', () => {
   it('does not flip it when the browser was parked without a window', () => {
     expect(developerModeFlipIsSafe(['--user-data-dir=/p'])).toBe(true)
     expect(
       developerModeFlipIsSafe(['--user-data-dir=/p', '--no-startup-window'])
     ).toBe(false)
+  })
+})
+
+describe('why the browser holds the guest turned off', () => {
+  const GUEST = path.join(os.tmpdir(), 'guest', 'dist', 'chrome')
+
+  function pageAnswering(answers: unknown[]) {
+    const calls: Call[] = []
+    const left = [...answers]
+
+    const transport = {
+      async sendCommand(
+        method: string,
+        params?: Record<string, unknown>,
+        sessionId?: string
+      ) {
+        calls.push({method, params, sessionId})
+
+        if (method === 'Target.createTarget') return {targetId: 't1'}
+        if (method === 'Target.attachToTarget') return {sessionId: 's1'}
+
+        if (method === 'Runtime.evaluate') {
+          return {result: {value: left.shift()}}
+        }
+
+        return {}
+      }
+    }
+
+    return {transport, calls}
+  }
+
+  const states = (entries: unknown[]) => JSON.stringify(entries)
+  const read = (transport: ReturnType<typeof pageAnswering>['transport']) =>
+    readGuestDisableReasons({
+      transport,
+      extensionPath: GUEST,
+      sleep: async () => {}
+    })
+
+  it('names the reasons of a guest the browser turned off', async () => {
+    const {transport, calls} = pageAnswering([
+      states([
+        {path: '/elsewhere', state: 'ENABLED', reasons: []},
+        {
+          path: `${GUEST}${path.sep}`,
+          state: 'DISABLED',
+          reasons: ['unsupportedDeveloperExtension']
+        }
+      ])
+    ])
+
+    expect(await read(transport)).toEqual(['unsupportedDeveloperExtension'])
+    expect(calls.at(-1)?.method).toBe('Target.closeTarget')
+  })
+
+  it('answers no reasons for a guest that is on', async () => {
+    const {transport} = pageAnswering([
+      states([{path: GUEST, state: 'ENABLED', reasons: []}])
+    ])
+
+    expect(await read(transport)).toEqual([])
+  })
+
+  it('asks again while the page has no answer yet', async () => {
+    const {transport} = pageAnswering([
+      undefined,
+      states([{path: GUEST, state: 'DISABLED', reasons: ['userAction']}])
+    ])
+
+    expect(await read(transport)).toEqual(['userAction'])
+  })
+
+  it('answers nothing for a guest the browser does not list', async () => {
+    const {transport} = pageAnswering([
+      states([{path: '/elsewhere', state: 'DISABLED', reasons: ['userAction']}])
+    ])
+
+    expect(await read(transport)).toBeUndefined()
   })
 })

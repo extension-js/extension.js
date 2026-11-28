@@ -259,4 +259,96 @@ describe('the ready line waits for the dev runtime to attach', () => {
 
     expect(reportReady).toHaveBeenCalledTimes(3)
   })
+
+  // What the launcher asks its controller once the wait ran out.
+  function controlledBy(
+    plugin: ChromiumLaunchPlugin,
+    controller: {
+      guestDisableReasons: () => Promise<string[] | undefined>
+      ensureDeveloperMode: () => Promise<string>
+    }
+  ) {
+    ;(
+      plugin as unknown as {ctx: {setController: (c: unknown) => void}}
+    ).ctx.setController(controller)
+  }
+
+  it('turns developer mode on for a guest the browser turned off over it, then prints ready', async () => {
+    const {plugin, readyPath, reportReady, compilation} = makePlugin(tmp)
+    const ensureDeveloperMode = vi.fn(async () => {
+      stampAttached(readyPath)
+
+      return 'enabled'
+    })
+
+    controlledBy(plugin, {
+      guestDisableReasons: async () => ['unsupportedDeveloperExtension'],
+      ensureDeveloperMode
+    })
+
+    await plugin.reportReadyWhenAttached({
+      compilation,
+      enableCdp: true,
+      reportReady,
+      graceMs: 120,
+      pollMs: 20
+    })
+
+    expect(ensureDeveloperMode).toHaveBeenCalledTimes(1)
+    expect(reportReady).toHaveBeenCalledTimes(1)
+    expect(warned()).not.toMatch(/has not connected/)
+  })
+
+  it('names the reason when developer mode could not be turned on', async () => {
+    const {plugin, reportReady, compilation} = makePlugin(tmp)
+    internals(plugin).profileReused = true
+
+    controlledBy(plugin, {
+      guestDisableReasons: async () => ['unsupportedDeveloperExtension'],
+      ensureDeveloperMode: async () => 'unavailable'
+    })
+
+    await plugin.reportReadyWhenAttached({
+      compilation,
+      enableCdp: true,
+      reportReady,
+      browserPid: 4242,
+      profilePath: path.join(tmp, 'profile'),
+      graceMs: 120,
+      pollMs: 20
+    })
+
+    expect(reportReady).not.toHaveBeenCalled()
+    const text = warned()
+    expect(text).toMatch(
+      /Chrome \(pid 4242\) is up, but it turned the extension off \(unsupportedDeveloperExtension\), so it has not connected/
+    )
+
+    expect(text).toMatch(/switch on "Developer mode"/)
+    expect(text).not.toMatch(/profile picker/)
+    internals(plugin).browserGone = true
+  })
+
+  it('names any other reason and leaves developer mode alone', async () => {
+    const {plugin, reportReady, compilation} = makePlugin(tmp)
+    const ensureDeveloperMode = vi.fn(async () => 'enabled')
+
+    controlledBy(plugin, {
+      guestDisableReasons: async () => ['userAction'],
+      ensureDeveloperMode
+    })
+
+    await plugin.reportReadyWhenAttached({
+      compilation,
+      enableCdp: true,
+      reportReady,
+      graceMs: 120,
+      pollMs: 20
+    })
+
+    expect(ensureDeveloperMode).not.toHaveBeenCalled()
+    expect(warned()).toMatch(/it turned the extension off \(userAction\)/)
+    expect(warned()).toMatch(/turn the extension back on there/)
+    internals(plugin).browserGone = true
+  })
 })

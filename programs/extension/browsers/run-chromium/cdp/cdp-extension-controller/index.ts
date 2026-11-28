@@ -22,7 +22,8 @@ import {codedError, declaredCode} from '../coded-error'
 import {type DebugPortOwner, debugPortOwner} from '../debug-port-owner'
 import {
   type DeveloperModeOutcome,
-  ensureDeveloperMode
+  ensureDeveloperMode,
+  readGuestDisableReasons
 } from '../ensure-developer-mode'
 import {
   ensureStartupNewTab,
@@ -169,6 +170,17 @@ export class CDPExtensionController {
     if (!this.cdp) return 'unavailable'
 
     return ensureDeveloperMode({transport: this.cdp})
+  }
+
+  // Why the browser holds the guest turned off, for a session that never
+  // heard from it. Undefined when the browser could not be asked.
+  async guestDisableReasons(): Promise<string[] | undefined> {
+    if (!this.cdp || !this.outPath) return undefined
+
+    return readGuestDisableReasons({
+      transport: this.cdp,
+      extensionPath: this.outPath
+    })
   }
 
   // The startup choice sits behind the same MAC as the developer-mode toggle,

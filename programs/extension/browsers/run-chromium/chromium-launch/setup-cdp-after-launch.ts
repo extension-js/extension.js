@@ -49,10 +49,7 @@ import {
   devtoolsCompanionWelcomeUrl
 } from '../cdp/cdp-extension-controller'
 import {codedError, declaredCode} from '../cdp/coded-error'
-import {
-  developerModeFlipIsSafe,
-  developerModeFromProfile
-} from '../cdp/ensure-developer-mode'
+import {developerModeFlipIsSafe} from '../cdp/ensure-developer-mode'
 import {
   startupPreferenceIsDue,
   startupPreferenceUnavailable
@@ -341,12 +338,10 @@ export async function setupCdpAfterLaunch(
   }
 
   // Without it the extensions page hides the unpacked controls a developer
-  // came for, and Chromium treats this session's own work as off-store.
-  if (
-    userDataDir &&
-    developerModeFlipIsSafe(chromiumArgs) &&
-    !developerModeFromProfile(userDataDir)
-  ) {
+  // came for, and Chrome turns a reloaded unpacked extension off. The live
+  // page is asked every time: the profile's file can say on while the pref
+  // the browser loaded is off.
+  if (userDataDir && developerModeFlipIsSafe(chromiumArgs)) {
     const developerMode = await cdpExtensionController.ensureDeveloperMode()
 
     if (isDebug()) {
