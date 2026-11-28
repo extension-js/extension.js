@@ -35,8 +35,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Compile the CLI
-        run: pnpm --filter extension compile
+      - name: Compile every package the CLI loads
+        run: pnpm compile
 
       - name: Loop the spec
         shell: bash
@@ -44,7 +44,7 @@ jobs:
           failed=0
           for round in $(seq 1 "$ROUNDS"); do
             echo "::group::round $round"
-            if ! pnpm -C programs/extension exec vitest run __spec__/exec/browser-teardown-on-interrupt.contract.spec.ts; then
+            if ! (cd programs/extension && node ../../scripts/run-vitest.mjs __spec__/exec/browser-teardown-on-interrupt.contract.spec.ts); then
               failed=$((failed + 1))
               echo "round $round failed"
             fi
@@ -58,6 +58,10 @@ jobs:
         shell: bash
         run: |
           file=quit-times.txt
+          if [ ! -f "$file" ]; then
+            echo "no quit was recorded"
+            exit 1
+          fi
           echo "quits: $(wc -l < "$file")"
           echo "slowest twenty (command browser ms):"
           sort -k3 -n -r "$file" | head -20
