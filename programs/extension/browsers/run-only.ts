@@ -376,6 +376,8 @@ const EXIT_POLL_MS = 50
 interface LaunchedBrowser {
   spawnedBrowser: boolean
   browserClosed: boolean
+  // The process ended, whether or not a helper still holds its output.
+  browserExited?: boolean
 }
 
 const BROWSER_GONE_POLL_MS = 250
@@ -460,6 +462,16 @@ function untilTheStopExits(): Promise<never> {
   return new Promise<never>(() => {})
 }
 
+// What a quit waits for: the browser process, not the helpers that outlive
+// it holding its output. The exit handlers end those as the process leaves.
+function hasNotExited(session: SessionOnSignal) {
+  return Boolean(
+    session.launcher?.spawnedBrowser &&
+      !session.launcher.browserClosed &&
+      !session.launcher.browserExited
+  )
+}
+
 function isRunning(session: SessionOnSignal) {
   return Boolean(
     session.launcher?.spawnedBrowser && !session.launcher.browserClosed
@@ -493,7 +505,7 @@ function createSignalHandler() {
     const deadline = Date.now() + EXIT_DEADLINE_MS
 
     const exitOnceClosed = () => {
-      if (![...sessionsOnSignal].some(isRunning) || Date.now() >= deadline) {
+      if (![...sessionsOnSignal].some(hasNotExited) || Date.now() >= deadline) {
         exitStopped()
 
         return

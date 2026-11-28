@@ -55,6 +55,7 @@ import {
 } from '../../browsers-lib/ready-stamp'
 import {
   findLiveBrowserPid,
+  type ProcessRow,
   SUCCESSOR_GRACE_MS,
   SUCCESSOR_POLL_MS
 } from '../../browsers-lib/resolve-live-pid'
@@ -201,6 +202,8 @@ export class FirefoxLaunchPlugin {
   // The process that owns the session once Firefox hands it off and lets the
   // spawned child exit. Null while the child itself is the browser.
   private livePid: number | null = null
+  // Set as the spawned process ends, before its output pipes close.
+  private childExited = false
   private livePidAdoptedAt = 0
   private livePidStartId: string | undefined
   private liveExitWatcher?: NodeJS.Timeout
@@ -226,7 +229,17 @@ export class FirefoxLaunchPlugin {
   ) {
     this.host = host
     this.ctx = ctx
-    this.deps = {...firefoxLaunchDefaults, ...deps}
+    const scripted = deps.listProcesses
+
+    this.deps = {
+      ...firefoxLaunchDefaults,
+      // A caller that scripts the table scripts every read of it.
+      ...(scripted
+        ? {listProcessesWithoutBlocking: async () => scripted()}
+        : {}),
+      ...deps
+    }
+
     this.host.isBrowserGone = () => this.browserGone
   }
 
@@ -240,6 +253,16 @@ export class FirefoxLaunchPlugin {
   // ending the session can wait for the close instead of killing it.
   public get browserClosed(): boolean {
     return this.browserGone
+  }
+
+  // Whether the browser process itself has ended. The close above also waits
+  // for every helper that holds its output, so a session that is quitting
+  // reads this one. A process the session adopted still counts as the browser.
+  public get browserExited(): boolean {
+    if (this.browserGone) return true
+    if (!this.childExited) return false
+
+    return !this.livePid || !this.deps.isPidAlive(this.livePid)
   }
 
   // Whether the session ended this browser itself. A launch that then ends
@@ -996,6 +1019,10 @@ export class FirefoxLaunchPlugin {
       )
     })
 
+    child.once('exit', () => {
+      this.childExited = true
+    })
+
     child.on('close', (code, signal) => {
       const expected = this.deps.terminatedByUs(child)
 
@@ -1205,17 +1232,27 @@ export class FirefoxLaunchPlugin {
     if (!wait) return
 
     wait.timer = setTimeout(() => {
-      if (this.successorWait !== wait || this.adoptHandedOffBrowser()) return
-
-      if (Date.now() < wait.deadline) {
-        this.pollForSuccessor()
-
-        return
-      }
-
-      this.successorWait = undefined
-      this.onBrowserGone(wait.code, false, wait.signal)
+      void this.lookForSuccessor(wait)
     }, SUCCESSOR_POLL_MS)
+  }
+
+  // The table is read without holding the session, which a Windows read
+  // would do for a second or more at every beat of this wait.
+  private async lookForSuccessor(wait: NonNullable<typeof this.successorWait>) {
+    if (this.successorWait !== wait) return
+
+    const rows = await this.deps.listProcessesWithoutBlocking().catch(() => [])
+
+    if (this.successorWait !== wait || this.adoptHandedOffBrowser(rows)) return
+
+    if (Date.now() < wait.deadline) {
+      this.pollForSuccessor()
+
+      return
+    }
+
+    this.successorWait = undefined
+    this.onBrowserGone(wait.code, false, wait.signal)
   }
 
   private endSuccessorWait() {
@@ -1226,7 +1263,7 @@ export class FirefoxLaunchPlugin {
 
   // Called when the spawned child closed on its own: if another process now
   // owns the profile, the browser is alive and that process is the session.
-  private adoptHandedOffBrowser(): boolean {
+  private adoptHandedOffBrowser(table?: ProcessRow[]): boolean {
     const profilePath = this.host.launchProfilePath
     const child = this.child
     if (!profilePath || !child || this.browserGone) return false
@@ -1249,7 +1286,9 @@ export class FirefoxLaunchPlugin {
         profilePath,
         binary: child.spawnfile,
         launcherPid: child.pid,
-        rows: this.deps.listProcesses().filter((row) => row.pid !== adopted)
+        rows: (table ?? this.deps.listProcesses()).filter(
+          (row) => row.pid !== adopted
+        )
       })
 
       if (!pid || pid === this.child?.pid || !this.deps.isPidAlive(pid)) {

@@ -809,6 +809,7 @@ export async function fakeFirefox(
     isPidAlive: (pid) => typeof pid === 'number' && alivePids.has(pid),
     pidStartId: () => undefined,
     listProcesses: () => processes,
+    listProcessesWithoutBlocking: async () => processes,
     resolveLivePid: async (input) =>
       firefoxLaunchDefaults.resolveLivePid({
         ...input,

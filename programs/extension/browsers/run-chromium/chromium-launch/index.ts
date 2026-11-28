@@ -291,6 +291,8 @@ export class ChromiumLaunchPlugin {
   private didSpawn = false
   // Set by the child's close handler on every exit, asked or not.
   private didClose = false
+  // Set as the process ends, before a helper lets go of its output pipes.
+  private didExit = false
   // The binary this launch runs and what pinned it, for a failure to name.
   private launchPin: LaunchPin = {}
   // Chrome's own refusal reason, when it declined to load the guest at launch.
@@ -349,6 +351,13 @@ export class ChromiumLaunchPlugin {
   // can wait for the close instead of killing it.
   public get browserClosed(): boolean {
     return this.didClose
+  }
+
+  // Whether the browser process itself has ended. The close above also waits
+  // for every helper that holds its output, so a session that is quitting
+  // reads this one and leaves the helpers to the exit sweep.
+  public get browserExited(): boolean {
+    return this.didClose || this.didExit
   }
 
   // Run the Chromium launch flow without a bundler compiler instance;
@@ -1862,6 +1871,10 @@ export class ChromiumLaunchPlugin {
         .find((arg) => arg.startsWith('--user-data-dir='))
         ?.slice('--user-data-dir='.length)
         .replace(/^"|"$/g, '')
+
+      child.once('exit', () => {
+        this.didExit = true
+      })
 
       child.on('close', (code: number | null, signal: string | null) => {
         this.didClose = true
