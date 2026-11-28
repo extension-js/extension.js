@@ -12,6 +12,7 @@ import * as path from 'node:path'
 import type {AddonLintLine} from './addon-lint'
 import type {BuildToolchain} from './build-toolchain'
 import {type ChunkProvenance, chunkFileOf} from './chunk-dependency-provenance'
+import {escapeRegExp} from './escape-regexp'
 
 // Next to the browser folder, never inside it: dist/<browser> is the package
 // that ships, and a note to reviewers is not part of the add-on.
@@ -116,10 +117,6 @@ function* ancestors(start: string): Generator<string> {
 
     dir = parent
   }
-}
-
-function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 // The installed copy is what the bundle carried, so it wins over the

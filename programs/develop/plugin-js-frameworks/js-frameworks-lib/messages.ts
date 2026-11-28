@@ -10,11 +10,7 @@ import * as path from 'node:path'
 import colors from 'pintor'
 import {fmt, prefix} from '../../lib/messaging'
 
-// The caller owns the prefix here: every call site already wraps this in a
-// debug line, so a glyph inside the string would print twice.
-export function isUsingIntegration(name: string) {
-  return `integration use=${name}`
-}
+export {isUsingIntegration} from '../../lib/integration-message'
 
 // Only a single-file component needs vue-loader, so only that is refused:
 // a Vue 2 project written with render functions builds like any script.

@@ -9,6 +9,7 @@
 import type {Compilation, Compiler} from '@rspack/core'
 import {codedError} from '../lib/coded-error'
 import {findConfigFile, loadCommandConfig} from '../lib/config-loader'
+import {escapeRegExp} from '../lib/escape-regexp'
 import {CODES, debugLine, isDebug} from '../lib/messaging'
 import {
   type AssetCategory,
@@ -61,10 +62,6 @@ const PERF_BUDGETS_KEYS: readonly string[] = [
   'ignore',
   'onExceed'
 ]
-
-function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
 
 // A pattern names an output path the way the warning prints it: `**` spans
 // folders, `*` stays inside one, anything else is literal.

@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {Compilation, type Compiler, sources} from '@rspack/core'
 import {isOsPathUnder} from '../../../lib/real-path'
+import {removeOutputFile} from '../../../lib/remove-output-file'
 import {publicContainmentRoot} from '../../../lib/special-folders/resolve-public-folder'
 import type {FilepathList, PluginInterface} from '../../../types'
 import {withheldEntryKind} from '../../feature-scripts/scripts-lib/utils'
@@ -454,18 +455,6 @@ function warnUnbundledImports(params: {
 // It outlives a compiler, so a session restart still knows what to remove.
 const copiedByOutputPath = new Map<string, Set<string>>()
 
-function removeCopiedFile(outputPath: string, name: string): void {
-  const root = path.resolve(outputPath)
-  const target = path.resolve(root, name)
-  if (!target.startsWith(root + path.sep)) return
-
-  try {
-    fs.rmSync(target, {force: true})
-  } catch {
-    // A file in use stays: pruning must never fail a compile.
-  }
-}
-
 export class AddAssetsToCompilation {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList
@@ -842,7 +831,7 @@ export class AddAssetsToCompilation {
       )
 
       for (const name of copiedByOutputPath.get(outputPath) || []) {
-        if (!emitted.has(name)) removeCopiedFile(outputPath, name)
+        if (!emitted.has(name)) removeOutputFile(outputPath, name)
       }
 
       copiedByOutputPath.set(outputPath, copied)

@@ -9,29 +9,11 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
+import {removeOutputFile} from '../lib/remove-output-file'
 
 // What the copier shipped into each output folder on its last good compile.
 // It outlives a compiler, so a session restart still knows what to remove.
 const shippedByOutputPath = new Map<string, Set<string>>()
-
-function removeShippedFile(outputPath: string, name: string): void {
-  const root = path.resolve(outputPath)
-  const target = path.resolve(root, name)
-  if (!target.startsWith(root + path.sep)) return
-
-  try {
-    fs.rmSync(target, {force: true})
-
-    let folder = path.dirname(target)
-
-    while (folder.startsWith(root + path.sep)) {
-      fs.rmdirSync(folder)
-      folder = path.dirname(folder)
-    }
-  } catch {
-    // Ignore
-  }
-}
 
 // A watch session never cleans its output folder, so the copy of a public
 // file deleted or renamed mid-session is removed here, and nothing else is.
@@ -69,7 +51,7 @@ export class PruneRemovedPublicFiles {
           continue
         }
 
-        removeShippedFile(outputPath, name)
+        removeOutputFile(outputPath, name)
       }
 
       shippedByOutputPath.set(outputPath, shipped)

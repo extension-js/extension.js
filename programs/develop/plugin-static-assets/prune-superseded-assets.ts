@@ -6,25 +6,12 @@
 // ╚══════╝   ╚═╝   ╚═╝  ╚═╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝   ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as fs from 'node:fs'
-import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
+import {removeOutputFile} from '../lib/remove-output-file'
 
 // The asset module files each output folder got on its last good compile.
 // It outlives a compiler, so a session restart still knows what to remove.
 const writtenByOutputPath = new Map<string, Set<string>>()
-
-function removeWrittenFile(outputPath: string, name: string): void {
-  const root = path.resolve(outputPath)
-  const target = path.resolve(root, name)
-  if (!target.startsWith(root + path.sep)) return
-
-  try {
-    fs.rmSync(target, {force: true})
-  } catch {
-    // A file in use stays: pruning must never fail a compile.
-  }
-}
 
 // A watch session never cleans its output folder, so an edited image or font
 // would leave each earlier content-hashed copy behind. Only names an asset
@@ -54,7 +41,7 @@ export class PruneSupersededAssets {
       }
 
       for (const name of writtenByOutputPath.get(outputPath) || []) {
-        if (!emitted.has(name)) removeWrittenFile(outputPath, name)
+        if (!emitted.has(name)) removeOutputFile(outputPath, name)
       }
 
       writtenByOutputPath.set(outputPath, written)

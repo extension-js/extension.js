@@ -10,8 +10,25 @@ import * as path from 'node:path'
 
 // The build engine and the CLI browser launcher both stamp ready.json and
 // both find it here. The CLI bundles this file, so it imports node:path only.
+export const SESSION_ARTIFACTS_DIR = 'extension-js'
+
+// Everything a session writes under that folder, by name. A packager reads
+// these to leave session files out of an archive.
+export const SESSION_ARTIFACT_SUBDIRS: readonly string[] = [
+  'profiles',
+  'binaries'
+]
+export const SESSION_ARTIFACT_FILES: readonly string[] = [
+  'ready.json',
+  'events.ndjson',
+  'logs.ndjson',
+  'actions.ndjson',
+  'build-summary.json',
+  'control-port'
+]
+
 export function sessionArtifactsRootDir(projectPath: string): string {
-  return path.resolve(projectPath, 'dist', 'extension-js')
+  return path.resolve(projectPath, 'dist', SESSION_ARTIFACTS_DIR)
 }
 
 export function browserArtifactsDir(
@@ -31,7 +48,7 @@ export function readyContractPath(
 // The launcher is handed the build folder alone. For dist/<browser> the
 // sibling it names here is the project's own session root.
 export function sessionArtifactsRootDirBesideBuild(buildPath: string): string {
-  return path.join(path.dirname(buildPath), 'extension-js')
+  return path.join(path.dirname(buildPath), SESSION_ARTIFACTS_DIR)
 }
 
 export function readyContractPathBesideBuild(buildPath: string): string {

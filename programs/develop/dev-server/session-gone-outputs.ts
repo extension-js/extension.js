@@ -6,33 +6,15 @@
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler, Configuration} from '@rspack/core'
+import {removeOutputFile} from '../lib/remove-output-file'
 
 interface SessionGoneOutputsOptions {
   isRestart: boolean
   distPath: string
   // The files this session's compilers wrote, shared by every one of them.
   written: Set<string>
-}
-
-function removeWrittenFile(root: string, name: string): void {
-  const target = path.resolve(root, name)
-  if (!target.startsWith(root + path.sep)) return
-
-  try {
-    fs.rmSync(target, {force: true})
-
-    let folder = path.dirname(target)
-
-    while (folder.startsWith(root + path.sep)) {
-      fs.rmdirSync(folder)
-      folder = path.dirname(folder)
-    }
-  } catch {
-    // A folder that still holds files stays, and so does a file in use.
-  }
 }
 
 // A restart compiles a new entry set and reloads the extension, so what the
@@ -85,7 +67,7 @@ class PruneGoneEntryOutputs {
         for (const name of [...this.written]) {
           if (emitted.has(name)) continue
 
-          removeWrittenFile(root, name)
+          removeOutputFile(root, name)
           this.written.delete(name)
         }
       }
